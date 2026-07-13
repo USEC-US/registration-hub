@@ -1,0 +1,12 @@
+name: hcmusec-tnmt-registration
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: usec_tnmt_registration
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./tempdata/db:/var/lib/postgresql/data
