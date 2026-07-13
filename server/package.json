@@ -1,0 +1,9 @@
+{
+  "name": "@hcmusec-tnmt-registration/server",
+  "version": "1.0.0",
+  "description": "Server portion of the USEC Tournament Registration Hub project",
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "packageManager": "pnpm@10.33.2"
+}

@@ -1,6 +1,7 @@
 {
-	"name": "web",
+	"name": "@hcmusec-tnmt-registration/web",
 	"private": true,
+  "description": "Frontend for USEC's Tournament Registeration Hub project.",
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
