@@ -41,6 +41,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Django REST Framework and related packages
+    'rest_framework',
+    'rest_wind',
+    'drf_spectacular',
+    'django_filters',
+
+    # Fuck you CORS
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -52,6 +61,23 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PERMISSION_CLASSES': [
+      # Allow public ReadOnly access to the API, but require authentication for write operations and other sensitive actions.
+      'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+      # Prefer JWT for API calls, always.
+      # unless there's a better method/way.
+      # It will be operated under a different subdomain anyway.
+      'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ]
+}
 
 ROOT_URLCONF = 'config.urls'
 
