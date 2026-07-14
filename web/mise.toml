@@ -1,0 +1,45 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+[tasks.install]
+description = "Install Node dependencies"
+run = "pnpm --filter @hcmusec-tnmt-registration/web install"
+
+[tasks.dev]
+description = "Run the SvelteKit development server"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run dev"
+
+[tasks.build]
+description = "Build the web app"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run build"
+
+[tasks.preview]
+description = "Preview the web build"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run preview"
+
+[tasks.check]
+description = "Run Svelte checks"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run check"
+
+[tasks."check:watch"]
+description = "Run Svelte checks in watch mode"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run check:watch"
+
+[tasks.lint]
+description = "Lint web code"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run lint"
+
+[tasks.format]
+description = "Format web code"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run format"
+
+[tasks.test]
+description = "Run web tests"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run test"
+
+[tasks."test:unit"]
+description = "Run web unit tests"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run test:unit"
+
+[tasks."test:e2e"]
+description = "Run web end-to-end tests"
+run = "pnpm --filter @hcmusec-tnmt-registration/web run test:e2e"

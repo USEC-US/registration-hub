@@ -1,10 +1,128 @@
+#:schema https://mise.jdx.dev/schema/mise.json
 monorepo_root = true
 
 [tools]
 pnpm = "latest"
 node = "24.18.0"
 python = "3.14"
+uv = "latest"
 
 [monorepo]
 config_roots = ["server", "web"]
 lockfile = true
+
+[tasks.install]
+description = "Install server and web dependencies"
+run = "mise run server:install ::: web:install"
+
+[tasks.dev]
+description = "Run the server and web development servers"
+run = "mise run server:dev ::: web:dev"
+
+[tasks.check]
+description = "Run server and web checks"
+run = "mise run server:check ::: web:check"
+
+[tasks.lint]
+description = "Run server and web linters"
+run = "mise run server:lint ::: web:lint"
+
+[tasks.format]
+description = "Format server and web code"
+run = "mise run server:format ::: web:format"
+
+[tasks.test]
+description = "Run server and web tests"
+run = "mise run server:test ::: web:test"
+
+[tasks."server:install"]
+description = "Install server dependencies"
+run = "mise run -C server install"
+
+[tasks."server:dev"]
+description = "Run the Django development server"
+run = "mise run -C server dev"
+
+[tasks."server:check"]
+description = "Run Django system checks"
+run = "mise run -C server check"
+
+[tasks."server:lint"]
+description = "Lint server code"
+run = "mise run -C server lint"
+
+[tasks."server:format"]
+description = "Format server code"
+run = "mise run -C server format"
+
+[tasks."server:test"]
+description = "Run server tests"
+run = "mise run -C server test"
+
+[tasks."server:migrate"]
+description = "Apply Django migrations"
+run = "mise run -C server migrate"
+
+[tasks."server:makemigrations"]
+description = "Create Django migrations"
+run = "mise run -C server makemigrations"
+
+[tasks."server:shell"]
+description = "Open the Django shell"
+run = "mise run -C server shell"
+
+[tasks."web:install"]
+description = "Install web dependencies"
+run = "mise run -C web install"
+
+[tasks."web:dev"]
+description = "Run the SvelteKit development server"
+run = "mise run -C web dev"
+
+[tasks."web:build"]
+description = "Build the web app"
+run = "mise run -C web build"
+
+[tasks."web:preview"]
+description = "Preview the web build"
+run = "mise run -C web preview"
+
+[tasks."web:check"]
+description = "Run Svelte checks"
+run = "mise run -C web check"
+
+[tasks."web:check:watch"]
+description = "Run Svelte checks in watch mode"
+run = "mise run -C web check:watch"
+
+[tasks."web:lint"]
+description = "Lint web code"
+run = "mise run -C web lint"
+
+[tasks."web:format"]
+description = "Format web code"
+run = "mise run -C web format"
+
+[tasks."web:test"]
+description = "Run web tests"
+run = "mise run -C web test"
+
+[tasks."web:test:unit"]
+description = "Run web unit tests"
+run = "mise run -C web test:unit"
+
+[tasks."web:test:e2e"]
+description = "Run web end-to-end tests"
+run = "mise run -C web test:e2e"
+
+[tasks."db:up"]
+description = "Start the local Postgres service"
+run = "docker compose up -d db"
+
+[tasks."db:down"]
+description = "Stop local compose services"
+run = "docker compose down"
+
+[tasks."db:logs"]
+description = "Follow local Postgres logs"
+run = "docker compose logs -f db"

@@ -1,0 +1,37 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+[tasks.install]
+description = "Install Python dependencies"
+run = "uv sync --all-groups"
+
+[tasks.dev]
+description = "Run the Django development server"
+run = "uv run python manage.py runserver"
+
+[tasks.check]
+description = "Run Django system checks"
+run = "uv run python manage.py check"
+
+[tasks.lint]
+description = "Lint Python code"
+run = "uv run ruff check ."
+
+[tasks.format]
+description = "Format Python code"
+run = "uv run ruff format ."
+
+[tasks.test]
+description = "Run Django tests"
+run = "uv run python manage.py test"
+
+[tasks.migrate]
+description = "Apply Django migrations"
+run = "uv run python manage.py migrate"
+
+[tasks.makemigrations]
+description = "Create Django migrations"
+run = "uv run python manage.py makemigrations"
+
+[tasks.shell]
+description = "Open the Django shell"
+run = "uv run python manage.py shell"
