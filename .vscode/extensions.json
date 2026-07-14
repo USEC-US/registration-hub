@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    "ms-azuretools.vscode-docker",
+    "ms-vsliveshare.vsliveshare",
+
+    "svelte.svelte-vscode",
+    "bradlc.vscode-tailwindcss",
+    "charliermarsh.ruff"
+  ]
+}
