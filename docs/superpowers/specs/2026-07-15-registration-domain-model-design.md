@@ -11,11 +11,12 @@ This design supersedes the organizer-surface decision in [the earlier Phase 0 no
 
 ## Scope and non-goals
 
-This phase covers accounts, tournaments, divisions, registrations, player rosters, manual payment evidence, and review history.
+This phase covers accounts, tournaments, tournament games, registrations, player rosters, manual payment evidence, and review history.
 
 It intentionally does not model:
 
 - persistent teams or free-agent/team-matching;
+- multiple competitive divisions for the same game in one tournament;
 - schedules, brackets, matches, or results;
 - payment-gateway integration;
 - automated student-ID, school, or professional-player verification;
@@ -36,9 +37,9 @@ Django Admin is an operations tool, not a participant-facing product surface. Ad
 
 ## Vocabulary
 
-- **Tournament:** an event with public information and one or more divisions.
-- **Division:** one playable category within a tournament and game. It owns registration dates, capacity, team-size limits, and fee.
-- **Registration:** one submitted entry into a division, owned operationally by the account that submitted it.
+- **Tournament:** an event with public information and one or more tournament games.
+- **Tournament game:** one configured game within a tournament. It owns registration dates, capacity, team-size limits, and fee. It is not an individual match.
+- **Registration:** one submitted entry into a tournament game, owned operationally by the account that submitted it.
 - **Registration member:** an actual player in a registration. It exists for both solo and team registrations.
 - **Submitter:** the authenticated account responsible for the registration. A submitter may be a captain or a non-playing manager.
 - **Snapshot:** public player data copied at registration time so past tournaments do not change when a profile changes.
@@ -46,9 +47,9 @@ Django Admin is an operations tool, not a participant-facing product surface. Ad
 ## Entity map
 
 ```text
-User ── submits ──< Registration >── Division ──> Tournament
-                           │              │
-                           │              └──> Game
+User ── submits ──< Registration >── TournamentGame ──> Tournament
+                           │                   │
+                           │                   └──> Game
                            │
                            ├──< RegistrationMember >── User? (claimed player)
                            ├──< PaymentAttempt
@@ -79,39 +80,38 @@ A reusable catalog item with `name`, unique `slug`, and `is_active`.
 
 The event identity and general public information: `name`, unique `slug`, description, optional start/end times, optional location/online details, and publication state.
 
-### `tournaments.Division`
+### `tournaments.TournamentGame`
 
-Joins a tournament and game and owns all registration-specific configuration.
+Represents one configured game within a tournament and owns all registration-specific configuration.
 
 | Field | Rule |
 | --- | --- |
-| `tournament`, `game` | Required foreign keys. A tournament may contain more than one division for the same game. |
-| `name`, `slug` | Division label and a slug unique within its tournament. |
+| `tournament`, `game` | Required foreign keys. Their pair is unique: one configured registration per game in a tournament. |
 | `team_size_min`, `team_size_max` | Positive integers. Individual means both are `1`; team means `team_size_max > 1`. |
 | `registration_opens_at`, `registration_closes_at` | Timezone-aware timestamps; opens before closes. |
 | `registration_capacity` | Nullable positive integer. It counts registrations (solo entrants or teams), not individual roster seats. |
 | `fee_amount`, `fee_currency` | Non-negative `Decimal` and ISO currency code. Zero means no payment is required. |
 
-Do not persist an `is_team` flag: it is derived from the team-size fields. Do not make `(tournament, game)` unique, because a game can later have distinct open, novice, or other divisions.
+Do not persist an `is_team` flag: it is derived from the team-size fields. A tournament can contain several games because each `TournamentGame` points to its own `Game`.
 
 ### `registrations.Registration`
 
-The current state of a division entry.
+The current state of a tournament-game entry.
 
 | Field | Rule |
 | --- | --- |
-| `division` | Required division being entered. |
+| `tournament_game` | Required tournament game being entered. |
 | `submitted_by` | Required account responsible for the entry; it does not imply that the user is a player. |
-| `team_name` | Required for a team division and empty for an individual division. It belongs here until a real reusable `Team` model is needed. |
+| `team_name` | Required for a team tournament game and empty for an individual tournament game. It belongs here until a real reusable `Team` model is needed. |
 | `status` | One of `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, or `REJECTED`. |
-| `fee_amount_snapshot`, `fee_currency_snapshot` | Copied from the division at submission time; later division-fee edits cannot rewrite history. |
+| `fee_amount_snapshot`, `fee_currency_snapshot` | Copied from the tournament game at submission time; later fee edits cannot rewrite history. |
 | `submitted_at`, `created_at`, `updated_at` | Audit timestamps. |
 
 There is no `DRAFT` state in v1. The frontend holds unfinished form data locally; a database registration is created when the entry is submitted. There is also no generic direct-edit endpoint after submission. Future amendment or withdrawal behavior must be introduced as explicit commands and states.
 
 ### `registrations.RegistrationMember`
 
-Represents every actual player, including the sole player in an individual division.
+Represents every actual player, including the sole player in an individual tournament game.
 
 | Field | Rule |
 | --- | --- |
@@ -164,14 +164,14 @@ GamerTag
 School
 ```
 
-"Formerly known as" is derived, not stored: query distinct approved member snapshots for the same claimed user and game, order them by registration time, and exclude the user’s current gamer tag. Scoping through `registration.division.game` avoids mixing identities from unrelated games.
+"Formerly known as" is derived, not stored: query distinct approved member snapshots for the same claimed user and game, order them by registration time, and exclude the user’s current gamer tag. Scoping through `registration.tournament_game.game` avoids mixing identities from unrelated games.
 
 ## Invariants and guards
 
 ### Database constraints
 
 - `Game.slug` and `Tournament.slug` are unique.
-- `Division.slug` is unique within a tournament.
+- `(tournament, game)` is unique on `TournamentGame`.
 - `team_size_min >= 1` and `team_size_max >= team_size_min`.
 - `registration_opens_at < registration_closes_at`.
 - `registration_capacity` is either null or greater than zero.
@@ -186,15 +186,15 @@ All cross-record rules live in backend services and run inside database transact
 
 | Command | Required guard behavior |
 | --- | --- |
-| `submit_registration` | Lock the division; verify its registration window and remaining capacity; validate team name, roster count, and exactly one captain; prevent a claimed player from having another active registration in that division; snapshot the fee and player display data; create the registration, members, and initial status event atomically. |
-| `claim_registration_member` | Lock the division; ensure the account is not already a claimed active member in that division; then attach the account to the roster entry. |
+| `submit_registration` | Lock the tournament game; verify its registration window and remaining capacity; validate team name, roster count, and exactly one captain; prevent a claimed player from having another active registration in that tournament game; snapshot the fee and player display data; create the registration, members, and initial status event atomically. |
+| `claim_registration_member` | Lock the tournament game; ensure the account is not already a claimed active member in that tournament game; then attach the account to the roster entry. |
 | `start_review` | Organizer-only transition from `SUBMITTED` to `UNDER_REVIEW`, with a status event. |
 | `approve_registration` | Organizer-only transition from `UNDER_REVIEW` to `APPROVED`, with a status event. Payment verification is evidence, not an automatic transition. |
 | `reject_registration` | Organizer-only transition from `UNDER_REVIEW` to `REJECTED`, with an explanatory status event. |
 | `submit_payment_attempt` | Create a manual proof attempt only for a non-zero-fee registration. |
 | `review_payment_attempt` | Organizer-only verification or rejection of an individual payment attempt. |
 
-For capacity and one-person-per-division checks, active registrations are those in `SUBMITTED`, `UNDER_REVIEW`, or `APPROVED`. A rejected registration no longer occupies capacity or blocks a claimed player from a new entry.
+For capacity and one-person-per-tournament-game checks, active registrations are those in `SUBMITTED`, `UNDER_REVIEW`, or `APPROVED`. A rejected registration no longer occupies capacity or blocks a claimed player from a new entry.
 
 ## Permissions and data exposure
 
@@ -212,7 +212,7 @@ Public serializers expose only approved, non-sensitive tournament data. They mus
 Organize the backend into three focused apps:
 
 - `accounts` for the custom user model and account-facing API;
-- `tournaments` for `Game`, `Tournament`, and `Division`;
+- `tournaments` for `Game`, `Tournament`, and `TournamentGame`;
 - `registrations` for registrations, members, payment attempts, status events, and domain services.
 
 Views, serializers, and Django Admin actions call domain services. They do not independently reimplement a state transition or capacity check.
@@ -221,11 +221,11 @@ Views, serializers, and Django Admin actions call domain services. They do not i
 
 The implementation is not complete until automated tests show that:
 
-1. a solo division accepts one member and rejects zero or more than one;
-2. an exactly-five-player division is treated as a team division;
+1. an individual tournament game accepts one member and rejects zero or more than one;
+2. an exactly-five-player tournament game is treated as a team tournament game;
 3. a non-playing manager can submit a team without becoming a player;
-4. a claimed player cannot join two active registrations in the same division;
-5. concurrent submissions cannot exceed division capacity;
+4. a claimed player cannot join two active registrations in the same tournament game;
+5. concurrent submissions cannot exceed tournament-game capacity;
 6. a later profile gamer-tag or school change cannot change a historical public display;
 7. a free registration needs no payment attempt;
 8. a rejected proof is retained when a later proof is submitted;
