@@ -464,3 +464,6 @@ http-client.private.env.json
 .idea/**/copilot.data.migration.*.xml
 
 tempdata/*
+
+# Local isolated development worktrees
+.worktrees/
