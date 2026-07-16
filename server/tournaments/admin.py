@@ -27,6 +27,16 @@ class OrganizerStaffAdmin(admin.ModelAdmin):
         )
 
 
+    def has_add_permission(self, request):
+        return _is_organizer_staff(request.user) and super().has_add_permission(
+            request
+        )
+
+    def has_delete_permission(self, request, obj=None):
+        return _is_organizer_staff(request.user) and super().has_delete_permission(
+            request, obj
+        )
+
 @admin.register(Game)
 class GameAdmin(OrganizerStaffAdmin):
     list_display = ("name", "slug", "is_active")

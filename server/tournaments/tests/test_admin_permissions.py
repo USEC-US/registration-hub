@@ -1,0 +1,31 @@
+from django.contrib.admin.sites import AdminSite
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.test import RequestFactory, TestCase
+
+from tournaments.admin import GameAdmin
+from tournaments.models import Game
+
+
+class TournamentAdminPermissionGateTests(TestCase):
+    def test_add_and_delete_permissions_do_not_bypass_organizer_membership(self):
+        staff_user = get_user_model().objects.create_user(
+            email="catalog-editor@example.com",
+            password="strong-password",
+            is_staff=True,
+        )
+        staff_user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="tournaments", codename="add_game"
+            ),
+            Permission.objects.get(
+                content_type__app_label="tournaments", codename="delete_game"
+            ),
+        )
+        game = Game.objects.create(name="League of Legends", slug="league-of-legends")
+        request = RequestFactory().get("/admin/tournaments/game/")
+        request.user = staff_user
+        model_admin = GameAdmin(Game, AdminSite())
+
+        self.assertFalse(model_admin.has_add_permission(request))
+        self.assertFalse(model_admin.has_delete_permission(request, game))
