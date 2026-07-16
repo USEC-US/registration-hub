@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'django_filters',
     'guardian',
+    'accounts',
 
     # Fuck you CORS
     'corsheaders',
@@ -57,6 +58,8 @@ AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
     'guardian.backends.ObjectPermissionBackend',
 )
+
+AUTH_USER_MODEL = 'accounts.User'
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
