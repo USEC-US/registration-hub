@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'guardian',
     'accounts',
     'tournaments',
+    'registrations',
 
     # Fuck you CORS
     'corsheaders',
@@ -167,3 +168,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
