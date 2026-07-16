@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django_filters',
     'guardian',
     'accounts',
+    'tournaments',
 
     # Fuck you CORS
     'corsheaders',
