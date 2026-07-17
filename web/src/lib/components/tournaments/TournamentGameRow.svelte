@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Pathname } from '$app/types';
 	import { resolve } from '$app/paths';
 	import type { PublicTournament, PublicTournamentGame, RegistrationState } from '$lib/api/types';
+	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 
@@ -112,7 +112,7 @@
 			<a
 				class="flex w-full items-center justify-between gap-4 text-sm font-semibold text-[var(--accent)] lg:min-w-36"
 				href={resolve(
-					`/tournaments/${tournament.slug}/games/${game.game_slug}/register` as Pathname
+					localizeInternalHref(`/tournaments/${tournament.slug}/games/${game.id}/register`)
 				)}
 			>
 				{m.action_register()}

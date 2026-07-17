@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Pathname } from '$app/types';
 	import { resolve } from '$app/paths';
 	import type { PublicTournament } from '$lib/api/types';
+	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 
@@ -29,7 +29,9 @@
 			{m.tournament_label()}
 		</p>
 		<h2 class="font-heading text-2xl font-semibold leading-tight sm:text-3xl">
-			<a href={resolve(`/tournaments/${tournament.slug}` as Pathname)}>{tournament.name}</a>
+			<a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}
+				>{tournament.name}</a
+			>
 		</h2>
 		{#if tournament.description}
 			<p class="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
@@ -61,7 +63,7 @@
 		</dl>
 		<a
 			class="group/action flex items-center justify-between gap-4 px-4 py-4 text-sm font-semibold text-[var(--accent)]"
-			href={resolve(`/tournaments/${tournament.slug}` as Pathname)}
+			href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}
 		>
 			{m.action_view_tournament()}
 			<span class="bracket-node" aria-hidden="true"></span>

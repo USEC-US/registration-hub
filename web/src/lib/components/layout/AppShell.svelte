@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { Pathname } from '$app/types';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { localizeCurrentHref, localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
-	import { getLocale, locales, localizeHref } from '$lib/paraglide/runtime';
+	import { getLocale, locales } from '$lib/paraglide/runtime';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -32,7 +32,10 @@
 			class="mx-auto grid max-w-6xl grid-cols-1 border-x border-[var(--line)] lg:grid-cols-[minmax(18rem,1fr)_auto_auto]"
 			aria-label={m.nav_primary_label()}
 		>
-			<a class="flex items-center gap-3 px-4 py-4 sm:px-6" href={resolve('/')}>
+			<a
+				class="flex items-center gap-3 px-4 py-4 sm:px-6"
+				href={resolve(localizeInternalHref('/'))}
+			>
 				<span class="bracket-node" aria-hidden="true"></span>
 				<span class="min-w-0">
 					<span class="font-heading block text-lg font-semibold leading-tight sm:text-xl">
@@ -47,20 +50,23 @@
 			</a>
 
 			<div class="flex flex-wrap border-t border-[var(--line)] lg:border-l lg:border-t-0">
-				<a class="px-4 py-4 text-sm font-medium" href={resolve('/tournaments' as Pathname)}
-					>{m.nav_tournaments()}</a
+				<a
+					class="px-4 py-4 text-sm font-medium"
+					href={resolve(localizeInternalHref('/tournaments'))}>{m.nav_tournaments()}</a
 				>
 				<a
 					class="px-4 py-4 text-sm font-medium"
-					href={resolve('/account/registrations' as Pathname)}
+					href={resolve(localizeInternalHref('/account/registrations'))}
 				>
 					{m.nav_my_registrations()}
 				</a>
-				<a class="px-4 py-4 text-sm font-medium" href={resolve('/account/profile' as Pathname)}
-					>{m.nav_profile()}</a
+				<a
+					class="px-4 py-4 text-sm font-medium"
+					href={resolve(localizeInternalHref('/account/profile'))}>{m.nav_profile()}</a
 				>
-				<a class="px-4 py-4 text-sm font-medium" href={resolve('/auth/sign-in' as Pathname)}
-					>{m.nav_sign_in()}</a
+				<a
+					class="px-4 py-4 text-sm font-medium"
+					href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
 				>
 			</div>
 
@@ -76,7 +82,7 @@
 				{#each locales as locale (locale)}
 					<a
 						class="flex min-w-11 items-center justify-center px-3 py-4 text-xs font-semibold uppercase aria-[current=page]:text-[var(--accent)] aria-[current=page]:shadow-[inset_0_-2px_var(--accent)]"
-						href={resolve(localizeHref(page.url.pathname, { locale }) as Pathname)}
+						href={resolve(localizeCurrentHref(page.url, locale))}
 						hreflang={locale}
 						lang={locale}
 						aria-label={localeName(locale)}

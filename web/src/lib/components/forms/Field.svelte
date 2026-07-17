@@ -7,9 +7,19 @@
 		value?: string;
 		error?: string;
 		type?: HTMLInputAttributes['type'];
+		autocomplete?: HTMLInputAttributes['autocomplete'];
+		spellcheck?: HTMLInputAttributes['spellcheck'];
 	}
 
-	let { label, name, value = $bindable(''), error, type = 'text' }: Props = $props();
+	let {
+		label,
+		name,
+		value = $bindable(''),
+		error,
+		type = 'text',
+		autocomplete,
+		spellcheck
+	}: Props = $props();
 	const errorId = $derived(`${name}-error`);
 </script>
 
@@ -20,6 +30,8 @@
 		id={name}
 		{name}
 		{type}
+		{autocomplete}
+		{spellcheck}
 		bind:value
 		aria-describedby={error ? errorId : undefined}
 		aria-invalid={error ? 'true' : undefined}

@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import { createRawSnippet } from 'svelte';
 import type { PublicTournament, RegistrationRead } from '$lib/api/types';
+import { localizeCurrentHref } from '$lib/navigation';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import ErrorSummary from './forms/ErrorSummary.svelte';
 import Field from './forms/Field.svelte';
+import AppShell from './layout/AppShell.svelte';
 import StatusTimeline from './registrations/StatusTimeline.svelte';
 import TournamentCard from './tournaments/TournamentCard.svelte';
 import TournamentGameRow from './tournaments/TournamentGameRow.svelte';
@@ -59,6 +62,22 @@ describe('form components', () => {
 			.toHaveAttribute('id', 'email-error');
 	});
 
+	it('forwards browser input attributes', async () => {
+		const fieldProps = {
+			label: 'Email',
+			name: 'email',
+			value: '',
+			type: 'email' as const,
+			autocomplete: 'email' as const,
+			spellcheck: false
+		};
+		render(Field, fieldProps);
+
+		const input = page.getByRole('textbox', { name: 'Email' });
+		await expect.element(input).toHaveAttribute('autocomplete', 'email');
+		await expect.element(input).toHaveAttribute('spellcheck', 'false');
+	});
+
 	it('renders no error summary container when there are no errors', () => {
 		const { container } = render(ErrorSummary, { errors: [] });
 
@@ -76,6 +95,41 @@ describe('tournament components', () => {
 		await expect.element(page.getByText('Cờ vua')).toBeInTheDocument();
 		await expect.element(page.getByText('Địa điểm')).toBeInTheDocument();
 		await expect.element(page.getByText('Đang mở', { exact: true })).toBeInTheDocument();
+	});
+
+	it('uses the numeric game id and current locale in the registration route', async () => {
+		overwriteGetLocale(() => 'vi');
+		render(TournamentGameRow, { tournament, game: tournament.tournament_games[0] });
+
+		await expect
+			.element(page.getByRole('link', { name: 'Đăng ký' }))
+			.toHaveAttribute('href', '/vi/tournaments/giai-mua-he/games/31/register');
+	});
+
+	it('preserves the current locale in shell and tournament navigation', () => {
+		overwriteGetLocale(() => 'vi');
+		const children = createRawSnippet(() => ({ render: () => '<p>Content</p>' }));
+		const shell = render(AppShell, { children });
+		const card = render(TournamentCard, { tournament });
+
+		expect(shell.container.querySelector('a[href="/vi/"]')).not.toBeNull();
+		expect(shell.container.querySelector('a[href="/vi/tournaments"]')).not.toBeNull();
+		expect(shell.container.querySelector('a[href="/vi/account/registrations"]')).not.toBeNull();
+		expect(shell.container.querySelector('a[href="/vi/account/profile"]')).not.toBeNull();
+		expect(shell.container.querySelector('a[href="/vi/auth/sign-in"]')).not.toBeNull();
+		expect(card.container.querySelectorAll('a[href="/vi/tournaments/giai-mua-he"]')).toHaveLength(
+			2
+		);
+	});
+
+	it('preserves the query and hash when switching locale', () => {
+		const currentUrl = {
+			pathname: '/tournaments',
+			search: '?registration=open',
+			hash: '#games'
+		};
+
+		expect(localizeCurrentHref(currentUrl, 'vi')).toBe('/vi/tournaments?registration=open#games');
 	});
 });
 

@@ -41,9 +41,17 @@ One temporary compromise is explicit `Pathname` casts for navigation destination
 
 Run from `web/` after all fixes:
 
-- `pnpm exec vitest --run src/lib/components/design-system.svelte.spec.ts` — 1 file passed, 4 tests passed.
-- `pnpm test:unit -- --run` — 6 files passed, 17 tests passed.
+- `pnpm exec vitest --run src/lib/components/design-system.svelte.spec.ts` — 1 file passed, 8 tests passed.
+- `pnpm test:unit -- --run` — 6 files passed, 21 tests passed.
 - `pnpm check` — 0 errors and 0 warnings.
 - `pnpm lint` — all matched files use Prettier style; ESLint exited 0 with no diagnostics.
+
+## Review fix pass
+
+- RED: the registration action emitted a game slug without the active Vietnamese locale. GREEN: the route now uses numeric `game.id`, the current locale, and SvelteKit `resolve`.
+- RED: AppShell and TournamentCard links dropped the current Vietnamese locale. GREEN: all outgoing internal links share typed Paraglide localization and remain visibly wrapped in `resolve` at the Svelte call site.
+- RED: locale switching returned `/vi/tournaments` instead of `/vi/tournaments?registration=open#games`. GREEN: the shared locale-switch helper preserves `page.url.search` and `page.url.hash`.
+- RED: Field omitted `autocomplete` and `spellcheck`. GREEN: both are typed from `HTMLInputAttributes` and forwarded to the real input.
+- The initial post-fix lint run found only formatting drift; after formatting it exposed the Svelte lint rule's syntactic `resolve` requirement. The final helper contract returns a typed localized `Pathname`, leaving each component's `resolve(...)` explicit. All final verification gates above were then rerun from the formatted sources.
 
 No generated `web/src/lib/paraglide/*` file was edited or staged. Root `.gitignore`, `server/.gitignore`, unrelated docs, and server/temp paths remain outside the Task 6 staging scope.
