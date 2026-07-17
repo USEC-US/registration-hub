@@ -2,7 +2,17 @@ import { dev } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
 function getDefaultApiBaseUrl(): string {
-	if (env.PUBLIC_API_BASE_URL) return env.PUBLIC_API_BASE_URL;
+	if (env.PUBLIC_API_BASE_URL) {
+		try {
+			const configuredUrl = new URL(env.PUBLIC_API_BASE_URL);
+			if (configuredUrl.protocol !== 'http:' && configuredUrl.protocol !== 'https:') {
+				throw new Error();
+			}
+			return env.PUBLIC_API_BASE_URL.replace(/\/+$/, '');
+		} catch {
+			throw new Error('PUBLIC_API_BASE_URL must be an absolute HTTP(S) URL.');
+		}
+	}
 	if (dev) return 'http://localhost:8000/api';
 	throw new Error('PUBLIC_API_BASE_URL is required outside development.');
 }

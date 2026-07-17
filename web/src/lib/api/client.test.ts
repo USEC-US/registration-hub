@@ -131,6 +131,17 @@ describe('requestJson', () => {
 		expect(fetcher).not.toHaveBeenCalled();
 	});
 
+	it('rejects a relative configured api base url', async () => {
+		vi.resetModules();
+		vi.doMock('$env/dynamic/public', () => ({ env: { PUBLIC_API_BASE_URL: '/api' } }));
+		const { requestJson: requestWithRelativeBase } = await import('./client');
+		const fetcher = vi.fn();
+
+		await expect(requestWithRelativeBase('/example/', { fetcher })).rejects.toThrow(
+			'PUBLIC_API_BASE_URL must be an absolute HTTP(S) URL.'
+		);
+		expect(fetcher).not.toHaveBeenCalled();
+	});
 	it('advertises only supported request body kinds', () => {
 		expectTypeOf<ApiRequestOptions>().toMatchTypeOf<{
 			body?: FormData | object | null;
