@@ -6,9 +6,13 @@
 		name: string;
 		value?: string;
 		error?: string;
+		hint?: string;
 		type?: HTMLInputAttributes['type'];
 		autocomplete?: HTMLInputAttributes['autocomplete'];
 		spellcheck?: HTMLInputAttributes['spellcheck'];
+		required?: HTMLInputAttributes['required'];
+		minlength?: HTMLInputAttributes['minlength'];
+		maxlength?: HTMLInputAttributes['maxlength'];
 	}
 
 	let {
@@ -16,11 +20,19 @@
 		name,
 		value = $bindable(''),
 		error,
+		hint,
 		type = 'text',
 		autocomplete,
-		spellcheck
+		spellcheck,
+		required,
+		minlength,
+		maxlength
 	}: Props = $props();
 	const errorId = $derived(`${name}-error`);
+	const hintId = $derived(`${name}-hint`);
+	const describedBy = $derived(
+		[hint ? hintId : undefined, error ? errorId : undefined].filter(Boolean).join(' ') || undefined
+	);
 </script>
 
 <div class="grid gap-2">
@@ -32,10 +44,16 @@
 		{type}
 		{autocomplete}
 		{spellcheck}
+		{required}
+		{minlength}
+		{maxlength}
 		bind:value
-		aria-describedby={error ? errorId : undefined}
+		aria-describedby={describedBy}
 		aria-invalid={error ? 'true' : undefined}
 	/>
+	{#if hint}
+		<p class="text-xs leading-5 text-[var(--text-muted)]" id={hintId}>{hint}</p>
+	{/if}
 	{#if error}
 		<p class="text-sm text-[var(--error)]" id={errorId}>{error}</p>
 	{/if}

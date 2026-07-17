@@ -70,3 +70,16 @@ test('browser navigation runs public universal loads without extra document requ
 	]);
 	expect(documentRequests).toHaveLength(1);
 });
+
+test('profile redirects an unauthenticated visitor to sign in with the localized return path', async ({
+	page
+}) => {
+	await page.goto('/account/profile?section=identity#school');
+
+	await expect(page).toHaveURL(
+		'/auth/sign-in?redirectTo=%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
+	);
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })
+	).toBeVisible();
+});
