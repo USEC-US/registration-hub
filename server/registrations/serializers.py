@@ -40,10 +40,18 @@ class RegistrationStatusEventReadSerializer(serializers.ModelSerializer):
         fields = ("to_status", "created_at")
 
 
+class PaymentAttemptReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentAttempt
+        fields = ("id", "status", "amount", "currency", "created_at")
+
+
 class RegistrationReadSerializer(serializers.ModelSerializer):
     tournament_game = TournamentGameSummarySerializer(read_only=True)
     members = RegistrationMemberReadSerializer(many=True, read_only=True)
     status_events = RegistrationStatusEventReadSerializer(many=True, read_only=True)
+    payment_attempts = PaymentAttemptReadSerializer(many=True, read_only=True)
+    payment_required = serializers.SerializerMethodField()
 
     class Meta:
         model = Registration
@@ -54,10 +62,15 @@ class RegistrationReadSerializer(serializers.ModelSerializer):
             "status",
             "fee_amount_snapshot",
             "fee_currency_snapshot",
+            "payment_required",
             "submitted_at",
             "members",
             "status_events",
+            "payment_attempts",
         )
+
+    def get_payment_required(self, obj: Registration) -> bool:
+        return obj.fee_amount_snapshot > 0
 
 
 class StrictFieldsSerializer(serializers.Serializer):

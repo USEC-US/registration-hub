@@ -30,7 +30,7 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
         return (
             Registration.objects.filter(submitted_by=self.request.user)
             .select_related("tournament_game__tournament", "tournament_game__game")
-            .prefetch_related("members", "status_events")
+            .prefetch_related("members", "status_events", "payment_attempts")
         )
 
     @action(detail=False, methods=["post"], url_path="submit")

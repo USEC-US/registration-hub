@@ -86,7 +86,28 @@ class RegistrationOwnershipApiTests(APITestCase):
         )
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         self.assertNotIn("submitted_by", detail_response.data)
-        self.assertNotIn("payment_attempts", detail_response.data)
+        self.assertIn("payment_attempts", detail_response.data)
+        self.assertNotIn("proof_file", str(detail_response.data))
+        self.assertNotIn("reference", str(detail_response.data))
+        self.assertNotIn("review_note", str(detail_response.data))
+
+    def test_registration_detail_exposes_safe_own_payment_attempt_summary(self):
+        self.client.force_authenticate(user=self.owner)
+        self.client.post(
+            f"/api/registrations/{self.registration.pk}/payment-attempts/",
+            {"amount": "50000.00", "currency": "VND", "reference": "transfer-123"},
+            format="json",
+        )
+
+        response = self.client.get(f"/api/registrations/{self.registration.pk}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["payment_required"])
+        self.assertEqual(len(response.data["payment_attempts"]), 1)
+        self.assertEqual(response.data["payment_attempts"][0]["status"], "PENDING")
+        self.assertNotIn("proof_file", response.data["payment_attempts"][0])
+        self.assertNotIn("reference", response.data["payment_attempts"][0])
+        self.assertNotIn("review_note", response.data["payment_attempts"][0])
 
     def test_other_user_gets_404_for_a_foreign_registration(self):
         self.client.force_authenticate(user=self.other_user)
