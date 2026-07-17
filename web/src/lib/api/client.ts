@@ -1,7 +1,11 @@
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
-const DEFAULT_API_BASE_URL = dev ? 'http://localhost:8000/api' : '/api';
+function getDefaultApiBaseUrl(): string {
+	if (env.PUBLIC_API_BASE_URL) return env.PUBLIC_API_BASE_URL;
+	if (dev) return 'http://localhost:8000/api';
+	throw new Error('PUBLIC_API_BASE_URL is required outside development.');
+}
 
 export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
 	accessToken?: string | null;
@@ -89,7 +93,7 @@ function normalizeErrors(status: number, payload: unknown): ApiRequestError {
 export async function requestJson<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
 	const {
 		accessToken,
-		baseUrl = env.PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL,
+		baseUrl = getDefaultApiBaseUrl(),
 		body,
 		fetcher = fetch,
 		headers,

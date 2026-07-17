@@ -121,12 +121,14 @@ describe('requestJson', () => {
 		);
 	});
 
-	it('uses a same-origin api fallback outside development', async () => {
+	it('requires an api base url outside development', async () => {
 		const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
 
-		await requestJson('/example/', { fetcher });
+		await expect(requestJson('/example/', { fetcher })).rejects.toThrow(
+			'PUBLIC_API_BASE_URL is required outside development.'
+		);
 
-		expect(fetcher).toHaveBeenCalledWith('/api/example/', expect.any(Object));
+		expect(fetcher).not.toHaveBeenCalled();
 	});
 
 	it('advertises only supported request body kinds', () => {
