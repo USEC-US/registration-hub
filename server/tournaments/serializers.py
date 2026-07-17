@@ -5,6 +5,8 @@ from registrations.models import Registration
 
 from .models import Tournament, TournamentGame
 
+_AVAILABILITY_TIME_CONTEXT_KEY = "public_tournament_availability_time"
+
 
 class PublicTournamentGameSerializer(serializers.ModelSerializer):
     game_name = serializers.CharField(source="game.name", read_only=True)
@@ -43,8 +45,13 @@ class PublicTournamentGameSerializer(serializers.ModelSerializer):
             return None
         return max(obj.registration_capacity - self._active_count(obj), 0)
 
+    def _availability_time(self):
+        if _AVAILABILITY_TIME_CONTEXT_KEY not in self.context:
+            self.context[_AVAILABILITY_TIME_CONTEXT_KEY] = timezone.now()
+        return self.context[_AVAILABILITY_TIME_CONTEXT_KEY]
+
     def get_registration_state(self, obj: TournamentGame) -> str:
-        now = timezone.now()
+        now = self._availability_time()
         if now < obj.registration_opens_at:
             return "not_open"
         if now >= obj.registration_closes_at:

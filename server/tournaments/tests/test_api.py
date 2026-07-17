@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import override_settings
@@ -65,6 +66,25 @@ class PublicTournamentApiTests(APITestCase):
         response = self.client.get("/api/tournaments/draft-event/")
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_detail_uses_one_availability_time_at_closing_boundary(self):
+        closing_boundary = timezone.now()
+        self.tournament_game.registration_closes_at = closing_boundary
+        self.tournament_game.save(update_fields=("registration_closes_at",))
+
+        with patch(
+            "tournaments.serializers.timezone.now",
+            side_effect=(
+                closing_boundary - timedelta(microseconds=1),
+                closing_boundary,
+            ),
+        ) as mocked_now:
+            response = self.client.get("/api/tournaments/usec-summer-2026/")
+
+        game_data = response.data["tournament_games"][0]
+        self.assertEqual(mocked_now.call_count, 1)
+        self.assertEqual(game_data["registration_state"], "open")
+        self.assertTrue(game_data["is_registration_open"])
 
     def test_detail_query_count_does_not_grow_with_tournament_games(self):
         second_game = Game.objects.create(name="League of Legends", slug="lol")
