@@ -12,7 +12,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
+
+from config.env import env_bool, env_list, local_secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,12 +27,14 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = env_bool("DEBUG", False)
+SECRET_KEY = local_secret_key("SECRET_KEY", debug=DEBUG)
 
-ALLOWED_HOSTS = [] + os.getenv('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS",
+    default=env_list("ALLOWED_HOSTS", default=("localhost", "127.0.0.1")),
+)
 
 # Application definition
 
@@ -51,7 +56,7 @@ INSTALLED_APPS = [
     'tournaments',
     'registrations',
 
-    # Fuck you CORS
+    # Allow the local SvelteKit dev server to call the Django API during development.
     'corsheaders',
 
 ]
@@ -66,7 +71,8 @@ AUTH_USER_MODEL = 'accounts.User'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-] + os.getenv('CORS_ORIGINS', '').split(',')
+    *env_list("CORS_ALLOWED_ORIGINS", default=env_list("CORS_ORIGINS")),
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -170,4 +176,4 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", BASE_DIR / "media"))
