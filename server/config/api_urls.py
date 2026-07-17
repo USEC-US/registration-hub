@@ -10,6 +10,7 @@ schema_view = SpectacularAPIView.as_view(
 urlpatterns = [
     path("", include("accounts.urls")),
     path("", include("registrations.urls")),
+    path("", include("tournaments.urls")),
     path("schema/", schema_view, name="schema"),
     path(
         "docs/",
