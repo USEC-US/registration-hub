@@ -26,7 +26,7 @@
 	<div
 		class="flex items-end border-t border-[var(--line)] bg-[var(--surface-muted)] p-5 lg:border-l lg:border-t-0 lg:p-7"
 	>
-		<p class="font-mono-data text-xs leading-5 text-[var(--text-muted)]">
+		<p class="text-xs leading-5 text-[var(--text-muted)]">
 			{m.published_tournaments_note()}
 		</p>
 	</div>
@@ -35,7 +35,7 @@
 {#if data.tournaments.length > 0}
 	<section class="mt-8 space-y-4" aria-label={m.published_tournaments_heading()}>
 		{#each data.tournaments as tournament (tournament.id)}
-			<TournamentCard {tournament} />
+			<TournamentCard {tournament} displayTimeZone={data.displayTimeZone} />
 		{/each}
 	</section>
 {:else}

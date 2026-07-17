@@ -4,13 +4,15 @@
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { formatTournamentDateTime } from '$lib/time/tournament-time';
 
 	interface Props {
 		tournament: PublicTournament;
 		game: PublicTournamentGame;
+		displayTimeZone: string;
 	}
 
-	let { tournament, game }: Props = $props();
+	let { tournament, game, displayTimeZone }: Props = $props();
 
 	function stateLabel(state: RegistrationState): string {
 		switch (state) {
@@ -36,13 +38,6 @@
 			case 'not_open':
 				return 'text-[var(--text-muted)] border-[var(--line)]';
 		}
-	}
-
-	function formatDate(value: string): string {
-		return new Intl.DateTimeFormat(getLocale(), {
-			dateStyle: 'medium',
-			timeStyle: 'short'
-		}).format(new Date(value));
 	}
 
 	function teamSize(): string {
@@ -94,7 +89,13 @@
 		<div class="bg-white p-4 sm:col-span-2">
 			<dt class="text-xs text-[var(--text-muted)]">{m.game_registration_window()}</dt>
 			<dd class="font-mono-data mt-1 text-xs leading-5">
-				{formatDate(game.registration_opens_at)} — {formatDate(game.registration_closes_at)}
+				<time datetime={game.registration_opens_at}>
+					{formatTournamentDateTime(game.registration_opens_at, getLocale(), displayTimeZone)}
+				</time>
+				—
+				<time datetime={game.registration_closes_at}>
+					{formatTournamentDateTime(game.registration_closes_at, getLocale(), displayTimeZone)}
+				</time>
 			</dd>
 		</div>
 		<div class="bg-white p-4">

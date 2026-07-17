@@ -41,7 +41,7 @@
 	"tournament_location": "Location",
 	"tournament_games": "Games",
 	"tournament_schedule_tba": "Schedule to be announced",
-	"tournament_location_online": "Online",
+	"tournament_location_tba": "Location to be announced",
 	"home_intro": "Find published HCMUS USEC tournaments, review game requirements, and register while a window is open.",
 	"published_tournaments_heading": "Published tournaments",
 	"published_tournaments_intro": "Review the tournaments currently published by HCMUS USEC and open one for game-specific registration details.",

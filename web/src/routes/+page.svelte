@@ -49,7 +49,7 @@
 	{#if data.tournaments.length > 0}
 		<div class="space-y-4">
 			{#each data.tournaments as tournament (tournament.id)}
-				<TournamentCard {tournament} headingLevel={3} />
+				<TournamentCard {tournament} displayTimeZone={data.displayTimeZone} headingLevel={3} />
 			{/each}
 		</div>
 	{:else}

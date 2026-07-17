@@ -2,30 +2,34 @@
 
 ## Outcome
 
-Implemented SSR-capable public routes for the home page, tournament index, and tournament detail. All three route loads use SvelteKit's request-scoped `fetch` through the typed tournament API wrappers, so the same code works during server rendering and client navigation.
+Implemented SSR-capable public routes for the home page, tournament index, and tournament detail. All three route loads use SvelteKit's request-scoped `fetch` through the typed tournament API wrappers, so the same universal load code can run during server rendering and client navigation.
 
-The pages render only backend tournament data. They include localized English/Vietnamese chrome, meaningful document metadata, empty states, semantic heading levels, machine-readable tournament dates, configured game rows, and registration links only when the API marks a game open. Tournament API 404 responses map to a localized route 404; other failures propagate unchanged.
+The pages render only backend tournament data. They include localized English/Vietnamese chrome, meaningful document metadata, empty states, semantic heading levels, separate machine-readable start/end times, configured game rows, and registration links only when the API marks a game open. Blank locations are described as unannounced rather than fabricated as online. Closed, full, and not-yet-open games remain visible without a registration action. Tournament API 404 responses map to a localized route 404; other failures propagate unchanged.
+
+Tournament times use UTC API strings unchanged in `<time datetime>` attributes. A typed Temporal utility converts each instant into a validated display timezone. The root server layout reads a non-sensitive timezone cookie and falls back to `Asia/Ho_Chi_Minh`, keeping SSR and hydration deterministic. After mount, the browser detects its zone with `Temporal.Now.timeZoneId()`, persists it, and invalidates only the root timezone dependency when it differs. Date-time copy includes a short timezone label.
 
 ## TDD evidence
 
 The initial focused RED run failed because the three route modules did not exist and the tournament wrappers ignored the supplied SvelteKit fetch. Two wrapper assertions failed and both route test suites failed module resolution, while existing code remained untouched.
 
-The first GREEN attempt passed 10 of 12 tests. It exposed an isolated loader test without a Paraglide locale and the inherited card's fixed `h2`. The test now establishes an English locale, production 404 copy remains localized, and `TournamentCard` accepts a typed optional `headingLevel` while preserving `2` as its default. The final focused run passed all 12 tests.
+The first GREEN attempt passed 10 of 12 tests. It exposed an isolated loader test without a Paraglide locale and the inherited card's fixed `h2`. The test now establishes an English locale, production 404 copy remains localized, and `TournamentCard` accepts a typed optional `headingLevel` while preserving `2` as its default.
 
-## SSR and Playwright strategy
+Review hardening added RED coverage before each presentation fix: localized blank locations, UTC-boundary timezone conversion and invalid fallback, server cookie loading and client invalidation, separate semantic time elements, body typography, the odd mobile metadata row, and unavailable registration states. The final focused review run passed 5 files and 26 tests.
 
-Playwright cannot intercept a server-side API fetch triggered by a direct navigation. The smoke therefore keeps SSR enabled, enters through the existing static `/demo/playwright` route, and follows the real AppShell brand link into `/`. The Playwright web server builds with `PUBLIC_API_BASE_URL=http://localhost:4173/api`, allowing the browser-side load fetch to be intercepted same-origin. It then follows the real tournament action into the detail route.
+## Browser navigation and SSR scope
 
-The smoke experimentally asserts exactly one document request (the static entry) plus the ordered collection and detail API requests. This proves both public transitions used SvelteKit client navigation instead of weakening the routes with an SSR opt-out.
+The Playwright smoke enters through the existing static `/demo/playwright` route, follows the real AppShell brand link into `/`, and then follows the real tournament action into the detail route. The Playwright web server builds with `PUBLIC_API_BASE_URL=http://localhost:4173/api`, allowing those browser-side universal-load fetches to be intercepted same-origin.
+
+The smoke asserts exactly one document request (the static entry) plus the ordered collection and detail API requests. This proves those two transitions used SvelteKit client navigation and that timezone invalidation did not refetch page API data. It does not execute the public routes' SSR branch. The routes remain SSR-capable because they use universal `+page.ts` loads, contain no `ssr = false` opt-out, and produce server entries in the production build.
 
 ## Verification
 
-- Focused Task 7 Vitest: 3 files passed, 12 tests passed.
-- Full unit/browser suite: 9 files passed, 33 tests passed.
+- Focused Task 7 review Vitest: 5 files passed, 26 tests passed.
+- Full unit/browser suite: 12 files passed, 46 tests passed.
 - `pnpm check`: 0 errors and 0 warnings.
 - `pnpm lint`: Prettier and ESLint exited 0.
 - `pnpm build` with the documented production API base: exited 0.
 - `pnpm exec playwright test src/routes/public-registration.e2e.ts`: 1 test passed using the installed Chromium browser.
 - `git diff --check`: clean.
 
-No generated Paraglide file was edited or staged. User-owned `.gitignore`, `server/.gitignore`, and unrelated documentation remain outside Task 7 staging.
+No generated Paraglide file was edited or staged. Unrelated documentation and visual assets remain outside Task 7 staging.

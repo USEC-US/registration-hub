@@ -4,24 +4,15 @@
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { formatTournamentDate } from '$lib/time/tournament-time';
 
 	interface Props {
 		tournament: PublicTournament;
+		displayTimeZone: string;
 		headingLevel?: 2 | 3;
 	}
 
-	let { tournament, headingLevel = 2 }: Props = $props();
-
-	function formatDate(value: string): string {
-		return new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium' }).format(new Date(value));
-	}
-
-	function dateRange(): string {
-		if (!tournament.starts_at && !tournament.ends_at) return m.tournament_schedule_tba();
-		if (!tournament.starts_at) return formatDate(tournament.ends_at!);
-		if (!tournament.ends_at) return formatDate(tournament.starts_at);
-		return `${formatDate(tournament.starts_at)} — ${formatDate(tournament.ends_at)}`;
-	}
+	let { tournament, displayTimeZone, headingLevel = 2 }: Props = $props();
 </script>
 
 <article class="grid border border-[var(--line)] bg-white md:grid-cols-[minmax(0,1fr)_17rem]">
@@ -57,15 +48,33 @@
 		>
 			<div class="bg-[var(--surface-muted)] p-4">
 				<dt class="text-xs text-[var(--text-muted)]">{m.tournament_dates()}</dt>
-				<dd class="font-mono-data mt-1 text-xs font-medium">{dateRange()}</dd>
+				<dd class="font-mono-data mt-1 text-xs font-medium">
+					{#if !tournament.starts_at && !tournament.ends_at}
+						{m.tournament_schedule_tba()}
+					{:else}
+						{#if tournament.starts_at}
+							<time datetime={tournament.starts_at}>
+								{formatTournamentDate(tournament.starts_at, getLocale(), displayTimeZone)}
+							</time>
+						{/if}
+						{#if tournament.starts_at && tournament.ends_at}
+							—
+						{/if}
+						{#if tournament.ends_at}
+							<time datetime={tournament.ends_at}>
+								{formatTournamentDate(tournament.ends_at, getLocale(), displayTimeZone)}
+							</time>
+						{/if}
+					{/if}
+				</dd>
 			</div>
 			<div class="bg-[var(--surface-muted)] p-4">
 				<dt class="text-xs text-[var(--text-muted)]">{m.tournament_location()}</dt>
 				<dd class="mt-1 font-medium">
-					{tournament.location || m.tournament_location_online()}
+					{tournament.location || m.tournament_location_tba()}
 				</dd>
 			</div>
-			<div class="bg-[var(--surface-muted)] p-4">
+			<div class="col-span-2 bg-[var(--surface-muted)] p-4 md:col-span-1">
 				<dt class="text-xs text-[var(--text-muted)]">{m.tournament_games()}</dt>
 				<dd class="font-mono-data mt-1 font-medium">{tournament.tournament_games.length}</dd>
 			</div>

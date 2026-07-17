@@ -88,8 +88,12 @@ describe('form components', () => {
 describe('tournament components', () => {
 	it('localizes tournament chrome and registration state without translating source content', async () => {
 		overwriteGetLocale(() => 'vi');
-		render(TournamentCard, { tournament });
-		render(TournamentGameRow, { tournament, game: tournament.tournament_games[0] });
+		render(TournamentCard, { tournament, displayTimeZone: 'Asia/Ho_Chi_Minh' });
+		render(TournamentGameRow, {
+			tournament,
+			game: tournament.tournament_games[0],
+			displayTimeZone: 'Asia/Ho_Chi_Minh'
+		});
 
 		await expect.element(page.getByText('Giải Mùa Hè')).toBeInTheDocument();
 		await expect.element(page.getByText('Cờ vua')).toBeInTheDocument();
@@ -99,7 +103,11 @@ describe('tournament components', () => {
 
 	it('uses the numeric game id and current locale in the registration route', async () => {
 		overwriteGetLocale(() => 'vi');
-		render(TournamentGameRow, { tournament, game: tournament.tournament_games[0] });
+		render(TournamentGameRow, {
+			tournament,
+			game: tournament.tournament_games[0],
+			displayTimeZone: 'Asia/Ho_Chi_Minh'
+		});
 
 		await expect
 			.element(page.getByRole('link', { name: 'Đăng ký' }))
@@ -110,7 +118,7 @@ describe('tournament components', () => {
 		overwriteGetLocale(() => 'vi');
 		const children = createRawSnippet(() => ({ render: () => '<p>Content</p>' }));
 		const shell = render(AppShell, { children });
-		const card = render(TournamentCard, { tournament });
+		const card = render(TournamentCard, { tournament, displayTimeZone: 'Asia/Ho_Chi_Minh' });
 
 		expect(shell.container.querySelector('a[href="/vi/"]')).not.toBeNull();
 		expect(shell.container.querySelector('a[href="/vi/tournaments"]')).not.toBeNull();

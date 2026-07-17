@@ -2,16 +2,10 @@
 	import TournamentGameRow from '$lib/components/tournaments/TournamentGameRow.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { formatTournamentDateTime } from '$lib/time/tournament-time';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-
-	function formatDateTime(value: string): string {
-		return new Intl.DateTimeFormat(getLocale(), {
-			dateStyle: 'long',
-			timeStyle: 'short'
-		}).format(new Date(value));
-	}
 </script>
 
 <svelte:head>
@@ -46,7 +40,7 @@
 			<div class="bg-[var(--surface-muted)] p-4 sm:p-5">
 				<dt class="text-xs text-[var(--text-muted)]">{m.tournament_location()}</dt>
 				<dd class="mt-1 font-medium">
-					{data.tournament.location || m.tournament_location_online()}
+					{data.tournament.location || m.tournament_location_tba()}
 				</dd>
 			</div>
 			<div class="bg-[var(--surface-muted)] p-4 sm:p-5">
@@ -54,7 +48,11 @@
 				<dd class="font-mono-data mt-1 text-xs font-medium">
 					{#if data.tournament.starts_at}
 						<time datetime={data.tournament.starts_at}>
-							{formatDateTime(data.tournament.starts_at)}
+							{formatTournamentDateTime(
+								data.tournament.starts_at,
+								getLocale(),
+								data.displayTimeZone
+							)}
 						</time>
 					{:else}
 						{m.tournament_schedule_tba()}
@@ -66,7 +64,7 @@
 				<dd class="font-mono-data mt-1 text-xs font-medium">
 					{#if data.tournament.ends_at}
 						<time datetime={data.tournament.ends_at}>
-							{formatDateTime(data.tournament.ends_at)}
+							{formatTournamentDateTime(data.tournament.ends_at, getLocale(), data.displayTimeZone)}
 						</time>
 					{:else}
 						{m.tournament_schedule_tba()}
@@ -92,7 +90,11 @@
 		{#if data.tournament.tournament_games.length > 0}
 			<div class="space-y-4">
 				{#each data.tournament.tournament_games as game (game.id)}
-					<TournamentGameRow tournament={data.tournament} {game} />
+					<TournamentGameRow
+						tournament={data.tournament}
+						{game}
+						displayTimeZone={data.displayTimeZone}
+					/>
 				{/each}
 			</div>
 		{:else}

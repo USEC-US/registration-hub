@@ -9,4 +9,4 @@ Task 3: complete (commits bf86823..555032b, review clean; Minor: exhaustive avai
 Task 4: complete (commits 555032b..22e4880, review clean; Minor: exact list/submission payment-summary allow-list coverage deferred)
 Task 5: complete (commits 22e4880..1c8a8a2, review clean)
 Task 6: complete (commits 1c8a8a2..e73fb5e, review clean)
-Task 7: complete (commit feat: add public tournament pages; review pending)
+Task 7: complete (implementation fdc2b5b; presentation hardening review clean)

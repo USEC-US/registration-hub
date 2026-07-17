@@ -27,7 +27,7 @@ const tournament = {
 	]
 };
 
-test('client navigation renders published tournament data while public routes retain SSR', async ({
+test('browser navigation runs public universal loads without extra document requests', async ({
 	page
 }) => {
 	const apiRequests: string[] = [];
@@ -46,8 +46,8 @@ test('client navigation renders published tournament data while public routes re
 		await route.fulfill({ json: tournament });
 	});
 
-	// This route has no API load. Entering here lets the following real shell link
-	// exercise SvelteKit's browser load, which Playwright can intercept without disabling SSR.
+	// Enter through a route with no API load so Playwright can observe the following
+	// client-side universal loads. This smoke does not execute the public routes' SSR branch.
 	await page.goto('/demo/playwright');
 	await page.getByRole('link', { name: /USEC Tournament Registration Hub/ }).click();
 
