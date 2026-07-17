@@ -1,10 +1,13 @@
 import { requestJson } from './client';
+import type { ApiRequestOptions } from './client';
 import type { PublicTournament } from './types';
 
-export function listTournaments() {
-	return requestJson<PublicTournament[]>('/tournaments/');
+type PublicTournamentRequestOptions = Pick<ApiRequestOptions, 'fetcher'>;
+
+export function listTournaments(options: PublicTournamentRequestOptions = {}) {
+	return requestJson<PublicTournament[]>('/tournaments/', options);
 }
 
-export function getTournament(slug: string) {
-	return requestJson<PublicTournament>(`/tournaments/${slug}/`);
+export function getTournament(slug: string, options: PublicTournamentRequestOptions = {}) {
+	return requestJson<PublicTournament>(`/tournaments/${encodeURIComponent(slug)}/`, options);
 }

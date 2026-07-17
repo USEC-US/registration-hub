@@ -1,0 +1,78 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiRequestError } from '$lib/api/client';
+import { getTournament, listTournaments } from '$lib/api/tournaments';
+import type { PublicTournament } from '$lib/api/types';
+import { overwriteGetLocale } from '$lib/paraglide/runtime';
+import { load as homeLoad } from './+page';
+import { load as tournamentListLoad } from './tournaments/+page';
+import { load as tournamentDetailLoad } from './tournaments/[slug]/+page';
+
+vi.mock('$lib/api/tournaments', () => ({
+	listTournaments: vi.fn(),
+	getTournament: vi.fn()
+}));
+
+const tournament: PublicTournament = {
+	id: 1,
+	name: 'USEC Summer 2026',
+	slug: 'usec-summer-2026',
+	description: 'Summer tournament',
+	starts_at: null,
+	ends_at: null,
+	location: 'HCMUS',
+	tournament_games: []
+};
+
+describe('public tournament loaders', () => {
+	beforeEach(() => {
+		overwriteGetLocale(() => 'en');
+		vi.mocked(listTournaments).mockReset();
+		vi.mocked(getTournament).mockReset();
+	});
+
+	it.each([
+		['home', homeLoad],
+		['tournament list', tournamentListLoad]
+	])('loads published tournaments with the SvelteKit fetch for %s', async (_name, load) => {
+		const fetcher = vi.fn<typeof fetch>();
+		vi.mocked(listTournaments).mockResolvedValue([tournament]);
+
+		const result = await load({ fetch: fetcher } as never);
+
+		expect(result).toEqual({ tournaments: [tournament] });
+		expect(listTournaments).toHaveBeenCalledWith({ fetcher });
+	});
+
+	it('loads a tournament detail with the SvelteKit fetch', async () => {
+		const fetcher = vi.fn<typeof fetch>();
+		vi.mocked(getTournament).mockResolvedValue(tournament);
+
+		const result = await tournamentDetailLoad({
+			fetch: fetcher,
+			params: { slug: tournament.slug }
+		} as never);
+
+		expect(result).toEqual({ tournament });
+		expect(getTournament).toHaveBeenCalledWith(tournament.slug, { fetcher });
+	});
+
+	it('maps only API not-found responses to a route 404', async () => {
+		vi.mocked(getTournament).mockRejectedValue(new ApiRequestError(404, 'Not found.'));
+
+		await expect(
+			tournamentDetailLoad({ fetch: vi.fn(), params: { slug: 'missing' } } as never)
+		).rejects.toMatchObject({
+			status: 404,
+			body: { message: 'Tournament not found' }
+		});
+	});
+
+	it('preserves unexpected API failures', async () => {
+		const cause = new ApiRequestError(503, 'Unavailable.');
+		vi.mocked(getTournament).mockRejectedValue(cause);
+
+		await expect(
+			tournamentDetailLoad({ fetch: vi.fn(), params: { slug: tournament.slug } } as never)
+		).rejects.toBe(cause);
+	});
+});

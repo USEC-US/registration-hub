@@ -7,9 +7,10 @@
 
 	interface Props {
 		tournament: PublicTournament;
+		headingLevel?: 2 | 3;
 	}
 
-	let { tournament }: Props = $props();
+	let { tournament, headingLevel = 2 }: Props = $props();
 
 	function formatDate(value: string): string {
 		return new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium' }).format(new Date(value));
@@ -28,11 +29,19 @@
 		<p class="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
 			{m.tournament_label()}
 		</p>
-		<h2 class="font-heading text-2xl font-semibold leading-tight sm:text-3xl">
-			<a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}
-				>{tournament.name}</a
-			>
-		</h2>
+		{#if headingLevel === 3}
+			<h3 class="font-heading text-2xl font-semibold leading-tight sm:text-3xl">
+				<a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}
+					>{tournament.name}</a
+				>
+			</h3>
+		{:else}
+			<h2 class="font-heading text-2xl font-semibold leading-tight sm:text-3xl">
+				<a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}
+					>{tournament.name}</a
+				>
+			</h2>
+		{/if}
 		{#if tournament.description}
 			<p class="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
 				{tournament.description}
