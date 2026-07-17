@@ -17,7 +17,11 @@ export function submitRegistration(accessToken: string, payload: RegistrationSub
 	});
 }
 
-export function submitPaymentAttempt(accessToken: string, registrationId: number, formData: FormData) {
+export function submitPaymentAttempt(
+	accessToken: string,
+	registrationId: number,
+	formData: FormData
+) {
 	return requestJson<RegistrationRead['payment_attempts'][number]>(
 		`/registrations/${registrationId}/payment-attempts/`,
 		{ method: 'POST', accessToken, body: formData }

@@ -68,12 +68,7 @@ function flattenErrorMessages(value: unknown, path = ''): string[] {
 function normalizeErrors(status: number, payload: unknown): ApiRequestError {
 	if (Array.isArray(payload)) {
 		const nonFieldErrors = flattenErrorMessages(payload);
-		return new ApiRequestError(
-			status,
-			nonFieldErrors[0] ?? 'Request failed.',
-			{},
-			nonFieldErrors
-		);
+		return new ApiRequestError(status, nonFieldErrors[0] ?? 'Request failed.', {}, nonFieldErrors);
 	}
 
 	if (payload && typeof payload === 'object' && !Array.isArray(payload)) {

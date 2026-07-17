@@ -116,9 +116,7 @@ describe('requestJson', () => {
 		});
 
 		const [, init] = fetcher.mock.calls[0];
-		expect((init?.headers as Headers).get('content-type')).toBe(
-			'application/merge-patch+json'
-		);
+		expect((init?.headers as Headers).get('content-type')).toBe('application/merge-patch+json');
 	});
 
 	it('requires an api base url outside development', async () => {
