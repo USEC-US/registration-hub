@@ -20,7 +20,7 @@ Review hardening added RED coverage before each presentation fix: localized blan
 
 The Playwright smoke enters through the existing static `/demo/playwright` route, follows the real AppShell brand link into `/`, and then follows the real tournament action into the detail route. The Playwright web server builds with `PUBLIC_API_BASE_URL=http://localhost:4173/api`, allowing those browser-side universal-load fetches to be intercepted same-origin.
 
-The smoke asserts exactly one document request (the static entry) plus the ordered collection and detail API requests. This proves those two transitions used SvelteKit client navigation and that timezone invalidation did not refetch page API data. It does not execute the public routes' SSR branch. The routes remain SSR-capable because they use universal `+page.ts` loads, contain no `ssr = false` opt-out, and produce server entries in the production build.
+The smoke asserts exactly one document request (the static entry) plus one ordered collection request and one detail request. This proves those two transitions used SvelteKit client navigation and each universal page load issued one API request. It does not isolate timezone invalidation on an API-backed page or execute the public routes' SSR branch. The routes remain SSR-capable because they use universal `+page.ts` loads, contain no `ssr = false` opt-out, and produce server entries in the production build.
 
 ## Verification
 
