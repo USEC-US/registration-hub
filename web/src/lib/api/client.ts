@@ -1,9 +1,12 @@
+import { dev } from '$app/environment';
 import { env } from '$env/dynamic/public';
+
+const DEFAULT_API_BASE_URL = dev ? 'http://localhost:8000/api' : '/api';
 
 export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
 	accessToken?: string | null;
 	baseUrl?: string;
-	body?: BodyInit | object | null;
+	body?: FormData | object | null;
 	fetcher?: typeof fetch;
 }
 
@@ -29,14 +32,43 @@ export class ApiRequestError extends Error {
 	}
 }
 
+function flattenErrorMessages(value: unknown, path = ''): string[] {
+	if (Array.isArray(value)) {
+		return value.flatMap((item, index) =>
+			item !== null && typeof item === 'object'
+				? flattenErrorMessages(item, path + '[' + index + ']')
+				: flattenErrorMessages(item, path)
+		);
+	}
+
+	if (value !== null && typeof value === 'object') {
+		return Object.entries(value).flatMap(([key, nestedValue]) =>
+			flattenErrorMessages(nestedValue, path ? path + '.' + key : key)
+		);
+	}
+
+	const message = String(value);
+	return [path ? path + ': ' + message : message];
+}
+
 function normalizeErrors(status: number, payload: unknown): ApiRequestError {
+	if (Array.isArray(payload)) {
+		const nonFieldErrors = flattenErrorMessages(payload);
+		return new ApiRequestError(
+			status,
+			nonFieldErrors[0] ?? 'Request failed.',
+			{},
+			nonFieldErrors
+		);
+	}
+
 	if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
 		const fieldErrors: Record<string, string[]> = {};
 		let detail: string | undefined;
 		const nonFieldErrors: string[] = [];
 
 		for (const [key, value] of Object.entries(payload)) {
-			const values = Array.isArray(value) ? value.map(String) : [String(value)];
+			const values = flattenErrorMessages(value);
 			if (key === 'detail') detail = values[0];
 			else if (key === 'non_field_errors') nonFieldErrors.push(...values);
 			else fieldErrors[key] = values;
@@ -57,7 +89,7 @@ function normalizeErrors(status: number, payload: unknown): ApiRequestError {
 export async function requestJson<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
 	const {
 		accessToken,
-		baseUrl = env.PUBLIC_API_BASE_URL || 'http://localhost:8000/api',
+		baseUrl = env.PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL,
 		body,
 		fetcher = fetch,
 		headers,
@@ -69,7 +101,9 @@ export async function requestJson<T>(path: string, options: ApiRequestOptions = 
 	if (body instanceof FormData) {
 		requestBody = body;
 	} else if (body != null) {
-		requestHeaders.set('content-type', 'application/json');
+		if (!requestHeaders.has('content-type')) {
+			requestHeaders.set('content-type', 'application/json');
+		}
 		requestBody = JSON.stringify(body);
 	}
 

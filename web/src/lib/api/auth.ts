@@ -14,6 +14,13 @@ export function signIn(email: string, password: string) {
 	return requestJson<TokenPair>('/auth/token/', { method: 'POST', body: { email, password } });
 }
 
+export function refreshAccessToken(refresh: string) {
+	return requestJson<Pick<TokenPair, 'access'>>('/auth/token/refresh/', {
+		method: 'POST',
+		body: { refresh }
+	});
+}
+
 export function getCurrentUser(accessToken: string) {
 	return requestJson<CurrentUser>('/account/me/', { accessToken });
 }
