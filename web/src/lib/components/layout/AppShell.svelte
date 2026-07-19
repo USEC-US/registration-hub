@@ -49,7 +49,7 @@
 				</span>
 			</a>
 
-			<div class="flex flex-wrap border-t border-[var(--line)] lg:border-l lg:border-t-0">
+			<div class="flex flex-wrap justify-center items-center border-t border-[var(--line)] lg:border-l lg:border-t-0">
 				<a
 					class="px-4 py-4 text-sm font-medium"
 					href={resolve(localizeInternalHref('/tournaments'))}>{m.nav_tournaments()}</a
