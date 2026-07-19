@@ -154,6 +154,48 @@ describe('account creation page', () => {
 		expect(saveSession).toHaveBeenCalledWith(tokens);
 	});
 
+	it('submits blank optional profile defaults', async () => {
+		vi.mocked(registerAccount).mockResolvedValue({ ...user, gamer_tag: '', school: '' });
+		vi.mocked(signIn).mockResolvedValue(tokens);
+		const { container } = render(RegisterPage);
+
+		const gamerTag = container.querySelector('input[name="gamer_tag"]');
+		const school = container.querySelector('input[name="school"]');
+		expect(gamerTag).not.toBeRequired();
+		expect(school).not.toBeRequired();
+		await page.getByLabelText('Email').fill(user.email);
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await vi.waitFor(() => {
+			expect(registerAccount).toHaveBeenCalledWith({
+				email: user.email,
+				password: 'strong-password',
+				gamer_tag: '',
+				school: ''
+			});
+		});
+	});
+
+	it('renders registration field and form errors together', async () => {
+		vi.mocked(registerAccount).mockRejectedValue(
+			new ApiRequestError(400, 'Unable to create account.', { email: ['Email is unavailable.'] }, [
+				'Check the registration details and try again.'
+			])
+		);
+		render(RegisterPage);
+		await page.getByLabelText('Email').fill(user.email);
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByLabelText('Gamer tag').fill(user.gamer_tag);
+		await page.getByLabelText('School').fill(user.school);
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await expect.element(page.getByText('Email is unavailable.')).toBeInTheDocument();
+		await expect
+			.element(page.getByText('Check the registration details and try again.'))
+			.toBeInTheDocument();
+	});
+
 	it('shows a recovery state instead of another registration form when auto-sign-in fails', async () => {
 		vi.mocked(registerAccount).mockResolvedValue(user);
 		vi.mocked(signIn).mockRejectedValue(new ApiRequestError(401, 'Invalid credentials.'));

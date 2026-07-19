@@ -144,7 +144,6 @@
 					name="gamer_tag"
 					autocomplete="nickname"
 					spellcheck={false}
-					required
 					maxlength={64}
 					error={fieldErrors.gamer_tag?.[0]}
 					bind:value={gamerTag}
@@ -153,7 +152,6 @@
 					label={m.field_school()}
 					name="school"
 					autocomplete="organization"
-					required
 					maxlength={128}
 					error={fieldErrors.school?.[0]}
 					bind:value={school}
