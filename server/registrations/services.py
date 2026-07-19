@@ -206,7 +206,13 @@ def submit_payment_attempt(
     reference: str = "",
 ) -> PaymentAttempt:
     with transaction.atomic():
-        registration = Registration.objects.select_for_update().get(pk=registration_id)
+        registration = (
+            Registration.objects.select_related("tournament_game__tournament")
+            .select_for_update()
+            .get(pk=registration_id)
+        )
+        if not registration.tournament_game.tournament.is_published:
+            raise ValidationError("Tournament is not published.")
         if registration.submitted_by_id != actor.pk:
             raise PermissionDenied("Only the submitter can add a payment attempt.")
         if registration.fee_amount_snapshot <= Decimal("0.00"):

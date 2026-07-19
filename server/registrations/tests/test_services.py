@@ -285,6 +285,23 @@ class RegistrationServiceTests(TestCase):
         self.assertEqual(attempt.currency, "VND")
         self.assertEqual(attempt.registration.status, Registration.Status.SUBMITTED)
 
+    def test_payment_attempt_rejects_an_unpublished_tournament(self):
+        registration = self._submit_solo()
+        tournament = registration.tournament_game.tournament
+        tournament.is_published = False
+        tournament.save(update_fields=("is_published",))
+
+        with self.assertRaisesMessage(ValidationError, "Tournament is not published."):
+            submit_payment_attempt(
+                actor=self.captain,
+                registration_id=registration.pk,
+                amount=Decimal("50000.00"),
+                currency="VND",
+                reference="BANK-1",
+            )
+
+        self.assertFalse(PaymentAttempt.objects.exists())
+
     def test_payment_attempt_rejects_fee_mismatches_and_no_fee_registration(self):
         registration = self._submit_solo()
 
