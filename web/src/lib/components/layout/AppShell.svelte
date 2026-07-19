@@ -29,7 +29,7 @@
 <div class="min-h-screen bg-[var(--board)] text-[var(--text)]">
 	<header class="border-b border-[var(--line)] bg-white">
 		<nav
-			class="mx-auto grid max-w-6xl grid-cols-1 border-x border-[var(--line)] lg:grid-cols-[minmax(18rem,1fr)_auto_auto]"
+			class="mx-auto grid max-w-7xl grid-cols-1 border-x border-[var(--line)] lg:grid-cols-[minmax(18rem,1fr)_auto_auto]"
 			aria-label={m.nav_primary_label()}
 		>
 			<a
@@ -97,7 +97,7 @@
 	</header>
 
 	<main
-		class="mx-auto min-h-[calc(100vh-5rem)] max-w-6xl border-x border-[var(--line)] bg-white px-4 py-8 sm:px-6 sm:py-10"
+		class="mx-auto min-h-[calc(100vh-5rem)] max-w-7xl border-x border-[var(--line)] bg-white px-4 py-8 sm:px-6 sm:py-10"
 		id="main-content"
 	>
 		{@render children()}
