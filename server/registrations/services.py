@@ -32,11 +32,20 @@ def submit_registration(
     members: Sequence[RegistrationMemberInput],
 ) -> Registration:
     with transaction.atomic():
-        tournament_game = TournamentGame.objects.select_for_update().get(
-            pk=tournament_game_id
+        tournament_game = (
+            TournamentGame.objects.select_for_update()
+            .select_related("tournament")
+            .get(pk=tournament_game_id)
         )
+        if not tournament_game.tournament.is_published:
+            raise ValidationError("Tournament is not published.")
+
         now = timezone.now()
-        if not tournament_game.registration_opens_at <= now < tournament_game.registration_closes_at:
+        if (
+            not tournament_game.registration_opens_at
+            <= now
+            < tournament_game.registration_closes_at
+        ):
             raise ValidationError("Registration is not open.")
 
         active = Registration.objects.filter(
@@ -90,7 +99,11 @@ def _validate_roster(
     team_name: str,
     members: Sequence[RegistrationMemberInput],
 ) -> None:
-    if not tournament_game.team_size_min <= len(members) <= tournament_game.team_size_max:
+    if (
+        not tournament_game.team_size_min
+        <= len(members)
+        <= tournament_game.team_size_max
+    ):
         raise ValidationError("Roster size is outside the configured limit.")
     if sum(member.is_captain for member in members) != 1:
         raise ValidationError("A registration must have exactly one captain.")
@@ -159,7 +172,9 @@ def start_review(*, actor, registration_id: int, note: str = "") -> Registration
     )
 
 
-def approve_registration(*, actor, registration_id: int, note: str = "") -> Registration:
+def approve_registration(
+    *, actor, registration_id: int, note: str = ""
+) -> Registration:
     return _transition_registration(
         actor=actor,
         registration_id=registration_id,

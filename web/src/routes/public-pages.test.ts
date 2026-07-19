@@ -85,6 +85,21 @@ describe('public tournament loaders', () => {
 		expect(getTournament).toHaveBeenCalledWith(tournament.slug, { fetcher });
 	});
 
+	it('localizes a missing registration game error', async () => {
+		overwriteGetLocale(() => 'vi');
+		vi.mocked(getTournament).mockResolvedValue(tournament);
+
+		await expect(
+			registrationLoad({
+				fetch: vi.fn(),
+				params: { slug: tournament.slug, gameId: '999' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 404,
+			body: { message: 'Không tìm thấy nội dung thi đấu' }
+		});
+	});
+
 	it('maps only API not-found responses to a route 404', async () => {
 		vi.mocked(getTournament).mockRejectedValue(new ApiRequestError(404, 'Not found.'));
 

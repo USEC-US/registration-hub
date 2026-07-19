@@ -87,6 +87,7 @@
 	"tournament_ends": "Kết thúc",
 	"tournament_detail_meta_description": "Lịch thi đấu, yêu cầu, lệ phí và tình trạng đăng ký của giải đấu.",
 	"tournament_not_found": "Không tìm thấy giải đấu",
+	"tournament_game_not_found": "Không tìm thấy nội dung thi đấu",
 	"game_team_size": "Quy mô đội",
 	"game_registration_window": "Thời hạn đăng ký",
 	"game_fee": "Lệ phí",

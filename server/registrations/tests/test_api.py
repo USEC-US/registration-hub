@@ -21,7 +21,9 @@ class RegistrationOwnershipApiTests(APITestCase):
             email="other@example.com", password="strong-password"
         )
         game = Game.objects.create(name="Chess", slug="chess")
-        tournament = Tournament.objects.create(name="Summer", slug="summer")
+        tournament = Tournament.objects.create(
+            name="Summer", slug="summer", is_published=True
+        )
         self.tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
@@ -61,9 +63,7 @@ class RegistrationOwnershipApiTests(APITestCase):
 
     def test_unauthenticated_list_and_detail_are_not_available(self):
         list_response = self.client.get("/api/registrations/")
-        detail_response = self.client.get(
-            f"/api/registrations/{self.registration.pk}/"
-        )
+        detail_response = self.client.get(f"/api/registrations/{self.registration.pk}/")
 
         self.assertIn(
             list_response.status_code,
@@ -90,6 +90,38 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.assertNotIn("proof_file", str(detail_response.data))
         self.assertNotIn("reference", str(detail_response.data))
         self.assertNotIn("review_note", str(detail_response.data))
+
+    def test_unpublished_tournament_registrations_are_hidden(self):
+        self.client.force_authenticate(user=self.owner)
+        tournament = self.tournament_game.tournament
+        tournament.is_published = False
+        tournament.save(update_fields=("is_published",))
+
+        list_response = self.client.get("/api/registrations/")
+        detail_response = self.client.get(f"/api/registrations/{self.registration.pk}/")
+        payment_response = self.client.post(
+            f"/api/registrations/{self.registration.pk}/payment-attempts/",
+            {"amount": "50000.00", "currency": "VND", "reference": "hidden"},
+            format="json",
+        )
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data, [])
+        self.assertEqual(detail_response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(payment_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_submit_rejects_an_unpublished_tournament_game(self):
+        self.client.force_authenticate(user=self.owner)
+        tournament = self.tournament_game.tournament
+        tournament.is_published = False
+        tournament.save(update_fields=("is_published",))
+
+        response = self.client.post(
+            "/api/registrations/submit/", self._submission_payload(), format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Registration.objects.count(), 2)
 
     def test_registration_detail_exposes_safe_own_payment_attempt_summary(self):
         self.client.force_authenticate(user=self.owner)

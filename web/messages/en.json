@@ -87,6 +87,7 @@
 	"tournament_ends": "Ends",
 	"tournament_detail_meta_description": "Tournament schedule, game requirements, fees, and registration availability.",
 	"tournament_not_found": "Tournament not found",
+	"tournament_game_not_found": "Tournament game not found",
 	"game_team_size": "Team size",
 	"game_registration_window": "Registration window",
 	"game_fee": "Fee",

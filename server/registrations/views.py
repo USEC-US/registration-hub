@@ -28,7 +28,10 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return (
-            Registration.objects.filter(submitted_by=self.request.user)
+            Registration.objects.filter(
+                submitted_by=self.request.user,
+                tournament_game__tournament__is_published=True,
+            )
             .select_related("tournament_game__tournament", "tournament_game__game")
             .prefetch_related("members", "status_events", "payment_attempts")
         )

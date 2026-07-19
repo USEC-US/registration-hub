@@ -30,7 +30,9 @@ class RegistrationServiceTests(TestCase):
             email="other@example.com", password="strong-password"
         )
         game = Game.objects.create(name="Chess", slug="chess")
-        tournament = Tournament.objects.create(name="Summer", slug="summer")
+        tournament = Tournament.objects.create(
+            name="Summer", slug="summer", is_published=True
+        )
         self.tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
@@ -119,6 +121,14 @@ class RegistrationServiceTests(TestCase):
         with self.assertRaises(ValidationError):
             self._submit_solo()
 
+    def test_unpublished_tournament_is_rejected(self):
+        tournament = self.tournament_game.tournament
+        tournament.is_published = False
+        tournament.save(update_fields=("is_published",))
+
+        with self.assertRaisesMessage(ValidationError, "Tournament is not published."):
+            self._submit_solo()
+
     def test_roster_requires_exactly_one_captain_and_contiguous_display_order(self):
         self.tournament_game.team_size_min = 2
         self.tournament_game.team_size_max = 2
@@ -132,7 +142,10 @@ class RegistrationServiceTests(TestCase):
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="team",
-                members=[self._member(is_captain=False), self._member(is_captain=False)],
+                members=[
+                    self._member(is_captain=False),
+                    self._member(is_captain=False),
+                ],
             )
 
         with self.assertRaises(ValidationError):
@@ -194,7 +207,10 @@ class RegistrationServiceTests(TestCase):
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="",
-                members=[self._member(), self._member(gamer_tag="teammate", display_order=2)],
+                members=[
+                    self._member(),
+                    self._member(gamer_tag="teammate", display_order=2),
+                ],
             )
 
     def test_only_authorized_organizer_can_transition_registration(self):
@@ -208,7 +224,9 @@ class RegistrationServiceTests(TestCase):
 
         organizer = self._organizer()
         registration = start_review(actor=organizer, registration_id=registration.pk)
-        registration = approve_registration(actor=organizer, registration_id=registration.pk)
+        registration = approve_registration(
+            actor=organizer, registration_id=registration.pk
+        )
 
         self.assertEqual(registration.status, Registration.Status.APPROVED)
         self.assertEqual(registration.status_events.count(), 3)
@@ -218,10 +236,14 @@ class RegistrationServiceTests(TestCase):
         organizer = self._organizer()
 
         with self.assertRaises(ValidationError):
-            reject_registration(actor=organizer, registration_id=registration.pk, note=" ")
+            reject_registration(
+                actor=organizer, registration_id=registration.pk, note=" "
+            )
 
         with self.assertRaises(ValidationError):
-            reject_registration(actor=organizer, registration_id=registration.pk, note="No")
+            reject_registration(
+                actor=organizer, registration_id=registration.pk, note="No"
+            )
 
         start_review(actor=organizer, registration_id=registration.pk)
         rejected = reject_registration(
