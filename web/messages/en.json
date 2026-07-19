@@ -40,6 +40,7 @@
 	"payment_attempt_intro": "Submit the transfer details and proof for review.",
 	"payment_uploading": "Uploading…",
 	"payment_upload_failed": "Payment proof could not be uploaded. Check the details and try again.",
+	"payment_evidence_required": "Provide a payment proof or reference.",
 	"registration_form_kicker": "Tournament entry",
 	"registration_form_heading": "Register for {game}",
 	"registration_form_intro": "Confirm your team identity and roster for {tournament}.",

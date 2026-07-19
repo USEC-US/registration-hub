@@ -93,7 +93,14 @@
 				redirectToSignIn(true);
 				return;
 			}
-			({ fieldErrors, formErrors } = formErrorsFrom(cause, m.registration_submit_failed()));
+			const nextErrors = formErrorsFrom(cause, m.registration_submit_failed());
+			fieldErrors = nextErrors.fieldErrors;
+			formErrors = [
+				...nextErrors.formErrors,
+				...Object.entries(nextErrors.fieldErrors).flatMap(([field, errors]) =>
+					field === 'team_name' ? [] : errors
+				)
+			];
 		} finally {
 			submitting = false;
 		}

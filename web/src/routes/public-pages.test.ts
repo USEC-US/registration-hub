@@ -6,6 +6,7 @@ import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import { load as homeLoad } from './+page';
 import { load as tournamentListLoad } from './tournaments/+page';
 import { load as tournamentDetailLoad } from './tournaments/[slug]/+page';
+import { load as registrationLoad } from './tournaments/[slug]/games/[gameId]/register/+page';
 
 vi.mock('$lib/api/tournaments', () => ({
 	listTournaments: vi.fn(),
@@ -20,7 +21,23 @@ const tournament: PublicTournament = {
 	starts_at: null,
 	ends_at: null,
 	location: 'HCMUS',
-	tournament_games: []
+	tournament_games: [
+		{
+			id: 10,
+			game_name: 'Valorant',
+			game_slug: 'valorant',
+			team_size_min: 5,
+			team_size_max: 5,
+			registration_opens_at: '2026-07-01T00:00:00Z',
+			registration_closes_at: '2026-07-31T00:00:00Z',
+			registration_capacity: 16,
+			capacity_remaining: 16,
+			fee_amount: '50000.00',
+			fee_currency: 'VND',
+			registration_state: 'open',
+			is_registration_open: true
+		}
+	]
 };
 
 describe('public tournament loaders', () => {
@@ -46,13 +63,25 @@ describe('public tournament loaders', () => {
 	it('loads a tournament detail with the SvelteKit fetch', async () => {
 		const fetcher = vi.fn<typeof fetch>();
 		vi.mocked(getTournament).mockResolvedValue(tournament);
-
 		const result = await tournamentDetailLoad({
 			fetch: fetcher,
 			params: { slug: tournament.slug }
 		} as never);
 
 		expect(result).toEqual({ tournament });
+		expect(getTournament).toHaveBeenCalledWith(tournament.slug, { fetcher });
+	});
+
+	it('loads a registration game with the SvelteKit fetch', async () => {
+		const fetcher = vi.fn<typeof fetch>();
+		vi.mocked(getTournament).mockResolvedValue(tournament);
+
+		const result = await registrationLoad({
+			fetch: fetcher,
+			params: { slug: tournament.slug, gameId: '10' }
+		} as never);
+
+		expect(result).toEqual({ tournament, game: tournament.tournament_games[0] });
 		expect(getTournament).toHaveBeenCalledWith(tournament.slug, { fetcher });
 	});
 

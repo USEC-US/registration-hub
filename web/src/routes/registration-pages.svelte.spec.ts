@@ -4,6 +4,7 @@ import { page as appPage } from '$app/state';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { getCurrentUser } from '$lib/api/auth';
+import { ApiRequestError } from '$lib/api/client';
 import {
 	getRegistration,
 	listRegistrations,
@@ -16,7 +17,7 @@ import type {
 	PublicTournamentGame,
 	RegistrationRead
 } from '$lib/api/types';
-import { getAccessToken } from '$lib/auth/session';
+import { clearSession, getAccessToken } from '$lib/auth/session';
 import { replaceInternalLocation } from '$lib/auth/navigation';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import { DEFAULT_DISPLAY_TIME_ZONE } from '$lib/time/tournament-time';
@@ -127,6 +128,7 @@ beforeEach(() => {
 		created_at: '2026-07-19T01:00:00Z'
 	});
 	vi.mocked(replaceInternalLocation).mockReset();
+	vi.mocked(clearSession).mockReset();
 });
 
 describe('participant registration pages', () => {
@@ -167,6 +169,24 @@ describe('participant registration pages', () => {
 		expect(goto).toHaveBeenCalledWith('/account/registrations/33');
 	});
 
+	it('shows roster validation errors returned by the registration API', async () => {
+		vi.mocked(submitRegistration).mockRejectedValue(
+			new ApiRequestError(400, 'Request failed.', { members: ['Roster invalid.'] })
+		);
+		render(RegisterPage, {
+			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+			params: { slug: tournament.slug, gameId: String(game.id) }
+		});
+
+		await expect.element(page.getByLabelText('Team name')).toBeInTheDocument();
+		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
+		await page.getByLabelText('School').nth(1).fill('HCMUS');
+		await page.getByRole('button', { name: 'Submit registration' }).click();
+
+		await expect.element(page.getByText('Roster invalid.')).toBeInTheDocument();
+	});
+
 	it('lists registration snapshots with links to their details', async () => {
 		mockPage.url = new URL('https://usec.test/account/registrations');
 		const { container } = render(RegistrationsPage);
@@ -192,5 +212,22 @@ describe('participant registration pages', () => {
 		await vi.waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(2));
 		expect(submitPaymentAttempt).toHaveBeenCalledOnce();
 		expect(appPage.params.id).toBe('33');
+	});
+
+	it('clears an expired session and redirects after payment submission', async () => {
+		mockPage.url = new URL('https://usec.test/account/registrations/33');
+		vi.mocked(submitPaymentAttempt).mockRejectedValue(
+			new ApiRequestError(401, 'Authentication credentials were not provided.')
+		);
+		render(RegistrationDetailPage);
+
+		await expect.element(page.getByLabelText('Payment reference')).toBeInTheDocument();
+		await page.getByLabelText('Payment reference').fill('transfer-33');
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await vi.waitFor(() => expect(clearSession).toHaveBeenCalledOnce());
+		expect(replaceInternalLocation).toHaveBeenCalledWith(
+			'/auth/sign-in?redirectTo=%2Faccount%2Fregistrations%2F33'
+		);
 	});
 });

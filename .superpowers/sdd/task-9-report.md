@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation complete; awaiting task review.
+Implementation and review fixes complete; awaiting re-review.
 
 ## Base
 
@@ -16,6 +16,14 @@ Implementation complete; awaiting task review.
 - Added participant registration list and detail routes with client-only authenticated loading, ownership-safe API consumption, fee/status/date snapshots, roster snapshots, status history, and conditional payment submission.
 - Added complete English and Vietnamese Paraglide messages for the registration flow.
 - Added focused browser-component coverage and the required Playwright unauthenticated registration redirect smoke test.
+
+## Review Fixes
+
+- Allowed payment submission with either a proof file or a reference and added a localized client error when neither is supplied.
+- Surface payment serializer errors and delegate expired authentication to the owning page so sessions are cleared and redirected.
+- Passed SvelteKit's load-scoped `fetch` into the public tournament request and added explicit loader coverage.
+- Reworked the browser smoke to enter registration through client navigation and assert the protected route is never requested as a document.
+- Surface non-inline registration serializer errors, including roster and tournament-game validation, in the form summary.
 
 ## TDD Evidence
 
@@ -31,14 +39,14 @@ Implementation complete; awaiting task review.
 - `pnpm lint`
   - Exit 0; Prettier and ESLint clean.
 - `pnpm test:unit -- --run`
-  - Exit 0; 18 files and 80 tests passed.
-- `pnpm exec playwright test src/routes/public-registration.e2e.ts --grep "register page redirects"`
+  - Exit 0; 18 files and 87 tests passed.
+- `pnpm exec playwright test src/routes/public-registration.e2e.ts --grep "client navigation to register"`
   - Exit 0; 1 test passed.
 - `git diff --check`
   - Exit 0.
 
 ## Notes
 
-- The payment proof file and reference remain optional in the browser, matching `PaymentAttemptSubmissionSerializer`; provided files are still sent as multipart form data.
-- The focused Playwright route test observes the correct user-visible redirect through its mocked browser API route. The preview server logs its separate unmocked SSR API attempt, which is expected with Playwright page routing and does not affect the asserted redirect.
+- The payment proof file and reference are individually optional, but the browser requires at least one as a pair, matching `PaymentAttemptSubmissionSerializer`.
+- The focused Playwright test confirms navigation into registration stays client-side before the intentional full-document sign-in redirect; the preview server produced no protected-route 404/500.
 - Unrelated untracked docs and logo assets were left untouched and are excluded from the Task 9 commit.

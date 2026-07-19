@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import { ApiRequestError } from '$lib/api/client';
 import { submitPaymentAttempt } from '$lib/api/registrations';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import PaymentAttemptForm from './PaymentAttemptForm.svelte';
@@ -67,12 +68,11 @@ describe('PaymentAttemptForm', () => {
 			onSuccess
 		});
 
-		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
 		const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
 		expect(fileInput).not.toBeNull();
 		const transfer = new DataTransfer();
 		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
-		Object.defineProperty(fileInput, 'files', { value: transfer.files });
+		if (fileInput) fileInput.files = transfer.files;
 		fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
@@ -82,8 +82,88 @@ describe('PaymentAttemptForm', () => {
 		expect(registrationId).toBe(12);
 		expect(formData.get('amount')).toBe('50000.00');
 		expect(formData.get('currency')).toBe('VND');
-		expect(formData.get('reference')).toBe('bank-transfer-12');
+		expect(formData.get('reference')).toBe('');
 		expect(formData.get('proof_file')).toBeInstanceOf(File);
 		expect(onSuccess).toHaveBeenCalledOnce();
+	});
+	it('submits a reference without requiring a proof file', async () => {
+		vi.mocked(submitPaymentAttempt).mockResolvedValue({
+			id: 5,
+			status: 'PENDING',
+			amount: '50000.00',
+			currency: 'VND',
+			created_at: '2026-07-19T00:00:00Z'
+		});
+		const onSuccess = vi.fn();
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess
+		});
+
+		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
+		const formData = vi.mocked(submitPaymentAttempt).mock.calls[0][2];
+		expect(formData.get('reference')).toBe('bank-transfer-12');
+		expect(onSuccess).toHaveBeenCalledOnce();
+	});
+
+	it('requires either a proof file or a payment reference', async () => {
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess: vi.fn()
+		});
+
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await expect
+			.element(page.getByText('Provide a payment proof or reference.'))
+			.toBeInTheDocument();
+		expect(submitPaymentAttempt).not.toHaveBeenCalled();
+	});
+
+	it('shows serializer field errors in the summary', async () => {
+		vi.mocked(submitPaymentAttempt).mockRejectedValue(
+			new ApiRequestError(400, 'Request failed.', { amount: ['Enter a valid amount.'] })
+		);
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess: vi.fn()
+		});
+		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await expect.element(page.getByText('Enter a valid amount.')).toBeInTheDocument();
+	});
+
+	it('delegates expired-session handling to the parent page', async () => {
+		vi.mocked(submitPaymentAttempt).mockRejectedValue(
+			new ApiRequestError(401, 'Session expired.', {}, [], 'Session expired.')
+		);
+		const onAuthenticationError = vi.fn();
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess: vi.fn(),
+			onAuthenticationError
+		});
+		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await vi.waitFor(() => expect(onAuthenticationError).toHaveBeenCalledOnce());
 	});
 });

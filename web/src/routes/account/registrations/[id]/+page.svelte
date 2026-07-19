@@ -202,6 +202,7 @@
 					initialAmount={registration.fee_amount_snapshot}
 					initialCurrency={registration.fee_currency_snapshot}
 					onSuccess={refreshRegistration}
+					onAuthenticationError={() => redirectToSignIn(true)}
 				/>
 			</div>
 		{/if}

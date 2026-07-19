@@ -40,6 +40,7 @@
 	"payment_attempt_intro": "Gửi thông tin chuyển khoản và minh chứng để được xét duyệt.",
 	"payment_uploading": "Đang tải lên…",
 	"payment_upload_failed": "Không thể tải minh chứng thanh toán lên. Hãy kiểm tra thông tin và thử lại.",
+	"payment_evidence_required": "Hãy cung cấp minh chứng hoặc mã tham chiếu thanh toán.",
 	"registration_form_kicker": "Tham gia giải đấu",
 	"registration_form_heading": "Đăng ký {game}",
 	"registration_form_intro": "Xác nhận thông tin đội và đội hình của bạn cho {tournament}.",

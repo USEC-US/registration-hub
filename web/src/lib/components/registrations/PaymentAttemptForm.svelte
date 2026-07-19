@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ApiRequestError } from '$lib/api/client';
 	import { submitPaymentAttempt } from '$lib/api/registrations';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
@@ -10,9 +11,17 @@
 		initialAmount: string;
 		initialCurrency: string;
 		onSuccess: () => void | Promise<void>;
+		onAuthenticationError?: () => void | Promise<void>;
 	}
 
-	let { registrationId, accessToken, initialAmount, initialCurrency, onSuccess }: Props = $props();
+	let {
+		registrationId,
+		accessToken,
+		initialAmount,
+		initialCurrency,
+		onSuccess,
+		onAuthenticationError = () => {}
+	}: Props = $props();
 	let amount = $state('');
 	let currency = $state('');
 	let reference = $state('');
@@ -29,15 +38,29 @@
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		if (submitting) return;
+
+		const formData = new FormData(event.currentTarget as HTMLFormElement);
+		const proofFile = formData.get('proof_file');
+		const paymentReference = String(formData.get('reference') ?? '').trim();
+		const hasProofFile = proofFile instanceof File && proofFile.size > 0;
+		if (!hasProofFile && !paymentReference) {
+			formErrors = [m.payment_evidence_required()];
+			return;
+		}
+
 		submitting = true;
 		formErrors = [];
 
 		try {
-			const formData = new FormData(event.currentTarget as HTMLFormElement);
 			await submitPaymentAttempt(accessToken, registrationId, formData);
 			await onSuccess();
 		} catch (cause) {
-			({ formErrors } = formErrorsFrom(cause, m.payment_upload_failed()));
+			if (cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403)) {
+				await onAuthenticationError();
+				return;
+			}
+			const nextErrors = formErrorsFrom(cause, m.payment_upload_failed());
+			formErrors = [...nextErrors.formErrors, ...Object.values(nextErrors.fieldErrors).flat()];
 		} finally {
 			submitting = false;
 		}
@@ -90,7 +113,6 @@
 				class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 font-normal"
 				name="reference"
 				maxlength="128"
-				required
 				bind:value={reference}
 			/>
 		</label>

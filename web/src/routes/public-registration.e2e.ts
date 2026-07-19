@@ -84,12 +84,25 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 	).toBeVisible();
 });
 
-test('register page redirects an unauthenticated visitor to sign in', async ({ page }) => {
+test('client navigation to register redirects an unauthenticated visitor to sign in', async ({
+	page
+}) => {
+	const documentRequests: string[] = [];
+	page.on('request', (request) => {
+		if (request.resourceType() === 'document') documentRequests.push(request.url());
+	});
+
+	await page.route('**/api/tournaments/', async (route) => {
+		await route.fulfill({ json: [tournament] });
+	});
 	await page.route('**/api/tournaments/usec-summer-2026/', async (route) => {
 		await route.fulfill({ json: tournament });
 	});
 
-	await page.goto('/tournaments/usec-summer-2026/games/9/register');
+	await page.goto('/demo/playwright');
+	await page.getByRole('link', { name: /USEC Tournament Registration Hub/ }).click();
+	await page.getByRole('link', { name: 'View tournament' }).click();
+	await page.getByRole('link', { name: 'Register' }).click();
 
 	await expect(page).toHaveURL(
 		'/auth/sign-in?redirectTo=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
@@ -97,4 +110,11 @@ test('register page redirects an unauthenticated visitor to sign in', async ({ p
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })
 	).toBeVisible();
+	expect(documentRequests.map((requestUrl) => new URL(requestUrl).pathname)).toEqual([
+		'/demo/playwright',
+		'/auth/sign-in'
+	]);
+	expect(
+		documentRequests.some((requestUrl) => new URL(requestUrl).pathname.endsWith('/register'))
+	).toBe(false);
 });
