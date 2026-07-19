@@ -83,6 +83,7 @@
 					<a
 						class="flex min-w-11 items-center justify-center px-3 py-4 text-xs font-semibold uppercase aria-[current=page]:text-[var(--accent)] aria-[current=page]:shadow-[inset_0_-2px_var(--accent)]"
 						href={resolve(localizeCurrentHref(page.url, locale))}
+						data-sveltekit-reload
 						hreflang={locale}
 						lang={locale}
 						aria-label={localeName(locale)}

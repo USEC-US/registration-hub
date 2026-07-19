@@ -139,6 +139,15 @@ describe('tournament components', () => {
 
 		expect(localizeCurrentHref(currentUrl, 'vi')).toBe('/vi/tournaments?registration=open#games');
 	});
+
+	it('reloads the document when switching locale so server and client language state stay aligned', () => {
+		const children = createRawSnippet(() => ({ render: () => '<p>Content</p>' }));
+		const shell = render(AppShell, { children });
+
+		expect(
+			shell.container.querySelector('a[hreflang="vi"]')?.hasAttribute('data-sveltekit-reload')
+		).toBe(true);
+	});
 });
 
 describe('StatusTimeline', () => {
