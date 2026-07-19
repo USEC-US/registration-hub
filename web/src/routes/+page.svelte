@@ -16,10 +16,10 @@
 <header class="grid border border-[var(--line)] lg:grid-cols-[minmax(0,1.6fr)_minmax(16rem,0.4fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
 		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-			{m.app_kicker()}
+			{m.hero_subtitle()}
 		</p>
 		<h1 class="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight sm:text-5xl">
-			{m.app_title()}
+			{m.hero_title()}
 		</h1>
 		<p class="mt-5 max-w-2xl text-base leading-7 text-[var(--text-muted)]">
 			{m.home_intro()}
