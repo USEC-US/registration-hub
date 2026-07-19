@@ -36,7 +36,17 @@
 				class="flex items-center gap-3 px-4 py-4 sm:px-6"
 				href={resolve(localizeInternalHref('/'))}
 			>
-				<span class="bracket-node" aria-hidden="true"></span>
+				<picture class="shrink-0">
+					<source srcset="/logo/logo.avif" type="image/avif" />
+					<source srcset="/logo/logo.webp" type="image/webp" />
+					<img
+						class="h-12 w-12 object-contain"
+						src="/logo/logo.png"
+						alt=""
+						width="48"
+						height="48"
+					/>
+				</picture>
 				<span class="min-w-0">
 					<span class="font-heading block text-lg font-semibold leading-tight sm:text-xl">
 						{m.app_title()}
@@ -49,7 +59,9 @@
 				</span>
 			</a>
 
-			<div class="flex flex-wrap justify-center items-center border-t border-[var(--line)] lg:border-l lg:border-t-0">
+			<div
+				class="flex flex-wrap justify-center items-center border-t border-[var(--line)] lg:border-l lg:border-t-0"
+			>
 				<a
 					class="px-4 py-4 text-sm font-medium"
 					href={resolve(localizeInternalHref('/tournaments'))}>{m.nav_tournaments()}</a

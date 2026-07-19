@@ -130,6 +130,26 @@ describe('tournament components', () => {
 		);
 	});
 
+	it('uses the supplied responsive logo instead of the decorative brand dot', () => {
+		const children = createRawSnippet(() => ({ render: () => '<p>Content</p>' }));
+		const { container } = render(AppShell, { children });
+		const brandLink = container.querySelector('nav > a[href="/"]');
+
+		expect(brandLink?.querySelector('source[type="image/avif"]')).toHaveAttribute(
+			'srcset',
+			'/logo/logo.avif'
+		);
+		expect(brandLink?.querySelector('source[type="image/webp"]')).toHaveAttribute(
+			'srcset',
+			'/logo/logo.webp'
+		);
+		expect(brandLink?.querySelector('img')).toHaveAttribute('src', '/logo/logo.png');
+		expect(brandLink?.querySelector('img')).toHaveAttribute('alt', '');
+		expect(brandLink?.querySelector('img')).toHaveAttribute('width', '48');
+		expect(brandLink?.querySelector('img')).toHaveAttribute('height', '48');
+		expect(brandLink?.querySelector('.bracket-node')).toBeNull();
+	});
+
 	it('preserves the query and hash when switching locale', () => {
 		const currentUrl = {
 			pathname: '/tournaments',

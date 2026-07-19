@@ -46,12 +46,12 @@ describe('public tournament pages', () => {
 		render(HomePage, { data: { tournaments: [tournament], displayTimeZone }, params: {} });
 
 		await expect
-			.element(page.getByRole('heading', { level: 1, name: 'USEC Tournament Registration Hub' }))
+			.element(page.getByRole('heading', { level: 1, name: 'Tournament Registration Portal' }))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('heading', { level: 3, name: tournament.name }))
 			.toBeInTheDocument();
-		expect(document.title).toBe('USEC Tournament Registration Hub');
+		expect(document.title).toBe('University of Science Esports Club');
 	});
 
 	it('renders a localized empty state without fabricated tournament cards', async () => {
@@ -177,7 +177,7 @@ describe('public tournament pages', () => {
 			.element(page.getByRole('link', { name: 'Register' }))
 			.toHaveAttribute('href', '/tournaments/usec-summer-2026/games/9/register');
 		expect(container.querySelectorAll('time[datetime]')).toHaveLength(4);
-		expect(document.title).toBe(`${tournament.name} · USEC Tournament Registration Hub`);
+		expect(document.title).toBe(`${tournament.name} · University of Science Esports Club`);
 	});
 
 	it('keeps configured not-open, full, and closed games visible without Register links', async () => {
