@@ -83,3 +83,18 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })
 	).toBeVisible();
 });
+
+test('register page redirects an unauthenticated visitor to sign in', async ({ page }) => {
+	await page.route('**/api/tournaments/usec-summer-2026/', async (route) => {
+		await route.fulfill({ json: tournament });
+	});
+
+	await page.goto('/tournaments/usec-summer-2026/games/9/register');
+
+	await expect(page).toHaveURL(
+		'/auth/sign-in?redirectTo=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
+	);
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })
+	).toBeVisible();
+});
