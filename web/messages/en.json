@@ -129,5 +129,7 @@
 	"profile_saving": "Saving profile…",
 	"profile_saved": "Profile saved.",
 	"profile_load_failed": "Your profile could not be loaded. Try again.",
-	"profile_save_failed": "Your profile could not be saved. Check your details and try again."
+	"profile_save_failed": "Your profile could not be saved. Check your details and try again.",
+  "address_1": "Campus 1: 227 Nguyen Van Cu St., Cho Quan Ward, Ho Chi Minh City",
+  "address_2": "Campus 2: VNUHCM Urban Area, Dong Hoa Ward, Ho Chi Minh City."
 }

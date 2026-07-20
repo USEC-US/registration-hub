@@ -129,5 +129,7 @@
 	"profile_saving": "Đang lưu hồ sơ…",
 	"profile_saved": "Đã lưu hồ sơ.",
 	"profile_load_failed": "Không thể tải hồ sơ. Hãy thử lại.",
-	"profile_save_failed": "Không thể lưu hồ sơ. Hãy kiểm tra thông tin và thử lại."
+	"profile_save_failed": "Không thể lưu hồ sơ. Hãy kiểm tra thông tin và thử lại.",
+  "address_1": "Cơ sở 1: 227 đường Nguyễn Văn Cừ, Phường Chợ Quán, Thành phố Hồ Chí Minh",
+  "address_2": "Cơ sở 2: Khu đô thị Đại học Quốc gia Thành phố Hồ Chí Minh, Phường Đông Hoà, Thành phố Hồ Chí Minh"
 }
