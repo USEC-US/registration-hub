@@ -7,6 +7,17 @@ from django.contrib.auth.models import Group
 
 from tournaments.models import Game, Tournament, TournamentGame
 
+from .models import PaymentAttempt, Registration, RegistrationStatusEvent
+from .services import (
+    RegistrationMemberInput,
+    approve_registration,
+    reject_registration,
+    review_payment_attempt,
+    start_review,
+    submit_payment_attempt,
+    submit_registration,
+)
+
 PLAYER_EMAIL = "player@email.com"
 ORGANIZER_EMAIL = "organizer@email.com"
 ADMIN_EMAIL = "admin@email.com"
@@ -21,6 +32,15 @@ SEED_TOURNAMENT_SLUGS = (
     "dev-usec-current",
     "dev-usec-archive",
     "dev-usec-draft",
+)
+
+SCENARIO_SUMMARY = (
+    "Valorant: SUBMITTED / payment PENDING",
+    "Chess: APPROVED / free registration",
+    "Counter-Strike 2: UNDER_REVIEW / payment VERIFIED / capacity FULL",
+    "Rocket League: REJECTED / rejected payment plus pending replacement",
+    "League of Legends: registration NOT_OPEN",
+    "Development draft: unpublished",
 )
 
 
@@ -150,9 +170,7 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "league-of-legends": _upsert_game(
             slug="league-of-legends", name="League of Legends"
         ),
-        "rocket-league": _upsert_game(
-            slug="rocket-league", name="Rocket League"
-        ),
+        "rocket-league": _upsert_game(slug="rocket-league", name="Rocket League"),
         "ea-sports-fc": _upsert_game(slug="ea-sports-fc", name="EA Sports FC"),
     }
 
@@ -262,11 +280,250 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
     )
 
 
+def _member_inputs(
+    roster: tuple[tuple[str, str], ...],
+) -> tuple[RegistrationMemberInput, ...]:
+    return tuple(
+        RegistrationMemberInput(
+            gamer_tag_snapshot=gamer_tag,
+            school_snapshot=school,
+            is_captain=index == 1,
+            display_order=index,
+        )
+        for index, (gamer_tag, school) in enumerate(roster, start=1)
+    )
+
+
+def _set_scenario_times(
+    *,
+    registration: Registration,
+    submitted_at: datetime,
+    event_times: tuple[datetime, ...],
+    payment_times: tuple[datetime, ...],
+) -> None:
+    events = list(registration.status_events.order_by("pk"))
+    payments = list(registration.payment_attempts.order_by("pk"))
+    if len(events) != len(event_times):
+        raise ValueError(
+            f"Expected {len(event_times)} events for registration {registration.pk}; "
+            f"found {len(events)}."
+        )
+    if len(payments) != len(payment_times):
+        raise ValueError(
+            f"Expected {len(payment_times)} payments for registration {registration.pk}; "
+            f"found {len(payments)}."
+        )
+
+    last_activity = max((submitted_at, *event_times, *payment_times))
+    Registration.objects.filter(pk=registration.pk).update(
+        submitted_at=submitted_at,
+        created_at=submitted_at,
+        updated_at=last_activity,
+    )
+    for event, created_at in zip(events, event_times, strict=True):
+        RegistrationStatusEvent.objects.filter(pk=event.pk).update(
+            created_at=created_at
+        )
+    for payment, created_at in zip(payments, payment_times, strict=True):
+        updates = {"created_at": created_at}
+        if payment.reviewed_at is not None:
+            updates["reviewed_at"] = created_at + timedelta(hours=2)
+        PaymentAttempt.objects.filter(pk=payment.pk).update(**updates)
+
+
+def _rebuild_registrations(
+    *,
+    now: datetime,
+    player,
+    organizer,
+    catalog: SeedCatalog,
+) -> tuple[Registration, ...]:
+    Registration.objects.filter(
+        submitted_by=player,
+        tournament_game__tournament__slug__in=SEED_TOURNAMENT_SLUGS,
+    ).delete()
+
+    valorant = submit_registration(
+        submitted_by=player,
+        tournament_game_id=catalog.tournament_games["valorant"].pk,
+        team_name="Blue Phoenix",
+        members=_member_inputs(
+            (
+                ("Rookie", "HCMUS"),
+                ("Astra", "HCMUT"),
+                ("Cipher", "UIT"),
+                ("Lotus", "UEH"),
+                ("Nova", "VNUHCM-US"),
+            )
+        ),
+    )
+    submit_payment_attempt(
+        actor=player,
+        registration_id=valorant.pk,
+        amount=Decimal("50000.00"),
+        currency="VND",
+        reference="DEV-VAL-PENDING",
+    )
+
+    chess = submit_registration(
+        submitted_by=player,
+        tournament_game_id=catalog.tournament_games["chess"].pk,
+        team_name="",
+        members=_member_inputs((("Rookie", "HCMUS"),)),
+    )
+    start_review(
+        actor=organizer,
+        registration_id=chess.pk,
+        note="Seeded organizer review.",
+    )
+    approve_registration(
+        actor=organizer,
+        registration_id=chess.pk,
+        note="Seeded approval.",
+    )
+
+    counter_strike = submit_registration(
+        submitted_by=player,
+        tournament_game_id=catalog.tournament_games["counter-strike-2"].pk,
+        team_name="Campus Five",
+        members=_member_inputs(
+            (
+                ("Rookie", "HCMUS"),
+                ("Aster", "HCMUT"),
+                ("Bolt", "UIT"),
+                ("Drift", "UEH"),
+                ("Echo", "VNUHCM-US"),
+            )
+        ),
+    )
+    counter_strike_payment = submit_payment_attempt(
+        actor=player,
+        registration_id=counter_strike.pk,
+        amount=Decimal("75000.00"),
+        currency="VND",
+        reference="DEV-CS2-VERIFIED",
+    )
+    review_payment_attempt(
+        actor=organizer,
+        payment_attempt_id=counter_strike_payment.pk,
+        status=PaymentAttempt.Status.VERIFIED,
+        note="Reference confirmed for the development scenario.",
+    )
+    start_review(
+        actor=organizer,
+        registration_id=counter_strike.pk,
+        note="Eligibility review in progress.",
+    )
+
+    rocket_game = catalog.tournament_games["rocket-league"]
+    final_rocket_opens_at = rocket_game.registration_opens_at
+    final_rocket_closes_at = rocket_game.registration_closes_at
+    TournamentGame.objects.filter(pk=rocket_game.pk).update(
+        registration_opens_at=now - timedelta(hours=1),
+        registration_closes_at=now + timedelta(hours=1),
+    )
+    rocket_game.refresh_from_db(
+        fields=("registration_opens_at", "registration_closes_at")
+    )
+    rocket_league = submit_registration(
+        submitted_by=player,
+        tournament_game_id=rocket_game.pk,
+        team_name="Orbit Three",
+        members=_member_inputs(
+            (
+                ("Rookie", "HCMUS"),
+                ("Comet", "HCMUT"),
+                ("Vector", "UIT"),
+            )
+        ),
+    )
+    rejected_payment = submit_payment_attempt(
+        actor=player,
+        registration_id=rocket_league.pk,
+        amount=Decimal("60000.00"),
+        currency="VND",
+        reference="DEV-RL-REJECTED",
+    )
+    review_payment_attempt(
+        actor=organizer,
+        payment_attempt_id=rejected_payment.pk,
+        status=PaymentAttempt.Status.REJECTED,
+        note="Reference could not be verified.",
+    )
+    submit_payment_attempt(
+        actor=player,
+        registration_id=rocket_league.pk,
+        amount=Decimal("60000.00"),
+        currency="VND",
+        reference="DEV-RL-REPLACEMENT",
+    )
+    start_review(
+        actor=organizer,
+        registration_id=rocket_league.pk,
+        note="Historical eligibility review.",
+    )
+    reject_registration(
+        actor=organizer,
+        registration_id=rocket_league.pk,
+        note="Eligibility documents were incomplete.",
+    )
+    TournamentGame.objects.filter(pk=rocket_game.pk).update(
+        registration_opens_at=final_rocket_opens_at,
+        registration_closes_at=final_rocket_closes_at,
+    )
+    rocket_game.registration_opens_at = final_rocket_opens_at
+    rocket_game.registration_closes_at = final_rocket_closes_at
+
+    _set_scenario_times(
+        registration=valorant,
+        submitted_at=now - timedelta(days=4),
+        event_times=(now - timedelta(days=4),),
+        payment_times=(now - timedelta(days=3),),
+    )
+    _set_scenario_times(
+        registration=chess,
+        submitted_at=now - timedelta(days=6),
+        event_times=(
+            now - timedelta(days=6),
+            now - timedelta(days=5),
+            now - timedelta(days=4),
+        ),
+        payment_times=(),
+    )
+    _set_scenario_times(
+        registration=counter_strike,
+        submitted_at=now - timedelta(days=3),
+        event_times=(now - timedelta(days=3), now - timedelta(days=2)),
+        payment_times=(now - timedelta(days=3) + timedelta(hours=1),),
+    )
+    _set_scenario_times(
+        registration=rocket_league,
+        submitted_at=now - timedelta(days=70),
+        event_times=(
+            now - timedelta(days=70),
+            now - timedelta(days=69),
+            now - timedelta(days=68),
+        ),
+        payment_times=(
+            now - timedelta(days=69, hours=12),
+            now - timedelta(days=67),
+        ),
+    )
+
+    return valorant, chess, counter_strike, rocket_league
+
+
 def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
-    accounts = _seed_accounts()
+    player, organizer, admin = _seed_accounts()
     catalog = _seed_catalog(now=now)
+    registrations = _rebuild_registrations(
+        now=now,
+        player=player,
+        organizer=organizer,
+        catalog=catalog,
+    )
     return DevelopmentSeedResult(
-        account_emails=tuple(account.email for account in accounts),
+        account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),
-        registration_ids=(),
+        registration_ids=tuple(registration.pk for registration in registrations),
     )

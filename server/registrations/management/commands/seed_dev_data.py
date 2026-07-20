@@ -7,7 +7,11 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from registrations.dev_seed import ACCOUNT_CREDENTIALS, seed_development_data
+from registrations.dev_seed import (
+    ACCOUNT_CREDENTIALS,
+    SCENARIO_SUMMARY,
+    seed_development_data,
+)
 
 
 class Command(BaseCommand):
@@ -44,6 +48,9 @@ class Command(BaseCommand):
             self.stdout.write("Tournaments:")
             for slug in result.tournament_slugs:
                 self.stdout.write(f"  {slug}")
+        self.stdout.write("Scenarios:")
+        for scenario in SCENARIO_SUMMARY:
+            self.stdout.write(f"  {scenario}")
         self.stdout.write(
             "Rerunning restores command-owned accounts and development scenarios."
         )
