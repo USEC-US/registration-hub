@@ -74,6 +74,12 @@ CORS_ALLOWED_ORIGINS = [
     *env_list("CORS_ALLOWED_ORIGINS", default=env_list("CORS_ORIGINS")),
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    *env_list("CSRF_ALLOWED_ORIGINS", default=env_list("CORS_ORIGINS"))
+]
+
 CORS_ALLOW_CREDENTIALS = True
 
 MIDDLEWARE = [
