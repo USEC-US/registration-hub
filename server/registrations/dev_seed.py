@@ -506,7 +506,7 @@ def _rebuild_registrations(
         ),
         payment_times=(
             now - timedelta(days=69, hours=12),
-            now - timedelta(days=67),
+            now - timedelta(days=68, hours=12),
         ),
     )
 

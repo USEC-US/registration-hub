@@ -169,6 +169,15 @@ class SeedDevDataCommandTests(TestCase):
             payment_statuses["rocket-league"],
             [PaymentAttempt.Status.REJECTED, PaymentAttempt.Status.PENDING],
         )
+        rocket_payments = list(
+            registrations["rocket-league"].payment_attempts.order_by("pk")
+        )
+        rejection_event = registrations["rocket-league"].status_events.last()
+        self.assertLess(
+            rocket_payments[0].reviewed_at,
+            rocket_payments[1].created_at,
+        )
+        self.assertLess(rocket_payments[1].created_at, rejection_event.created_at)
         self.assertFalse(
             any(
                 attempt.proof_file.name
@@ -347,7 +356,7 @@ class SeedDevDataCommandTests(TestCase):
 
     def test_seed_failure_rolls_back_bootstrap_accounts_and_catalog(self):
         with patch(
-            "registrations.dev_seed._seed_catalog",
+            "registrations.dev_seed._rebuild_registrations",
             side_effect=ValidationError("forced failure"),
         ):
             with self.assertRaises(CommandError):
@@ -365,6 +374,18 @@ class SeedDevDataCommandTests(TestCase):
             .exists()
         )
         self.assertFalse(Group.objects.filter(name="Organizers").exists())
+        self.assertFalse(
+            Game.objects.filter(
+                slug__in=(
+                    "valorant",
+                    "chess",
+                    "counter-strike-2",
+                    "league-of-legends",
+                    "rocket-league",
+                    "ea-sports-fc",
+                )
+            ).exists()
+        )
         self.assertFalse(
             Tournament.objects.filter(slug__startswith="dev-usec-").exists()
         )
