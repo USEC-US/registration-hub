@@ -64,7 +64,7 @@
 	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.auth_register_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
@@ -95,7 +95,7 @@
 				{m.auth_account_created_recovery()}
 			</p>
 			<a
-				class="mt-6 inline-flex min-h-11 items-center border border-(--accent) px-4 py-2 text-sm font-semibold text-(--accent)"
+				class="mt-6 inline-flex min-h-11 items-center border border-accent px-4 py-2 text-sm font-semibold text-accent"
 				href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.action_go_to_sign_in()}</a
 			>
 		</div>
@@ -163,12 +163,12 @@
 				<p class="text-sm text-(--text-muted)">
 					{m.auth_have_account()}
 					<a
-						class="font-semibold text-(--accent)"
+						class="font-semibold text-accent"
 						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
 					>
 				</p>
 				<button
-					class="min-h-11 border border-(--accent) bg-(--accent) px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+					class="min-h-11 border border-accent bg-accent px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 					type="submit"
 					disabled={submitting}
 				>

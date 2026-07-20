@@ -119,7 +119,7 @@
 	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.registration_form_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
@@ -183,7 +183,7 @@
 
 		<div class="flex justify-end border-t border-(--line) pt-5">
 			<button
-				class="min-h-11 border border-(--accent) bg-(--accent) px-6 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+				class="min-h-11 border border-accent bg-accent px-6 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 				type="submit"
 				disabled={submitting}
 			>

@@ -13,7 +13,7 @@
 
 <header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.6fr)_minmax(14rem,0.4fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.tournament_label()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">

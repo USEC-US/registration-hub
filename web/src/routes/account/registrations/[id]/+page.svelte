@@ -117,7 +117,7 @@
 			class="grid border border-(--line) lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]"
 		>
 			<div class="p-5 sm:p-7 lg:p-9">
-				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
+				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 					{registration.tournament_game.tournament_name}
 				</p>
 				<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
@@ -135,7 +135,7 @@
 				<div class="bg-(--surface-muted) p-5">
 					<dt class="text-xs text-(--text-muted)">{m.registration_status_label()}</dt>
 					<dd
-						class="mt-2 inline-block border border-(--accent) px-2 py-1 text-xs font-semibold text-(--accent)"
+						class="mt-2 inline-block border border-accent px-2 py-1 text-xs font-semibold text-accent"
 					>
 						{statusLabel(registration.status)}
 					</dd>
@@ -167,14 +167,14 @@
 						<li
 							class="grid gap-3 border-b border-(--line) p-4 last:border-b-0 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-center"
 						>
-							<span class="font-mono-data text-2xl font-semibold text-(--accent)"
+							<span class="font-mono-data text-2xl font-semibold text-accent"
 								>{String(member.display_order).padStart(2, '0')}</span
 							>
 							<span class="font-semibold">{member.gamer_tag_snapshot}</span>
 							<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
 							{#if member.is_captain}
 								<span
-									class="border border-(--accent) px-2 py-1 text-xs font-semibold text-(--accent)"
+									class="border border-accent px-2 py-1 text-xs font-semibold text-accent"
 									>{m.roster_captain()}</span
 								>
 							{/if}

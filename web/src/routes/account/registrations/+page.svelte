@@ -89,7 +89,7 @@
 	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.55fr)_minmax(15rem,0.45fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.registrations_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
@@ -126,27 +126,27 @@
 	<section class="mt-8 space-y-4" aria-label={m.registrations_heading()}>
 		{#each registrations as registration, index (registration.id)}
 			<a
-				class="group grid border border-(--line) transition-colors hover:border-(--accent) focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-(--accent) lg:grid-cols-[5rem_minmax(0,1fr)_minmax(13rem,0.42fr)]"
+				class="group grid border border-(--line) transition-colors hover:border-accent focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-accent lg:grid-cols-[5rem_minmax(0,1fr)_minmax(13rem,0.42fr)]"
 				href={resolve(localizeInternalHref(`/account/registrations/${registration.id}`))}
 			>
 				<div
 					class="grid content-center border-b border-(--line) bg-(--surface-muted) p-4 lg:border-b-0 lg:border-r"
 				>
-					<span class="font-mono-data text-2xl font-semibold text-(--accent)"
+					<span class="font-mono-data text-2xl font-semibold text-accent"
 						>{String(index + 1).padStart(2, '0')}</span
 					>
 				</div>
 				<div class="p-5">
 					<div class="flex flex-wrap items-center gap-3">
 						<span
-							class="border border-(--accent) px-2 py-1 text-xs font-semibold text-(--accent)"
+							class="border border-accent px-2 py-1 text-xs font-semibold text-accent"
 							>{statusLabel(registration.status)}</span
 						>
 						<span class="text-xs text-(--text-muted)"
 							>{registration.tournament_game.game_name}</span
 						>
 					</div>
-					<h2 class="font-heading mt-3 text-xl font-semibold group-hover:text-(--accent)">
+					<h2 class="font-heading mt-3 text-xl font-semibold group-hover:text-accent">
 						{registration.tournament_game.tournament_name}
 					</h2>
 					{#if registration.team_name}

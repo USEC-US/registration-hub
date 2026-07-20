@@ -45,7 +45,7 @@
 	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.auth_sign_in_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
@@ -101,12 +101,12 @@
 			<p class="text-sm text-(--text-muted)">
 				{m.auth_need_account()}
 				<a
-					class="font-semibold text-(--accent)"
+					class="font-semibold text-accent"
 					href={resolve(localizeInternalHref('/auth/register'))}>{m.action_create_account()}</a
 				>
 			</p>
 			<button
-				class="min-h-11 border border-(--accent) bg-(--accent) px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+				class="min-h-11 border border-accent bg-accent px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 				type="submit"
 				disabled={submitting}
 			>

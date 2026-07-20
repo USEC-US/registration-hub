@@ -15,7 +15,7 @@
 
 <header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.6fr)_minmax(16rem,0.4fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text--accent">
 			{m.hero_subtitle()}
 		</p>
 		<h1 class="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight sm:text-5xl">
@@ -29,7 +29,7 @@
 		class="flex items-end border-t border-(--line) bg-(--surface-muted) p-5 lg:border-l lg:border-t-0 lg:p-7"
 	>
 		<a
-			class="flex w-full items-center justify-between gap-4 text-sm font-semibold text-(--accent)"
+			class="flex w-full items-center justify-between gap-4 text-sm font-semibold text-accent"
 			href={resolve(localizeInternalHref('/tournaments'))}
 		>
 			{m.action_browse_tournaments()}
