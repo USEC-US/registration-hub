@@ -11,17 +11,17 @@
 
 :root {
 	font-family: 'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif;
-	color: #111827;
-	background: #ffffff;
-	--surface: #ffffff;
-	--board: #f7f7f8;
-	--surface-muted: #f7f7f8;
-	--text: #111827;
-	--text-muted: #5b6472;
-	--line: #d9dee7;
-	--accent: oklch(0.96 0.003 325.6);
+	color: var(--foreground);
+	background: var(--background);
+	--surface: var(--background);
+	--board: var(--secondary);
+	--surface-muted: var(--muted);
+	--text: var(--foreground);
+	--text-muted: var(--muted-foreground);
+	--line: var(--border);
+	--accent: var(--primary);
 	--warning: #b45309;
-	--error: #b91c1c;
+	--error: var(--destructive);
 	--success: #047857;
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.145 0.008 326);
