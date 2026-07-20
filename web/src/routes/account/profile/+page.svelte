@@ -98,43 +98,43 @@
 </svelte:head>
 
 <header
-	class="grid border border-[var(--line)] lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)]"
+	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
 			{m.profile_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
 			{m.profile_heading()}
 		</h1>
-		<p class="mt-5 max-w-2xl text-base leading-7 text-[var(--text-muted)]">
+		<p class="mt-5 max-w-2xl text-base leading-7 text-(--text-muted)">
 			{m.profile_intro()}
 		</p>
 	</div>
 	<div
-		class="grid content-end border-t border-[var(--line)] bg-[var(--surface-muted)] p-5 lg:border-l lg:border-t-0 lg:p-7"
+		class="grid content-end border-t border-(--line) bg-(--surface-muted) p-5 lg:border-l lg:border-t-0 lg:p-7"
 	>
-		<p class="text-xs leading-5 text-[var(--text-muted)]">{m.profile_defaults_note()}</p>
+		<p class="text-xs leading-5 text-(--text-muted)">{m.profile_defaults_note()}</p>
 	</div>
 </header>
 
 {#if loading || redirecting}
-	<p class="mt-8 border border-[var(--line)] bg-[var(--surface-muted)] p-6 text-sm" role="status">
+	<p class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm" role="status">
 		{redirecting ? m.auth_redirecting_to_sign_in() : m.profile_loading()}
 	</p>
 {:else if currentUser}
 	<section
-		class="mt-8 grid border border-[var(--line)] lg:grid-cols-[minmax(13rem,0.38fr)_minmax(0,1fr)]"
+		class="mt-8 grid border border-(--line) lg:grid-cols-[minmax(13rem,0.38fr)_minmax(0,1fr)]"
 	>
-		<div class="bg-[var(--surface-muted)] p-5 sm:p-6 lg:border-r lg:border-[var(--line)]">
+		<div class="bg-(--surface-muted) p-5 sm:p-6 lg:border-r lg:border-(--line)">
 			<h2 class="font-heading text-xl font-semibold">{m.profile_identity_heading()}</h2>
-			<dl class="mt-5 border-y border-[var(--line)] py-4">
-				<dt class="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+			<dl class="mt-5 border-y border-(--line) py-4">
+				<dt class="text-xs font-semibold uppercase tracking-[0.12em] text-(--text-muted)">
 					{m.field_email()}
 				</dt>
 				<dd class="font-mono-data mt-2 break-all text-sm">{currentUser.email}</dd>
 			</dl>
-			<p class="mt-4 text-xs leading-5 text-[var(--text-muted)]">{m.profile_email_note()}</p>
+			<p class="mt-4 text-xs leading-5 text-(--text-muted)">{m.profile_email_note()}</p>
 		</div>
 
 		<form class="grid gap-5 p-5 sm:p-6" aria-busy={saving} onsubmit={handleSubmit}>
@@ -157,13 +157,13 @@
 				bind:value={school}
 			/>
 			<div
-				class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--line)] pt-5"
+				class="flex flex-wrap items-center justify-between gap-4 border-t border-(--line) pt-5"
 			>
-				<p class="text-sm text-[var(--success)]" role={saved ? 'status' : undefined}>
+				<p class="text-sm text-(--success)" role={saved ? 'status' : undefined}>
 					{saved ? m.profile_saved() : ''}
 				</p>
 				<button
-					class="min-h-11 border border-[var(--accent)] bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+					class="min-h-11 border border-(--accent) bg-(--accent) px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 					type="submit"
 					disabled={saving}
 				>

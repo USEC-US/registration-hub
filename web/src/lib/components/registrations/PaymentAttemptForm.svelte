@@ -67,12 +67,12 @@
 	}
 </script>
 
-<section class="border border-[var(--line)]" aria-labelledby="payment-attempt-heading">
-	<header class="border-b border-[var(--line)] bg-[var(--surface-muted)] p-5">
+<section class="border border-(--line)" aria-labelledby="payment-attempt-heading">
+	<header class="border-b border-(--line) bg-(--surface-muted) p-5">
 		<h2 class="font-heading text-xl font-semibold" id="payment-attempt-heading">
 			{m.payment_attempt_heading()}
 		</h2>
-		<p class="mt-2 text-sm text-[var(--text-muted)]">{m.payment_attempt_intro()}</p>
+		<p class="mt-2 text-sm text-(--text-muted)">{m.payment_attempt_intro()}</p>
 	</header>
 	<form class="grid gap-5 p-5" aria-busy={submitting} onsubmit={handleSubmit}>
 		<ErrorSummary errors={formErrors} />
@@ -80,7 +80,7 @@
 			<label class="grid gap-2 text-sm font-semibold">
 				{m.field_payment_amount()}
 				<input
-					class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 font-normal"
+					class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal"
 					name="amount"
 					inputmode="decimal"
 					required
@@ -90,7 +90,7 @@
 			<label class="grid gap-2 text-sm font-semibold">
 				{m.field_payment_currency()}
 				<input
-					class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 font-normal uppercase"
+					class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal uppercase"
 					name="currency"
 					required
 					maxlength="3"
@@ -101,7 +101,7 @@
 		<label class="grid gap-2 text-sm font-semibold">
 			{m.field_payment_proof()}
 			<input
-				class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 font-normal"
+				class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal"
 				type="file"
 				name="proof_file"
 				accept="image/*,.pdf"
@@ -110,15 +110,15 @@
 		<label class="grid gap-2 text-sm font-semibold">
 			{m.field_payment_reference()}
 			<input
-				class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 font-normal"
+				class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal"
 				name="reference"
 				maxlength="128"
 				bind:value={reference}
 			/>
 		</label>
-		<div class="flex justify-end border-t border-[var(--line)] pt-5">
+		<div class="flex justify-end border-t border-(--line) pt-5">
 			<button
-				class="min-h-11 border border-[var(--accent)] bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+				class="min-h-11 border border-(--accent) bg-(--accent) px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 				type="submit"
 				disabled={submitting}
 			>

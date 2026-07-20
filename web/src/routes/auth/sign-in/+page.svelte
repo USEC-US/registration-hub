@@ -42,23 +42,23 @@
 </svelte:head>
 
 <header
-	class="grid border border-[var(--line)] lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
+	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
 			{m.auth_sign_in_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
 			{m.auth_sign_in_heading()}
 		</h1>
-		<p class="mt-5 max-w-2xl text-base leading-7 text-[var(--text-muted)]">
+		<p class="mt-5 max-w-2xl text-base leading-7 text-(--text-muted)">
 			{m.auth_sign_in_intro()}
 		</p>
 	</div>
 	<div
-		class="grid content-end border-t border-[var(--line)] bg-[var(--surface-muted)] p-5 lg:border-l lg:border-t-0 lg:p-7"
+		class="grid content-end border-t border-(--line) bg-(--surface-muted) p-5 lg:border-l lg:border-t-0 lg:p-7"
 	>
-		<p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+		<p class="text-xs font-semibold uppercase tracking-[0.14em] text-(--text-muted)">
 			{m.auth_access_note()}
 		</p>
 		<span class="bracket-node mt-4" aria-hidden="true"></span>
@@ -66,11 +66,11 @@
 </header>
 
 <section
-	class="mt-8 grid border border-[var(--line)] lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]"
+	class="mt-8 grid border border-(--line) lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]"
 >
-	<header class="bg-[var(--surface-muted)] p-5 sm:p-6 lg:border-r lg:border-[var(--line)]">
+	<header class="bg-(--surface-muted) p-5 sm:p-6 lg:border-r lg:border-(--line)">
 		<h2 class="font-heading text-xl font-semibold">{m.auth_credentials_heading()}</h2>
-		<p class="mt-3 text-sm leading-6 text-[var(--text-muted)]">{m.auth_credentials_intro()}</p>
+		<p class="mt-3 text-sm leading-6 text-(--text-muted)">{m.auth_credentials_intro()}</p>
 	</header>
 
 	<form class="grid gap-5 p-5 sm:p-6" aria-busy={submitting} onsubmit={handleSubmit}>
@@ -96,17 +96,17 @@
 			bind:value={password}
 		/>
 		<div
-			class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--line)] pt-5"
+			class="flex flex-wrap items-center justify-between gap-4 border-t border-(--line) pt-5"
 		>
-			<p class="text-sm text-[var(--text-muted)]">
+			<p class="text-sm text-(--text-muted)">
 				{m.auth_need_account()}
 				<a
-					class="font-semibold text-[var(--accent)]"
+					class="font-semibold text-(--accent)"
 					href={resolve(localizeInternalHref('/auth/register'))}>{m.action_create_account()}</a
 				>
 			</p>
 			<button
-				class="min-h-11 border border-[var(--accent)] bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+				class="min-h-11 border border-(--accent) bg-(--accent) px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 				type="submit"
 				disabled={submitting}
 			>

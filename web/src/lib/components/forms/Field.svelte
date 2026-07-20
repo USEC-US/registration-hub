@@ -36,9 +36,9 @@
 </script>
 
 <div class="grid gap-2">
-	<label class="text-sm font-semibold text-[var(--text)]" for={name}>{label}</label>
+	<label class="text-sm font-semibold text-(--text)" for={name}>{label}</label>
 	<input
-		class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 text-[var(--text)] shadow-none focus:border-[var(--accent)] focus:ring-0"
+		class="min-h-11 border border-(--line) bg-white px-3 py-2 text-(--text) shadow-none focus:border-(--accent) focus:ring-0"
 		id={name}
 		{name}
 		{type}
@@ -52,9 +52,9 @@
 		aria-invalid={error ? 'true' : undefined}
 	/>
 	{#if hint}
-		<p class="text-xs leading-5 text-[var(--text-muted)]" id={hintId}>{hint}</p>
+		<p class="text-xs leading-5 text-(--text-muted)" id={hintId}>{hint}</p>
 	{/if}
 	{#if error}
-		<p class="text-sm text-[var(--error)]" id={errorId}>{error}</p>
+		<p class="text-sm text-(--error)" id={errorId}>{error}</p>
 	{/if}
 </div>

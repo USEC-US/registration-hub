@@ -20,16 +20,16 @@
 </script>
 
 <a
-	class="fixed left-4 top-4 z-50 -translate-y-24 border border-[var(--accent)] bg-white px-3 py-2 text-sm font-semibold text-[var(--accent)] focus:translate-y-0"
+	class="fixed left-4 top-4 z-50 -translate-y-24 border border-(--accent) bg-white px-3 py-2 text-sm font-semibold text-(--accent) focus:translate-y-0"
 	href="#main-content"
 >
 	{m.skip_to_content()}
 </a>
 
-<div class="min-h-screen bg-[var(--board)] text-[var(--text)]">
-	<header class="border-b border-[var(--line)] bg-white">
+<div class="min-h-screen bg-(--board) text-(--text)">
+	<header class="border-b border-(--line) bg-white">
 		<nav
-			class="mx-auto grid max-w-7xl grid-cols-1 border-x border-[var(--line)] lg:grid-cols-[minmax(18rem,1fr)_auto_auto]"
+			class="mx-auto grid max-w-7xl grid-cols-1 border-x border-(--line) lg:grid-cols-[minmax(18rem,1fr)_auto_auto]"
 			aria-label={m.nav_primary_label()}
 		>
 			<a
@@ -52,7 +52,7 @@
 						{m.app_title()}
 					</span>
 					<span
-						class="mt-1 block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]"
+						class="mt-1 block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-(--text-muted)"
 					>
 						{m.app_kicker()}
 					</span>
@@ -60,7 +60,7 @@
 			</a>
 
 			<div
-				class="flex flex-wrap justify-center items-center border-t border-[var(--line)] lg:border-l lg:border-t-0"
+				class="flex flex-wrap justify-center items-center border-t border-(--line) lg:border-l lg:border-t-0"
 			>
 				<a
 					class="px-4 py-4 text-sm font-medium"
@@ -83,17 +83,17 @@
 			</div>
 
 			<div
-				class="flex items-stretch border-t border-[var(--line)] lg:border-l lg:border-t-0"
+				class="flex items-stretch border-t border-(--line) lg:border-l lg:border-t-0"
 				aria-label={m.locale_switcher_label()}
 			>
 				<span
-					class="flex items-center border-r border-[var(--line)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+					class="flex items-center border-r border-(--line) px-3 text-xs font-semibold text-(--text-muted)"
 				>
 					{m.locale_switcher_label()}
 				</span>
 				{#each locales as locale (locale)}
 					<a
-						class="flex min-w-11 items-center justify-center px-3 py-4 text-xs font-semibold uppercase aria-[current=page]:text-[var(--accent)] aria-[current=page]:shadow-[inset_0_-2px_var(--accent)]"
+						class="flex min-w-11 items-center justify-center px-3 py-4 text-xs font-semibold uppercase aria-[current=page]:text-(--accent) aria-[current=page]:shadow-[inset_0_-2px_var(--accent)]"
 						href={resolve(localizeCurrentHref(page.url, locale))}
 						data-sveltekit-reload
 						hreflang={locale}
@@ -109,7 +109,7 @@
 	</header>
 
 	<main
-		class="mx-auto min-h-[calc(100vh-5rem)] max-w-7xl border-x border-[var(--line)] bg-white px-4 py-8 sm:px-6 sm:py-10"
+		class="mx-auto min-h-[calc(100vh-5rem)] max-w-7xl border-x border-(--line) bg-white px-4 py-8 sm:px-6 sm:py-10"
 		id="main-content"
 	>
 		{@render children()}

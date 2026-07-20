@@ -39,32 +39,32 @@
 </script>
 
 <section aria-labelledby="roster-heading">
-	<header class="mb-4 border-b border-[var(--line)] pb-4">
+	<header class="mb-4 border-b border-(--line) pb-4">
 		<h2 class="font-heading text-2xl font-semibold" id="roster-heading">{m.roster_heading()}</h2>
-		<p class="mt-2 text-sm text-[var(--text-muted)]">
+		<p class="mt-2 text-sm text-(--text-muted)">
 			{m.roster_size_note({ minimum: teamSizeMin, maximum: teamSizeMax })}
 		</p>
 	</header>
 
-	<div class="border border-[var(--line)]">
+	<div class="border border-(--line)">
 		{#each members as member, index (member.display_order)}
 			<fieldset
-				class="grid gap-4 border-b border-[var(--line)] p-4 last:border-b-0 lg:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)_8rem] lg:items-end"
+				class="grid gap-4 border-b border-(--line) p-4 last:border-b-0 lg:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)_8rem] lg:items-end"
 				data-roster-row
 			>
 				<legend class="sr-only">{m.roster_member_label({ number: index + 1 })}</legend>
 				<div class="grid gap-1">
-					<span class="font-mono-data text-2xl font-semibold text-[var(--accent)]">
+					<span class="font-mono-data text-2xl font-semibold text-(--accent)">
 						{String(index + 1).padStart(2, '0')}
 					</span>
-					<span class="text-xs text-[var(--text-muted)]">
+					<span class="text-xs text-(--text-muted)">
 						{m.roster_member_number({ number: index + 1 })}
 					</span>
 				</div>
 				<label class="grid gap-2 text-sm font-semibold" for={`member-${index + 1}-gamer-tag`}>
 					{m.field_gamer_tag()}
 					<input
-						class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 font-normal focus:border-[var(--accent)] focus:ring-0"
+						class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal focus:border-(--accent) focus:ring-0"
 						id={`member-${index + 1}-gamer-tag`}
 						name={`member-${index + 1}-gamer-tag`}
 						required
@@ -75,7 +75,7 @@
 				<label class="grid gap-2 text-sm font-semibold" for={`member-${index + 1}-school`}>
 					{m.field_school()}
 					<input
-						class="min-h-11 border border-[var(--line)] bg-white px-3 py-2 font-normal focus:border-[var(--accent)] focus:ring-0"
+						class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal focus:border-(--accent) focus:ring-0"
 						id={`member-${index + 1}-school`}
 						name={`member-${index + 1}-school`}
 						required
@@ -84,7 +84,7 @@
 					/>
 				</label>
 				<label
-					class="flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold"
+					class="flex min-h-11 items-center gap-2 border border-(--line) px-3 text-sm font-semibold"
 				>
 					<input
 						type="radio"

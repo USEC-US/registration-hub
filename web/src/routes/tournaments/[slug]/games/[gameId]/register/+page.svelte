@@ -116,28 +116,28 @@
 </svelte:head>
 
 <header
-	class="grid border border-[var(--line)] lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]"
+	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
 			{m.registration_form_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
 			{m.registration_form_heading({ game: data.game.game_name })}
 		</h1>
-		<p class="mt-5 max-w-2xl text-base leading-7 text-[var(--text-muted)]">
+		<p class="mt-5 max-w-2xl text-base leading-7 text-(--text-muted)">
 			{m.registration_form_intro({ tournament: data.tournament.name })}
 		</p>
 	</div>
 	<dl
-		class="grid gap-px border-t border-[var(--line)] bg-[var(--line)] text-sm lg:border-l lg:border-t-0"
+		class="grid gap-px border-t border-(--line) bg-(--line) text-sm lg:border-l lg:border-t-0"
 	>
-		<div class="bg-[var(--surface-muted)] p-5">
-			<dt class="text-xs text-[var(--text-muted)]">{m.tournament_label()}</dt>
+		<div class="bg-(--surface-muted) p-5">
+			<dt class="text-xs text-(--text-muted)">{m.tournament_label()}</dt>
 			<dd class="mt-1 font-semibold">{data.tournament.name}</dd>
 		</div>
-		<div class="bg-[var(--surface-muted)] p-5">
-			<dt class="text-xs text-[var(--text-muted)]">{m.game_fee()}</dt>
+		<div class="bg-(--surface-muted) p-5">
+			<dt class="text-xs text-(--text-muted)">{m.game_fee()}</dt>
 			<dd class="font-mono-data mt-1 text-sm font-semibold">{formatFee()}</dd>
 		</div>
 	</dl>
@@ -145,7 +145,7 @@
 
 {#if loading || redirecting}
 	<p
-		class="mt-8 border border-[var(--line)] bg-[var(--surface-muted)] p-6 text-sm text-[var(--text-muted)]"
+		class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm text-(--text-muted)"
 		role="status"
 	>
 		{redirecting ? m.auth_redirecting_to_sign_in() : m.registration_loading_profile()}
@@ -154,8 +154,8 @@
 	<form class="mt-8 grid gap-8" aria-busy={submitting} onsubmit={handleSubmit}>
 		<ErrorSummary errors={formErrors} />
 		{#if data.game.team_size_max > 1}
-			<section class="border border-[var(--line)]" aria-labelledby="team-identity-heading">
-				<header class="border-b border-[var(--line)] bg-[var(--surface-muted)] p-5">
+			<section class="border border-(--line)" aria-labelledby="team-identity-heading">
+				<header class="border-b border-(--line) bg-(--surface-muted) p-5">
 					<h2 class="font-heading text-xl font-semibold" id="team-identity-heading">
 						{m.registration_team_heading()}
 					</h2>
@@ -181,9 +181,9 @@
 			bind:members
 		/>
 
-		<div class="flex justify-end border-t border-[var(--line)] pt-5">
+		<div class="flex justify-end border-t border-(--line) pt-5">
 			<button
-				class="min-h-11 border border-[var(--accent)] bg-[var(--accent)] px-6 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+				class="min-h-11 border border-(--accent) bg-(--accent) px-6 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 				type="submit"
 				disabled={submitting}
 			>

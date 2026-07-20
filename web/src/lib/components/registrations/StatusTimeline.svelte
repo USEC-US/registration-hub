@@ -31,23 +31,23 @@
 </script>
 
 {#if events.length > 0}
-	<ol class="border-l border-[var(--line)]" aria-label={m.status_timeline_label()}>
+	<ol class="border-l border-(--line)" aria-label={m.status_timeline_label()}>
 		{#each events as event, index (`${event.created_at}-${event.to_status}`)}
 			<li
 				class="relative grid gap-1 pb-6 pl-6 last:pb-0"
 				aria-current={index === events.length - 1 ? 'step' : undefined}
 			>
 				<span
-					class="absolute -left-[5px] top-1 h-[9px] w-[9px] border border-[var(--accent)] bg-white"
+					class="absolute -left-1.25 top-1 h-2.25 w-2.25 border border-(--accent) bg-white"
 					aria-hidden="true"
 				></span>
-				<span class="font-semibold text-[var(--text)]">{statusLabel(event.to_status)}</span>
-				<time class="font-mono-data text-xs text-[var(--text-muted)]" datetime={event.created_at}>
+				<span class="font-semibold text-(--text)">{statusLabel(event.to_status)}</span>
+				<time class="font-mono-data text-xs text-(--text-muted)" datetime={event.created_at}>
 					{formatDate(event.created_at)}
 				</time>
 			</li>
 		{/each}
 	</ol>
 {:else}
-	<p class="text-sm text-[var(--text-muted)]">{m.status_timeline_empty()}</p>
+	<p class="text-sm text-(--text-muted)">{m.status_timeline_empty()}</p>
 {/if}

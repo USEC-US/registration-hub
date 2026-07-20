@@ -61,56 +61,56 @@
 </svelte:head>
 
 <header
-	class="grid border border-[var(--line)] lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
+	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
 >
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-(--accent)">
 			{m.auth_register_kicker()}
 		</p>
 		<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
 			{m.auth_register_heading()}
 		</h1>
-		<p class="mt-5 max-w-2xl text-base leading-7 text-[var(--text-muted)]">
+		<p class="mt-5 max-w-2xl text-base leading-7 text-(--text-muted)">
 			{m.auth_register_intro()}
 		</p>
 	</div>
 	<div
-		class="grid content-end border-t border-[var(--line)] bg-[var(--surface-muted)] p-5 lg:border-l lg:border-t-0 lg:p-7"
+		class="grid content-end border-t border-(--line) bg-(--surface-muted) p-5 lg:border-l lg:border-t-0 lg:p-7"
 	>
-		<p class="text-xs leading-5 text-[var(--text-muted)]">{m.auth_profile_defaults_note()}</p>
+		<p class="text-xs leading-5 text-(--text-muted)">{m.auth_profile_defaults_note()}</p>
 	</div>
 </header>
 
 {#if phase === 'recovery'}
 	<section
-		class="mt-8 grid border border-[var(--line)] lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]"
+		class="mt-8 grid border border-(--line) lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]"
 	>
-		<div class="bg-[var(--surface-muted)] p-5 sm:p-6 lg:border-r lg:border-[var(--line)]">
+		<div class="bg-(--surface-muted) p-5 sm:p-6 lg:border-r lg:border-(--line)">
 			<span class="bracket-node" aria-hidden="true"></span>
-			<p class="font-mono-data mt-4 text-xs text-[var(--text-muted)]">{recoveryEmail}</p>
+			<p class="font-mono-data mt-4 text-xs text-(--text-muted)">{recoveryEmail}</p>
 		</div>
 		<div class="p-5 sm:p-7" role="status">
 			<h2 class="font-heading text-2xl font-semibold">{m.auth_account_created_heading()}</h2>
-			<p class="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+			<p class="mt-3 max-w-2xl text-sm leading-6 text-(--text-muted)">
 				{m.auth_account_created_recovery()}
 			</p>
 			<a
-				class="mt-6 inline-flex min-h-11 items-center border border-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent)]"
+				class="mt-6 inline-flex min-h-11 items-center border border-(--accent) px-4 py-2 text-sm font-semibold text-(--accent)"
 				href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.action_go_to_sign_in()}</a
 			>
 		</div>
 	</section>
 {:else if phase === 'signing-in'}
-	<p class="mt-8 border border-[var(--line)] bg-[var(--surface-muted)] p-6 text-sm" role="status">
+	<p class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm" role="status">
 		{m.auth_account_created_signing_in()}
 	</p>
 {:else}
 	<section
-		class="mt-8 grid border border-[var(--line)] lg:grid-cols-[minmax(13rem,0.34fr)_minmax(0,1fr)]"
+		class="mt-8 grid border border-(--line) lg:grid-cols-[minmax(13rem,0.34fr)_minmax(0,1fr)]"
 	>
-		<header class="bg-[var(--surface-muted)] p-5 sm:p-6 lg:border-r lg:border-[var(--line)]">
+		<header class="bg-(--surface-muted) p-5 sm:p-6 lg:border-r lg:border-(--line)">
 			<h2 class="font-heading text-xl font-semibold">{m.auth_identity_heading()}</h2>
-			<p class="mt-3 text-sm leading-6 text-[var(--text-muted)]">{m.auth_identity_intro()}</p>
+			<p class="mt-3 text-sm leading-6 text-(--text-muted)">{m.auth_identity_intro()}</p>
 		</header>
 
 		<form class="grid gap-5 p-5 sm:p-6" aria-busy={submitting} onsubmit={handleSubmit}>
@@ -158,17 +158,17 @@
 				/>
 			</div>
 			<div
-				class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--line)] pt-5"
+				class="flex flex-wrap items-center justify-between gap-4 border-t border-(--line) pt-5"
 			>
-				<p class="text-sm text-[var(--text-muted)]">
+				<p class="text-sm text-(--text-muted)">
 					{m.auth_have_account()}
 					<a
-						class="font-semibold text-[var(--accent)]"
+						class="font-semibold text-(--accent)"
 						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
 					>
 				</p>
 				<button
-					class="min-h-11 border border-[var(--accent)] bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+					class="min-h-11 border border-(--accent) bg-(--accent) px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
 					type="submit"
 					disabled={submitting}
 				>
