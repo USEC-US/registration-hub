@@ -32,7 +32,7 @@
     {:else}<strong>{@render p.children?.()}</strong>{/if}
   {/snippet}
 
-  {#snippet b(p)}
+  {#snippet bold(p)}
     {#if boldOverride}{@render boldOverride(p)}
     {:else}<b>{@render p.children?.()}</b>{/if}
   {/snippet}
