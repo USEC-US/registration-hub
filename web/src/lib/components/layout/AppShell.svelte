@@ -8,6 +8,7 @@
 	import Discord from '$lib/components/icons/Discord.svelte'
   import Facebook from '$lib/components/icons/Facebook.svelte';
   import Gmail from '$lib/components/icons/Gmail.svelte';
+	import RichText from '$lib/i18n/RichText.svelte';
 	interface Props {
 		children: Snippet;
 	}
@@ -174,9 +175,13 @@
           {/each}
         </div>
         <div>
-          Address:
-          <p>{m.address_1()}</p>
-          <p>{m.address_2()}</p>
+          <RichText message={m.address_title} inputs={{}} />
+          <p>
+            <RichText message={m.address_1} inputs={{}} />
+          </p>
+          <p>
+            <RichText message={m.address_2} inputs={{}} />
+          </p>
         </div>
       </div>
     </div>
