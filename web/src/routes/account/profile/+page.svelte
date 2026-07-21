@@ -15,7 +15,8 @@
 
 	let accessToken = $state<string | null>(null);
 	let currentUser = $state<CurrentUser | null>(null);
-	let gamerTag = $state('');
+	let firstName = $state('');
+	let lastName = $state('');
 	let school = $state('');
 	let loading = $state(true);
 	let saving = $state(false);
@@ -50,7 +51,8 @@
 
 		try {
 			currentUser = await getCurrentUser(accessToken);
-			gamerTag = currentUser.gamer_tag;
+			firstName = currentUser.first_name;
+			lastName = currentUser.last_name;
 			school = currentUser.school;
 		} catch (cause) {
 			if (isAuthenticationError(cause)) {
@@ -74,10 +76,12 @@
 
 		try {
 			currentUser = await updateCurrentUser(accessToken, {
-				gamer_tag: gamerTag,
+				first_name: firstName,
+				last_name: lastName,
 				school
 			});
-			gamerTag = currentUser.gamer_tag;
+			firstName = currentUser.first_name;
+			lastName = currentUser.last_name;
 			school = currentUser.school;
 			saved = true;
 		} catch (cause) {
@@ -139,15 +143,26 @@
 
 		<form class="grid gap-5 p-5 sm:p-6" aria-busy={saving} onsubmit={handleSubmit}>
 			<ErrorSummary errors={formErrors} />
-			<Field
-				label={m.field_gamer_tag()}
-				name="gamer_tag"
-				autocomplete="nickname"
-				spellcheck={false}
-				maxlength={64}
-				error={fieldErrors.gamer_tag?.[0]}
-				bind:value={gamerTag}
-			/>
+			<div class="grid gap-5 md:grid-cols-2">
+				<Field
+					label={m.field_first_name()}
+					name="first_name"
+					autocomplete="given-name"
+					required
+					maxlength={150}
+					error={fieldErrors.first_name?.[0]}
+					bind:value={firstName}
+				/>
+				<Field
+					label={m.field_last_name()}
+					name="last_name"
+					autocomplete="family-name"
+					required
+					maxlength={150}
+					error={fieldErrors.last_name?.[0]}
+					bind:value={lastName}
+				/>
+			</div>
 			<Field
 				label={m.field_school()}
 				name="school"

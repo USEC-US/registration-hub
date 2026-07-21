@@ -13,7 +13,8 @@
 
 	let email = $state('');
 	let password = $state('');
-	let gamerTag = $state('');
+	let firstName = $state('');
+	let lastName = $state('');
 	let school = $state('');
 	let phase = $state<RegistrationPhase>('form');
 	let submitting = $state(false);
@@ -33,7 +34,8 @@
 			const account = await registerAccount({
 				email,
 				password,
-				gamer_tag: gamerTag,
+				first_name: firstName,
+				last_name: lastName,
 				school
 			});
 			recoveryEmail = account.email;
@@ -117,6 +119,24 @@
 			<ErrorSummary errors={formErrors} />
 			<div class="grid gap-5 md:grid-cols-2">
 				<Field
+					label={m.field_first_name()}
+					name="first_name"
+					autocomplete="given-name"
+					required
+					maxlength={150}
+					error={fieldErrors.first_name?.[0]}
+					bind:value={firstName}
+				/>
+				<Field
+					label={m.field_last_name()}
+					name="last_name"
+					autocomplete="family-name"
+					required
+					maxlength={150}
+					error={fieldErrors.last_name?.[0]}
+					bind:value={lastName}
+				/>
+				<Field
 					label={m.field_email()}
 					name="email"
 					type="email"
@@ -138,15 +158,6 @@
 					hint={m.auth_password_hint()}
 					error={fieldErrors.password?.[0]}
 					bind:value={password}
-				/>
-				<Field
-					label={m.field_gamer_tag()}
-					name="gamer_tag"
-					autocomplete="nickname"
-					spellcheck={false}
-					maxlength={64}
-					error={fieldErrors.gamer_tag?.[0]}
-					bind:value={gamerTag}
 				/>
 				<Field
 					label={m.field_school()}

@@ -10,7 +10,8 @@ export interface TokenPair {
 export interface CurrentUser {
 	id: number;
 	email: string;
-	gamer_tag: string;
+	first_name: string;
+	last_name: string;
 	school: string;
 }
 
