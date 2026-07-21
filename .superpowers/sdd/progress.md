@@ -10,3 +10,6 @@ Task 4: complete (commits 555032b..22e4880, review clean; Minor: exact list/subm
 Task 5: complete (commits 22e4880..1c8a8a2, review clean)
 Task 6: complete (commits 1c8a8a2..e73fb5e, review clean)
 Task 7: complete (implementation fdc2b5b; presentation hardening review clean)
+Task 8: complete (commits 8276faf..1db18e5, review clean; Minor: report top-level status/commit list stops at de0e9f1, review-fix appendix records 1db18e5)
+Task 9: complete (commits 68ea503..8371e68, review clean)
+Task 10: complete (full backend/frontend verification clean; required schema endpoints confirmed; stabilization commits 4b45065 and fa6ffe8 reviewed clean)

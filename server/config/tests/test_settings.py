@@ -1,3 +1,6 @@
+import importlib
+import os
+
 from django.test import SimpleTestCase
 
 from config.env import env_bool, env_list, local_secret_key
@@ -32,8 +35,6 @@ class EnvHelperTests(SimpleTestCase):
                 os.environ["EXAMPLE_BOOL"] = previous
 
     def test_secret_key_uses_local_fallback_only_in_debug(self):
-        import os
-
         previous = os.environ.get("EMPTY_SECRET_KEY")
         os.environ.pop("EMPTY_SECRET_KEY", None)
         try:
@@ -46,3 +47,36 @@ class EnvHelperTests(SimpleTestCase):
         finally:
             if previous is not None:
                 os.environ["EMPTY_SECRET_KEY"] = previous
+
+    def test_csrf_trusted_origins_include_cors_origins_by_default(self):
+        import config.settings as settings_module
+
+        previous_cors = os.environ.get("CORS_ALLOWED_ORIGINS")
+        previous_csrf = os.environ.get("CSRF_ALLOWED_ORIGINS")
+        previous_cors_origins = os.environ.get("CORS_ORIGINS")
+
+        os.environ.pop("CORS_ALLOWED_ORIGINS", None)
+        os.environ.pop("CSRF_ALLOWED_ORIGINS", None)
+        os.environ["CORS_ORIGINS"] = "http://example.test,http://localhost:5173"
+
+        try:
+            settings_module = importlib.reload(settings_module)
+            self.assertIn("http://localhost:5173", settings_module.CSRF_TRUSTED_ORIGINS)
+            self.assertIn("http://example.test", settings_module.CSRF_TRUSTED_ORIGINS)
+        finally:
+            if previous_cors is None:
+                os.environ.pop("CORS_ALLOWED_ORIGINS", None)
+            else:
+                os.environ["CORS_ALLOWED_ORIGINS"] = previous_cors
+
+            if previous_csrf is None:
+                os.environ.pop("CSRF_ALLOWED_ORIGINS", None)
+            else:
+                os.environ["CSRF_ALLOWED_ORIGINS"] = previous_csrf
+
+            if previous_cors_origins is None:
+                os.environ.pop("CORS_ORIGINS", None)
+            else:
+                os.environ["CORS_ORIGINS"] = previous_cors_origins
+
+            importlib.reload(settings_module)

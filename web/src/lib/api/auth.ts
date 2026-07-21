@@ -4,7 +4,8 @@ import type { CurrentUser, TokenPair } from './types';
 export function registerAccount(payload: {
 	email: string;
 	password: string;
-	gamer_tag?: string;
+	first_name: string;
+	last_name: string;
 	school?: string;
 }) {
 	return requestJson<CurrentUser>('/auth/register/', { method: 'POST', body: payload });
@@ -27,7 +28,7 @@ export function getCurrentUser(accessToken: string) {
 
 export function updateCurrentUser(
 	accessToken: string,
-	payload: Pick<CurrentUser, 'gamer_tag' | 'school'>
+	payload: Pick<CurrentUser, 'first_name' | 'last_name' | 'school'>
 ) {
 	return requestJson<CurrentUser>('/account/me/', {
 		method: 'PATCH',
