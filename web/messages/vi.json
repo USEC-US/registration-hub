@@ -3,7 +3,7 @@
 	"app_title": "Câu lạc bộ Thể thao Điện tử",
 	"app_kicker": "Trường ĐH Khoa học Tự nhiên - Đại học Quốc gia TP.Hồ Chí Minh",
 	"hero_title": "Cổng Đăng ký Giải đấu",
-	"hero_subtitle": "CLB Thể thao Điện tử, Trường ĐH Khoa học Tự nhiên - Đại học Quốc gia TP.Hồ Chí Minh",
+	"hero_subtitle": "Chào mừng đến với",
 	"skip_to_content": "Chuyển đến nội dung",
 	"nav_primary_label": "Điều hướng chính",
 	"nav_tournaments": "Giải đấu",
@@ -130,7 +130,7 @@
 	"profile_saved": "Đã lưu hồ sơ.",
 	"profile_load_failed": "Không thể tải hồ sơ. Hãy thử lại.",
 	"profile_save_failed": "Không thể lưu hồ sơ. Hãy kiểm tra thông tin và thử lại.",
-  "address_title": "Địa chỉ:",
+  "address_title": "{#bold}Địa chỉ:{/bold}",
   "address_1": "{#bold}Cơ sở 1{/bold}: 227 đường Nguyễn Văn Cừ, Phường Chợ Quán, Thành phố Hồ Chí Minh",
   "address_2": "{#bold}Cơ sở 2{/bold}: Khu đô thị Đại học Quốc gia Thành phố Hồ Chí Minh, Phường Đông Hoà, Thành phố Hồ Chí Minh"
 }

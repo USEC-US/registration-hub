@@ -3,7 +3,7 @@
 	"app_title": "University of Science Esports Club",
 	"app_kicker": "Viet Nam National University - Ho Chi Minh City",
 	"hero_title": "Tournament Registration Portal",
-	"hero_subtitle": "Welcome to VNU-HCM - University of Science Esports Club",
+	"hero_subtitle": "Welcome to",
 	"skip_to_content": "Skip to content",
 	"nav_primary_label": "Primary navigation",
 	"nav_tournaments": "Tournaments",
@@ -130,7 +130,7 @@
 	"profile_saved": "Profile saved.",
 	"profile_load_failed": "Your profile could not be loaded. Try again.",
 	"profile_save_failed": "Your profile could not be saved. Check your details and try again.",
-  "address_title": "Address:",
+  "address_title": "{#bold}Address:{/bold}",
   "address_1": "{#bold}Campus 1{/bold}: 227 Nguyen Van Cu St., Cho Quan Ward, Ho Chi Minh City",
   "address_2": "{#bold}Campus 2{/bold}: VNUHCM Urban Area, Dong Hoa Ward, Ho Chi Minh City."
 }
