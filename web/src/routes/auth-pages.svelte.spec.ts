@@ -37,7 +37,8 @@ const tokens: TokenPair = { access: 'access-token', refresh: 'refresh-token' };
 const user: CurrentUser = {
 	id: 7,
 	email: 'player@example.com',
-	gamer_tag: 'old-tag',
+	first_name: 'Minh',
+	last_name: 'Nguyen',
 	school: 'HCMUS'
 };
 
@@ -135,11 +136,13 @@ describe('account creation page', () => {
 			.element(page.getByLabelText('Mật khẩu'))
 			.toHaveAttribute('autocomplete', 'new-password');
 		expect(container.querySelector('input[name="password"]')).toHaveAttribute('minlength', '8');
-		expect(container.querySelector('input[name="gamer_tag"]')).toHaveAttribute('maxlength', '64');
+		expect(container.querySelector('input[name="first_name"]')).toHaveAttribute('maxlength', '150');
+		expect(container.querySelector('input[name="last_name"]')).toHaveAttribute('maxlength', '150');
 		expect(container.querySelector('input[name="school"]')).toHaveAttribute('maxlength', '128');
 		await page.getByLabelText('Email').fill('PLAYER@EXAMPLE.COM');
 		await page.getByLabelText('Mật khẩu').fill('strong-password');
-		await page.getByLabelText('Tên trong game').fill('player-one');
+		await page.getByLabelText('Họ').fill('Minh');
+		await page.getByLabelText('Tên').fill('Nguyen');
 		await page.getByLabelText('Trường').fill('HCMUS');
 		await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
 
@@ -147,31 +150,37 @@ describe('account creation page', () => {
 		expect(registerAccount).toHaveBeenCalledWith({
 			email: 'PLAYER@EXAMPLE.COM',
 			password: 'strong-password',
-			gamer_tag: 'player-one',
+			first_name: 'Minh',
+			last_name: 'Nguyen',
 			school: 'HCMUS'
 		});
 		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
 		expect(saveSession).toHaveBeenCalledWith(tokens);
 	});
 
-	it('submits blank optional profile defaults', async () => {
-		vi.mocked(registerAccount).mockResolvedValue({ ...user, gamer_tag: '', school: '' });
+	it('submits a blank optional school with required account names', async () => {
+		vi.mocked(registerAccount).mockResolvedValue({ ...user, school: '' });
 		vi.mocked(signIn).mockResolvedValue(tokens);
 		const { container } = render(RegisterPage);
 
-		const gamerTag = container.querySelector('input[name="gamer_tag"]');
+		const firstName = container.querySelector('input[name="first_name"]');
+		const lastName = container.querySelector('input[name="last_name"]');
 		const school = container.querySelector('input[name="school"]');
-		expect(gamerTag).not.toBeRequired();
+		expect(firstName).toBeRequired();
+		expect(lastName).toBeRequired();
 		expect(school).not.toBeRequired();
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByLabelText('First name').fill(user.first_name);
+		await page.getByLabelText('Last name').fill(user.last_name);
 		await page.getByRole('button', { name: 'Create account' }).click();
 
 		await vi.waitFor(() => {
 			expect(registerAccount).toHaveBeenCalledWith({
 				email: user.email,
 				password: 'strong-password',
-				gamer_tag: '',
+				first_name: user.first_name,
+				last_name: user.last_name,
 				school: ''
 			});
 		});
@@ -186,7 +195,8 @@ describe('account creation page', () => {
 		render(RegisterPage);
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
-		await page.getByLabelText('Gamer tag').fill(user.gamer_tag);
+		await page.getByLabelText('First name').fill(user.first_name);
+		await page.getByLabelText('Last name').fill(user.last_name);
 		await page.getByLabelText('School').fill(user.school);
 		await page.getByRole('button', { name: 'Create account' }).click();
 
@@ -202,7 +212,8 @@ describe('account creation page', () => {
 		render(RegisterPage);
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
-		await page.getByLabelText('Gamer tag').fill(user.gamer_tag);
+		await page.getByLabelText('First name').fill(user.first_name);
+		await page.getByLabelText('Last name').fill(user.last_name);
 		await page.getByLabelText('School').fill(user.school);
 		await page.getByRole('button', { name: 'Create account' }).click();
 
@@ -230,47 +241,48 @@ describe('profile page', () => {
 		expect(getCurrentUser).not.toHaveBeenCalled();
 	});
 
-	it('shows email as immutable metadata and saves only editable profile defaults', async () => {
+	it('shows email as immutable metadata and saves only editable account identity', async () => {
 		vi.mocked(getAccessToken).mockReturnValue(tokens.access);
 		vi.mocked(getCurrentUser).mockResolvedValue(user);
 		vi.mocked(updateCurrentUser).mockResolvedValue({
 			...user,
-			gamer_tag: 'normalized-tag',
 			school: 'HCMUS - VNU'
 		});
 		const { container } = render(ProfilePage);
 
 		await expect.element(page.getByText(user.email)).toBeInTheDocument();
 		expect(container.querySelector('input[name="email"]')).toBeNull();
-		await page.getByLabelText('Gamer tag').fill(' normalized-tag ');
+		await page.getByLabelText('First name').fill(' Minh ');
+		await page.getByLabelText('Last name').fill(' Nguyen ');
 		await page.getByLabelText('School').fill('HCMUS - VNU');
 		await page.getByRole('button', { name: 'Save profile' }).click();
 
 		await vi.waitFor(() => {
 			expect(updateCurrentUser).toHaveBeenCalledWith(tokens.access, {
-				gamer_tag: ' normalized-tag ',
+				first_name: ' Minh ',
+				last_name: ' Nguyen ',
 				school: 'HCMUS - VNU'
 			});
 		});
-		await expect.element(page.getByLabelText('Gamer tag')).toHaveValue('normalized-tag');
+		await expect.element(page.getByLabelText('First name')).toHaveValue(user.first_name);
+		await expect.element(page.getByLabelText('Last name')).toHaveValue(user.last_name);
 		await expect.element(page.getByText('Profile saved.')).toBeInTheDocument();
 	});
 
-	it('allows both optional profile defaults to be cleared', async () => {
+	it('allows the optional school to be cleared', async () => {
 		vi.mocked(getAccessToken).mockReturnValue(tokens.access);
 		vi.mocked(getCurrentUser).mockResolvedValue(user);
-		vi.mocked(updateCurrentUser).mockResolvedValue({ ...user, gamer_tag: '', school: '' });
+		vi.mocked(updateCurrentUser).mockResolvedValue({ ...user, school: '' });
 		const { container } = render(ProfilePage);
 
-		await page.getByLabelText('Gamer tag').fill('');
 		await page.getByLabelText('School').fill('');
-		expect(container.querySelector('input[name="gamer_tag"]')).not.toBeRequired();
 		expect(container.querySelector('input[name="school"]')).not.toBeRequired();
 		await page.getByRole('button', { name: 'Save profile' }).click();
 
 		await vi.waitFor(() => {
 			expect(updateCurrentUser).toHaveBeenCalledWith(tokens.access, {
-				gamer_tag: '',
+				first_name: user.first_name,
+				last_name: user.last_name,
 				school: ''
 			});
 		});
@@ -309,12 +321,12 @@ describe('profile page', () => {
 		vi.mocked(getAccessToken).mockReturnValue(tokens.access);
 		vi.mocked(getCurrentUser).mockResolvedValue(user);
 		vi.mocked(updateCurrentUser).mockRejectedValue(
-			new ApiRequestError(400, 'Invalid profile.', { gamer_tag: ['Use 64 characters or fewer.'] })
+			new ApiRequestError(400, 'Invalid profile.', { school: ['Use 128 characters or fewer.'] })
 		);
 		render(ProfilePage);
 
 		await page.getByRole('button', { name: 'Save profile' }).click();
-		await expect.element(page.getByText('Use 64 characters or fewer.')).toBeInTheDocument();
+		await expect.element(page.getByText('Use 128 characters or fewer.')).toBeInTheDocument();
 		expect(clearSession).not.toHaveBeenCalled();
 		expect(replaceInternalLocation).not.toHaveBeenCalled();
 	});
