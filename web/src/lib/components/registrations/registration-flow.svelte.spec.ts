@@ -31,22 +31,17 @@ describe('RosterEditor', () => {
 	});
 
 	it('renders the fixed team size with empty members and moves the only captain marker', async () => {
+		let members: import('$lib/api/types').RegistrationMemberInput[] = [];
 		const { container } = render(RosterEditor, {
 			teamSizeMin: 2,
-			teamSizeMax: 2
+			teamSizeMax: 2,
+			get members() {
+				return members;
+			},
+			set members(value) {
+				members = value;
+			}
 		});
-
-		const members = Array.from(
-			container.querySelectorAll<HTMLElement>('[data-roster-row]'),
-			(row, index) => ({
-				gamer_tag_snapshot:
-					row.querySelector<HTMLInputElement>('input[name$="-gamer-tag"]')?.value ?? '',
-				school_snapshot: row.querySelector<HTMLInputElement>('input[name$="-school"]')?.value ?? '',
-				is_captain:
-					row.querySelector<HTMLInputElement>('input[name="captain"]')?.checked ?? false,
-				display_order: index + 1
-			})
-		);
 		expect(members).toEqual([
 			{
 				gamer_tag_snapshot: '',
