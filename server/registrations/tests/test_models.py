@@ -1,18 +1,21 @@
 from datetime import timedelta
 
-from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 
+from accounts.tests.factories import create_account
+
 from registrations.models import Registration, RegistrationMember
 from tournaments.models import Game, Tournament, TournamentGame
 
-
 class RegistrationMemberModelTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(
-            email="captain@example.com", password="strong-password"
+        self.user = create_account(
+            email="captain@example.com",
+            password="strong-password",
+            first_name="Captain",
+            last_name="Player",
         )
         game = Game.objects.create(name="Valorant", slug="valorant")
         tournament = Tournament.objects.create(name="Summer", slug="summer")

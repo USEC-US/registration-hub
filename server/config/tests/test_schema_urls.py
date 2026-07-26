@@ -1,8 +1,8 @@
-from django.contrib.auth import get_user_model
 from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.tests.factories import create_account
 
 @override_settings(ROOT_URLCONF="config.urls")
 class SchemaDocsAccessTests(APITestCase):
@@ -17,9 +17,11 @@ class SchemaDocsAccessTests(APITestCase):
     @override_settings(DEBUG=False)
     def test_schema_is_staff_only_outside_debug(self):
         anonymous_response = self.client.get("/api/schema/")
-        staff_user = get_user_model().objects.create_user(
+        staff_user = create_account(
             email="staff@example.com",
             password="strong-password",
+            first_name="Organizer",
+            last_name="Staff",
             is_staff=True,
         )
 

@@ -2,13 +2,16 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
+from accounts.tests.factories import create_account
+
 
 class UserModelTests(TestCase):
     def test_email_is_the_login_identifier(self):
-        user = get_user_model().objects.create_user(
+        user = create_account(
             email="captain@example.com",
             password="strong-password",
-            gamer_tag="captain",
+            first_name="Captain",
+            last_name="Player",
             school="HCMUS",
         )
 
@@ -17,12 +20,33 @@ class UserModelTests(TestCase):
         self.assertTrue(user.check_password("strong-password"))
 
     def test_email_is_unique(self):
-        user_model = get_user_model()
-        user_model.objects.create_user(
-            email="same@example.com", password="strong-password"
+        create_account(
+            email="same@example.com",
+            password="strong-password",
+            first_name="Same",
+            last_name="User",
         )
 
         with self.assertRaises(IntegrityError), transaction.atomic():
-            user_model.objects.create_user(
-                email="same@example.com", password="another-password"
+            create_account(
+                email="same@example.com",
+                password="another-password",
+                first_name="Same",
+                last_name="User",
+            )
+
+    def test_create_user_requires_first_name(self):
+        with self.assertRaises(ValueError):
+            get_user_model().objects.create_user(
+                email="player@example.com",
+                password="strong-password",
+                last_name="User",
+            )
+
+    def test_create_user_requires_last_name(self):
+        with self.assertRaises(ValueError):
+            get_user_model().objects.create_user(
+                email="player@example.com",
+                password="strong-password",
+                first_name="Test",
             )

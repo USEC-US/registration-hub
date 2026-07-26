@@ -2,11 +2,12 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
+
+from accounts.tests.factories import create_account
 
 from registrations.models import Registration
 from tournaments.models import Game, Tournament, TournamentGame
@@ -107,9 +108,11 @@ class PublicTournamentApiTests(APITestCase):
         self.assertEqual(len(response.data["tournament_games"]), 2)
 
     def test_full_game_reports_full_state(self):
-        user = get_user_model().objects.create_user(
+        user = create_account(
             email="player@example.com",
             password="strong-password",
+            first_name="Player",
+            last_name="User",
         )
         Registration.objects.create(
             tournament_game=self.tournament_game,

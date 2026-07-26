@@ -2,20 +2,24 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
-from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
+
+from accounts.tests.factories import create_account
 
 from registrations.admin import PaymentAttemptAdmin, RegistrationAdmin
 from registrations.models import PaymentAttempt, Registration
 from tournaments.models import Game, Tournament, TournamentGame
 
-
 class GuardedAdminTests(TestCase):
     def setUp(self):
-        self.actor = get_user_model().objects.create_user(
-            email="organizer@example.com", password="strong-password", is_staff=True
+        self.actor = create_account(
+            email="organizer@example.com",
+            password="strong-password",
+            first_name="Organizer",
+            last_name="Staff",
+            is_staff=True,
         )
         game = Game.objects.create(name="Chess", slug="chess")
         tournament = Tournament.objects.create(name="Summer", slug="summer")
@@ -88,9 +92,11 @@ class GuardedAdminTests(TestCase):
         )
 
     def test_direct_model_permissions_do_not_bypass_organizer_membership(self):
-        outsider = get_user_model().objects.create_user(
+        outsider = create_account(
             email="outside-staff@example.com",
             password="strong-password",
+            first_name="Outside",
+            last_name="Staff",
             is_staff=True,
         )
         outsider.user_permissions.add(

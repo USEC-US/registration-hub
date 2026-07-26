@@ -1,24 +1,30 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.tests.factories import create_account
+
 from registrations.models import Registration
 from tournaments.models import Game, Tournament, TournamentGame
-
 
 @override_settings(ROOT_URLCONF="config.urls")
 class RegistrationOwnershipApiTests(APITestCase):
     def setUp(self):
-        self.owner = get_user_model().objects.create_user(
-            email="owner@example.com", password="strong-password"
+        self.owner = create_account(
+            email="owner@example.com",
+            password="strong-password",
+            first_name="Owner",
+            last_name="Player",
         )
-        self.other_user = get_user_model().objects.create_user(
-            email="other@example.com", password="strong-password"
+        self.other_user = create_account(
+            email="other@example.com",
+            password="strong-password",
+            first_name="Other",
+            last_name="Player",
         )
         game = Game.objects.create(name="Chess", slug="chess")
         tournament = Tournament.objects.create(

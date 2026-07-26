@@ -1,12 +1,13 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
+
+from accounts.tests.factories import create_account
 
 from registrations.models import PaymentAttempt, Registration
 from registrations.services import (
@@ -23,11 +24,17 @@ from tournaments.models import Game, Tournament, TournamentGame
 
 class RegistrationServiceTests(TestCase):
     def setUp(self):
-        self.captain = get_user_model().objects.create_user(
-            email="captain@example.com", password="strong-password"
+        self.captain = create_account(
+            email="captain@example.com",
+            password="strong-password",
+            first_name="Captain",
+            last_name="Player",
         )
-        self.other_user = get_user_model().objects.create_user(
-            email="other@example.com", password="strong-password"
+        self.other_user = create_account(
+            email="other@example.com",
+            password="strong-password",
+            first_name="Other",
+            last_name="Player",
         )
         game = Game.objects.create(name="Chess", slug="chess")
         tournament = Tournament.objects.create(
@@ -62,9 +69,11 @@ class RegistrationServiceTests(TestCase):
         )
 
     def _organizer(self):
-        organizer = get_user_model().objects.create_user(
+        organizer = create_account(
             email="organizer@example.com",
             password="strong-password",
+            first_name="Organizer",
+            last_name="Staff",
             is_staff=True,
         )
         group, _ = Group.objects.get_or_create(name="Organizers")
@@ -215,8 +224,12 @@ class RegistrationServiceTests(TestCase):
 
     def test_only_authorized_organizer_can_transition_registration(self):
         registration = self._submit_solo()
-        unauthorized = get_user_model().objects.create_user(
-            email="staff@example.com", password="strong-password", is_staff=True
+        unauthorized = create_account(
+            email="staff@example.com",
+            password="strong-password",
+            first_name="Unauthorized",
+            last_name="Staff",
+            is_staff=True,
         )
 
         with self.assertRaises(PermissionDenied):
