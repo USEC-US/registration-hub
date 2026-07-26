@@ -3,9 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ApiRequestError } from '$lib/api/client';
-	import { getCurrentUser } from '$lib/api/auth';
 	import { submitRegistration } from '$lib/api/registrations';
-	import type { CurrentUser, RegistrationMemberInput } from '$lib/api/types';
+	import type { RegistrationMemberInput } from '$lib/api/types';
 	import { replaceInternalLocation } from '$lib/auth/navigation';
 	import { clearSession, getAccessToken } from '$lib/auth/session';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
@@ -20,7 +19,6 @@
 
 	let { data }: PageProps = $props();
 	let accessToken = $state<string | null>(null);
-	let currentUser = $state<CurrentUser | null>(null);
 	let members = $state<RegistrationMemberInput[]>([]);
 	let teamName = $state('');
 	let loading = $state(true);
@@ -52,30 +50,19 @@
 		}).format(Number(data.game.fee_amount));
 	}
 
-	onMount(async () => {
+	onMount(() => {
 		accessToken = getAccessToken();
 		if (!accessToken) {
-			loading = false;
 			redirectToSignIn(false);
 			return;
 		}
 
-		try {
-			currentUser = await getCurrentUser(accessToken);
-		} catch (cause) {
-			if (isAuthenticationError(cause)) {
-				redirectToSignIn(true);
-				return;
-			}
-			({ fieldErrors, formErrors } = formErrorsFrom(cause, m.registration_profile_load_failed()));
-		} finally {
-			loading = false;
-		}
+		loading = false;
 	});
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting || !accessToken || !currentUser) return;
+		if (submitting || !accessToken) return;
 
 		submitting = true;
 		fieldErrors = {};
@@ -148,9 +135,9 @@
 		class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm text-(--text-muted)"
 		role="status"
 	>
-		{redirecting ? m.auth_redirecting_to_sign_in() : m.registration_loading_profile()}
+		{m.auth_redirecting_to_sign_in()}
 	</p>
-{:else if currentUser}
+{:else if accessToken}
 	<form class="mt-8 grid gap-8" aria-busy={submitting} onsubmit={handleSubmit}>
 		<ErrorSummary errors={formErrors} />
 		{#if data.game.team_size_max > 1}
@@ -176,8 +163,6 @@
 		<RosterEditor
 			teamSizeMin={data.game.team_size_min}
 			teamSizeMax={data.game.team_size_max}
-			initialGamerTag={currentUser.gamer_tag}
-			initialSchool={currentUser.school}
 			bind:members
 		/>
 

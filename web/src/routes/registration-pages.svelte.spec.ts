@@ -47,7 +47,8 @@ const accessToken = 'access-token';
 const user: CurrentUser = {
 	id: 7,
 	email: 'player@example.com',
-	gamer_tag: 'captain',
+	first_name: 'Player',
+	last_name: 'One',
 	school: 'HCMUS'
 };
 const game: PublicTournamentGame = {
@@ -132,16 +133,20 @@ beforeEach(() => {
 });
 
 describe('participant registration pages', () => {
-	it('prefills the captain and submits the bound team roster', async () => {
+	it('starts with an empty roster and submits the bound team roster', async () => {
 		const { container } = render(RegisterPage, {
 			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
 			params: { slug: tournament.slug, gameId: String(game.id) }
 		});
 
 		await vi.waitFor(() =>
-			expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('captain')
+			expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('')
 		);
+		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
+		expect(getCurrentUser).not.toHaveBeenCalled();
 		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
+		await page.getByLabelText('School').nth(0).fill('HCMUS');
 		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
 		await page.getByLabelText('School').nth(1).fill('HCMUS');
 		await page.getByRole('button', { name: 'Submit registration' }).click();
@@ -180,6 +185,8 @@ describe('participant registration pages', () => {
 
 		await expect.element(page.getByLabelText('Team name')).toBeInTheDocument();
 		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
+		await page.getByLabelText('School').nth(0).fill('HCMUS');
 		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
 		await page.getByLabelText('School').nth(1).fill('HCMUS');
 		await page.getByRole('button', { name: 'Submit registration' }).click();

@@ -16,36 +16,57 @@ beforeEach(() => {
 });
 
 describe('RosterEditor', () => {
-	it('renders one required, prefilled captain row for a solo game', () => {
+	it('renders one required, empty captain row for a solo game', () => {
 		const { container } = render(RosterEditor, {
 			teamSizeMin: 1,
 			teamSizeMax: 1,
-			initialGamerTag: 'rookie',
-			initialSchool: 'HCMUS'
 		});
 
 		expect(container.querySelectorAll('[data-roster-row]')).toHaveLength(1);
-		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('rookie');
-		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('HCMUS');
+		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('');
+		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toBeRequired();
 		expect(container.querySelector('input[name="member-1-school"]')).toBeRequired();
 		expect(container.querySelector('input[name="captain"]')).toBeChecked();
 	});
 
-	it('renders the fixed team size and moves the only captain marker', async () => {
+	it('renders the fixed team size with empty members and moves the only captain marker', async () => {
 		const { container } = render(RosterEditor, {
-			teamSizeMin: 5,
-			teamSizeMax: 5,
-			initialGamerTag: 'captain',
-			initialSchool: 'HCMUS'
+			teamSizeMin: 2,
+			teamSizeMax: 2
 		});
 
-		expect(container.querySelectorAll('[data-roster-row]')).toHaveLength(5);
-		await page.getByRole('radio', { name: 'Set member 3 as captain' }).click();
+		const members = Array.from(
+			container.querySelectorAll<HTMLElement>('[data-roster-row]'),
+			(row, index) => ({
+				gamer_tag_snapshot:
+					row.querySelector<HTMLInputElement>('input[name$="-gamer-tag"]')?.value ?? '',
+				school_snapshot: row.querySelector<HTMLInputElement>('input[name$="-school"]')?.value ?? '',
+				is_captain:
+					row.querySelector<HTMLInputElement>('input[name="captain"]')?.checked ?? false,
+				display_order: index + 1
+			})
+		);
+		expect(members).toEqual([
+			{
+				gamer_tag_snapshot: '',
+				school_snapshot: '',
+				is_captain: true,
+				display_order: 1
+			},
+			{
+				gamer_tag_snapshot: '',
+				school_snapshot: '',
+				is_captain: false,
+				display_order: 2
+			}
+		]);
+		expect(container.querySelectorAll('[data-roster-row]')).toHaveLength(2);
+		await page.getByRole('radio', { name: 'Set member 2 as captain' }).click();
 
 		const controls = container.querySelectorAll<HTMLInputElement>('input[name="captain"]');
 		expect(controls[0]).not.toBeChecked();
-		expect(controls[2]).toBeChecked();
+		expect(controls[1]).toBeChecked();
 		expect(Array.from(controls).filter((control) => control.checked)).toHaveLength(1);
 	});
 });

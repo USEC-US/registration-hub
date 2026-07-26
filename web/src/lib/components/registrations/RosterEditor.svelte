@@ -5,24 +5,20 @@
 	interface Props {
 		teamSizeMin: number;
 		teamSizeMax: number;
-		initialGamerTag: string;
-		initialSchool: string;
 		members?: RegistrationMemberInput[];
 	}
 
 	let {
 		teamSizeMin,
 		teamSizeMax,
-		initialGamerTag,
-		initialSchool,
 		members = $bindable([])
 	}: Props = $props();
 
 	function initializeMembers(): void {
 		if (members.length > 0) return;
 		members = Array.from({ length: teamSizeMax }, (_, index) => ({
-			gamer_tag_snapshot: index === 0 ? initialGamerTag : '',
-			school_snapshot: index === 0 ? initialSchool : '',
+			gamer_tag_snapshot: '',
+			school_snapshot: '',
 			is_captain: index === 0,
 			display_order: index + 1
 		}));
