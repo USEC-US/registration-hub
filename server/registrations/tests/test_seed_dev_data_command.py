@@ -50,8 +50,10 @@ class SeedDevDataCommandTests(TestCase):
         admin = user_model.objects.get(email="admin@email.com")
 
         self.assertTrue(player.check_password("player@123"))
-        self.assertEqual(player.gamer_tag, "Rookie")
+        self.assertEqual(player.first_name, "Development")
+        self.assertEqual(player.last_name, "Player")
         self.assertEqual(player.school, "HCMUS")
+        self.assertFalse(hasattr(player, "gamer_tag"))
         self.assertTrue(player.is_active)
         self.assertFalse(player.is_staff)
         self.assertFalse(player.is_superuser)
@@ -238,7 +240,8 @@ class SeedDevDataCommandTests(TestCase):
         user_model = get_user_model()
         player = user_model.objects.get(email="player@email.com")
         organizers = Group.objects.get(name="Organizers")
-        player.gamer_tag = "Changed"
+        player.first_name = "Changed"
+        player.last_name = "Changed"
         player.school = "Changed"
         player.is_staff = True
         player.is_superuser = True
@@ -268,6 +271,8 @@ class SeedDevDataCommandTests(TestCase):
         outsider = user_model.objects.create_user(
             email="outsider@example.com",
             password="strong-password",
+            first_name="Outsider",
+            last_name="User",
         )
         outsider_game = Game.objects.create(
             name="Unrelated Game", slug="unrelated-game"
@@ -301,8 +306,10 @@ class SeedDevDataCommandTests(TestCase):
 
         player.refresh_from_db()
         self.assertTrue(player.check_password("player@123"))
-        self.assertEqual(player.gamer_tag, "Rookie")
+        self.assertEqual(player.first_name, "Development")
+        self.assertEqual(player.last_name, "Player")
         self.assertEqual(player.school, "HCMUS")
+        self.assertFalse(hasattr(player, "gamer_tag"))
         self.assertFalse(player.is_staff)
         self.assertFalse(player.is_superuser)
         self.assertFalse(player.groups.exists())

@@ -61,7 +61,8 @@ def _set_account(
     *,
     email: str,
     password: str,
-    gamer_tag: str,
+    first_name: str,
+    last_name: str,
     school: str,
     is_staff: bool,
     is_superuser: bool,
@@ -71,7 +72,8 @@ def _set_account(
     user, _ = user_model.objects.update_or_create(
         email=email,
         defaults={
-            "gamer_tag": gamer_tag,
+            "first_name": first_name,
+            "last_name": last_name,
             "school": school,
             "is_active": True,
             "is_staff": is_staff,
@@ -82,7 +84,8 @@ def _set_account(
     user.save(
         update_fields=(
             "password",
-            "gamer_tag",
+            "first_name",
+            "last_name",
             "school",
             "is_active",
             "is_staff",
@@ -98,7 +101,8 @@ def _seed_accounts():
     player = _set_account(
         email=PLAYER_EMAIL,
         password="player@123",
-        gamer_tag="Rookie",
+        first_name="Development",
+        last_name="Player",
         school="HCMUS",
         is_staff=False,
         is_superuser=False,
@@ -107,7 +111,8 @@ def _seed_accounts():
     organizer = _set_account(
         email=ORGANIZER_EMAIL,
         password="organizer@123",
-        gamer_tag="",
+        first_name="Development",
+        last_name="Organizer",
         school="",
         is_staff=True,
         is_superuser=False,
@@ -116,7 +121,8 @@ def _seed_accounts():
     admin = _set_account(
         email=ADMIN_EMAIL,
         password="admin@123",
-        gamer_tag="",
+        first_name="Development",
+        last_name="Administrator",
         school="",
         is_staff=True,
         is_superuser=True,
