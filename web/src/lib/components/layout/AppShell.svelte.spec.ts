@@ -54,6 +54,19 @@ describe('AppShell secondary navigation', () => {
 		await expect.element(rules).toHaveAttribute('aria-disabled', 'true');
 	});
 
+	it('lets public navigation cells grow with configurable minimum widths', async () => {
+		renderShell();
+
+		const tournaments = page.getByRole('link', { name: m.nav_tournaments() });
+		const rules = page.getByText('Rules');
+		await expect.element(tournaments).toHaveClass('flex-1');
+		await expect.element(rules).toHaveClass('flex-1');
+		expect((tournaments.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')).toBe(
+			'9rem'
+		);
+		expect((rules.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')).toBe('7rem');
+	});
+
 	it('renders sign-in, register, and the locale selector without a session', async () => {
 		renderShell();
 
