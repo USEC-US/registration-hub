@@ -11,6 +11,9 @@
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Card from '$lib/components/ui/card';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { onMount } from 'svelte';
 
 	let registrations = $state<RegistrationRead[]>([]);
@@ -56,6 +59,17 @@
 			style: 'currency',
 			currency: registration.fee_currency_snapshot
 		}).format(Number(registration.fee_amount_snapshot));
+	}
+
+	function statusClass(status: RegistrationStatus): string {
+		switch (status) {
+			case 'APPROVED':
+				return 'border-success text-success';
+			case 'REJECTED':
+				return 'border-destructive text-destructive';
+			default:
+				return '';
+		}
 	}
 
 	onMount(async () => {
@@ -107,68 +121,55 @@
 </header>
 
 {#if loading || redirecting}
-	<p
-		class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm text-(--text-muted)"
-		role="status"
-	>
-		{redirecting ? m.auth_redirecting_to_sign_in() : m.registrations_loading()}
-	</p>
+	<section class="mt-8 flex flex-col gap-4" role="status">
+		<p class="text-sm text-muted-foreground">
+			{redirecting ? m.auth_redirecting_to_sign_in() : m.registrations_loading()}
+		</p>
+		<Skeleton class="h-28 w-full" />
+		<Skeleton class="h-28 w-full" />
+	</section>
 {:else if formErrors.length > 0}
 	<section class="mt-8"><ErrorSummary errors={formErrors} /></section>
 {:else if registrations.length === 0}
-	<p
-		class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm text-(--text-muted)"
-		role="status"
-	>
-		{m.empty_registrations()}
-	</p>
+	<Card.Root class="mt-8">
+		<Card.Content role="status" class="text-muted-foreground">{m.empty_registrations()}</Card.Content>
+	</Card.Root>
 {:else}
-	<section class="mt-8 space-y-4" aria-label={m.registrations_heading()}>
+	<section class="mt-8 flex flex-col gap-4" aria-label={m.registrations_heading()}>
 		{#each registrations as registration, index (registration.id)}
 			<a
-				class="group grid border border-(--line) transition-colors hover:border-accent focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-accent lg:grid-cols-[5rem_minmax(0,1fr)_minmax(13rem,0.42fr)]"
+				class="group focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-ring"
 				href={resolve(localizeInternalHref(`/account/registrations/${registration.id}`))}
 			>
-				<div
-					class="grid content-center border-b border-(--line) bg-(--surface-muted) p-4 lg:border-b-0 lg:border-r"
-				>
-					<span class="font-mono-data text-2xl font-semibold text-accent"
-						>{String(index + 1).padStart(2, '0')}</span
-					>
-				</div>
-				<div class="p-5">
-					<div class="flex flex-wrap items-center gap-3">
-						<span
-							class="border border-accent px-2 py-1 text-xs font-semibold text-accent"
-							>{statusLabel(registration.status)}</span
-						>
-						<span class="text-xs text-(--text-muted)"
-							>{registration.tournament_game.game_name}</span
-						>
-					</div>
-					<h2 class="font-heading mt-3 text-xl font-semibold group-hover:text-accent">
-						{registration.tournament_game.tournament_name}
-					</h2>
-					{#if registration.team_name}
-						<p class="mt-2 text-sm text-(--text-muted)">{registration.team_name}</p>
-					{/if}
-				</div>
-				<dl
-					class="grid grid-cols-2 gap-px border-t border-(--line) bg-(--line) text-sm lg:grid-cols-1 lg:border-l lg:border-t-0"
-				>
-					<div class="bg-white p-4">
-						<dt class="text-xs text-(--text-muted)">{m.registration_submitted_label()}</dt>
-						<dd class="font-mono-data mt-1 text-xs font-semibold">
-							<time datetime={registration.submitted_at}
-								>{formatDate(registration.submitted_at)}</time
-							>
-						</dd>
-					</div>
-					<div class="bg-white p-4">
-						<dt class="text-xs text-(--text-muted)">{m.game_fee()}</dt>
-						<dd class="font-mono-data mt-1 text-xs font-semibold">{formatFee(registration)}</dd>
-					</div>
-				</dl>
+				<Card.Root class="grid gap-0 py-0 lg:grid-cols-[5rem_minmax(0,1fr)_minmax(13rem,0.42fr)]">
+					<Card.Header class="grid content-center bg-muted p-4 lg:row-span-2 lg:border-r">
+						<span class="font-mono-data text-2xl font-semibold text-primary">{String(index + 1).padStart(2, '0')}</span>
+					</Card.Header>
+					<Card.Content class="p-5">
+						<div class="flex flex-wrap items-center gap-3">
+							<Badge variant={registration.status === 'REJECTED' ? 'destructive' : 'outline'} class={statusClass(registration.status)}>
+								{statusLabel(registration.status)}
+							</Badge>
+							<span class="text-xs text-muted-foreground">{registration.tournament_game.game_name}</span>
+						</div>
+						<Card.Title class="mt-3"><h2>{registration.tournament_game.tournament_name}</h2></Card.Title>
+						{#if registration.team_name}
+							<Card.Description class="mt-2">{registration.team_name}</Card.Description>
+						{/if}
+					</Card.Content>
+					<Card.Footer class="block p-0 lg:row-span-2 lg:border-l">
+						<dl class="grid grid-cols-2 gap-px bg-border text-sm lg:grid-cols-1">
+							<div class="bg-card p-4">
+								<dt class="text-xs text-muted-foreground">{m.registration_submitted_label()}</dt>
+								<dd class="font-mono-data mt-1 text-xs font-semibold"><time datetime={registration.submitted_at}>{formatDate(registration.submitted_at)}</time></dd>
+							</div>
+							<div class="bg-card p-4">
+								<dt class="text-xs text-muted-foreground">{m.game_fee()}</dt>
+								<dd class="font-mono-data mt-1 text-xs font-semibold">{formatFee(registration)}</dd>
+							</div>
+						</dl>
+					</Card.Footer>
+				</Card.Root>
 			</a>
 		{/each}
 	</section>

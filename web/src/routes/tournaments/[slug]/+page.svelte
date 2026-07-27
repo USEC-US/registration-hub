@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TournamentGameRow from '$lib/components/tournaments/TournamentGameRow.svelte';
+	import { Separator } from '$lib/components/ui/separator';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { formatTournamentDateTime } from '$lib/time/tournament-time';
@@ -75,7 +76,7 @@
 	</header>
 
 	<section class="mt-9" aria-labelledby="configured-games-heading">
-		<header class="mb-4 flex items-center gap-3 border-b border-(--line) pb-4">
+		<header class="flex items-center gap-3 pb-4">
 			<span class="bracket-node" aria-hidden="true"></span>
 			<div>
 				<p class="text-xs font-semibold uppercase tracking-[0.14em] text-(--text-muted)">
@@ -86,9 +87,10 @@
 				</h2>
 			</div>
 		</header>
+		<Separator class="mb-4" />
 
 		{#if data.tournament.tournament_games.length > 0}
-			<div class="space-y-4">
+				<div class="flex flex-col gap-4">
 				{#each data.tournament.tournament_games as game (game.id)}
 					<TournamentGameRow
 						tournament={data.tournament}

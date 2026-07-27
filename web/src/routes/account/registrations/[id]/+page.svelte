@@ -13,6 +13,9 @@
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Card from '$lib/components/ui/card';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { onMount } from 'svelte';
 
 	let accessToken = $state<string | null>(null);
@@ -65,6 +68,17 @@
 		}).format(Number(registration.fee_amount_snapshot));
 	}
 
+	function statusClass(status: RegistrationStatus): string {
+		switch (status) {
+			case 'APPROVED':
+				return 'border-success text-success';
+			case 'REJECTED':
+				return 'border-destructive text-destructive';
+			default:
+				return '';
+		}
+	}
+
 	async function refreshRegistration(): Promise<void> {
 		if (!accessToken) return;
 		try {
@@ -105,67 +119,58 @@
 </svelte:head>
 
 {#if loading || redirecting}
-	<p
-		class="border border-(--line) bg-(--surface-muted) p-6 text-sm text-(--text-muted)"
-		role="status"
-	>
-		{redirecting ? m.auth_redirecting_to_sign_in() : m.registration_detail_loading()}
-	</p>
+	<section class="flex flex-col gap-4" role="status">
+		<p class="text-sm text-muted-foreground">
+			{redirecting ? m.auth_redirecting_to_sign_in() : m.registration_detail_loading()}
+		</p>
+		<Skeleton class="h-48 w-full" />
+		<Skeleton class="h-64 w-full" />
+	</section>
 {:else if registration && accessToken}
 	<article>
-		<header
-			class="grid border border-(--line) lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]"
-		>
-			<div class="p-5 sm:p-7 lg:p-9">
+		<Card.Root class="grid gap-0 py-0 lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]">
+			<Card.Header class="p-5 sm:p-7 lg:row-span-2 lg:p-9">
 				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 					{registration.tournament_game.tournament_name}
 				</p>
-				<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
-					{registration.team_name || registration.tournament_game.game_name}
-				</h1>
-				<p class="mt-4 text-base text-(--text-muted)">
+				<Card.Title class="mt-3"><h1>{registration.team_name || registration.tournament_game.game_name}</h1></Card.Title>
+				<Card.Description class="mt-4 text-base">
 					{registration.tournament_game.game_name} · {m.registration_detail_heading({
 						id: registration.id
 					})}
-				</p>
-			</div>
-			<dl
-				class="grid gap-px border-t border-(--line) bg-(--line) text-sm lg:border-l lg:border-t-0"
-			>
-				<div class="bg-(--surface-muted) p-5">
-					<dt class="text-xs text-(--text-muted)">{m.registration_status_label()}</dt>
-					<dd
-						class="mt-2 inline-block border border-accent px-2 py-1 text-xs font-semibold text-accent"
-					>
-						{statusLabel(registration.status)}
-					</dd>
-				</div>
-				<div class="bg-(--surface-muted) p-5">
-					<dt class="text-xs text-(--text-muted)">{m.registration_submitted_label()}</dt>
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="p-0">
+				<dl class="grid gap-px bg-border text-sm">
+					<div class="bg-muted p-5">
+						<dt class="text-xs text-(--text-muted)">{m.registration_status_label()}</dt>
+						<dd class="mt-2"><Badge variant={registration.status === 'REJECTED' ? 'destructive' : 'outline'} class={statusClass(registration.status)}>{statusLabel(registration.status)}</Badge></dd>
+					</div>
+					<div class="bg-muted p-5">
+						<dt class="text-xs text-(--text-muted)">{m.registration_submitted_label()}</dt>
 					<dd class="font-mono-data mt-1 text-xs font-semibold">
 						<time datetime={registration.submitted_at}>{formatDate(registration.submitted_at)}</time
 						>
 					</dd>
 				</div>
-				<div class="bg-(--surface-muted) p-5">
+					<div class="bg-muted p-5">
 					<dt class="text-xs text-(--text-muted)">{m.game_fee()}</dt>
 					<dd class="font-mono-data mt-1 text-xs font-semibold">{formatFee()}</dd>
-				</div>
-			</dl>
-		</header>
+					</div>
+				</dl>
+			</Card.Content>
+		</Card.Root>
 
 		<div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.6fr)]">
-			<section aria-labelledby="registration-roster-heading">
-				<header class="mb-4 flex items-center gap-3 border-b border-(--line) pb-4">
-					<span class="bracket-node" aria-hidden="true"></span>
-					<h2 class="font-heading text-2xl font-semibold" id="registration-roster-heading">
-						{m.roster_heading()}
-					</h2>
-				</header>
-				<ol class="border border-(--line)">
+			<Card.Root aria-labelledby="registration-roster-heading">
+				<Card.Header>
+					<Card.Title><h2 id="registration-roster-heading">{m.roster_heading()}</h2></Card.Title>
+				</Card.Header>
+				<Card.Content class="p-0">
+				<ol class="divide-y">
 					{#each registration.members as member (member.display_order)}
 						<li
-							class="grid gap-3 border-b border-(--line) p-4 last:border-b-0 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-center"
+							class="grid gap-3 p-4 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-center"
 						>
 							<span class="font-mono-data text-2xl font-semibold text-accent"
 								>{String(member.display_order).padStart(2, '0')}</span
@@ -173,25 +178,20 @@
 							<span class="font-semibold">{member.gamer_tag_snapshot}</span>
 							<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
 							{#if member.is_captain}
-								<span
-									class="border border-accent px-2 py-1 text-xs font-semibold text-accent"
-									>{m.roster_captain()}</span
-								>
+								<Badge variant="outline">{m.roster_captain()}</Badge>
 							{/if}
 						</li>
 					{/each}
 				</ol>
-			</section>
+				</Card.Content>
+			</Card.Root>
 
-			<section
-				class="border border-(--line) p-5"
-				aria-labelledby="registration-status-heading"
-			>
-				<h2 class="font-heading mb-5 text-xl font-semibold" id="registration-status-heading">
-					{m.registration_status_history_heading()}
-				</h2>
-				<StatusTimeline events={registration.status_events} />
-			</section>
+			<Card.Root aria-labelledby="registration-status-heading">
+				<Card.Header>
+					<Card.Title><h2 id="registration-status-heading">{m.registration_status_history_heading()}</h2></Card.Title>
+				</Card.Header>
+				<Card.Content><StatusTimeline events={registration.status_events} /></Card.Content>
+			</Card.Root>
 		</div>
 
 		{#if registration.payment_required}

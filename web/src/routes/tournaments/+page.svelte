@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TournamentCard from '$lib/components/tournaments/TournamentCard.svelte';
+	import { Separator } from '$lib/components/ui/separator';
 	import * as m from '$lib/paraglide/messages';
 	import type { PageProps } from './$types';
 
@@ -33,7 +34,7 @@
 </header>
 
 {#if data.tournaments.length > 0}
-	<section class="mt-8 space-y-4" aria-label={m.published_tournaments_heading()}>
+	<section class="mt-8 flex flex-col gap-4" aria-label={m.published_tournaments_heading()}>
 		{#each data.tournaments as tournament (tournament.id)}
 			<TournamentCard {tournament} displayTimeZone={data.displayTimeZone} />
 		{/each}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import TournamentCard from '$lib/components/tournaments/TournamentCard.svelte';
+	import { Separator } from '$lib/components/ui/separator';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import type { PageProps } from './$types';
@@ -41,15 +42,16 @@
 </header>
 
 <section class="mt-9" aria-labelledby="published-tournaments-heading">
-	<header class="mb-4 flex items-center gap-3 border-b border-(--line) pb-4">
+	<header class="flex items-center gap-3 pb-4">
 		<span class="bracket-node" aria-hidden="true"></span>
 		<h2 class="font-heading text-2xl font-semibold" id="published-tournaments-heading">
 			{m.published_tournaments_heading()}
 		</h2>
 	</header>
+	<Separator class="mb-4" />
 
 	{#if data.tournaments.length > 0}
-		<div class="space-y-4">
+		<div class="flex flex-col gap-4">
 			{#each data.tournaments as tournament (tournament.id)}
 				<TournamentCard {tournament} displayTimeZone={data.displayTimeZone} headingLevel={3} />
 			{/each}
