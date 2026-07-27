@@ -27,7 +27,11 @@ describe('RosterEditor', () => {
 		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toBeRequired();
 		expect(container.querySelector('input[name="member-1-school"]')).toBeRequired();
-		expect(container.querySelector('input[name="captain"]')).toBeChecked();
+		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveAttribute(
+			'data-slot',
+			'input'
+		);
+		expect(container.querySelector('[role="radio"]')).toHaveAttribute('aria-checked', 'true');
 	});
 
 	it('renders the fixed team size with empty members and moves the only captain marker', async () => {
@@ -57,12 +61,14 @@ describe('RosterEditor', () => {
 			}
 		]);
 		expect(container.querySelectorAll('[data-roster-row]')).toHaveLength(2);
-		await page.getByRole('radio', { name: 'Set member 2 as captain' }).click();
+		const captain = page.getByRole('radio', { name: 'Set member 2 as captain' });
+		await expect.element(captain).toHaveAttribute('data-slot', 'radio-group-item');
+		await captain.click();
 
-		const controls = container.querySelectorAll<HTMLInputElement>('input[name="captain"]');
-		expect(controls[0]).not.toBeChecked();
-		expect(controls[1]).toBeChecked();
-		expect(Array.from(controls).filter((control) => control.checked)).toHaveLength(1);
+		const controls = container.querySelectorAll<HTMLElement>('[role="radio"]');
+		expect(controls[0]).toHaveAttribute('aria-checked', 'false');
+		expect(controls[1]).toHaveAttribute('aria-checked', 'true');
+		expect(Array.from(controls).filter((control) => control.getAttribute('aria-checked') === 'true')).toHaveLength(1);
 	});
 });
 
@@ -83,6 +89,8 @@ describe('PaymentAttemptForm', () => {
 			initialCurrency: 'VND',
 			onSuccess
 		});
+		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
+		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
 
 		const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
 		expect(fileInput).not.toBeNull();
@@ -101,6 +109,39 @@ describe('PaymentAttemptForm', () => {
 		expect(formData.get('reference')).toBe('');
 		expect(formData.get('proof_file')).toBeInstanceOf(File);
 		expect(onSuccess).toHaveBeenCalledOnce();
+	});
+
+	it('shows a disabled generated action while payment submission is pending', async () => {
+		let resolveUpload!: () => void;
+		vi.mocked(submitPaymentAttempt).mockReturnValue(
+			new Promise((resolve) => {
+				resolveUpload = () =>
+					resolve({
+						id: 4,
+						status: 'PENDING',
+						amount: '50000.00',
+						currency: 'VND',
+						created_at: '2026-07-19T00:00:00Z'
+					});
+			})
+		);
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess: vi.fn()
+		});
+
+		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		const button = page.getByRole('button', { name: 'Upload payment proof' }).elements()[0] as HTMLButtonElement;
+		button.click();
+
+		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
+		expect(button).toBeDisabled();
+		expect(button).toHaveAttribute('data-slot', 'button');
+		expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+		resolveUpload();
 	});
 	it('submits a reference without requiring a proof file', async () => {
 		vi.mocked(submitPaymentAttempt).mockResolvedValue({

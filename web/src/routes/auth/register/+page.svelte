@@ -8,6 +8,10 @@
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
+	import * as FormField from '$lib/components/ui/field';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	type RegistrationPhase = 'form' | 'signing-in' | 'recovery';
 
@@ -107,18 +111,17 @@
 		{m.auth_account_created_signing_in()}
 	</p>
 {:else}
-	<section
-		class="mt-8 grid border border-(--line) lg:grid-cols-[minmax(13rem,0.34fr)_minmax(0,1fr)]"
-	>
-		<header class="bg-(--surface-muted) p-5 sm:p-6 lg:border-r lg:border-(--line)">
-			<h2 class="font-heading text-xl font-semibold">{m.auth_identity_heading()}</h2>
-			<p class="mt-3 text-sm leading-6 text-(--text-muted)">{m.auth_identity_intro()}</p>
-		</header>
+	<Card.Root class="mt-8 grid gap-0 py-0 lg:grid-cols-[minmax(13rem,0.34fr)_minmax(0,1fr)]">
+		<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">
+			<Card.Title role="heading" aria-level={2}>{m.auth_identity_heading()}</Card.Title>
+			<Card.Description class="mt-3 leading-6">{m.auth_identity_intro()}</Card.Description>
+		</Card.Header>
 
-		<form class="grid gap-5 p-5 sm:p-6" aria-busy={submitting} onsubmit={handleSubmit}>
-			<ErrorSummary errors={formErrors} />
-			<div class="grid gap-5 md:grid-cols-2">
-				<Field
+		<form aria-busy={submitting} onsubmit={handleSubmit}>
+			<Card.Content class="grid gap-5 p-5 sm:p-6">
+				<ErrorSummary errors={formErrors} />
+				<FormField.Group class="gap-5 md:grid md:grid-cols-2">
+					<Field
 					label={m.field_first_name()}
 					name="first_name"
 					autocomplete="given-name"
@@ -165,27 +168,22 @@
 					autocomplete="organization"
 					maxlength={128}
 					error={fieldErrors.school?.[0]}
-					bind:value={school}
-				/>
-			</div>
-			<div
-				class="flex flex-wrap items-center justify-between gap-4 border-t border-(--line) pt-5"
-			>
-				<p class="text-sm text-(--text-muted)">
+						bind:value={school}
+					/>
+				</FormField.Group>
+			</Card.Content>
+			<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">
+				<p class="text-sm text-muted-foreground">
 					{m.auth_have_account()}
-					<a
-						class="font-semibold text-accent"
-						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
+					<a class="font-semibold text-primary" href={resolve(localizeInternalHref('/auth/sign-in'))}
+						>{m.nav_sign_in()}</a
 					>
 				</p>
-				<button
-					class="min-h-11 border border-accent bg-accent px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
-					type="submit"
-					disabled={submitting}
-				>
+				<Button class="min-h-11" type="submit" disabled={submitting}>
+					{#if submitting}<Spinner aria-hidden="true" />{/if}
 					{submitting ? m.auth_creating_account() : m.action_create_account()}
-				</button>
-			</div>
+				</Button>
+			</Card.Footer>
 		</form>
-	</section>
+	</Card.Root>
 {/if}

@@ -142,6 +142,8 @@ describe('participant registration pages', () => {
 		await vi.waitFor(() =>
 			expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('')
 		);
+		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
+		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
 		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
 		expect(getCurrentUser).not.toHaveBeenCalled();
 		await page.getByLabelText('Team name').fill('Blue Team');
@@ -201,15 +203,19 @@ describe('participant registration pages', () => {
 		await expect.element(page.getByText(tournament.name)).toBeInTheDocument();
 		await expect.element(page.getByText(game.game_name)).toBeInTheDocument();
 		await expect.element(page.getByText('Submitted', { exact: true }).first()).toBeInTheDocument();
+		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
+		expect(container.querySelector('[data-slot="badge"]')).not.toBeNull();
 		expect(container.querySelector('a[href="/account/registrations/33"]')).not.toBeNull();
 		await expect.element(page.getByText(/50,000/)).toBeInTheDocument();
 	});
 
 	it('renders registration detail and refreshes it after payment submission', async () => {
 		mockPage.url = new URL('https://usec.test/account/registrations/33');
-		render(RegistrationDetailPage);
+		const { container } = render(RegistrationDetailPage);
 
 		await expect.element(page.getByText('teammate')).toBeInTheDocument();
+		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
+		expect(container.querySelector('[data-slot="badge"]')).not.toBeNull();
 		await expect
 			.element(page.getByRole('list', { name: 'Registration status timeline' }))
 			.toBeInTheDocument();

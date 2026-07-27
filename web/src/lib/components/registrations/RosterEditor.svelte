@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { RegistrationMemberInput } from '$lib/api/types';
 	import * as m from '$lib/paraglide/messages';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
 
 	interface Props {
 		teamSizeMin: number;
@@ -13,15 +16,18 @@
 		teamSizeMax,
 		members = $bindable([])
 	}: Props = $props();
+	let captainValue = $derived(String(Math.max(0, members.findIndex((member) => member.is_captain))));
 
 	function initializeMembers(): void {
-		if (members.length > 0) return;
-		members = Array.from({ length: teamSizeMax }, (_, index) => ({
-			gamer_tag_snapshot: '',
-			school_snapshot: '',
-			is_captain: index === 0,
-			display_order: index + 1
-		}));
+		if (members.length === 0) {
+			members = Array.from({ length: teamSizeMax }, (_, index) => ({
+				gamer_tag_snapshot: '',
+				school_snapshot: '',
+				is_captain: index === 0,
+				display_order: index + 1
+			}));
+		}
+
 	}
 
 	initializeMembers();
@@ -42,56 +48,52 @@
 		</p>
 	</header>
 
-	<div class="border border-(--line)">
+	<RadioGroup.Root
+		value={captainValue}
+		onValueChange={(value) => selectCaptain(Number(value))}
+		aria-label={m.roster_captain()}
+		class="border border-(--line) gap-0"
+	>
 		{#each members as member, index (member.display_order)}
-			<fieldset
+			<Field.Set
 				class="grid gap-4 border-b border-(--line) p-4 last:border-b-0 lg:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)_8rem] lg:items-end"
 				data-roster-row
 			>
-				<legend class="sr-only">{m.roster_member_label({ number: index + 1 })}</legend>
+				<Field.Legend class="sr-only">{m.roster_member_label({ number: index + 1 })}</Field.Legend>
 				<div class="grid gap-1">
-					<span class="font-mono-data text-2xl font-semibold text-(--accent)">
+					<span class="font-mono-data text-2xl font-semibold text-accent">
 						{String(index + 1).padStart(2, '0')}
 					</span>
-					<span class="text-xs text-(--text-muted)">
+					<span class="text-xs text-muted-foreground">
 						{m.roster_member_number({ number: index + 1 })}
 					</span>
 				</div>
-				<label class="grid gap-2 text-sm font-semibold" for={`member-${index + 1}-gamer-tag`}>
-					{m.field_gamer_tag()}
-					<input
-						class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal focus:border-(--accent) focus:ring-0"
+				<Field.Field>
+					<Field.Label for={`member-${index + 1}-gamer-tag`}>{m.field_gamer_tag()}</Field.Label>
+					<Input
 						id={`member-${index + 1}-gamer-tag`}
 						name={`member-${index + 1}-gamer-tag`}
 						required
-						maxlength="64"
+						maxlength={64}
 						bind:value={member.gamer_tag_snapshot}
 					/>
-				</label>
-				<label class="grid gap-2 text-sm font-semibold" for={`member-${index + 1}-school`}>
-					{m.field_school()}
-					<input
-						class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal focus:border-(--accent) focus:ring-0"
+				</Field.Field>
+				<Field.Field>
+					<Field.Label for={`member-${index + 1}-school`}>{m.field_school()}</Field.Label>
+					<Input
 						id={`member-${index + 1}-school`}
 						name={`member-${index + 1}-school`}
 						required
-						maxlength="128"
+						maxlength={128}
 						bind:value={member.school_snapshot}
 					/>
-				</label>
-				<label
-					class="flex min-h-11 items-center gap-2 border border-(--line) px-3 text-sm font-semibold"
-				>
-					<input
-						type="radio"
-						name="captain"
-						checked={member.is_captain}
-						onchange={() => selectCaptain(index)}
-					/>
+				</Field.Field>
+				<Field.Label class="flex min-h-11 items-center gap-2 border px-3">
+					<RadioGroup.Item value={String(index)} aria-label={m.roster_set_captain({ number: index + 1 })} />
 					<span>{m.roster_captain()}</span>
 					<span class="sr-only">{m.roster_set_captain({ number: index + 1 })}</span>
-				</label>
-			</fieldset>
+				</Field.Label>
+			</Field.Set>
 		{/each}
-	</div>
+	</RadioGroup.Root>
 </section>

@@ -11,6 +11,10 @@
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
+	import * as FormField from '$lib/components/ui/field';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount } from 'svelte';
 
 	let accessToken = $state<string | null>(null);
@@ -127,24 +131,23 @@
 		{redirecting ? m.auth_redirecting_to_sign_in() : m.profile_loading()}
 	</p>
 {:else if currentUser}
-	<section
-		class="mt-8 grid border border-(--line) lg:grid-cols-[minmax(13rem,0.38fr)_minmax(0,1fr)]"
-	>
-		<div class="bg-(--surface-muted) p-5 sm:p-6 lg:border-r lg:border-(--line)">
-			<h2 class="font-heading text-xl font-semibold">{m.profile_identity_heading()}</h2>
+	<Card.Root class="mt-8 grid gap-0 py-0 lg:grid-cols-[minmax(13rem,0.38fr)_minmax(0,1fr)]">
+		<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">
+			<Card.Title role="heading" aria-level={2}>{m.profile_identity_heading()}</Card.Title>
 			<dl class="mt-5 border-y border-(--line) py-4">
 				<dt class="text-xs font-semibold uppercase tracking-[0.12em] text-(--text-muted)">
 					{m.field_email()}
 				</dt>
 				<dd class="font-mono-data mt-2 break-all text-sm">{currentUser.email}</dd>
 			</dl>
-			<p class="mt-4 text-xs leading-5 text-(--text-muted)">{m.profile_email_note()}</p>
-		</div>
+			<Card.Description class="mt-4 text-xs leading-5">{m.profile_email_note()}</Card.Description>
+		</Card.Header>
 
-		<form class="grid gap-5 p-5 sm:p-6" aria-busy={saving} onsubmit={handleSubmit}>
-			<ErrorSummary errors={formErrors} />
-			<div class="grid gap-5 md:grid-cols-2">
-				<Field
+		<form aria-busy={saving} onsubmit={handleSubmit}>
+			<Card.Content class="grid gap-5 p-5 sm:p-6">
+				<ErrorSummary errors={formErrors} />
+				<FormField.Group class="gap-5 md:grid md:grid-cols-2">
+					<Field
 					label={m.field_first_name()}
 					name="first_name"
 					autocomplete="given-name"
@@ -160,33 +163,29 @@
 					required
 					maxlength={150}
 					error={fieldErrors.last_name?.[0]}
-					bind:value={lastName}
+						bind:value={lastName}
+					/>
+				</FormField.Group>
+				<Field
+					label={m.field_school()}
+					name="school"
+					autocomplete="organization"
+					maxlength={128}
+					error={fieldErrors.school?.[0]}
+					bind:value={school}
 				/>
-			</div>
-			<Field
-				label={m.field_school()}
-				name="school"
-				autocomplete="organization"
-				maxlength={128}
-				error={fieldErrors.school?.[0]}
-				bind:value={school}
-			/>
-			<div
-				class="flex flex-wrap items-center justify-between gap-4 border-t border-(--line) pt-5"
-			>
-				<p class="text-sm text-(--success)" role={saved ? 'status' : undefined}>
+			</Card.Content>
+			<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">
+				<p class="text-sm text-success" role={saved ? 'status' : undefined}>
 					{saved ? m.profile_saved() : ''}
 				</p>
-				<button
-					class="min-h-11 border border-accent bg-accent px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
-					type="submit"
-					disabled={saving}
-				>
+				<Button class="min-h-11" type="submit" disabled={saving}>
+					{#if saving}<Spinner aria-hidden="true" />{/if}
 					{saving ? m.profile_saving() : m.action_save_profile()}
-				</button>
-			</div>
+				</Button>
+			</Card.Footer>
 		</form>
-	</section>
+	</Card.Root>
 {:else}
 	<section class="mt-8">
 		<ErrorSummary errors={formErrors} />

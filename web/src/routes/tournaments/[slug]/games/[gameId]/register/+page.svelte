@@ -14,6 +14,9 @@
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount } from 'svelte';
 	import type { PageProps } from './$types';
 
@@ -138,43 +141,43 @@
 		{m.auth_redirecting_to_sign_in()}
 	</p>
 {:else if accessToken}
-	<form class="mt-8 grid gap-8" aria-busy={submitting} onsubmit={handleSubmit}>
-		<ErrorSummary errors={formErrors} />
-		{#if data.game.team_size_max > 1}
-			<section class="border border-(--line)" aria-labelledby="team-identity-heading">
-				<header class="border-b border-(--line) bg-(--surface-muted) p-5">
-					<h2 class="font-heading text-xl font-semibold" id="team-identity-heading">
-						{m.registration_team_heading()}
-					</h2>
-				</header>
-				<div class="p-5">
-					<Field
-						label={m.field_team_name()}
-						name="team_name"
-						required
-						maxlength={100}
-						error={fieldErrors.team_name?.[0]}
-						bind:value={teamName}
-					/>
-				</div>
-			</section>
-		{/if}
+	<form class="mt-8" aria-busy={submitting} onsubmit={handleSubmit}>
+		<Card.Root class="gap-8">
+			<Card.Content class="grid gap-8">
+				<ErrorSummary errors={formErrors} />
+				{#if data.game.team_size_max > 1}
+					<Card.Root aria-labelledby="team-identity-heading">
+						<Card.Header>
+							<Card.Title role="heading" aria-level={2} id="team-identity-heading">
+								{m.registration_team_heading()}
+							</Card.Title>
+						</Card.Header>
+						<Card.Content>
+							<Field
+								label={m.field_team_name()}
+								name="team_name"
+								required
+								maxlength={100}
+								error={fieldErrors.team_name?.[0]}
+								bind:value={teamName}
+							/>
+						</Card.Content>
+					</Card.Root>
+				{/if}
 
-		<RosterEditor
-			teamSizeMin={data.game.team_size_min}
-			teamSizeMax={data.game.team_size_max}
-			bind:members
-		/>
-
-		<div class="flex justify-end border-t border-(--line) pt-5">
-			<button
-				class="min-h-11 border border-accent bg-accent px-6 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
-				type="submit"
-				disabled={submitting}
-			>
-				{submitting ? m.registration_submitting() : m.action_submit_registration()}
-			</button>
-		</div>
+				<RosterEditor
+					teamSizeMin={data.game.team_size_min}
+					teamSizeMax={data.game.team_size_max}
+					bind:members
+				/>
+			</Card.Content>
+			<Card.Footer class="justify-end border-t">
+				<Button class="min-h-11" type="submit" disabled={submitting}>
+					{#if submitting}<Spinner aria-hidden="true" />{/if}
+					{submitting ? m.registration_submitting() : m.action_submit_registration()}
+				</Button>
+			</Card.Footer>
+		</Card.Root>
 	</form>
 {:else}
 	<section class="mt-8"><ErrorSummary errors={formErrors} /></section>

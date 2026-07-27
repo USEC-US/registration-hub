@@ -4,6 +4,11 @@
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import * as m from '$lib/paraglide/messages';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Card from '$lib/components/ui/card';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Props {
 		registrationId: number;
@@ -67,63 +72,42 @@
 	}
 </script>
 
-<section class="border border-(--line)" aria-labelledby="payment-attempt-heading">
-	<header class="border-b border-(--line) bg-(--surface-muted) p-5">
-		<h2 class="font-heading text-xl font-semibold" id="payment-attempt-heading">
+<Card.Root aria-labelledby="payment-attempt-heading">
+	<Card.Header>
+		<Card.Title role="heading" aria-level={2} id="payment-attempt-heading">
 			{m.payment_attempt_heading()}
-		</h2>
-		<p class="mt-2 text-sm text-(--text-muted)">{m.payment_attempt_intro()}</p>
-	</header>
-	<form class="grid gap-5 p-5" aria-busy={submitting} onsubmit={handleSubmit}>
-		<ErrorSummary errors={formErrors} />
-		<div class="grid gap-5 sm:grid-cols-2">
-			<label class="grid gap-2 text-sm font-semibold">
-				{m.field_payment_amount()}
-				<input
-					class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal"
-					name="amount"
-					inputmode="decimal"
-					required
-					bind:value={amount}
-				/>
-			</label>
-			<label class="grid gap-2 text-sm font-semibold">
-				{m.field_payment_currency()}
-				<input
-					class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal uppercase"
-					name="currency"
-					required
-					maxlength="3"
-					bind:value={currency}
-				/>
-			</label>
-		</div>
-		<label class="grid gap-2 text-sm font-semibold">
-			{m.field_payment_proof()}
-			<input
-				class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal"
-				type="file"
-				name="proof_file"
-				accept="image/*,.pdf"
-			/>
-		</label>
-		<label class="grid gap-2 text-sm font-semibold">
-			{m.field_payment_reference()}
-			<input
-				class="min-h-11 border border-(--line) bg-white px-3 py-2 font-normal"
-				name="reference"
-				maxlength="128"
-				bind:value={reference}
-			/>
-		</label>
-		<div class="flex justify-end border-t border-(--line) pt-5">
-			<button
-				class="min-h-11 border border-(--accent) bg-(--accent) px-5 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
-				type="submit"
-				disabled={submitting}
-			>
+		</Card.Title>
+		<Card.Description>{m.payment_attempt_intro()}</Card.Description>
+	</Card.Header>
+	<form aria-busy={submitting} onsubmit={handleSubmit}>
+		<Card.Content>
+			<ErrorSummary errors={formErrors} />
+			<Field.Group class="gap-5">
+				<Field.Group class="gap-5 sm:grid sm:grid-cols-2">
+					<Field.Field>
+						<Field.Label for="amount">{m.field_payment_amount()}</Field.Label>
+						<Input id="amount" name="amount" inputmode="decimal" required bind:value={amount} />
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="currency">{m.field_payment_currency()}</Field.Label>
+						<Input id="currency" name="currency" required maxlength={3} bind:value={currency} />
+					</Field.Field>
+				</Field.Group>
+				<Field.Field>
+					<Field.Label for="proof_file">{m.field_payment_proof()}</Field.Label>
+					<Input id="proof_file" type="file" name="proof_file" accept="image/*,.pdf" />
+				</Field.Field>
+				<Field.Field>
+					<Field.Label for="reference">{m.field_payment_reference()}</Field.Label>
+					<Input id="reference" name="reference" maxlength={128} bind:value={reference} />
+				</Field.Field>
+			</Field.Group>
+		</Card.Content>
+		<Card.Footer class="justify-end border-t">
+			<Button class="min-h-11" type="submit" disabled={submitting}>
+				{#if submitting}<Spinner aria-hidden="true" />{/if}
 				{submitting ? m.payment_uploading() : m.action_upload_payment_proof()}
-			</button>
-		</div>
+			</Button>
+		</Card.Footer>
 	</form>
-</section>
+</Card.Root>

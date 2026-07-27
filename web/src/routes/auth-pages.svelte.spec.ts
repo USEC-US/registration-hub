@@ -104,6 +104,8 @@ describe('sign-in page', () => {
 
 		await vi.waitFor(() => expect(signIn).toHaveBeenCalledOnce());
 		expect(button).toBeDisabled();
+		expect(button).toHaveAttribute('data-slot', 'button');
+		expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
 		expect(container.querySelector('form')).toHaveAttribute('aria-busy', 'true');
 		resolveSignIn(tokens);
 		await vi.waitFor(() => expect(saveSession).toHaveBeenCalledWith(tokens));
@@ -131,6 +133,8 @@ describe('account creation page', () => {
 		vi.mocked(registerAccount).mockResolvedValue({ ...user, email: 'player@example.com' });
 		vi.mocked(signIn).mockResolvedValue(tokens);
 		const { container } = render(RegisterPage);
+		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
+		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
 
 		await expect
 			.element(page.getByLabelText('Mật khẩu'))
@@ -251,6 +255,8 @@ describe('profile page', () => {
 		const { container } = render(ProfilePage);
 
 		await expect.element(page.getByText(user.email)).toBeInTheDocument();
+		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
+		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
 		expect(container.querySelector('input[name="email"]')).toBeNull();
 		await page.getByLabelText('First name').fill(' Minh ');
 		await page.getByLabelText('Last name').fill(' Nguyen ');
