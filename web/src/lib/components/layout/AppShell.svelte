@@ -21,6 +21,16 @@
 		return locale === 'vi' ? m.locale_name_vi() : m.locale_name_en();
 	}
 
+	function changeLocale(event: Event): void {
+		const target = event.currentTarget;
+		if (!(target instanceof HTMLSelectElement)) return;
+
+		const locale = target.value as Locale;
+		if (locale === getLocale()) return;
+
+		window.location.assign(resolve(localizeCurrentHref(page.url, locale)));
+	}
+
   const socials = {
     "facebook": {
       href: "https://facebook.com/hcmusec",
@@ -47,7 +57,7 @@
 <div class="min-h-screen bg-(--board) text-(--text)">
 	<header class="border-(--line)">
 		<nav
-			class="mx-auto grid max-w-7xl grid-cols-1 border-x border-(--line) lg:grid-cols-[minmax(18rem,1fr)_auto_auto] bg-white border-b"
+			class="mx-auto max-w-7xl border-x border-b border-(--line) bg-white"
 			aria-label={m.nav_primary_label()}
 		>
 			<a
@@ -76,52 +86,50 @@
 					</span>
 				</span>
 			</a>
+		</nav>
 
-			<div
-				class="flex flex-wrap justify-center items-center border-t border-(--line) lg:border-l lg:border-t-0"
-			>
+		<nav
+			class="mx-auto max-w-7xl border-x border-b border-(--line) bg-white"
+			aria-label={m.nav_secondary_label()}
+		>
+			<div class="flex min-h-11 justify-end border-b border-(--line)">
 				<a
-					class="px-4 py-4 text-sm font-medium"
+					class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
 					href={resolve(localizeInternalHref('/tournaments'))}>{m.nav_tournaments()}</a
 				>
-				<a
-					class="px-4 py-4 text-sm font-medium"
-					href={resolve(localizeInternalHref('/account/registrations'))}
+				<span
+					class="flex cursor-not-allowed items-center border-l border-(--line) px-4 py-2 text-sm font-medium text-(--text-muted)"
+					aria-disabled="true"
+					title={m.nav_rules_unavailable()}
 				>
-					{m.nav_my_registrations()}
-				</a>
-				<a
-					class="px-4 py-4 text-sm font-medium"
-					href={resolve(localizeInternalHref('/account/profile'))}>{m.nav_profile()}</a
-				>
-				<a
-					class="px-4 py-4 text-sm font-medium"
-					href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
-				>
+					{m.nav_rules()}
+				</span>
 			</div>
 
-			<div
-				class="flex items-stretch border-t border-(--line) lg:border-l lg:border-t-0"
-				aria-label={m.locale_switcher_label()}
-			>
-				<span
-					class="flex items-center border-r border-(--line) px-3 text-xs font-semibold text-(--text-muted)"
-				>
-					{m.locale_switcher_label()}
-				</span>
-				{#each locales as locale (locale)}
+			<div class="flex min-h-11 justify-end">
+				<div class="flex">
 					<a
-						class="flex min-w-11 items-center justify-center px-3 py-4 text-xs font-semibold uppercase aria-[current=page]:text-accent aria-[current=page]:shadow-[inset_0_-2px_var(--accent)]"
-						href={resolve(localizeCurrentHref(page.url, locale))}
-						data-sveltekit-reload
-						hreflang={locale}
-						lang={locale}
-						aria-label={localeName(locale)}
-						aria-current={getLocale() === locale ? 'page' : undefined}
+						class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
+						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
 					>
-						{locale}
-					</a>
-				{/each}
+					<a
+						class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
+						href={resolve(localizeInternalHref('/auth/register'))}>{m.nav_register()}</a
+					>
+				</div>
+				<div class="flex items-center border-l border-(--line) px-3">
+					<label class="sr-only" for="locale-switcher">{m.locale_switcher_label()}</label>
+					<select
+						class="bg-transparent py-2 text-sm font-medium"
+						id="locale-switcher"
+						value={getLocale()}
+						onchange={changeLocale}
+					>
+						{#each locales as locale (locale)}
+							<option value={locale} lang={locale}>{localeName(locale)}</option>
+						{/each}
+					</select>
+				</div>
 			</div>
 		</nav>
 	</header>
