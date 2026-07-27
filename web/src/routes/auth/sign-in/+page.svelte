@@ -69,9 +69,9 @@
 	</div>
 </header>
 
-<Card.Root class="mt-8 grid gap-0 py-0 lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]">
+<Card.Root class="mt-8 grid gap-0 lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]">
 	<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">
-		<Card.Title role="heading" aria-level={2}>{m.auth_credentials_heading()}</Card.Title>
+		<Card.Title class="font-heading font-bold text-2xl" role="heading" aria-level={2}>{m.auth_credentials_heading()}</Card.Title>
 		<Card.Description class="mt-3 leading-6">{m.auth_credentials_intro()}</Card.Description>
 	</Card.Header>
 
