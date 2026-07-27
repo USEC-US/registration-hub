@@ -24,3 +24,18 @@ it('forwards validation limits and describes both hint and error text', async ()
 		.element(page.getByText('Use the name shown in tournament play.'))
 		.toHaveAttribute('id', 'gamer_tag-hint');
 });
+
+it('exposes the generated field and input semantics when invalid', async () => {
+	render(Field, {
+		label: 'Gamer tag',
+		name: 'gamer_tag',
+		value: '',
+		error: 'Enter a gamer tag.'
+	});
+
+	await expect.element(page.getByRole('group')).toHaveAttribute('data-invalid', 'true');
+	await expect
+		.element(page.getByRole('textbox', { name: 'Gamer tag' }))
+		.toHaveAttribute('data-slot', 'input');
+	await expect.element(page.getByText('Enter a gamer tag.')).toHaveAttribute('data-slot', 'field-error');
+});

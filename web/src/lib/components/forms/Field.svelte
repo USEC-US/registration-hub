@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { HTMLInputAttributes } from 'svelte/elements';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
 
 	interface Props {
 		label: string;
@@ -35,13 +37,12 @@
 	);
 </script>
 
-<div class="grid gap-2">
-	<label class="text-sm font-semibold text-(--text)" for={name}>{label}</label>
-	<input
-		class="min-h-11 border border-(--line) bg-white px-3 py-2 text-(--text) shadow-none focus:border-(--accent) focus:ring-0"
+<Field.Field data-invalid={error ? true : undefined}>
+	<Field.Label for={name}>{label}</Field.Label>
+	<Input
 		id={name}
 		{name}
-		{type}
+		type={type ?? undefined}
 		{autocomplete}
 		{spellcheck}
 		{required}
@@ -52,9 +53,9 @@
 		aria-invalid={error ? 'true' : undefined}
 	/>
 	{#if hint}
-		<p class="text-xs leading-5 text-(--text-muted)" id={hintId}>{hint}</p>
+		<Field.Description id={hintId}>{hint}</Field.Description>
 	{/if}
 	{#if error}
-		<p class="text-sm text-(--error)" id={errorId}>{error}</p>
+		<Field.Error id={errorId}>{error}</Field.Error>
 	{/if}
-</div>
+</Field.Field>

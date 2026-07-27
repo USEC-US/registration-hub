@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert';
 	import * as m from '$lib/paraglide/messages';
 
 	interface Props {
@@ -9,15 +10,14 @@
 </script>
 
 {#if errors.length > 0}
-	<section
-		class="border-l-4 border-(--error) bg-(--surface-muted) px-4 py-3"
-		role="alert"
-	>
-		<h2 class="text-base font-semibold text-(--error)">{m.error_summary_title()}</h2>
-		<ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+	<Alert.Root variant="destructive" role="alert">
+		<Alert.Title role="heading" aria-level={2}>{m.error_summary_title()}</Alert.Title>
+		<Alert.Description>
+			<ul class="mt-2 ml-4 flex list-disc flex-col gap-1">
 			{#each errors as error, index (`${index}-${error}`)}
 				<li>{error}</li>
 			{/each}
 		</ul>
-	</section>
+		</Alert.Description>
+	</Alert.Root>
 {/if}
