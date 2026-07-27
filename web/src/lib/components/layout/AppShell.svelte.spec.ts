@@ -67,14 +67,20 @@ describe('AppShell secondary navigation', () => {
 		expect((rules.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')).toBe('7rem');
 	});
 
-	it('renders sign-in, register, and the locale selector without a session', async () => {
+	it('renders sign-in, register, and the current language in a radio dropdown without a session', async () => {
 		renderShell();
 
 		await expect.element(page.getByRole('link', { name: m.nav_sign_in() })).toBeVisible();
 		await expect.element(page.getByRole('link', { name: 'Register' })).toBeVisible();
+		const localeTrigger = page.getByRole('button', { name: m.locale_switcher_label() });
+		await expect.element(localeTrigger).toHaveTextContent(m.locale_name_en());
+		await localeTrigger.click();
 		await expect
-			.element(page.getByRole('combobox', { name: m.locale_switcher_label() }))
-			.toBeVisible();
+			.element(page.getByRole('menuitemradio', { name: m.locale_name_en() }))
+			.toHaveAttribute('aria-checked', 'true');
+		await expect
+			.element(page.getByRole('menuitemradio', { name: m.locale_name_vi() }))
+			.toHaveAttribute('aria-checked', 'false');
 	});
 
 	it('uses English name order for the signed-in welcome link', async () => {
