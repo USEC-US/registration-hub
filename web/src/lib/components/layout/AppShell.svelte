@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { getCurrentUser } from '$lib/api/auth';
+	import { ApiRequestError } from '$lib/api/client';
+	import type { CurrentUser } from '$lib/api/types';
+	import { clearSession, getAccessToken } from '$lib/auth/session';
 	import { localizeCurrentHref, localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale, locales } from '$lib/paraglide/runtime';
+	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import Discord from '$lib/components/icons/Discord.svelte'
   import Facebook from '$lib/components/icons/Facebook.svelte';
@@ -14,8 +19,11 @@
 	}
 
 	type Locale = (typeof locales)[number];
+	type AccountNavigationState = 'loading' | 'signed-out' | 'signed-in' | 'unavailable';
 
 	let { children }: Props = $props();
+	let accountNavigationState = $state<AccountNavigationState>('loading');
+	let currentUser = $state<CurrentUser | null>(null);
 
 	function localeName(locale: Locale): string {
 		return locale === 'vi' ? m.locale_name_vi() : m.locale_name_en();
@@ -30,6 +38,37 @@
 
 		window.location.assign(resolve(localizeCurrentHref(page.url, locale)));
 	}
+
+	function isAuthenticationError(cause: unknown): boolean {
+		return cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403);
+	}
+
+	function welcomeName(user: CurrentUser): string {
+		return getLocale() === 'vi'
+			? `${user.last_name} ${user.first_name}`
+			: `${user.first_name} ${user.last_name}`;
+	}
+
+	onMount(async () => {
+		const accessToken = getAccessToken();
+		if (!accessToken) {
+			accountNavigationState = 'signed-out';
+			return;
+		}
+
+		try {
+			currentUser = await getCurrentUser(accessToken);
+			accountNavigationState = 'signed-in';
+		} catch (cause) {
+			if (isAuthenticationError(cause)) {
+				clearSession();
+				accountNavigationState = 'signed-out';
+				return;
+			}
+
+			accountNavigationState = 'unavailable';
+		}
+	});
 
   const socials = {
     "facebook": {
@@ -108,14 +147,31 @@
 
 			<div class="flex min-h-11 justify-end">
 				<div class="flex">
-					<a
-						class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
-						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
-					>
-					<a
-						class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
-						href={resolve(localizeInternalHref('/auth/register'))}>{m.nav_register()}</a
-					>
+					{#if accountNavigationState === 'signed-in' && currentUser}
+						<a
+							class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
+							href={resolve(localizeInternalHref('/account/profile'))}
+						>
+							{m.nav_welcome({ name: welcomeName(currentUser) })}
+						</a>
+						<a
+							class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
+							href={resolve(localizeInternalHref('/account/registrations'))}
+						>
+							{m.nav_my_registrations()}
+						</a>
+					{:else if accountNavigationState === 'signed-out'}
+						<a
+							class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
+							href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
+						>
+						<a
+							class="flex items-center border-l border-(--line) px-4 py-2 text-sm font-medium"
+							href={resolve(localizeInternalHref('/auth/register'))}>{m.nav_register()}</a
+						>
+					{:else}
+						<span class="block min-h-11 w-44" aria-hidden="true"></span>
+					{/if}
 				</div>
 				<div class="flex items-center border-l border-(--line) px-3">
 					<label class="sr-only" for="locale-switcher">{m.locale_switcher_label()}</label>
