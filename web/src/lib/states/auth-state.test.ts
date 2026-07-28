@@ -151,6 +151,25 @@ describe('AuthState', () => {
 		expect(authState.status).toBe('signed-in');
 	});
 
+	it('resolves a successful hydration as null after its session is invalidated', async () => {
+		dependencies.accessToken = 'access-token';
+		let resolveHydration!: (user: CurrentUser) => void;
+		dependencies.getCurrentUser.mockReturnValue(
+			new Promise<CurrentUser>((resolve) => {
+				resolveHydration = resolve;
+			})
+		);
+		const authState = new AuthState();
+
+		const initialization = authState.initialize();
+		authState.signOut();
+		resolveHydration(currentUser);
+
+		await expect(initialization).resolves.toBeNull();
+		expect(authState.currentUser).toBeNull();
+		expect(authState.status).toBe('signed-out');
+	});
+
 	it('persists credentials and hydrates the user when signing in', async () => {
 		dependencies.requestSignIn.mockResolvedValue({
 			access: 'new-access-token',
@@ -173,6 +192,7 @@ describe('AuthState', () => {
 		dependencies.accessToken = 'expired-access-token';
 		dependencies.refreshToken = 'refresh-token';
 		dependencies.refreshAccessToken.mockResolvedValue({ access: 'fresh-access-token' });
+		dependencies.getCurrentUser.mockResolvedValue(currentUser);
 		const authState = new AuthState();
 
 		await expect(authState.refreshSession()).resolves.toBe('fresh-access-token');
@@ -181,6 +201,33 @@ describe('AuthState', () => {
 			access: 'fresh-access-token',
 			refresh: 'refresh-token'
 		});
+	});
+
+	it('hydrates the refreshed session when refresh replaces an in-flight initialization', async () => {
+		dependencies.accessToken = 'expired-access-token';
+		dependencies.refreshToken = 'refresh-token';
+		let resolveOldHydration!: (user: CurrentUser) => void;
+		dependencies.getCurrentUser
+			.mockReturnValueOnce(
+				new Promise<CurrentUser>((resolve) => {
+					resolveOldHydration = resolve;
+				})
+			)
+			.mockResolvedValueOnce(newCurrentUser);
+		dependencies.refreshAccessToken.mockResolvedValue({ access: 'fresh-access-token' });
+		const authState = new AuthState();
+
+		const oldInitialization = authState.initialize();
+		const refresh = authState.refreshSession();
+		await vi.waitFor(() =>
+			expect(dependencies.getCurrentUser).toHaveBeenLastCalledWith('fresh-access-token')
+		);
+		resolveOldHydration(currentUser);
+
+		await expect(refresh).resolves.toBe('fresh-access-token');
+		await expect(oldInitialization).resolves.toBeNull();
+		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
 	});
 
 	it('clears storage and user state when signing out', () => {

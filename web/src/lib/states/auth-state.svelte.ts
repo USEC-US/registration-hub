@@ -40,10 +40,10 @@ export class AuthState {
     this.status = 'loading';
     let initialization: Initialization;
     const promise = getCurrentUser(accessToken).then((user) => {
-      if (this.isActiveInitialization(initialization)) {
-        this.currentUser = user;
-        this.status = 'signed-in';
-      }
+      if (!this.isActiveInitialization(initialization)) return null;
+
+      this.currentUser = user;
+      this.status = 'signed-in';
       return user;
     })
       .catch((error: unknown) => {
@@ -87,6 +87,7 @@ export class AuthState {
     const { access } = await refreshAccessToken(refreshToken);
     saveSession({ access, refresh: refreshToken });
     this.invalidateInitialization();
+    await this.initialize();
     return access;
 
   }
