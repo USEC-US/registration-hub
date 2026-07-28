@@ -1,17 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { page as appPage } from '$app/state';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { ApiRequestError } from '$lib/api/client';
-import { getCurrentUser, registerAccount, signIn, updateCurrentUser } from '$lib/api/auth';
+import { registerAccount, signIn, updateCurrentUser } from '$lib/api/auth';
 import type { CurrentUser, TokenPair } from '$lib/api/types';
-import { clearSession, getAccessToken, saveSession } from '$lib/auth/session';
-import { replaceInternalLocation } from '$lib/auth/navigation';
+import { saveSession } from '$lib/auth/session';
+import * as m from '$lib/paraglide/messages';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import ProfilePage from './account/profile/+page.svelte';
 import RegisterPage from './auth/register/+page.svelte';
 import SignInPage from './auth/sign-in/+page.svelte';
+
+const authStateMock = vi.hoisted(() => ({
+	status: 'idle',
+	currentUser: null as CurrentUser | null,
+	initialize: vi.fn(),
+	requireAccessToken: vi.fn(),
+	handleAuthenticationError: vi.fn(),
+	updateCurrentUser: vi.fn(),
+	signIn: vi.fn()
+}));
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -25,13 +34,9 @@ vi.mock('$lib/api/auth', () => ({
 	updateCurrentUser: vi.fn()
 }));
 vi.mock('$lib/auth/session', () => ({
-	clearSession: vi.fn(),
-	getAccessToken: vi.fn(),
 	saveSession: vi.fn()
 }));
-vi.mock('$lib/auth/navigation', () => ({
-	replaceInternalLocation: vi.fn()
-}));
+vi.mock('$lib/states/auth-state.svelte', () => ({ authState: authStateMock }));
 
 const tokens: TokenPair = { access: 'access-token', refresh: 'refresh-token' };
 const user: CurrentUser = {
@@ -45,14 +50,17 @@ const user: CurrentUser = {
 beforeEach(() => {
 	overwriteGetLocale(() => 'en');
 	vi.mocked(goto).mockReset().mockResolvedValue(undefined);
-	vi.mocked(getCurrentUser).mockReset();
 	vi.mocked(registerAccount).mockReset();
 	vi.mocked(signIn).mockReset();
 	vi.mocked(updateCurrentUser).mockReset();
-	vi.mocked(clearSession).mockReset();
-	vi.mocked(getAccessToken).mockReset();
 	vi.mocked(saveSession).mockReset();
-	vi.mocked(replaceInternalLocation).mockReset();
+	authStateMock.status = 'idle';
+	authStateMock.currentUser = null;
+	authStateMock.initialize.mockReset();
+	authStateMock.requireAccessToken.mockReset();
+	authStateMock.handleAuthenticationError.mockReset().mockReturnValue(false);
+	authStateMock.updateCurrentUser.mockReset();
+	authStateMock.signIn.mockReset();
 });
 
 afterEach(() => {
@@ -232,27 +240,25 @@ describe('account creation page', () => {
 });
 
 describe('profile page', () => {
-	it('redirects without a token using the encoded current localized path', async () => {
-		vi.mocked(getAccessToken).mockReturnValue(null);
+	it('delegates missing tokens to auth state and renders its redirecting UI', async () => {
+		authStateMock.requireAccessToken.mockReturnValue(null);
 		render(ProfilePage);
 
-		await vi.waitFor(() => {
-			expect(replaceInternalLocation).toHaveBeenCalledWith(
-				'/auth/sign-in?redirectTo=%2Fvi%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
-			);
-		});
-		expect(appPage.url.pathname).toBe('/vi/account/profile');
-		expect(getCurrentUser).not.toHaveBeenCalled();
+		await vi.waitFor(() => expect(authStateMock.requireAccessToken).toHaveBeenCalledOnce());
+		await expect.element(page.getByText(m.auth_redirecting_to_sign_in())).toBeVisible();
 	});
 
 	it('shows email as immutable metadata and saves only editable account identity', async () => {
-		vi.mocked(getAccessToken).mockReturnValue(tokens.access);
-		vi.mocked(getCurrentUser).mockResolvedValue(user);
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(user);
+		authStateMock.currentUser = user;
 		vi.mocked(updateCurrentUser).mockResolvedValue({
 			...user,
 			school: 'HCMUS - VNU'
 		});
 		const { container } = render(ProfilePage);
+		await vi.waitFor(() => expect(authStateMock.initialize).toHaveBeenCalledOnce());
+		authStateMock.updateCurrentUser.mockClear();
 
 		await expect.element(page.getByText(user.email)).toBeInTheDocument();
 		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
@@ -270,14 +276,19 @@ describe('profile page', () => {
 				school: 'HCMUS - VNU'
 			});
 		});
+		expect(authStateMock.updateCurrentUser).toHaveBeenCalledWith({
+			...user,
+			school: 'HCMUS - VNU'
+		});
 		await expect.element(page.getByLabelText('First name')).toHaveValue(user.first_name);
 		await expect.element(page.getByLabelText('Last name')).toHaveValue(user.last_name);
 		await expect.element(page.getByText('Profile saved.')).toBeInTheDocument();
 	});
 
 	it('allows the optional school to be cleared', async () => {
-		vi.mocked(getAccessToken).mockReturnValue(tokens.access);
-		vi.mocked(getCurrentUser).mockResolvedValue(user);
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(user);
+		authStateMock.currentUser = user;
 		vi.mocked(updateCurrentUser).mockResolvedValue({ ...user, school: '' });
 		const { container } = render(ProfilePage);
 
@@ -294,38 +305,32 @@ describe('profile page', () => {
 		});
 	});
 
-	it.each([401, 403])(
-		'clears both tokens and redirects when profile loading returns %s',
-		async (status) => {
-			vi.mocked(getAccessToken).mockReturnValue(tokens.access);
-			vi.mocked(getCurrentUser).mockRejectedValue(
-				new ApiRequestError(status, 'Authentication failed.')
-			);
-			render(ProfilePage);
+	it('shows a localized failure when profile hydration is unavailable', async () => {
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(null);
+		authStateMock.status = 'unavailable';
+		render(ProfilePage);
 
-			await vi.waitFor(() => expect(clearSession).toHaveBeenCalledOnce());
-			expect(replaceInternalLocation).toHaveBeenCalledWith(
-				'/auth/sign-in?redirectTo=%2Fvi%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
-			);
-		}
-	);
+		await expect.element(page.getByText(m.profile_load_failed())).toBeVisible();
+		expect(authStateMock.handleAuthenticationError).not.toHaveBeenCalled();
+	});
 
-	it('clears both tokens and redirects when profile saving returns unauthorized', async () => {
-		vi.mocked(getAccessToken).mockReturnValue(tokens.access);
-		vi.mocked(getCurrentUser).mockResolvedValue(user);
+	it('delegates unauthorized profile saves to auth state', async () => {
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(user);
+		authStateMock.currentUser = user;
+		authStateMock.handleAuthenticationError.mockReturnValue(true);
 		vi.mocked(updateCurrentUser).mockRejectedValue(new ApiRequestError(403, 'Forbidden.'));
 		render(ProfilePage);
 
 		await page.getByRole('button', { name: 'Save profile' }).click();
-		await vi.waitFor(() => expect(clearSession).toHaveBeenCalledOnce());
-		expect(replaceInternalLocation).toHaveBeenCalledWith(
-			'/auth/sign-in?redirectTo=%2Fvi%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
-		);
+		await vi.waitFor(() => expect(authStateMock.handleAuthenticationError).toHaveBeenCalledOnce());
 	});
 
 	it('renders ordinary profile API field errors without clearing the session', async () => {
-		vi.mocked(getAccessToken).mockReturnValue(tokens.access);
-		vi.mocked(getCurrentUser).mockResolvedValue(user);
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(user);
+		authStateMock.currentUser = user;
 		vi.mocked(updateCurrentUser).mockRejectedValue(
 			new ApiRequestError(400, 'Invalid profile.', { school: ['Use 128 characters or fewer.'] })
 		);
@@ -333,7 +338,6 @@ describe('profile page', () => {
 
 		await page.getByRole('button', { name: 'Save profile' }).click();
 		await expect.element(page.getByText('Use 128 characters or fewer.')).toBeInTheDocument();
-		expect(clearSession).not.toHaveBeenCalled();
-		expect(replaceInternalLocation).not.toHaveBeenCalled();
+		expect(authStateMock.handleAuthenticationError).toHaveBeenCalledOnce();
 	});
 });

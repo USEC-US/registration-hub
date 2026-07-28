@@ -1,15 +1,9 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
-	import { ApiRequestError } from '$lib/api/client';
-	import { getCurrentUser, updateCurrentUser } from '$lib/api/auth';
-	import type { CurrentUser } from '$lib/api/types';
-	import { replaceInternalLocation } from '$lib/auth/navigation';
-	import { clearSession, getAccessToken } from '$lib/auth/session';
+	import { updateCurrentUser } from '$lib/api/auth';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import Field from '$lib/components/forms/Field.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
-	import { localizeInternalHref } from '$lib/navigation';
+	import { authState } from '$lib/states/auth-state.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -17,8 +11,6 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount } from 'svelte';
 
-	let accessToken = $state<string | null>(null);
-	let currentUser = $state<CurrentUser | null>(null);
 	let firstName = $state('');
 	let lastName = $state('');
 	let school = $state('');
@@ -29,49 +21,39 @@
 	let fieldErrors = $state<Record<string, string[]>>({});
 	let formErrors = $state<string[]>([]);
 
-	function signInHref(): string {
-		const currentHref = `${page.url.pathname}${page.url.search}${page.url.hash}`;
-		return `${resolve(localizeInternalHref('/auth/sign-in'))}?redirectTo=${encodeURIComponent(currentHref)}`;
-	}
-
-	async function redirectToSignIn(clearTokens: boolean): Promise<void> {
-		if (redirecting) return;
-		redirecting = true;
-		if (clearTokens) clearSession();
-		replaceInternalLocation(signInHref());
-	}
-
-	function isAuthenticationError(cause: unknown): boolean {
-		return cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403);
-	}
-
 	onMount(async () => {
-		accessToken = getAccessToken();
+		const accessToken = authState.requireAccessToken();
 		if (!accessToken) {
+			redirecting = true;
 			loading = false;
-			await redirectToSignIn(false);
 			return;
 		}
 
-		try {
-			currentUser = await getCurrentUser(accessToken);
-			firstName = currentUser.first_name;
-			lastName = currentUser.last_name;
-			school = currentUser.school;
-		} catch (cause) {
-			if (isAuthenticationError(cause)) {
-				await redirectToSignIn(true);
-				return;
+		const user = await authState.initialize();
+		if (!user) {
+			if (authState.status === 'signed-out') {
+				redirecting = true;
+				authState.requireAccessToken();
+			} else {
+				formErrors = [m.profile_load_failed()];
 			}
-			({ fieldErrors, formErrors } = formErrorsFrom(cause, m.profile_load_failed()));
-		} finally {
 			loading = false;
+			return;
 		}
+
+		firstName = user.first_name;
+		lastName = user.last_name;
+		school = user.school;
+		loading = false;
 	});
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (saving || !accessToken) return;
+		const accessToken = authState.requireAccessToken();
+		if (saving || !accessToken) {
+			if (!accessToken) redirecting = true;
+			return;
+		}
 
 		saving = true;
 		saved = false;
@@ -79,18 +61,19 @@
 		formErrors = [];
 
 		try {
-			currentUser = await updateCurrentUser(accessToken, {
+			const user = await updateCurrentUser(accessToken, {
 				first_name: firstName,
 				last_name: lastName,
 				school
 			});
-			firstName = currentUser.first_name;
-			lastName = currentUser.last_name;
-			school = currentUser.school;
+			authState.updateCurrentUser(user);
+			firstName = user.first_name;
+			lastName = user.last_name;
+			school = user.school;
 			saved = true;
 		} catch (cause) {
-			if (isAuthenticationError(cause)) {
-				await redirectToSignIn(true);
+			if (authState.handleAuthenticationError(cause)) {
+				redirecting = true;
 				return;
 			}
 			({ fieldErrors, formErrors } = formErrorsFrom(cause, m.profile_save_failed()));
@@ -130,7 +113,7 @@
 	<p class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm" role="status">
 		{redirecting ? m.auth_redirecting_to_sign_in() : m.profile_loading()}
 	</p>
-{:else if currentUser}
+{:else if authState.currentUser}
 	<Card.Root class="mt-8 grid gap-0 py-0 lg:grid-cols-[minmax(13rem,0.38fr)_minmax(0,1fr)]">
 		<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">
 			<Card.Title role="heading" aria-level={2}>{m.profile_identity_heading()}</Card.Title>
@@ -138,7 +121,7 @@
 				<dt class="text-xs font-semibold uppercase tracking-[0.12em] text-(--text-muted)">
 					{m.field_email()}
 				</dt>
-				<dd class="font-mono-data mt-2 break-all text-sm">{currentUser.email}</dd>
+					<dd class="font-mono-data mt-2 break-all text-sm">{authState.currentUser.email}</dd>
 			</dl>
 			<Card.Description class="mt-4 text-xs leading-5">{m.profile_email_note()}</Card.Description>
 		</Card.Header>
