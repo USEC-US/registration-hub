@@ -214,6 +214,27 @@ describe('AuthState', () => {
 		expect(authState.status).toBe('signed-out');
 	});
 
+	it('resolves a rejected deferred sign-in as null after sign-out invalidates it', async () => {
+		let rejectSignIn!: (reason: unknown) => void;
+		dependencies.requestSignIn.mockReturnValue(
+			new Promise<TokenPair>((_, reject) => {
+				rejectSignIn = reject;
+			})
+		);
+		const authState = new AuthState();
+
+		const signIn = authState.signIn('player@example.com', 'password');
+		authState.signOut();
+		rejectSignIn(new ApiRequestError(401, 'Invalid credentials.'));
+
+		await expect(signIn).resolves.toBeNull();
+		expect(dependencies.saveSession).not.toHaveBeenCalled();
+		expect(dependencies.accessToken).toBeNull();
+		expect(dependencies.refreshToken).toBeNull();
+		expect(authState.currentUser).toBeNull();
+		expect(authState.status).toBe('signed-out');
+	});
+
 	it('lets only the newest overlapping sign-in commit its session', async () => {
 		let resolveFirstSignIn!: (tokens: TokenPair) => void;
 		let resolveSecondSignIn!: (tokens: TokenPair) => void;
@@ -251,6 +272,29 @@ describe('AuthState', () => {
 		expect(dependencies.refreshToken).toBe('new-refresh-token');
 		expect(dependencies.getCurrentUser).toHaveBeenCalledOnce();
 		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
+	});
+
+	it('preserves old-session hydration when the active sign-in request fails', async () => {
+		dependencies.accessToken = 'old-access-token';
+		let resolveOldHydration!: (user: CurrentUser) => void;
+		dependencies.getCurrentUser.mockReturnValue(
+			new Promise<CurrentUser>((resolve) => {
+				resolveOldHydration = resolve;
+			})
+		);
+		const signInError = new ApiRequestError(401, 'Invalid credentials.');
+		dependencies.requestSignIn.mockRejectedValue(signInError);
+		const authState = new AuthState();
+
+		const oldInitialization = authState.initialize();
+		await expect(authState.signIn('player@example.com', 'password')).rejects.toBe(signInError);
+		resolveOldHydration(currentUser);
+
+		await expect(oldInitialization).resolves.toEqual(currentUser);
+		expect(dependencies.accessToken).toBe('old-access-token');
+		expect(dependencies.saveSession).not.toHaveBeenCalled();
+		expect(authState.currentUser).toEqual(currentUser);
 		expect(authState.status).toBe('signed-in');
 	});
 
@@ -296,6 +340,30 @@ describe('AuthState', () => {
 		expect(authState.status).toBe('signed-in');
 	});
 
+	it('preserves old-session hydration when the active refresh request fails', async () => {
+		dependencies.accessToken = 'old-access-token';
+		dependencies.refreshToken = 'refresh-token';
+		let resolveOldHydration!: (user: CurrentUser) => void;
+		dependencies.getCurrentUser.mockReturnValue(
+			new Promise<CurrentUser>((resolve) => {
+				resolveOldHydration = resolve;
+			})
+		);
+		const refreshError = new ApiRequestError(401, 'Refresh failed.');
+		dependencies.refreshAccessToken.mockRejectedValue(refreshError);
+		const authState = new AuthState();
+
+		const oldInitialization = authState.initialize();
+		await expect(authState.refreshSession()).rejects.toBe(refreshError);
+		resolveOldHydration(currentUser);
+
+		await expect(oldInitialization).resolves.toEqual(currentUser);
+		expect(dependencies.accessToken).toBe('old-access-token');
+		expect(dependencies.saveSession).not.toHaveBeenCalled();
+		expect(authState.currentUser).toEqual(currentUser);
+		expect(authState.status).toBe('signed-in');
+	});
+
 	it('does not let a deferred refresh overwrite a newer sign-in', async () => {
 		dependencies.accessToken = 'expired-access-token';
 		dependencies.refreshToken = 'old-refresh-token';
@@ -323,6 +391,34 @@ describe('AuthState', () => {
 		expect(dependencies.accessToken).toBe('new-access-token');
 		expect(dependencies.refreshToken).toBe('new-refresh-token');
 		expect(dependencies.getCurrentUser).toHaveBeenCalledOnce();
+		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
+	});
+
+	it('resolves a rejected deferred refresh as null after a newer sign-in', async () => {
+		dependencies.accessToken = 'expired-access-token';
+		dependencies.refreshToken = 'old-refresh-token';
+		let rejectRefresh!: (reason: unknown) => void;
+		dependencies.refreshAccessToken.mockReturnValue(
+			new Promise<{ access: string }>((_, reject) => {
+				rejectRefresh = reject;
+			})
+		);
+		dependencies.requestSignIn.mockResolvedValue({
+			access: 'new-access-token',
+			refresh: 'new-refresh-token'
+		});
+		dependencies.getCurrentUser.mockResolvedValue(newCurrentUser);
+		const authState = new AuthState();
+
+		const refresh = authState.refreshSession();
+		await expect(authState.signIn('new@example.com', 'password')).resolves.toEqual(newCurrentUser);
+		rejectRefresh(new ApiRequestError(401, 'Refresh failed.'));
+
+		await expect(refresh).resolves.toBeNull();
+		expect(dependencies.saveSession).toHaveBeenCalledOnce();
+		expect(dependencies.accessToken).toBe('new-access-token');
+		expect(dependencies.refreshToken).toBe('new-refresh-token');
 		expect(authState.currentUser).toEqual(newCurrentUser);
 		expect(authState.status).toBe('signed-in');
 	});

@@ -19,6 +19,7 @@ type Initialization = {
 export class AuthState {
   currentUser = $state<CurrentUser | null>(null)
   status = $state<AuthStatus>('idle')
+  #operationGeneration = 0
   #sessionGeneration = 0
   #initialization: Initialization | null = null
 
@@ -65,17 +66,21 @@ export class AuthState {
   async signIn(email:string, password: string): Promise<CurrentUser | null> {
     if (!browser) return null;
 
-    const generation = this.beginSessionOperation();
-    const tokens = await requestSignIn(email, password);
-    if (!this.isActiveSessionOperation(generation)) return null;
+    const generation = this.beginTokenOperation();
+    const tokens = await requestSignIn(email, password).catch((error: unknown) => {
+      if (!this.isActiveTokenOperation(generation)) return null;
+      throw error;
+    });
+    if (!tokens || !this.isActiveTokenOperation(generation)) return null;
 
     saveSession(tokens);
+    this.advanceSessionGeneration();
     const user = await this.initialize();
-    return this.isActiveSessionOperation(generation) ? user : null;
+    return this.isActiveTokenOperation(generation) ? user : null;
   }
 
   signOut(): void {
-    this.beginSessionOperation();
+    this.invalidateAuthWork();
     clearSession();
     this.currentUser = null;
     this.status = 'signed-out'
@@ -87,13 +92,18 @@ export class AuthState {
     const refreshToken = getRefreshToken();
     if (!refreshToken) { this.signOut(); return null; }
 
-    const generation = this.beginSessionOperation();
-    const { access } = await refreshAccessToken(refreshToken);
-    if (!this.isActiveSessionOperation(generation)) return null;
+    const generation = this.beginTokenOperation();
+    const tokens = await refreshAccessToken(refreshToken).catch((error: unknown) => {
+      if (!this.isActiveTokenOperation(generation)) return null;
+      throw error;
+    });
+    if (!tokens || !this.isActiveTokenOperation(generation)) return null;
 
+    const { access } = tokens;
     saveSession({ access, refresh: refreshToken });
+    this.advanceSessionGeneration();
     await this.initialize();
-    return this.isActiveSessionOperation(generation) ? access : null;
+    return this.isActiveTokenOperation(generation) ? access : null;
 
   }
 
@@ -139,14 +149,23 @@ export class AuthState {
       getAccessToken() === initialization.accessToken
   }
 
-  private beginSessionOperation(): number {
-    this.#sessionGeneration += 1
-    this.#initialization = null
-    return this.#sessionGeneration
+  private beginTokenOperation(): number {
+    this.#operationGeneration += 1
+    return this.#operationGeneration
   }
 
-  private isActiveSessionOperation(generation: number): boolean {
-    return this.#sessionGeneration === generation
+  private isActiveTokenOperation(generation: number): boolean {
+    return this.#operationGeneration === generation
+  }
+
+  private advanceSessionGeneration(): void {
+    this.#sessionGeneration += 1
+    this.#initialization = null
+  }
+
+  private invalidateAuthWork(): void {
+    this.#operationGeneration += 1
+    this.advanceSessionGeneration()
   }
 }
 
