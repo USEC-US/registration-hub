@@ -38,6 +38,17 @@
 			is_captain: index === selectedIndex
 		}));
 	}
+
+	function updateMember(
+		index: number,
+		field: 'gamer_tag_snapshot' | 'school_snapshot',
+		event: Event
+	): void {
+		const value = (event.currentTarget as HTMLInputElement).value;
+		members = members.map((member, memberIndex) =>
+			memberIndex === index ? { ...member, [field]: value } : member
+		);
+	}
 </script>
 
 <section aria-labelledby="roster-heading">
@@ -75,7 +86,8 @@
 						name={`member-${index + 1}-gamer-tag`}
 						required
 						maxlength={64}
-						bind:value={member.gamer_tag_snapshot}
+						value={member.gamer_tag_snapshot}
+						oninput={(event) => updateMember(index, 'gamer_tag_snapshot', event)}
 					/>
 				</Field.Field>
 				<Field.Field>
@@ -85,7 +97,8 @@
 						name={`member-${index + 1}-school`}
 						required
 						maxlength={128}
-						bind:value={member.school_snapshot}
+						value={member.school_snapshot}
+						oninput={(event) => updateMember(index, 'school_snapshot', event)}
 					/>
 				</Field.Field>
 				<Field.Label class="flex min-h-11 items-center gap-2 border px-3">

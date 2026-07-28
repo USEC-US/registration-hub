@@ -3,6 +3,7 @@ import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { ApiRequestError } from '$lib/api/client';
 import { submitPaymentAttempt } from '$lib/api/registrations';
+import type { RegistrationMemberInput } from '$lib/api/types';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import PaymentAttemptForm from './PaymentAttemptForm.svelte';
 import RosterEditor from './RosterEditor.svelte';
@@ -69,6 +70,33 @@ describe('RosterEditor', () => {
 		expect(controls[0]).toHaveAttribute('aria-checked', 'false');
 		expect(controls[1]).toHaveAttribute('aria-checked', 'true');
 		expect(Array.from(controls).filter((control) => control.getAttribute('aria-checked') === 'true')).toHaveLength(1);
+	});
+
+	it('propagates text edits through the bound members array', async () => {
+		let members: RegistrationMemberInput[] = [];
+		let memberUpdates = 0;
+		render(RosterEditor, {
+			teamSizeMin: 2,
+			teamSizeMax: 2,
+			get members() {
+				return members;
+			},
+			set members(value) {
+				members = value;
+				memberUpdates += 1;
+			}
+		});
+		memberUpdates = 0;
+
+		const firstMember = page.getByRole('group', { name: 'Roster member 1' });
+		await firstMember.getByLabelText('Gamer tag').fill('captain');
+		await firstMember.getByLabelText('School').fill('HCMUS');
+
+		expect(members[0]).toMatchObject({
+			gamer_tag_snapshot: 'captain',
+			school_snapshot: 'HCMUS'
+		});
+		expect(memberUpdates).toBe(2);
 	});
 });
 
