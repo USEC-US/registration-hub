@@ -14,6 +14,24 @@ class SchemaDocsAccessTests(APITestCase):
         self.assertEqual(schema_response.status_code, status.HTTP_200_OK)
         self.assertEqual(docs_response.status_code, status.HTTP_200_OK)
 
+    @override_settings(DEBUG=True)
+    def test_schema_uses_stable_types_and_enum_names(self):
+        response = self.client.get(
+            "/api/schema/", HTTP_ACCEPT="application/vnd.oai.openapi+json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        schema = response.json()
+        detail_parameters = schema["paths"]["/api/registrations/{id}/"]["get"]["parameters"]
+        identifier_parameter = next(
+            parameter for parameter in detail_parameters if parameter["name"] == "id"
+        )
+
+        self.assertEqual(identifier_parameter["schema"]["type"], "integer")
+        self.assertIn("RegistrationStatus", schema["components"]["schemas"])
+        self.assertIn("PaymentAttemptStatus", schema["components"]["schemas"])
+
     @override_settings(DEBUG=False)
     def test_schema_is_staff_only_outside_debug(self):
         anonymous_response = self.client.get("/api/schema/")

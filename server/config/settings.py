@@ -112,6 +112,13 @@ REST_FRAMEWORK = {
     ]
 }
 
+SPECTACULAR_SETTINGS = {
+    "ENUM_NAME_OVERRIDES": {
+        "RegistrationStatus": "registrations.models.Registration.Status",
+        "PaymentAttemptStatus": "registrations.models.PaymentAttempt.Status",
+    },
+}
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [

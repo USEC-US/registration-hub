@@ -25,6 +25,7 @@ def _as_drf_validation_error(error: DjangoValidationError) -> DRFValidationError
 class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, IsRegistrationSubmitter]
     serializer_class = RegistrationReadSerializer
+    queryset = Registration.objects.none()
 
     def get_queryset(self):
         return (
