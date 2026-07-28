@@ -48,9 +48,7 @@
 	<meta name="description" content={m.auth_sign_in_intro()} />
 </svelte:head>
 
-<header
-	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
->
+<header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
 		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.auth_sign_in_kicker()}
@@ -74,7 +72,9 @@
 
 <Card.Root class="mt-8 grid gap-0 lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]">
 	<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">
-		<Card.Title class="font-heading font-bold text-2xl" role="heading" aria-level={2}>{m.auth_credentials_heading()}</Card.Title>
+		<Card.Title class="font-heading font-bold text-2xl" role="heading" aria-level={2}
+			>{m.auth_credentials_heading()}</Card.Title
+		>
 		<Card.Description class="mt-3 leading-6">{m.auth_credentials_intro()}</Card.Description>
 	</Card.Header>
 

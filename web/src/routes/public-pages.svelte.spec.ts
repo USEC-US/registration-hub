@@ -179,7 +179,7 @@ describe('public tournament pages', () => {
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('link', { name: 'Register' }))
-		.toHaveAttribute('href', '/en/tournaments/usec-summer-2026/games/9/register');
+			.toHaveAttribute('href', '/en/tournaments/usec-summer-2026/games/9/register');
 		expect(container.querySelectorAll('time[datetime]')).toHaveLength(4);
 		expect(document.title).toBe(`${tournament.name} · University of Science Esports Club`);
 	});

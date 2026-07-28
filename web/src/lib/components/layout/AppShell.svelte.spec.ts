@@ -60,10 +60,12 @@ describe('AppShell secondary navigation', () => {
 		const rules = page.getByText('Rules');
 		await expect.element(tournaments).toHaveClass('flex-1');
 		await expect.element(rules).toHaveClass('flex-1');
-		expect((tournaments.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')).toBe(
-			'9rem'
+		expect(
+			(tournaments.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')
+		).toBe('9rem');
+		expect((rules.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')).toBe(
+			'7rem'
 		);
-		expect((rules.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')).toBe('7rem');
 	});
 
 	it('renders sign-in, register, and the current language in a radio dropdown without a session', async () => {

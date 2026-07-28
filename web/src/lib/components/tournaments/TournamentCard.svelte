@@ -24,9 +24,17 @@
 			</p>
 			<Card.Title>
 				{#if headingLevel === 3}
-					<h3><a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}>{tournament.name}</a></h3>
+					<h3>
+						<a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}
+							>{tournament.name}</a
+						>
+					</h3>
 				{:else}
-					<h2><a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}>{tournament.name}</a></h2>
+					<h2>
+						<a href={resolve(localizeInternalHref(`/tournaments/${tournament.slug}`))}
+							>{tournament.name}</a
+						>
+					</h2>
 				{/if}
 			</Card.Title>
 			{#if tournament.description}

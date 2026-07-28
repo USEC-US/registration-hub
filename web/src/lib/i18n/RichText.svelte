@@ -1,4 +1,4 @@
-<script lang="ts" generics="TMessage extends MessageLike<any, any, any>">
+<script lang="ts" generics="TMessage extends AnyMessageLike">
 	import type { MessageMarkupTag, MessageMetadata } from '@inlang/paraglide-js';
 	import {
 		ParaglideMessage,
@@ -9,18 +9,20 @@
 	import { RICH_TEXT_TAGS } from './rich-text-tags.js';
 
 	type RichTextTag = (typeof RICH_TEXT_TAGS)[number];
+	type AnyMessageLike = ((...args: never[]) => string) & MessageMetadata<unknown, unknown>;
 	type FixedMarkupSchema = Record<RichTextTag, MessageMarkupTag>;
-	type MessageMetadataOf<T extends MessageLike<any, any, any>> =
+	type RendererMessage = MessageLike<unknown, ParaglideMessageOptions, FixedMarkupSchema>;
+	type MessageMetadataOf<T extends AnyMessageLike> =
 		T extends MessageMetadata<infer TInputs, infer TOptions, infer TMarkup>
 			? { inputs: TInputs; options: TOptions; markup: TMarkup }
 			: never;
-	type MessageInputs<T extends MessageLike<any, any, any>> =
+	type MessageInputs<T extends AnyMessageLike> =
 		MessageMetadataOf<T> extends {
 			inputs: infer TInputs;
 		}
 			? TInputs
 			: Record<string, never>;
-	type MessageOptions<T extends MessageLike<any, any, any>> =
+	type MessageOptions<T extends AnyMessageLike> =
 		MessageMetadataOf<T> extends {
 			options: infer TOptions;
 		}
@@ -28,20 +30,15 @@
 				? TOptions
 				: ParaglideMessageOptions
 			: ParaglideMessageOptions;
-	type MarkupTagNames<T extends MessageLike<any, any, any>> =
+	type MarkupTagNames<T extends AnyMessageLike> =
 		MessageMetadataOf<T> extends {
 			markup: infer TMarkup;
 		}
 			? keyof TMarkup & string
 			: never;
-	type UnsupportedTagNames<T extends MessageLike<any, any, any>> = Exclude<
-		MarkupTagNames<T>,
-		RichTextTag
-	>;
-	type UnsupportedTagGuard<T extends MessageLike<any, any, any>> = [
-		UnsupportedTagNames<T>
-	] extends [never]
-		? {}
+	type UnsupportedTagNames<T extends AnyMessageLike> = Exclude<MarkupTagNames<T>, RichTextTag>;
+	type UnsupportedTagGuard<T extends AnyMessageLike> = [UnsupportedTagNames<T>] extends [never]
+		? object
 		: {
 				__unsupportedRichTextTags: `Add ${UnsupportedTagNames<T>} to RICH_TEXT_TAGS and RichText before using it in translations.`;
 			};
@@ -53,11 +50,10 @@
 	type InputsProp<TInputs> = keyof TInputs extends never
 		? { inputs?: TInputs }
 		: { inputs: TInputs };
-	type Props<T extends MessageLike<any, any, any>> = {
-		message: T;
+	type Props<T extends AnyMessageLike> = {
+		message: T & UnsupportedTagGuard<T>;
 		options?: MessageOptions<T>;
-	} & InputsProp<MessageInputs<T>> &
-		UnsupportedTagGuard<T> & {
+	} & InputsProp<MessageInputs<T>> & {
 			linkOverride?: Snippet<[MarkupProps]>;
 			strongOverride?: Snippet<[MarkupProps]>;
 			boldOverride?: Snippet<[MarkupProps]>;
@@ -76,7 +72,7 @@
 
 	// The public props above preserve TMessage's exact schema. This adapter is
 	// intentionally local: RichText owns every renderer in the fixed registry.
-	const rendererMessage = $derived(message as MessageLike<any, any, FixedMarkupSchema>);
+	const rendererMessage = $derived(message as unknown as RendererMessage);
 
 	function stringOption(options: Record<string, unknown>, name: string): string | undefined {
 		const value = options[name];
@@ -95,6 +91,8 @@
 		{:else}
 			{@const href = stringOption(p.options, 'to')}
 			{@const target = stringOption(p.options, 'target')}
+			<!-- Link targets are translation data and may be external URLs. -->
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 			<a {href} {target}>{@render p.children?.()}</a>
 		{/if}
 	{/snippet}

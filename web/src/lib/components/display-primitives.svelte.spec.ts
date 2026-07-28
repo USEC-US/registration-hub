@@ -43,7 +43,9 @@ it('keeps tournament content while composing cards and registration-state badges
 	expect(card.container.querySelector('[data-slot="card"]')).not.toBeNull();
 	expect(game.container.querySelector('[data-slot="card"]')).not.toBeNull();
 	expect(game.container.querySelector('[data-slot="badge"]')).not.toBeNull();
-	expect(game.container.querySelector('a[href*="/tournaments/summer-tournament/games/31/register"]')).not.toBeNull();
+	expect(
+		game.container.querySelector('a[href*="/tournaments/summer-tournament/games/31/register"]')
+	).not.toBeNull();
 });
 
 it('keeps timeline list and time semantics while using badges for status labels', () => {

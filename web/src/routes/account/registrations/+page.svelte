@@ -99,9 +99,7 @@
 	<meta name="description" content={m.registrations_intro()} />
 </svelte:head>
 
-<header
-	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.55fr)_minmax(15rem,0.45fr)]"
->
+<header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.55fr)_minmax(15rem,0.45fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
 		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.registrations_kicker()}
@@ -132,7 +130,9 @@
 	<section class="mt-8"><ErrorSummary errors={formErrors} /></section>
 {:else if registrations.length === 0}
 	<Card.Root class="mt-8">
-		<Card.Content role="status" class="text-muted-foreground">{m.empty_registrations()}</Card.Content>
+		<Card.Content role="status" class="text-muted-foreground"
+			>{m.empty_registrations()}</Card.Content
+		>
 	</Card.Root>
 {:else}
 	<section class="mt-8 flex flex-col gap-4" aria-label={m.registrations_heading()}>
@@ -143,16 +143,25 @@
 			>
 				<Card.Root class="grid gap-0 py-0 lg:grid-cols-[5rem_minmax(0,1fr)_minmax(13rem,0.42fr)]">
 					<Card.Header class="grid content-center bg-muted p-4 lg:row-span-2 lg:border-r">
-						<span class="font-mono-data text-2xl font-semibold text-primary">{String(index + 1).padStart(2, '0')}</span>
+						<span class="font-mono-data text-2xl font-semibold text-primary"
+							>{String(index + 1).padStart(2, '0')}</span
+						>
 					</Card.Header>
 					<Card.Content class="p-5">
 						<div class="flex flex-wrap items-center gap-3">
-							<Badge variant={registration.status === 'REJECTED' ? 'destructive' : 'outline'} class={statusClass(registration.status)}>
+							<Badge
+								variant={registration.status === 'REJECTED' ? 'destructive' : 'outline'}
+								class={statusClass(registration.status)}
+							>
 								{statusLabel(registration.status)}
 							</Badge>
-							<span class="text-xs text-muted-foreground">{registration.tournament_game.game_name}</span>
+							<span class="text-xs text-muted-foreground"
+								>{registration.tournament_game.game_name}</span
+							>
 						</div>
-						<Card.Title class="mt-3"><h2>{registration.tournament_game.tournament_name}</h2></Card.Title>
+						<Card.Title class="mt-3"
+							><h2>{registration.tournament_game.tournament_name}</h2></Card.Title
+						>
 						{#if registration.team_name}
 							<Card.Description class="mt-2">{registration.team_name}</Card.Description>
 						{/if}
@@ -161,7 +170,11 @@
 						<dl class="grid grid-cols-2 gap-px bg-border text-sm lg:grid-cols-1">
 							<div class="bg-card p-4">
 								<dt class="text-xs text-muted-foreground">{m.registration_submitted_label()}</dt>
-								<dd class="font-mono-data mt-1 text-xs font-semibold"><time datetime={registration.submitted_at}>{formatDate(registration.submitted_at)}</time></dd>
+								<dd class="font-mono-data mt-1 text-xs font-semibold">
+									<time datetime={registration.submitted_at}
+										>{formatDate(registration.submitted_at)}</time
+									>
+								</dd>
 							</div>
 							<div class="bg-card p-4">
 								<dt class="text-xs text-muted-foreground">{m.game_fee()}</dt>

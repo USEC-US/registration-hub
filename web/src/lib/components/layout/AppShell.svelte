@@ -227,9 +227,9 @@
 						{@const Icon = social.icon}
 						<a
 							class="flex h-10 w-10 items-center justify-center rounded-full border border-(--line) text-(--text-muted) transition hover:border-accent hover:text-accent"
-							href={localizeInternalHref(social.href)}
+							href={social.href}
 							target="_blank"
-							rel="noopener noreferrer"
+							rel="external noopener noreferrer"
 							aria-label={key}
 						>
 							<Icon />

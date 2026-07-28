@@ -2,8 +2,8 @@
 @import '@fontsource-variable/ibm-plex-sans';
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/jetbrains-mono';
-@import "tw-animate-css";
-@import "shadcn-svelte/tailwind.css";
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 

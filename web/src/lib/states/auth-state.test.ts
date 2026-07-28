@@ -113,10 +113,7 @@ describe('AuthState', () => {
 		const secondLoad = authState.initialize();
 		resolveUser(currentUser);
 
-		await expect(Promise.all([firstLoad, secondLoad])).resolves.toEqual([
-			currentUser,
-			currentUser
-		]);
+		await expect(Promise.all([firstLoad, secondLoad])).resolves.toEqual([currentUser, currentUser]);
 		expect(dependencies.getCurrentUser).toHaveBeenCalledTimes(1);
 	});
 
@@ -553,27 +550,32 @@ describe('AuthState', () => {
 		expect(authState.status).toBe('signed-out');
 	});
 
-	it.each([401, 403])('clears and redirects for an authentication error with status %i', (status) => {
-		dependencies.accessToken = 'access-token';
-		const authState = new AuthState();
-		const snapshot = authState.requireSessionSnapshot();
-		authState.updateCurrentUser(snapshot!, currentUser);
+	it.each([401, 403])(
+		'clears and redirects for an authentication error with status %i',
+		(status) => {
+			dependencies.accessToken = 'access-token';
+			const authState = new AuthState();
+			const snapshot = authState.requireSessionSnapshot();
+			authState.updateCurrentUser(snapshot!, currentUser);
 
-		expect(
-			authState.handleAuthenticationError(new ApiRequestError(status, 'Authentication failed.'))
-		).toBe(true);
+			expect(
+				authState.handleAuthenticationError(new ApiRequestError(status, 'Authentication failed.'))
+			).toBe(true);
 
-		expect(dependencies.clearSession).toHaveBeenCalledOnce();
-		expect(authState.currentUser).toBeNull();
-		expect(dependencies.replaceInternalLocation).toHaveBeenCalledWith(
-			'/auth/sign-in?redirect=%2Faccount%2Fprofile%3Ftab%3Dsecurity%23password'
-		);
-	});
+			expect(dependencies.clearSession).toHaveBeenCalledOnce();
+			expect(authState.currentUser).toBeNull();
+			expect(dependencies.replaceInternalLocation).toHaveBeenCalledWith(
+				'/auth/sign-in?redirect=%2Faccount%2Fprofile%3Ftab%3Dsecurity%23password'
+			);
+		}
+	);
 
 	it('leaves non-authentication errors for the caller to render', () => {
 		const authState = new AuthState();
 
-		expect(authState.handleAuthenticationError(new ApiRequestError(500, 'Server error.'))).toBe(false);
+		expect(authState.handleAuthenticationError(new ApiRequestError(500, 'Server error.'))).toBe(
+			false
+		);
 
 		expect(dependencies.clearSession).not.toHaveBeenCalled();
 		expect(dependencies.replaceInternalLocation).not.toHaveBeenCalled();

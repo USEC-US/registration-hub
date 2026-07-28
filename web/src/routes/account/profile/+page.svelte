@@ -93,9 +93,7 @@
 	<meta name="description" content={m.profile_intro()} />
 </svelte:head>
 
-<header
-	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)]"
->
+<header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
 		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.profile_kicker()}
@@ -126,7 +124,7 @@
 				<dt class="text-xs font-semibold uppercase tracking-[0.12em] text-(--text-muted)">
 					{m.field_email()}
 				</dt>
-					<dd class="font-mono-data mt-2 break-all text-sm">{authState.currentUser.email}</dd>
+				<dd class="font-mono-data mt-2 break-all text-sm">{authState.currentUser.email}</dd>
 			</dl>
 			<Card.Description class="mt-4 text-xs leading-5">{m.profile_email_note()}</Card.Description>
 		</Card.Header>
@@ -136,21 +134,21 @@
 				<ErrorSummary errors={formErrors} />
 				<FormField.Group class="gap-5 md:grid md:grid-cols-2">
 					<Field
-					label={m.field_first_name()}
-					name="first_name"
-					autocomplete="given-name"
-					required
-					maxlength={150}
-					error={fieldErrors.first_name?.[0]}
-					bind:value={firstName}
-				/>
-				<Field
-					label={m.field_last_name()}
-					name="last_name"
-					autocomplete="family-name"
-					required
-					maxlength={150}
-					error={fieldErrors.last_name?.[0]}
+						label={m.field_first_name()}
+						name="first_name"
+						autocomplete="given-name"
+						required
+						maxlength={150}
+						error={fieldErrors.first_name?.[0]}
+						bind:value={firstName}
+					/>
+					<Field
+						label={m.field_last_name()}
+						name="last_name"
+						autocomplete="family-name"
+						required
+						maxlength={150}
+						error={fieldErrors.last_name?.[0]}
 						bind:value={lastName}
 					/>
 				</FormField.Group>

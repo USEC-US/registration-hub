@@ -66,9 +66,7 @@
 	<meta name="description" content={m.auth_register_intro()} />
 </svelte:head>
 
-<header
-	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]"
->
+<header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
 		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.auth_register_kicker()}
@@ -122,52 +120,52 @@
 				<ErrorSummary errors={formErrors} />
 				<FormField.Group class="gap-5 md:grid md:grid-cols-2">
 					<Field
-					label={m.field_first_name()}
-					name="first_name"
-					autocomplete="given-name"
-					required
-					maxlength={150}
-					error={fieldErrors.first_name?.[0]}
-					bind:value={firstName}
-				/>
-				<Field
-					label={m.field_last_name()}
-					name="last_name"
-					autocomplete="family-name"
-					required
-					maxlength={150}
-					error={fieldErrors.last_name?.[0]}
-					bind:value={lastName}
-				/>
-				<Field
-					label={m.field_email()}
-					name="email"
-					type="email"
-					autocomplete="username"
-					spellcheck={false}
-					required
-					maxlength={254}
-					error={fieldErrors.email?.[0]}
-					bind:value={email}
-				/>
-				<Field
-					label={m.field_password()}
-					name="password"
-					type="password"
-					autocomplete="new-password"
-					required
-					minlength={8}
-					maxlength={128}
-					hint={m.auth_password_hint()}
-					error={fieldErrors.password?.[0]}
-					bind:value={password}
-				/>
-				<Field
-					label={m.field_school()}
-					name="school"
-					autocomplete="organization"
-					maxlength={128}
-					error={fieldErrors.school?.[0]}
+						label={m.field_first_name()}
+						name="first_name"
+						autocomplete="given-name"
+						required
+						maxlength={150}
+						error={fieldErrors.first_name?.[0]}
+						bind:value={firstName}
+					/>
+					<Field
+						label={m.field_last_name()}
+						name="last_name"
+						autocomplete="family-name"
+						required
+						maxlength={150}
+						error={fieldErrors.last_name?.[0]}
+						bind:value={lastName}
+					/>
+					<Field
+						label={m.field_email()}
+						name="email"
+						type="email"
+						autocomplete="username"
+						spellcheck={false}
+						required
+						maxlength={254}
+						error={fieldErrors.email?.[0]}
+						bind:value={email}
+					/>
+					<Field
+						label={m.field_password()}
+						name="password"
+						type="password"
+						autocomplete="new-password"
+						required
+						minlength={8}
+						maxlength={128}
+						hint={m.auth_password_hint()}
+						error={fieldErrors.password?.[0]}
+						bind:value={password}
+					/>
+					<Field
+						label={m.field_school()}
+						name="school"
+						autocomplete="organization"
+						maxlength={128}
+						error={fieldErrors.school?.[0]}
 						bind:value={school}
 					/>
 				</FormField.Group>
@@ -175,8 +173,9 @@
 			<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">
 				<p class="text-sm text-muted-foreground">
 					{m.auth_have_account()}
-					<a class="font-semibold text-primary" href={resolve(localizeInternalHref('/auth/sign-in'))}
-						>{m.nav_sign_in()}</a
+					<a
+						class="font-semibold text-primary"
+						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
 					>
 				</p>
 				<Button class="min-h-11" type="submit" disabled={submitting}>

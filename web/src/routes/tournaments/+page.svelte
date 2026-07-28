@@ -1,6 +1,5 @@
 <script lang="ts">
 	import TournamentCard from '$lib/components/tournaments/TournamentCard.svelte';
-	import { Separator } from '$lib/components/ui/separator';
 	import * as m from '$lib/paraglide/messages';
 	import type { PageProps } from './$types';
 

@@ -6,7 +6,7 @@
 	import * as m from '$lib/paraglide/messages';
 	import type { PageProps } from './$types';
 
-  import { ChevronRight } from "@lucide/svelte"
+	import { ChevronRight } from '@lucide/svelte';
 
 	let { data }: PageProps = $props();
 </script>
@@ -36,7 +36,7 @@
 			href={resolve(localizeInternalHref('/tournaments'))}
 		>
 			{m.action_browse_tournaments()}
-      <ChevronRight />
+			<ChevronRight />
 		</a>
 	</div>
 </header>

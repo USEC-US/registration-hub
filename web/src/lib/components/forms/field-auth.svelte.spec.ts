@@ -37,5 +37,7 @@ it('exposes the generated field and input semantics when invalid', async () => {
 	await expect
 		.element(page.getByRole('textbox', { name: 'Gamer tag' }))
 		.toHaveAttribute('data-slot', 'input');
-	await expect.element(page.getByText('Enter a gamer tag.')).toHaveAttribute('data-slot', 'field-error');
+	await expect
+		.element(page.getByText('Enter a gamer tag.'))
+		.toHaveAttribute('data-slot', 'field-error');
 });

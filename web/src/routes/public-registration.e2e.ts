@@ -80,9 +80,7 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 	await expect(page).toHaveURL(
 		'/auth/sign-in?redirect=%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
 	);
-	await expect(
-		page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })
-	).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
 });
 
 test('client navigation to register redirects an unauthenticated visitor to sign in', async ({
@@ -108,9 +106,7 @@ test('client navigation to register redirects an unauthenticated visitor to sign
 	await expect(page).toHaveURL(
 		'/auth/sign-in?redirect=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
 	);
-	await expect(
-		page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })
-	).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
 	expect(documentRequests.map((requestUrl) => new URL(requestUrl).pathname)).toEqual([
 		'/auth/sign-in',
 		'/auth/sign-in'

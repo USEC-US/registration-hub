@@ -32,13 +32,13 @@
 	function stateClass(state: RegistrationState): string {
 		switch (state) {
 			case 'open':
-					return 'border-success text-success';
+				return 'border-success text-success';
 			case 'full':
-					return 'border-warning text-warning';
+				return 'border-warning text-warning';
 			case 'closed':
-					return 'border-destructive text-destructive';
+				return 'border-destructive text-destructive';
 			case 'not_open':
-					return '';
+				return '';
 		}
 	}
 
@@ -71,7 +71,10 @@
 			</Card.Title>
 			<Card.Description class="font-mono-data text-xs">{game.game_slug}</Card.Description>
 			<Card.Action>
-				<Badge variant={game.registration_state === 'closed' ? 'destructive' : 'outline'} class={stateClass(game.registration_state)}>
+				<Badge
+					variant={game.registration_state === 'closed' ? 'destructive' : 'outline'}
+					class={stateClass(game.registration_state)}
+				>
 					{stateLabel(game.registration_state)}
 				</Badge>
 			</Card.Action>
@@ -118,7 +121,9 @@
 					<span class="bracket-node" aria-hidden="true"></span>
 				</a>
 			{:else}
-				<span class="text-sm font-semibold text-muted-foreground">{stateLabel(game.registration_state)}</span>
+				<span class="text-sm font-semibold text-muted-foreground"
+					>{stateLabel(game.registration_state)}</span
+				>
 			{/if}
 		</Card.Footer>
 	</Card.Root>

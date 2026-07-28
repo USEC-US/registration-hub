@@ -20,7 +20,7 @@ describe('RosterEditor', () => {
 	it('renders one required, empty captain row for a solo game', () => {
 		const { container } = render(RosterEditor, {
 			teamSizeMin: 1,
-			teamSizeMax: 1,
+			teamSizeMax: 1
 		});
 
 		expect(container.querySelectorAll('[data-roster-row]')).toHaveLength(1);
@@ -69,7 +69,9 @@ describe('RosterEditor', () => {
 		const controls = container.querySelectorAll<HTMLElement>('[role="radio"]');
 		expect(controls[0]).toHaveAttribute('aria-checked', 'false');
 		expect(controls[1]).toHaveAttribute('aria-checked', 'true');
-		expect(Array.from(controls).filter((control) => control.getAttribute('aria-checked') === 'true')).toHaveLength(1);
+		expect(
+			Array.from(controls).filter((control) => control.getAttribute('aria-checked') === 'true')
+		).toHaveLength(1);
 	});
 
 	it('propagates text edits through the bound members array', async () => {
@@ -162,7 +164,9 @@ describe('PaymentAttemptForm', () => {
 		});
 
 		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
-		const button = page.getByRole('button', { name: 'Upload payment proof' }).elements()[0] as HTMLButtonElement;
+		const button = page
+			.getByRole('button', { name: 'Upload payment proof' })
+			.elements()[0] as HTMLButtonElement;
 		button.click();
 
 		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());

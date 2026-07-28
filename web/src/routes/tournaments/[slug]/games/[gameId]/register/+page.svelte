@@ -105,9 +105,7 @@
 	/>
 </svelte:head>
 
-<header
-	class="grid border border-(--line) lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]"
->
+<header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.55fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
 		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.registration_form_kicker()}
@@ -119,9 +117,7 @@
 			{m.registration_form_intro({ tournament: data.tournament.name })}
 		</p>
 	</div>
-	<dl
-		class="grid gap-px border-t border-(--line) bg-(--line) text-sm lg:border-l lg:border-t-0"
-	>
+	<dl class="grid gap-px border-t border-(--line) bg-(--line) text-sm lg:border-l lg:border-t-0">
 		<div class="bg-(--surface-muted) p-5">
 			<dt class="text-xs text-(--text-muted)">{m.tournament_label()}</dt>
 			<dd class="mt-1 font-semibold">{data.tournament.name}</dd>

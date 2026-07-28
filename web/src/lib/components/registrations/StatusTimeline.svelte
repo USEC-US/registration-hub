@@ -49,11 +49,17 @@
 				class="relative grid gap-1 pb-6 pl-6 last:pb-0"
 				aria-current={index === events.length - 1 ? 'step' : undefined}
 			>
-					<span class="absolute -left-1.25 top-1 size-2.25 border border-primary bg-background" aria-hidden="true"></span>
-					<Badge variant={event.to_status === 'REJECTED' ? 'destructive' : 'outline'} class={statusClass(event.to_status)}>
-						{statusLabel(event.to_status)}
-					</Badge>
-					<time class="font-mono-data text-xs text-muted-foreground" datetime={event.created_at}>
+				<span
+					class="absolute -left-1.25 top-1 size-2.25 border border-primary bg-background"
+					aria-hidden="true"
+				></span>
+				<Badge
+					variant={event.to_status === 'REJECTED' ? 'destructive' : 'outline'}
+					class={statusClass(event.to_status)}
+				>
+					{statusLabel(event.to_status)}
+				</Badge>
+				<time class="font-mono-data text-xs text-muted-foreground" datetime={event.created_at}>
 					{formatDate(event.created_at)}
 				</time>
 			</li>

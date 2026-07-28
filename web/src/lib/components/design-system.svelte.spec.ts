@@ -126,9 +126,7 @@ describe('tournament components', () => {
 
 		expect(shell.container.querySelector('a[href="/"]')).not.toBeNull();
 		expect(shell.container.querySelector('a[href="/tournaments"]')).not.toBeNull();
-		expect(card.container.querySelectorAll('a[href="/tournaments/giai-mua-he"]')).toHaveLength(
-			2
-		);
+		expect(card.container.querySelectorAll('a[href="/tournaments/giai-mua-he"]')).toHaveLength(2);
 	});
 
 	it('uses the supplied responsive logo instead of the decorative brand dot', () => {

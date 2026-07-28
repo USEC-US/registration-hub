@@ -133,7 +133,9 @@
 				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 					{registration.tournament_game.tournament_name}
 				</p>
-				<Card.Title class="mt-3"><h1>{registration.team_name || registration.tournament_game.game_name}</h1></Card.Title>
+				<Card.Title class="mt-3"
+					><h1>{registration.team_name || registration.tournament_game.game_name}</h1></Card.Title
+				>
 				<Card.Description class="mt-4 text-base">
 					{registration.tournament_game.game_name} · {m.registration_detail_heading({
 						id: registration.id
@@ -144,18 +146,24 @@
 				<dl class="grid gap-px bg-border text-sm">
 					<div class="bg-muted p-5">
 						<dt class="text-xs text-(--text-muted)">{m.registration_status_label()}</dt>
-						<dd class="mt-2"><Badge variant={registration.status === 'REJECTED' ? 'destructive' : 'outline'} class={statusClass(registration.status)}>{statusLabel(registration.status)}</Badge></dd>
+						<dd class="mt-2">
+							<Badge
+								variant={registration.status === 'REJECTED' ? 'destructive' : 'outline'}
+								class={statusClass(registration.status)}>{statusLabel(registration.status)}</Badge
+							>
+						</dd>
 					</div>
 					<div class="bg-muted p-5">
 						<dt class="text-xs text-(--text-muted)">{m.registration_submitted_label()}</dt>
-					<dd class="font-mono-data mt-1 text-xs font-semibold">
-						<time datetime={registration.submitted_at}>{formatDate(registration.submitted_at)}</time
-						>
-					</dd>
-				</div>
+						<dd class="font-mono-data mt-1 text-xs font-semibold">
+							<time datetime={registration.submitted_at}
+								>{formatDate(registration.submitted_at)}</time
+							>
+						</dd>
+					</div>
 					<div class="bg-muted p-5">
-					<dt class="text-xs text-(--text-muted)">{m.game_fee()}</dt>
-					<dd class="font-mono-data mt-1 text-xs font-semibold">{formatFee()}</dd>
+						<dt class="text-xs text-(--text-muted)">{m.game_fee()}</dt>
+						<dd class="font-mono-data mt-1 text-xs font-semibold">{formatFee()}</dd>
 					</div>
 				</dl>
 			</Card.Content>
@@ -167,28 +175,32 @@
 					<Card.Title><h2 id="registration-roster-heading">{m.roster_heading()}</h2></Card.Title>
 				</Card.Header>
 				<Card.Content class="p-0">
-				<ol class="divide-y">
-					{#each registration.members as member (member.display_order)}
-						<li
-							class="grid gap-3 p-4 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-center"
-						>
-							<span class="font-mono-data text-2xl font-semibold text-accent"
-								>{String(member.display_order).padStart(2, '0')}</span
+					<ol class="divide-y">
+						{#each registration.members as member (member.display_order)}
+							<li
+								class="grid gap-3 p-4 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-center"
 							>
-							<span class="font-semibold">{member.gamer_tag_snapshot}</span>
-							<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
-							{#if member.is_captain}
-								<Badge variant="outline">{m.roster_captain()}</Badge>
-							{/if}
-						</li>
-					{/each}
-				</ol>
+								<span class="font-mono-data text-2xl font-semibold text-accent"
+									>{String(member.display_order).padStart(2, '0')}</span
+								>
+								<span class="font-semibold">{member.gamer_tag_snapshot}</span>
+								<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
+								{#if member.is_captain}
+									<Badge variant="outline">{m.roster_captain()}</Badge>
+								{/if}
+							</li>
+						{/each}
+					</ol>
 				</Card.Content>
 			</Card.Root>
 
 			<Card.Root aria-labelledby="registration-status-heading">
 				<Card.Header>
-					<Card.Title><h2 id="registration-status-heading">{m.registration_status_history_heading()}</h2></Card.Title>
+					<Card.Title
+						><h2 id="registration-status-heading">
+							{m.registration_status_history_heading()}
+						</h2></Card.Title
+					>
 				</Card.Header>
 				<Card.Content><StatusTimeline events={registration.status_events} /></Card.Content>
 			</Card.Root>

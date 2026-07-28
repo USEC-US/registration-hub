@@ -18,9 +18,7 @@
 </svelte:head>
 
 <article>
-	<header
-		class="grid border border-(--line) lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.45fr)]"
-	>
+	<header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.45fr)]">
 		<div class="p-5 sm:p-7 lg:p-9">
 			<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 				{m.tournament_label()}
@@ -90,7 +88,7 @@
 		<Separator class="mb-4" />
 
 		{#if data.tournament.tournament_games.length > 0}
-				<div class="flex flex-col gap-4">
+			<div class="flex flex-col gap-4">
 				{#each data.tournament.tournament_games as game (game.id)}
 					<TournamentGameRow
 						tournament={data.tournament}

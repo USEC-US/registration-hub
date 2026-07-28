@@ -11,12 +11,15 @@
 		members?: RegistrationMemberInput[];
 	}
 
-	let {
-		teamSizeMin,
-		teamSizeMax,
-		members = $bindable([])
-	}: Props = $props();
-	let captainValue = $derived(String(Math.max(0, members.findIndex((member) => member.is_captain))));
+	let { teamSizeMin, teamSizeMax, members = $bindable([]) }: Props = $props();
+	let captainValue = $derived(
+		String(
+			Math.max(
+				0,
+				members.findIndex((member) => member.is_captain)
+			)
+		)
+	);
 
 	function initializeMembers(): void {
 		if (members.length === 0) {
@@ -27,7 +30,6 @@
 				display_order: index + 1
 			}));
 		}
-
 	}
 
 	initializeMembers();
@@ -102,7 +104,10 @@
 					/>
 				</Field.Field>
 				<Field.Label class="flex min-h-11 items-center gap-2 border px-3">
-					<RadioGroup.Item value={String(index)} aria-label={m.roster_set_captain({ number: index + 1 })} />
+					<RadioGroup.Item
+						value={String(index)}
+						aria-label={m.roster_set_captain({ number: index + 1 })}
+					/>
 					<span>{m.roster_captain()}</span>
 					<span class="sr-only">{m.roster_set_captain({ number: index + 1 })}</span>
 				</Field.Label>
