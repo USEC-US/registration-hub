@@ -50,6 +50,14 @@ const currentUser: CurrentUser = {
 	school: 'HCMUS'
 };
 
+const newCurrentUser: CurrentUser = {
+	id: 8,
+	email: 'new@example.com',
+	first_name: 'Lan',
+	last_name: 'Tran',
+	school: 'HCMUT'
+};
+
 beforeEach(() => {
 	dependencies.accessToken = null;
 	dependencies.refreshToken = null;
@@ -110,6 +118,37 @@ describe('AuthState', () => {
 			currentUser
 		]);
 		expect(dependencies.getCurrentUser).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not let an older hydration clear a session created by sign-in', async () => {
+		dependencies.accessToken = 'old-access-token';
+		let rejectOldHydration!: (reason: unknown) => void;
+		dependencies.getCurrentUser
+			.mockReturnValueOnce(
+				new Promise<CurrentUser>((_, reject) => {
+					rejectOldHydration = reject;
+				})
+			)
+			.mockResolvedValueOnce(newCurrentUser);
+		dependencies.requestSignIn.mockResolvedValue({
+			access: 'new-access-token',
+			refresh: 'new-refresh-token'
+		});
+		const authState = new AuthState();
+
+		const oldInitialization = authState.initialize();
+		const signIn = authState.signIn('new@example.com', 'password');
+		await vi.waitFor(() =>
+			expect(dependencies.getCurrentUser).toHaveBeenLastCalledWith('new-access-token')
+		);
+		rejectOldHydration(new ApiRequestError(401, 'Expired.'));
+
+		await expect(signIn).resolves.toEqual(newCurrentUser);
+		await expect(oldInitialization).resolves.toBeNull();
+		expect(dependencies.accessToken).toBe('new-access-token');
+		expect(dependencies.clearSession).not.toHaveBeenCalled();
+		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
 	});
 
 	it('persists credentials and hydrates the user when signing in', async () => {
