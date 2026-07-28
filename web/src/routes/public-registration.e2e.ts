@@ -77,7 +77,7 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 	await page.goto('/account/profile?section=identity#school');
 
 	await expect(page).toHaveURL(
-		'/auth/sign-in?redirectTo=%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
+		'/auth/sign-in?redirect=%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
 	);
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })
@@ -105,7 +105,7 @@ test('client navigation to register redirects an unauthenticated visitor to sign
 	await page.getByRole('link', { name: 'Register' }).click();
 
 	await expect(page).toHaveURL(
-		'/auth/sign-in?redirectTo=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
+		'/auth/sign-in?redirect=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
 	);
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })

@@ -21,11 +21,14 @@ const authStateMock = vi.hoisted(() => ({
 	updateCurrentUser: vi.fn(),
 	signIn: vi.fn()
 }));
+const mockPage = vi.hoisted(() => ({
+	url: new URL('https://usec.test/vi/account/profile?section=identity#school')
+}));
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({
-	page: { url: new URL('https://usec.test/vi/account/profile?section=identity#school') }
+	page: mockPage
 }));
 vi.mock('$lib/api/auth', () => ({
 	getCurrentUser: vi.fn(),
@@ -49,6 +52,7 @@ const user: CurrentUser = {
 
 beforeEach(() => {
 	overwriteGetLocale(() => 'en');
+	mockPage.url = new URL('https://usec.test/vi/account/profile?section=identity#school');
 	vi.mocked(goto).mockReset().mockResolvedValue(undefined);
 	vi.mocked(registerAccount).mockReset();
 	vi.mocked(signIn).mockReset();
@@ -84,6 +88,37 @@ describe('sign-in page', () => {
 		expect(authStateMock.signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
 		expect(saveSession).not.toHaveBeenCalled();
 		expect(container.querySelector('form')).toHaveAttribute('aria-busy', 'false');
+	});
+
+	it('restores the localized redirect pathname, query, and hash after sign-in', async () => {
+		mockPage.url = new URL(
+			'https://usec.test/auth/sign-in?redirect=%2Fvi%2Faccount%2Fregistrations%3Fstatus%3Dpending%23payment'
+		);
+		authStateMock.signIn.mockResolvedValue(user);
+		render(SignInPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/vi/account/registrations?status=pending#payment')
+		);
+	});
+
+	it('ignores a legacy redirect parameter and uses the safe fallback', async () => {
+		const legacyRedirectParameter = ['redirect', 'To'].join('');
+		mockPage.url = new URL(
+			`https://usec.test/auth/sign-in?${legacyRedirectParameter}=%2Fvi%2Faccount%2Fregistrations`
+		);
+		authStateMock.signIn.mockResolvedValue(user);
+		render(SignInPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/account/registrations'));
 	});
 
 	it('blocks duplicate submissions while authentication is pending', async () => {

@@ -82,7 +82,7 @@ export class AuthState {
     if (accessToken) return accessToken;
 
     this.signOut();
-    this.redirectToSignIn();
+    this.navigateToSignIn();
     return null;
   }
 
@@ -90,11 +90,11 @@ export class AuthState {
     if (!this.isAuthenticationError(error)) return false;
 
     this.signOut();
-    this.redirectToSignIn();
+    this.navigateToSignIn();
     return true;
   }
 
-  private redirectToSignIn(): void {
+  private navigateToSignIn(): void {
     if (!browser) return;
 
     const currentHref = window.location.pathname + window.location.search + window.location.hash;

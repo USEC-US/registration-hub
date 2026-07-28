@@ -23,10 +23,10 @@
 
 	function signInHref(): string {
 		const currentHref = `${page.url.pathname}${page.url.search}${page.url.hash}`;
-		return `${resolve(localizeInternalHref('/auth/sign-in'))}?redirectTo=${encodeURIComponent(currentHref)}`;
+		return `${resolve(localizeInternalHref('/auth/sign-in'))}?redirect=${encodeURIComponent(currentHref)}`;
 	}
 
-	function redirectToSignIn(clearTokens: boolean): void {
+	function navigateToSignIn(clearTokens: boolean): void {
 		if (redirecting) return;
 		redirecting = true;
 		if (clearTokens) clearSession();
@@ -76,7 +76,7 @@
 		const accessToken = getAccessToken();
 		if (!accessToken) {
 			loading = false;
-			redirectToSignIn(false);
+			navigateToSignIn(false);
 			return;
 		}
 
@@ -84,7 +84,7 @@
 			registrations = await listRegistrations(accessToken);
 		} catch (cause) {
 			if (isAuthenticationError(cause)) {
-				redirectToSignIn(true);
+				navigateToSignIn(true);
 				return;
 			}
 			({ formErrors } = formErrorsFrom(cause, m.registrations_load_failed()));

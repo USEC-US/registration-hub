@@ -240,7 +240,7 @@ describe('participant registration pages', () => {
 
 		await vi.waitFor(() => expect(clearSession).toHaveBeenCalledOnce());
 		expect(replaceInternalLocation).toHaveBeenCalledWith(
-			'/auth/sign-in?redirectTo=%2Faccount%2Fregistrations%2F33'
+			'/en/auth/sign-in?redirect=%2Faccount%2Fregistrations%2F33'
 		);
 	});
 });

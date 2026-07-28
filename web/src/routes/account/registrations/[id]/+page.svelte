@@ -26,10 +26,10 @@
 
 	function signInHref(): string {
 		const currentHref = `${page.url.pathname}${page.url.search}${page.url.hash}`;
-		return `${resolve(localizeInternalHref('/auth/sign-in'))}?redirectTo=${encodeURIComponent(currentHref)}`;
+		return `${resolve(localizeInternalHref('/auth/sign-in'))}?redirect=${encodeURIComponent(currentHref)}`;
 	}
 
-	function redirectToSignIn(clearTokens: boolean): void {
+	function navigateToSignIn(clearTokens: boolean): void {
 		if (redirecting) return;
 		redirecting = true;
 		if (clearTokens) clearSession();
@@ -86,7 +86,7 @@
 			formErrors = [];
 		} catch (cause) {
 			if (isAuthenticationError(cause)) {
-				redirectToSignIn(true);
+				navigateToSignIn(true);
 				return;
 			}
 			({ formErrors } = formErrorsFrom(cause, m.registration_detail_load_failed()));
@@ -97,7 +97,7 @@
 		accessToken = getAccessToken();
 		if (!accessToken) {
 			loading = false;
-			redirectToSignIn(false);
+			navigateToSignIn(false);
 			return;
 		}
 
@@ -202,7 +202,7 @@
 					initialAmount={registration.fee_amount_snapshot}
 					initialCurrency={registration.fee_currency_snapshot}
 					onSuccess={refreshRegistration}
-					onAuthenticationError={() => redirectToSignIn(true)}
+					onAuthenticationError={() => navigateToSignIn(true)}
 				/>
 			</div>
 		{/if}

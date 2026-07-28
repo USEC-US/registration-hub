@@ -34,7 +34,7 @@
 				return;
 			}
 
-			await goto(resolve(sanitizeInternalRedirect(page.url.searchParams.get('redirectTo'))));
+			await goto(resolve(sanitizeInternalRedirect(page.url.searchParams.get('redirect'))));
 		} catch (cause) {
 			({ fieldErrors, formErrors } = formErrorsFrom(cause, m.auth_sign_in_failed()));
 		} finally {
