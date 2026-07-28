@@ -16,7 +16,7 @@ Migrate the first three clear frontend consumers to the tested shared authState:
 ### Excluded
 
 - Registration and payment pages.
-- The sign-out route and its uncommitted shell link.
+- Sign-out behavior and any existing shell link.
 - Registration account creation and automatic post-registration sign-in.
 - Changes to the AuthState contract, token storage, or server API.
 
@@ -59,9 +59,9 @@ When profile initialization finishes signed-out after an expired token, the page
 
 AppShell never redirects public pages during initialization. Its failed authentication state simply becomes signed-out.
 
-## Preserving work outside scope
+## Sign-out boundary
 
-AppShell.svelte and web/src/routes/auth/sign-out/ contain uncommitted sign-out work. This migration must preserve it exactly. It does not correct, remove, wire up, or otherwise modify that work.
+The empty, untracked web/src/routes/auth/sign-out/ route was deleted with user authorization before implementation. This migration does not add sign-out behavior or modify any existing shell link.
 
 ## Testing and verification
 
