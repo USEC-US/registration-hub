@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { PublicTournament } from '$lib/api/types';
@@ -36,6 +36,10 @@ const tournament: PublicTournament = {
 };
 
 const displayTimeZone = resolveDisplayTimeZone('Asia/Ho_Chi_Minh');
+
+beforeEach(() => {
+	overwriteGetLocale(() => 'en');
+});
 
 afterEach(() => {
 	overwriteGetLocale(() => 'en');
@@ -175,7 +179,7 @@ describe('public tournament pages', () => {
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('link', { name: 'Register' }))
-			.toHaveAttribute('href', '/tournaments/usec-summer-2026/games/9/register');
+		.toHaveAttribute('href', '/en/tournaments/usec-summer-2026/games/9/register');
 		expect(container.querySelectorAll('time[datetime]')).toHaveLength(4);
 		expect(document.title).toBe(`${tournament.name} · University of Science Esports Club`);
 	});

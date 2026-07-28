@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { createRawSnippet } from 'svelte';
@@ -39,8 +39,12 @@ const tournament: PublicTournament = {
 	]
 };
 
+beforeEach(() => {
+	overwriteGetLocale(() => 'vi');
+});
+
 afterEach(() => {
-	overwriteGetLocale(() => 'en');
+	overwriteGetLocale(() => 'vi');
 });
 
 describe('form components', () => {
@@ -111,21 +115,18 @@ describe('tournament components', () => {
 
 		await expect
 			.element(page.getByRole('link', { name: 'Đăng ký' }))
-			.toHaveAttribute('href', '/vi/tournaments/giai-mua-he/games/31/register');
+			.toHaveAttribute('href', '/tournaments/giai-mua-he/games/31/register');
 	});
 
-	it('preserves the current locale in shell and tournament navigation', () => {
+	it('uses Vietnamese paths for public shell and tournament navigation', () => {
 		overwriteGetLocale(() => 'vi');
 		const children = createRawSnippet(() => ({ render: () => '<p>Content</p>' }));
 		const shell = render(AppShell, { children });
 		const card = render(TournamentCard, { tournament, displayTimeZone: 'Asia/Ho_Chi_Minh' });
 
-		expect(shell.container.querySelector('a[href="/vi/"]')).not.toBeNull();
-		expect(shell.container.querySelector('a[href="/vi/tournaments"]')).not.toBeNull();
-		expect(shell.container.querySelector('a[href="/vi/account/registrations"]')).not.toBeNull();
-		expect(shell.container.querySelector('a[href="/vi/account/profile"]')).not.toBeNull();
-		expect(shell.container.querySelector('a[href="/vi/auth/sign-in"]')).not.toBeNull();
-		expect(card.container.querySelectorAll('a[href="/vi/tournaments/giai-mua-he"]')).toHaveLength(
+		expect(shell.container.querySelector('a[href="/"]')).not.toBeNull();
+		expect(shell.container.querySelector('a[href="/tournaments"]')).not.toBeNull();
+		expect(card.container.querySelectorAll('a[href="/tournaments/giai-mua-he"]')).toHaveLength(
 			2
 		);
 	});
@@ -157,21 +158,23 @@ describe('tournament components', () => {
 			hash: '#games'
 		};
 
-		expect(localizeCurrentHref(currentUrl, 'vi')).toBe('/vi/tournaments?registration=open#games');
+		expect(localizeCurrentHref(currentUrl, 'vi')).toBe('/tournaments?registration=open#games');
+		expect(localizeCurrentHref(currentUrl, 'en')).toBe('/en/tournaments?registration=open#games');
 	});
 
-	it('reloads the document when switching locale so server and client language state stay aligned', () => {
+	it('renders Vietnamese as the current locale in the switcher', async () => {
 		const children = createRawSnippet(() => ({ render: () => '<p>Content</p>' }));
-		const shell = render(AppShell, { children });
+		render(AppShell, { children });
 
-		expect(
-			shell.container.querySelector('a[hreflang="vi"]')?.hasAttribute('data-sveltekit-reload')
-		).toBe(true);
+		await expect
+			.element(page.getByRole('button', { name: 'Ngôn ngữ' }))
+			.toHaveTextContent('Tiếng Việt');
 	});
 });
 
 describe('StatusTimeline', () => {
 	it('uses ordered-list, current-step, and machine-readable time semantics', async () => {
+		overwriteGetLocale(() => 'en');
 		const events: RegistrationRead['status_events'] = [
 			{ to_status: 'SUBMITTED', created_at: '2026-07-21T01:00:00Z' },
 			{ to_status: 'UNDER_REVIEW', created_at: '2026-07-22T02:30:00Z' }

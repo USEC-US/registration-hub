@@ -100,7 +100,7 @@ describe('sign-in page', () => {
 		await password.fill('strong-password');
 		await page.getByRole('button', { name: 'Sign in' }).click();
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/account/registrations'));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/account/registrations'));
 		expect(authStateMock.signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
 		expect(saveSession).not.toHaveBeenCalled();
 		expect(container.querySelector('form')).toHaveAttribute('aria-busy', 'false');
@@ -212,7 +212,7 @@ describe('account creation page', () => {
 		await page.getByLabelText('Trường').fill('HCMUS');
 		await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/vi/account/profile'));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/account/profile'));
 		expect(registerAccount).toHaveBeenCalledWith({
 			email: 'PLAYER@EXAMPLE.COM',
 			password: 'strong-password',

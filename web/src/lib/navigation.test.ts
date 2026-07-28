@@ -1,9 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import { sanitizeInternalRedirect } from './navigation';
 
+beforeEach(() => {
+	overwriteGetLocale(() => 'vi');
+});
+
 afterEach(() => {
-	overwriteGetLocale(() => 'en');
+	overwriteGetLocale(() => 'vi');
 });
 
 describe('sanitizeInternalRedirect', () => {
@@ -27,9 +31,9 @@ describe('sanitizeInternalRedirect', () => {
 		expect(sanitizeInternalRedirect(destination)).toBe('/account/registrations');
 	});
 
-	it('uses a locale-aware registrations fallback', () => {
-		overwriteGetLocale(() => 'vi');
+	it('prefixes the registrations fallback when English is selected', () => {
+		overwriteGetLocale(() => 'en');
 
-		expect(sanitizeInternalRedirect(null)).toBe('/vi/account/registrations');
+		expect(sanitizeInternalRedirect(null)).toBe('/en/account/registrations');
 	});
 });

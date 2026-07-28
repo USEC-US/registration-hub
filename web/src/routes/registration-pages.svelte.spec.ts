@@ -173,7 +173,7 @@ describe('participant registration pages', () => {
 				]
 			})
 		);
-		expect(goto).toHaveBeenCalledWith('/account/registrations/33');
+		expect(goto).toHaveBeenCalledWith('/en/account/registrations/33');
 	});
 
 	it('shows roster validation errors returned by the registration API', async () => {
@@ -205,7 +205,7 @@ describe('participant registration pages', () => {
 		await expect.element(page.getByText('Submitted', { exact: true }).first()).toBeInTheDocument();
 		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
 		expect(container.querySelector('[data-slot="badge"]')).not.toBeNull();
-		expect(container.querySelector('a[href="/account/registrations/33"]')).not.toBeNull();
+		expect(container.querySelector('a[href="/en/account/registrations/33"]')).not.toBeNull();
 		await expect.element(page.getByText(/50,000/)).toBeInTheDocument();
 	});
 

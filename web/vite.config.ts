@@ -34,6 +34,7 @@ export default defineConfig({
 				extends: './vite.config.ts',
 				test: {
 					name: 'client',
+					setupFiles: ['./src/test/browser.setup.ts'],
 					browser: {
 						enabled: true,
 						provider: playwright(),
