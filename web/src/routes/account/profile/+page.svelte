@@ -49,9 +49,11 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		const accessToken = authState.requireAccessToken();
-		if (saving || !accessToken) {
-			if (!accessToken) redirecting = true;
+		if (saving) return;
+
+		const session = authState.requireSessionSnapshot();
+		if (!session) {
+			redirecting = true;
 			return;
 		}
 
@@ -61,12 +63,13 @@
 		formErrors = [];
 
 		try {
-			const user = await updateCurrentUser(accessToken, {
+			const user = await updateCurrentUser(session.accessToken, {
 				first_name: firstName,
 				last_name: lastName,
 				school
 			});
-			authState.updateCurrentUser(user);
+			if (!authState.updateCurrentUser(session, user)) return;
+
 			firstName = user.first_name;
 			lastName = user.last_name;
 			school = user.school;

@@ -10,9 +10,15 @@ import { ApiRequestError } from '$lib/api/client'
 
 export type AuthStatus = 'idle' | 'loading' | 'signed-in' | 'signed-out' | 'unavailable'
 
+export type AuthSessionSnapshot = Readonly<{
+  accessToken: string
+  generation: number
+}>
+
 type Initialization = {
   accessToken: string
   generation: number
+  operationGeneration: number
   promise: Promise<CurrentUser | null>
 }
 
@@ -33,9 +39,11 @@ export class AuthState {
     }
 
     const generation = this.#sessionGeneration;
+    const operationGeneration = this.#operationGeneration;
     if (
       this.#initialization?.accessToken === accessToken &&
-      this.#initialization.generation === generation
+      this.#initialization.generation === generation &&
+      this.#initialization.operationGeneration === operationGeneration
     ) return this.#initialization.promise;
 
     this.status = 'loading';
@@ -58,7 +66,7 @@ export class AuthState {
       .finally(() => {
         if (this.#initialization === initialization) this.#initialization = null;
       })
-    initialization = { accessToken, generation, promise };
+    initialization = { accessToken, generation, operationGeneration, promise };
     this.#initialization = initialization;
     return promise;
   }
@@ -69,6 +77,7 @@ export class AuthState {
     const generation = this.beginTokenOperation();
     const tokens = await requestSignIn(email, password).catch((error: unknown) => {
       if (!this.isActiveTokenOperation(generation)) return null;
+      void this.initialize();
       throw error;
     });
     if (!tokens || !this.isActiveTokenOperation(generation)) return null;
@@ -95,6 +104,7 @@ export class AuthState {
     const generation = this.beginTokenOperation();
     const tokens = await refreshAccessToken(refreshToken).catch((error: unknown) => {
       if (!this.isActiveTokenOperation(generation)) return null;
+      void this.initialize();
       throw error;
     });
     if (!tokens || !this.isActiveTokenOperation(generation)) return null;
@@ -107,9 +117,12 @@ export class AuthState {
 
   }
 
-  updateCurrentUser(user: CurrentUser): void {
+  updateCurrentUser(snapshot: AuthSessionSnapshot, user: CurrentUser): boolean {
+    if (!this.isCurrentSession(snapshot)) return false;
+
     this.currentUser = user;
     this.status = 'signed-in';
+    return true;
   }
 
   requireAccessToken(): string | null {
@@ -121,6 +134,13 @@ export class AuthState {
     this.signOut();
     this.navigateToSignIn();
     return null;
+  }
+
+  requireSessionSnapshot(): AuthSessionSnapshot | null {
+    const accessToken = this.requireAccessToken();
+    if (!accessToken) return null;
+
+    return { accessToken, generation: this.#sessionGeneration };
   }
 
   handleAuthenticationError(error: unknown): boolean {
@@ -146,7 +166,13 @@ export class AuthState {
   private isActiveInitialization(initialization: Initialization): boolean {
     return this.#initialization === initialization &&
       this.#sessionGeneration === initialization.generation &&
+      this.#operationGeneration === initialization.operationGeneration &&
       getAccessToken() === initialization.accessToken
+  }
+
+  private isCurrentSession(snapshot: AuthSessionSnapshot): boolean {
+    return this.#sessionGeneration === snapshot.generation &&
+      getAccessToken() === snapshot.accessToken
   }
 
   private beginTokenOperation(): number {

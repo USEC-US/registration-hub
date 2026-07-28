@@ -8,6 +8,7 @@ import type { CurrentUser, TokenPair } from '$lib/api/types';
 import { saveSession } from '$lib/auth/session';
 import * as m from '$lib/paraglide/messages';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
+import type { AuthSessionSnapshot } from '$lib/states/auth-state.svelte';
 import ProfilePage from './account/profile/+page.svelte';
 import RegisterPage from './auth/register/+page.svelte';
 import SignInPage from './auth/sign-in/+page.svelte';
@@ -17,6 +18,7 @@ const authStateMock = vi.hoisted(() => ({
 	currentUser: null as CurrentUser | null,
 	initialize: vi.fn(),
 	requireAccessToken: vi.fn(),
+	requireSessionSnapshot: vi.fn(),
 	handleAuthenticationError: vi.fn(),
 	updateCurrentUser: vi.fn(),
 	signIn: vi.fn()
@@ -42,12 +44,23 @@ vi.mock('$lib/auth/session', () => ({
 vi.mock('$lib/states/auth-state.svelte', () => ({ authState: authStateMock }));
 
 const tokens: TokenPair = { access: 'access-token', refresh: 'refresh-token' };
+const sessionSnapshot: AuthSessionSnapshot = {
+	accessToken: tokens.access,
+	generation: 0
+};
 const user: CurrentUser = {
 	id: 7,
 	email: 'player@example.com',
 	first_name: 'Minh',
 	last_name: 'Nguyen',
 	school: 'HCMUS'
+};
+const newerUser: CurrentUser = {
+	id: 8,
+	email: 'new@example.com',
+	first_name: 'Lan',
+	last_name: 'Tran',
+	school: 'HCMUT'
 };
 
 beforeEach(() => {
@@ -62,8 +75,9 @@ beforeEach(() => {
 	authStateMock.currentUser = null;
 	authStateMock.initialize.mockReset();
 	authStateMock.requireAccessToken.mockReset();
+	authStateMock.requireSessionSnapshot.mockReset().mockReturnValue(sessionSnapshot);
 	authStateMock.handleAuthenticationError.mockReset().mockReturnValue(false);
-	authStateMock.updateCurrentUser.mockReset();
+	authStateMock.updateCurrentUser.mockReset().mockReturnValue(true);
 	authStateMock.signIn.mockReset();
 });
 
@@ -314,13 +328,44 @@ describe('profile page', () => {
 				school: 'HCMUS - VNU'
 			});
 		});
-		expect(authStateMock.updateCurrentUser).toHaveBeenCalledWith({
+		expect(authStateMock.requireSessionSnapshot).toHaveBeenCalledOnce();
+		expect(authStateMock.updateCurrentUser).toHaveBeenCalledWith(sessionSnapshot, {
 			...user,
 			school: 'HCMUS - VNU'
 		});
 		await expect.element(page.getByLabelText('First name')).toHaveValue(user.first_name);
 		await expect.element(page.getByLabelText('Last name')).toHaveValue(user.last_name);
 		await expect.element(page.getByText('Profile saved.')).toBeInTheDocument();
+	});
+
+	it('rejects a late profile response after the shared session changes', async () => {
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(user);
+		authStateMock.currentUser = user;
+		let resolveUpdate!: (value: CurrentUser) => void;
+		vi.mocked(updateCurrentUser).mockReturnValue(
+			new Promise<CurrentUser>((resolve) => {
+				resolveUpdate = resolve;
+			})
+		);
+		render(ProfilePage);
+		await vi.waitFor(() => expect(authStateMock.initialize).toHaveBeenCalledOnce());
+
+		await page.getByRole('button', { name: 'Save profile' }).click();
+		await vi.waitFor(() => expect(updateCurrentUser).toHaveBeenCalledOnce());
+		authStateMock.currentUser = newerUser;
+		authStateMock.updateCurrentUser.mockReturnValue(false);
+		resolveUpdate({ ...user, first_name: 'Stale' });
+
+		await vi.waitFor(() =>
+			expect(authStateMock.updateCurrentUser).toHaveBeenCalledWith(sessionSnapshot, {
+				...user,
+				first_name: 'Stale'
+			})
+		);
+		expect(authStateMock.currentUser).toEqual(newerUser);
+		await expect.element(page.getByLabelText('First name')).toHaveValue(user.first_name);
+		expect(document.body.textContent).not.toContain('Profile saved.');
 	});
 
 	it('allows the optional school to be cleared', async () => {

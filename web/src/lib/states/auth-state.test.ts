@@ -151,6 +151,41 @@ describe('AuthState', () => {
 		expect(authState.status).toBe('signed-in');
 	});
 
+	it('does not let old hydration authentication failure cancel a pending sign-in', async () => {
+		dependencies.accessToken = 'old-access-token';
+		let rejectOldHydration!: (reason: unknown) => void;
+		let resolveSignIn!: (tokens: TokenPair) => void;
+		dependencies.getCurrentUser
+			.mockReturnValueOnce(
+				new Promise<CurrentUser>((_, reject) => {
+					rejectOldHydration = reject;
+				})
+			)
+			.mockResolvedValueOnce(newCurrentUser);
+		dependencies.requestSignIn.mockReturnValue(
+			new Promise<TokenPair>((resolve) => {
+				resolveSignIn = resolve;
+			})
+		);
+		const authState = new AuthState();
+
+		const oldInitialization = authState.initialize();
+		const signIn = authState.signIn('new@example.com', 'password');
+		rejectOldHydration(new ApiRequestError(401, 'Expired.'));
+		await expect(oldInitialization).resolves.toBeNull();
+		resolveSignIn({
+			access: 'new-access-token',
+			refresh: 'new-refresh-token'
+		});
+
+		await expect(signIn).resolves.toEqual(newCurrentUser);
+		expect(dependencies.clearSession).not.toHaveBeenCalled();
+		expect(dependencies.accessToken).toBe('new-access-token');
+		expect(dependencies.refreshToken).toBe('new-refresh-token');
+		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
+	});
+
 	it('resolves a successful hydration as null after its session is invalidated', async () => {
 		dependencies.accessToken = 'access-token';
 		let resolveHydration!: (user: CurrentUser) => void;
@@ -278,11 +313,13 @@ describe('AuthState', () => {
 	it('preserves old-session hydration when the active sign-in request fails', async () => {
 		dependencies.accessToken = 'old-access-token';
 		let resolveOldHydration!: (user: CurrentUser) => void;
-		dependencies.getCurrentUser.mockReturnValue(
-			new Promise<CurrentUser>((resolve) => {
-				resolveOldHydration = resolve;
-			})
-		);
+		dependencies.getCurrentUser
+			.mockReturnValueOnce(
+				new Promise<CurrentUser>((resolve) => {
+					resolveOldHydration = resolve;
+				})
+			)
+			.mockResolvedValueOnce(currentUser);
 		const signInError = new ApiRequestError(401, 'Invalid credentials.');
 		dependencies.requestSignIn.mockRejectedValue(signInError);
 		const authState = new AuthState();
@@ -291,7 +328,9 @@ describe('AuthState', () => {
 		await expect(authState.signIn('player@example.com', 'password')).rejects.toBe(signInError);
 		resolveOldHydration(currentUser);
 
-		await expect(oldInitialization).resolves.toEqual(currentUser);
+		await expect(oldInitialization).resolves.toBeNull();
+		await vi.waitFor(() => expect(authState.currentUser).toEqual(currentUser));
+		expect(dependencies.getCurrentUser).toHaveBeenCalledTimes(2);
 		expect(dependencies.accessToken).toBe('old-access-token');
 		expect(dependencies.saveSession).not.toHaveBeenCalled();
 		expect(authState.currentUser).toEqual(currentUser);
@@ -340,15 +379,50 @@ describe('AuthState', () => {
 		expect(authState.status).toBe('signed-in');
 	});
 
+	it('does not let old hydration authentication failure cancel a pending refresh', async () => {
+		dependencies.accessToken = 'expired-access-token';
+		dependencies.refreshToken = 'refresh-token';
+		let rejectOldHydration!: (reason: unknown) => void;
+		let resolveRefresh!: (tokens: { access: string }) => void;
+		dependencies.getCurrentUser
+			.mockReturnValueOnce(
+				new Promise<CurrentUser>((_, reject) => {
+					rejectOldHydration = reject;
+				})
+			)
+			.mockResolvedValueOnce(newCurrentUser);
+		dependencies.refreshAccessToken.mockReturnValue(
+			new Promise<{ access: string }>((resolve) => {
+				resolveRefresh = resolve;
+			})
+		);
+		const authState = new AuthState();
+
+		const oldInitialization = authState.initialize();
+		const refresh = authState.refreshSession();
+		rejectOldHydration(new ApiRequestError(401, 'Expired.'));
+		await expect(oldInitialization).resolves.toBeNull();
+		resolveRefresh({ access: 'fresh-access-token' });
+
+		await expect(refresh).resolves.toBe('fresh-access-token');
+		expect(dependencies.clearSession).not.toHaveBeenCalled();
+		expect(dependencies.accessToken).toBe('fresh-access-token');
+		expect(dependencies.refreshToken).toBe('refresh-token');
+		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
+	});
+
 	it('preserves old-session hydration when the active refresh request fails', async () => {
 		dependencies.accessToken = 'old-access-token';
 		dependencies.refreshToken = 'refresh-token';
 		let resolveOldHydration!: (user: CurrentUser) => void;
-		dependencies.getCurrentUser.mockReturnValue(
-			new Promise<CurrentUser>((resolve) => {
-				resolveOldHydration = resolve;
-			})
-		);
+		dependencies.getCurrentUser
+			.mockReturnValueOnce(
+				new Promise<CurrentUser>((resolve) => {
+					resolveOldHydration = resolve;
+				})
+			)
+			.mockResolvedValueOnce(currentUser);
 		const refreshError = new ApiRequestError(401, 'Refresh failed.');
 		dependencies.refreshAccessToken.mockRejectedValue(refreshError);
 		const authState = new AuthState();
@@ -357,7 +431,9 @@ describe('AuthState', () => {
 		await expect(authState.refreshSession()).rejects.toBe(refreshError);
 		resolveOldHydration(currentUser);
 
-		await expect(oldInitialization).resolves.toEqual(currentUser);
+		await expect(oldInitialization).resolves.toBeNull();
+		await vi.waitFor(() => expect(authState.currentUser).toEqual(currentUser));
+		expect(dependencies.getCurrentUser).toHaveBeenCalledTimes(2);
 		expect(dependencies.accessToken).toBe('old-access-token');
 		expect(dependencies.saveSession).not.toHaveBeenCalled();
 		expect(authState.currentUser).toEqual(currentUser);
@@ -424,14 +500,33 @@ describe('AuthState', () => {
 	});
 
 	it('clears storage and user state when signing out', () => {
+		dependencies.accessToken = 'access-token';
 		const authState = new AuthState();
-		authState.updateCurrentUser(currentUser);
+		const snapshot = authState.requireSessionSnapshot();
+		authState.updateCurrentUser(snapshot!, currentUser);
 
 		authState.signOut();
 
 		expect(dependencies.clearSession).toHaveBeenCalledOnce();
 		expect(authState.status).toBe('signed-out');
 		expect(authState.currentUser).toBeNull();
+	});
+
+	it('updates shared user state only while a session snapshot remains current', () => {
+		dependencies.accessToken = 'access-token';
+		const authState = new AuthState();
+		const snapshot = authState.requireSessionSnapshot();
+
+		expect(snapshot).toEqual({ accessToken: 'access-token', generation: 0 });
+		expect(authState.updateCurrentUser(snapshot!, currentUser)).toBe(true);
+		expect(authState.currentUser).toEqual(currentUser);
+		expect(authState.status).toBe('signed-in');
+
+		authState.signOut();
+
+		expect(authState.updateCurrentUser(snapshot!, newCurrentUser)).toBe(false);
+		expect(authState.currentUser).toBeNull();
+		expect(authState.status).toBe('signed-out');
 	});
 
 	it('marks a non-authentication current-user error as unavailable without clearing the session', async () => {
@@ -457,8 +552,10 @@ describe('AuthState', () => {
 	});
 
 	it.each([401, 403])('clears and redirects for an authentication error with status %i', (status) => {
+		dependencies.accessToken = 'access-token';
 		const authState = new AuthState();
-		authState.updateCurrentUser(currentUser);
+		const snapshot = authState.requireSessionSnapshot();
+		authState.updateCurrentUser(snapshot!, currentUser);
 
 		expect(
 			authState.handleAuthenticationError(new ApiRequestError(status, 'Authentication failed.'))
