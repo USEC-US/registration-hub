@@ -68,16 +68,8 @@ afterEach(() => {
 });
 
 describe('sign-in page', () => {
-	it('uses login semantics and saves tokens before a locale-safe fallback navigation', async () => {
-		const events: string[] = [];
-		vi.mocked(signIn).mockImplementation(async () => {
-			events.push('sign-in');
-			return tokens;
-		});
-		vi.mocked(saveSession).mockImplementation(() => events.push('save'));
-		vi.mocked(goto).mockImplementation(async () => {
-			events.push('goto');
-		});
+	it('delegates sign-in to auth state before a locale-safe fallback navigation', async () => {
+		authStateMock.signIn.mockResolvedValue(user);
 		const { container } = render(SignInPage);
 
 		const email = page.getByLabelText('Email');
@@ -89,15 +81,14 @@ describe('sign-in page', () => {
 		await page.getByRole('button', { name: 'Sign in' }).click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/account/registrations'));
-		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
-		expect(saveSession).toHaveBeenCalledWith(tokens);
-		expect(events).toEqual(['sign-in', 'save', 'goto']);
+		expect(authStateMock.signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
+		expect(saveSession).not.toHaveBeenCalled();
 		expect(container.querySelector('form')).toHaveAttribute('aria-busy', 'false');
 	});
 
 	it('blocks duplicate submissions while authentication is pending', async () => {
-		let resolveSignIn!: (value: TokenPair) => void;
-		vi.mocked(signIn).mockReturnValue(
+		let resolveSignIn!: (value: CurrentUser | null) => void;
+		authStateMock.signIn.mockReturnValue(
 			new Promise((resolve) => {
 				resolveSignIn = resolve;
 			})
@@ -110,17 +101,17 @@ describe('sign-in page', () => {
 		button.click();
 		button.click();
 
-		await vi.waitFor(() => expect(signIn).toHaveBeenCalledOnce());
+		await vi.waitFor(() => expect(authStateMock.signIn).toHaveBeenCalledOnce());
 		expect(button).toBeDisabled();
 		expect(button).toHaveAttribute('data-slot', 'button');
 		expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
 		expect(container.querySelector('form')).toHaveAttribute('aria-busy', 'true');
-		resolveSignIn(tokens);
-		await vi.waitFor(() => expect(saveSession).toHaveBeenCalledWith(tokens));
+		resolveSignIn(user);
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledOnce());
 	});
 
 	it('renders API field and form errors', async () => {
-		vi.mocked(signIn).mockRejectedValue(
+		authStateMock.signIn.mockRejectedValue(
 			new ApiRequestError(400, 'Unable to sign in.', { email: ['Enter a valid email address.'] }, [
 				'The email or password is incorrect.'
 			])
@@ -132,6 +123,18 @@ describe('sign-in page', () => {
 
 		await expect.element(page.getByText('Enter a valid email address.')).toBeInTheDocument();
 		await expect.element(page.getByText('The email or password is incorrect.')).toBeInTheDocument();
+	});
+
+	it('stays on the form when sign-in cannot hydrate the current user', async () => {
+		authStateMock.signIn.mockResolvedValue(null);
+		render(SignInPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await expect.element(page.getByText(m.auth_sign_in_failed())).toBeVisible();
+		expect(goto).not.toHaveBeenCalled();
 	});
 });
 

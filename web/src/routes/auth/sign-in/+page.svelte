@@ -2,13 +2,12 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { signIn } from '$lib/api/auth';
-	import { saveSession } from '$lib/auth/session';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import Field from '$lib/components/forms/Field.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref, sanitizeInternalRedirect } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
+	import { authState } from '$lib/states/auth-state.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import * as FormField from '$lib/components/ui/field';
@@ -29,8 +28,12 @@
 		formErrors = [];
 
 		try {
-			const tokens = await signIn(email, password);
-			saveSession(tokens);
+			const user = await authState.signIn(email, password);
+			if (!user) {
+				formErrors = [m.auth_sign_in_failed()];
+				return;
+			}
+
 			await goto(resolve(sanitizeInternalRedirect(page.url.searchParams.get('redirectTo'))));
 		} catch (cause) {
 			({ fieldErrors, formErrors } = formErrorsFrom(cause, m.auth_sign_in_failed()));
