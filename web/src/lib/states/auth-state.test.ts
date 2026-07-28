@@ -518,12 +518,14 @@ describe('AuthState', () => {
 		const snapshot = authState.requireSessionSnapshot();
 
 		expect(snapshot).toEqual({ accessToken: 'access-token', generation: 0 });
+		expect(authState.isSessionSnapshotCurrent(snapshot!)).toBe(true);
 		expect(authState.updateCurrentUser(snapshot!, currentUser)).toBe(true);
 		expect(authState.currentUser).toEqual(currentUser);
 		expect(authState.status).toBe('signed-in');
 
 		authState.signOut();
 
+		expect(authState.isSessionSnapshotCurrent(snapshot!)).toBe(false);
 		expect(authState.updateCurrentUser(snapshot!, newCurrentUser)).toBe(false);
 		expect(authState.currentUser).toBeNull();
 		expect(authState.status).toBe('signed-out');

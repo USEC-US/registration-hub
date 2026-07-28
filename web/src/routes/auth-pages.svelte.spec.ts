@@ -19,6 +19,7 @@ const authStateMock = vi.hoisted(() => ({
 	initialize: vi.fn(),
 	requireAccessToken: vi.fn(),
 	requireSessionSnapshot: vi.fn(),
+	isSessionSnapshotCurrent: vi.fn(),
 	handleAuthenticationError: vi.fn(),
 	updateCurrentUser: vi.fn(),
 	signIn: vi.fn()
@@ -76,6 +77,7 @@ beforeEach(() => {
 	authStateMock.initialize.mockReset();
 	authStateMock.requireAccessToken.mockReset();
 	authStateMock.requireSessionSnapshot.mockReset().mockReturnValue(sessionSnapshot);
+	authStateMock.isSessionSnapshotCurrent.mockReset().mockReturnValue(true);
 	authStateMock.handleAuthenticationError.mockReset().mockReturnValue(false);
 	authStateMock.updateCurrentUser.mockReset().mockReturnValue(true);
 	authStateMock.signIn.mockReset();
@@ -366,6 +368,73 @@ describe('profile page', () => {
 		expect(authStateMock.currentUser).toEqual(newerUser);
 		await expect.element(page.getByLabelText('First name')).toHaveValue(user.first_name);
 		expect(document.body.textContent).not.toContain('Profile saved.');
+	});
+
+	it('ignores a stale authentication error from a deferred profile save', async () => {
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(user);
+		authStateMock.currentUser = user;
+		let rejectUpdate!: (reason: unknown) => void;
+		vi.mocked(updateCurrentUser).mockReturnValue(
+			new Promise<CurrentUser>((_, reject) => {
+				rejectUpdate = reject;
+			})
+		);
+		authStateMock.handleAuthenticationError.mockReturnValue(true);
+		render(ProfilePage);
+		await vi.waitFor(() => expect(authStateMock.initialize).toHaveBeenCalledOnce());
+
+		await page.getByRole('button', { name: 'Save profile' }).click();
+		await vi.waitFor(() => expect(updateCurrentUser).toHaveBeenCalledOnce());
+		authStateMock.currentUser = newerUser;
+		authStateMock.isSessionSnapshotCurrent.mockReturnValue(false);
+		rejectUpdate(new ApiRequestError(403, 'Forbidden.'));
+		await vi.waitFor(() =>
+			expect(
+				authStateMock.handleAuthenticationError.mock.calls.length +
+					authStateMock.isSessionSnapshotCurrent.mock.calls.length
+			).toBeGreaterThan(0)
+		);
+
+		expect(authStateMock.handleAuthenticationError).not.toHaveBeenCalled();
+		expect(document.body.textContent).not.toContain(m.auth_redirecting_to_sign_in());
+		expect(authStateMock.currentUser).toEqual(newerUser);
+	});
+
+	it('ignores stale ordinary errors from a deferred profile save', async () => {
+		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
+		authStateMock.initialize.mockResolvedValue(user);
+		authStateMock.currentUser = user;
+		let rejectUpdate!: (reason: unknown) => void;
+		vi.mocked(updateCurrentUser).mockReturnValue(
+			new Promise<CurrentUser>((_, reject) => {
+				rejectUpdate = reject;
+			})
+		);
+		render(ProfilePage);
+		await vi.waitFor(() => expect(authStateMock.initialize).toHaveBeenCalledOnce());
+
+		await page.getByRole('button', { name: 'Save profile' }).click();
+		await vi.waitFor(() => expect(updateCurrentUser).toHaveBeenCalledOnce());
+		authStateMock.currentUser = null;
+		authStateMock.isSessionSnapshotCurrent.mockReturnValue(false);
+		rejectUpdate(
+			new ApiRequestError(400, 'Stale profile error.', {
+				school: ['This school error belongs to the old session.']
+			})
+		);
+		await vi.waitFor(() =>
+			expect(
+				authStateMock.handleAuthenticationError.mock.calls.length +
+					authStateMock.isSessionSnapshotCurrent.mock.calls.length
+			).toBeGreaterThan(0)
+		);
+
+		expect(authStateMock.handleAuthenticationError).not.toHaveBeenCalled();
+		expect(document.body.textContent).not.toContain(
+			'This school error belongs to the old session.'
+		);
+		expect(document.body.textContent).not.toContain(m.profile_save_failed());
 	});
 
 	it('allows the optional school to be cleared', async () => {

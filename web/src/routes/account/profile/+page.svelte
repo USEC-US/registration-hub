@@ -75,6 +75,8 @@
 			school = user.school;
 			saved = true;
 		} catch (cause) {
+			if (!authState.isSessionSnapshotCurrent(session)) return;
+
 			if (authState.handleAuthenticationError(cause)) {
 				redirecting = true;
 				return;

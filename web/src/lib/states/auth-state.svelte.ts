@@ -118,7 +118,7 @@ export class AuthState {
   }
 
   updateCurrentUser(snapshot: AuthSessionSnapshot, user: CurrentUser): boolean {
-    if (!this.isCurrentSession(snapshot)) return false;
+    if (!this.isSessionSnapshotCurrent(snapshot)) return false;
 
     this.currentUser = user;
     this.status = 'signed-in';
@@ -141,6 +141,11 @@ export class AuthState {
     if (!accessToken) return null;
 
     return { accessToken, generation: this.#sessionGeneration };
+  }
+
+  isSessionSnapshotCurrent(snapshot: AuthSessionSnapshot): boolean {
+    return this.#sessionGeneration === snapshot.generation &&
+      getAccessToken() === snapshot.accessToken
   }
 
   handleAuthenticationError(error: unknown): boolean {
@@ -168,11 +173,6 @@ export class AuthState {
       this.#sessionGeneration === initialization.generation &&
       this.#operationGeneration === initialization.operationGeneration &&
       getAccessToken() === initialization.accessToken
-  }
-
-  private isCurrentSession(snapshot: AuthSessionSnapshot): boolean {
-    return this.#sessionGeneration === snapshot.generation &&
-      getAccessToken() === snapshot.accessToken
   }
 
   private beginTokenOperation(): number {
