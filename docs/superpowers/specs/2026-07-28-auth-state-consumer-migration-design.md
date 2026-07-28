@@ -28,7 +28,7 @@ AppShell calls authState.initialize() on mount and renders authState.status with
 
 The profile page owns its form fields, saving state, validation errors, and presentation. It uses authState.requireAccessToken() as its entry guard and authState.initialize() as its shared source for initial identity data. After updateCurrentUser() succeeds, it calls authState.updateCurrentUser() with the returned user so all consumers, including the shell, react immediately.
 
-The sign-in page owns form submission, validation errors, and the post-success route. It calls authState.signIn() rather than directly requesting tokens or writing localStorage. It navigates to the sanitized redirectTo target only when the method returns a user. A null result means token persistence occurred but user hydration did not complete; the page remains on the form and shows its existing generic sign-in failure.
+The sign-in page owns form submission, validation errors, and the post-success route. It calls authState.signIn() rather than directly requesting tokens or writing localStorage. It navigates to the sanitized redirect target only when the method returns a user. A null result means the sign-in operation was superseded or user hydration did not complete; the page remains on the form and shows its existing generic sign-in failure.
 
 ## Data and error flow
 

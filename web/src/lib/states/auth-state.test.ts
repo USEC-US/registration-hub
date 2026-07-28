@@ -188,6 +188,72 @@ describe('AuthState', () => {
 		expect(authState.currentUser).toEqual(currentUser);
 	});
 
+	it('does not commit a deferred sign-in after sign-out invalidates it', async () => {
+		let resolveSignIn!: (tokens: TokenPair) => void;
+		dependencies.requestSignIn.mockReturnValue(
+			new Promise<TokenPair>((resolve) => {
+				resolveSignIn = resolve;
+			})
+		);
+		dependencies.getCurrentUser.mockResolvedValue(currentUser);
+		const authState = new AuthState();
+
+		const signIn = authState.signIn('player@example.com', 'password');
+		authState.signOut();
+		resolveSignIn({
+			access: 'late-access-token',
+			refresh: 'late-refresh-token'
+		});
+
+		await expect(signIn).resolves.toBeNull();
+		expect(dependencies.saveSession).not.toHaveBeenCalled();
+		expect(dependencies.accessToken).toBeNull();
+		expect(dependencies.refreshToken).toBeNull();
+		expect(dependencies.getCurrentUser).not.toHaveBeenCalled();
+		expect(authState.currentUser).toBeNull();
+		expect(authState.status).toBe('signed-out');
+	});
+
+	it('lets only the newest overlapping sign-in commit its session', async () => {
+		let resolveFirstSignIn!: (tokens: TokenPair) => void;
+		let resolveSecondSignIn!: (tokens: TokenPair) => void;
+		dependencies.requestSignIn
+			.mockReturnValueOnce(
+				new Promise<TokenPair>((resolve) => {
+					resolveFirstSignIn = resolve;
+				})
+			)
+			.mockReturnValueOnce(
+				new Promise<TokenPair>((resolve) => {
+					resolveSecondSignIn = resolve;
+				})
+			);
+		dependencies.getCurrentUser
+			.mockResolvedValueOnce(newCurrentUser)
+			.mockResolvedValueOnce(currentUser);
+		const authState = new AuthState();
+
+		const firstSignIn = authState.signIn('first@example.com', 'password');
+		const secondSignIn = authState.signIn('new@example.com', 'password');
+		resolveSecondSignIn({
+			access: 'new-access-token',
+			refresh: 'new-refresh-token'
+		});
+		await expect(secondSignIn).resolves.toEqual(newCurrentUser);
+		resolveFirstSignIn({
+			access: 'old-access-token',
+			refresh: 'old-refresh-token'
+		});
+
+		await expect(firstSignIn).resolves.toBeNull();
+		expect(dependencies.saveSession).toHaveBeenCalledOnce();
+		expect(dependencies.accessToken).toBe('new-access-token');
+		expect(dependencies.refreshToken).toBe('new-refresh-token');
+		expect(dependencies.getCurrentUser).toHaveBeenCalledOnce();
+		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
+	});
+
 	it('retains the refresh token while replacing the access token', async () => {
 		dependencies.accessToken = 'expired-access-token';
 		dependencies.refreshToken = 'refresh-token';
@@ -226,6 +292,37 @@ describe('AuthState', () => {
 
 		await expect(refresh).resolves.toBe('fresh-access-token');
 		await expect(oldInitialization).resolves.toBeNull();
+		expect(authState.currentUser).toEqual(newCurrentUser);
+		expect(authState.status).toBe('signed-in');
+	});
+
+	it('does not let a deferred refresh overwrite a newer sign-in', async () => {
+		dependencies.accessToken = 'expired-access-token';
+		dependencies.refreshToken = 'old-refresh-token';
+		let resolveRefresh!: (tokens: { access: string }) => void;
+		dependencies.refreshAccessToken.mockReturnValue(
+			new Promise<{ access: string }>((resolve) => {
+				resolveRefresh = resolve;
+			})
+		);
+		dependencies.requestSignIn.mockResolvedValue({
+			access: 'new-access-token',
+			refresh: 'new-refresh-token'
+		});
+		dependencies.getCurrentUser
+			.mockResolvedValueOnce(newCurrentUser)
+			.mockResolvedValueOnce(currentUser);
+		const authState = new AuthState();
+
+		const refresh = authState.refreshSession();
+		await expect(authState.signIn('new@example.com', 'password')).resolves.toEqual(newCurrentUser);
+		resolveRefresh({ access: 'stale-refreshed-access-token' });
+
+		await expect(refresh).resolves.toBeNull();
+		expect(dependencies.saveSession).toHaveBeenCalledOnce();
+		expect(dependencies.accessToken).toBe('new-access-token');
+		expect(dependencies.refreshToken).toBe('new-refresh-token');
+		expect(dependencies.getCurrentUser).toHaveBeenCalledOnce();
 		expect(authState.currentUser).toEqual(newCurrentUser);
 		expect(authState.status).toBe('signed-in');
 	});

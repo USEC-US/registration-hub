@@ -65,14 +65,17 @@ export class AuthState {
   async signIn(email:string, password: string): Promise<CurrentUser | null> {
     if (!browser) return null;
 
+    const generation = this.beginSessionOperation();
     const tokens = await requestSignIn(email, password);
+    if (!this.isActiveSessionOperation(generation)) return null;
+
     saveSession(tokens);
-    this.invalidateInitialization();
-    return this.initialize();
+    const user = await this.initialize();
+    return this.isActiveSessionOperation(generation) ? user : null;
   }
 
   signOut(): void {
-    this.invalidateInitialization();
+    this.beginSessionOperation();
     clearSession();
     this.currentUser = null;
     this.status = 'signed-out'
@@ -84,11 +87,13 @@ export class AuthState {
     const refreshToken = getRefreshToken();
     if (!refreshToken) { this.signOut(); return null; }
 
+    const generation = this.beginSessionOperation();
     const { access } = await refreshAccessToken(refreshToken);
+    if (!this.isActiveSessionOperation(generation)) return null;
+
     saveSession({ access, refresh: refreshToken });
-    this.invalidateInitialization();
     await this.initialize();
-    return access;
+    return this.isActiveSessionOperation(generation) ? access : null;
 
   }
 
@@ -134,9 +139,14 @@ export class AuthState {
       getAccessToken() === initialization.accessToken
   }
 
-  private invalidateInitialization(): void {
+  private beginSessionOperation(): number {
     this.#sessionGeneration += 1
     this.#initialization = null
+    return this.#sessionGeneration
+  }
+
+  private isActiveSessionOperation(generation: number): boolean {
+    return this.#sessionGeneration === generation
   }
 }
 
