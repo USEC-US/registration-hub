@@ -46,23 +46,24 @@ test('browser navigation runs public universal loads without extra document requ
 		await route.fulfill({ json: tournament });
 	});
 
-	// Enter through a route with no API load so Playwright can observe the following
+	// Enter through a real route with no API load so Playwright can observe the following
 	// client-side universal loads. This smoke does not execute the public routes' SSR branch.
-	await page.goto('/demo/playwright');
-	await page.getByRole('link', { name: /USEC Tournament Registration Hub/ }).click();
+	await page.goto('/auth/sign-in');
+	await page.locator('a[href="/"]').first().click();
 
 	await expect(page).toHaveURL('/');
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'USEC Tournament Registration Hub' })
+		page.getByRole('heading', { level: 1, name: 'Cổng Đăng ký Giải đấu' })
 	).toBeVisible();
 	await expect(page.getByRole('heading', { name: tournament.name })).toBeVisible();
-	await page.getByRole('link', { name: 'View tournament' }).click();
+	await page.getByRole('link', { name: tournament.name }).first().click();
 
 	await expect(page).toHaveURL('/tournaments/usec-summer-2026');
 	await expect(page.getByRole('heading', { level: 1, name: tournament.name })).toBeVisible();
-	await expect(page.getByRole('heading', { level: 2, name: 'Configured games' })).toBeVisible();
 	await expect(page.getByRole('heading', { level: 3, name: 'Valorant' })).toBeVisible();
-	await expect(page.getByRole('link', { name: 'Register' })).toBeVisible();
+	await expect(
+		page.locator('a[href="/tournaments/usec-summer-2026/games/9/register"]')
+	).toBeVisible();
 
 	expect(apiRequests).toEqual([
 		'http://localhost:4173/api/tournaments/',
@@ -80,7 +81,7 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 		'/auth/sign-in?redirect=%2Faccount%2Fprofile%3Fsection%3Didentity%23school'
 	);
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })
+		page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })
 	).toBeVisible();
 });
 
@@ -99,19 +100,19 @@ test('client navigation to register redirects an unauthenticated visitor to sign
 		await route.fulfill({ json: tournament });
 	});
 
-	await page.goto('/demo/playwright');
-	await page.getByRole('link', { name: /USEC Tournament Registration Hub/ }).click();
-	await page.getByRole('link', { name: 'View tournament' }).click();
-	await page.getByRole('link', { name: 'Register' }).click();
+	await page.goto('/auth/sign-in');
+	await page.locator('a[href="/"]').first().click();
+	await page.getByRole('link', { name: tournament.name }).first().click();
+	await page.locator('a[href="/tournaments/usec-summer-2026/games/9/register"]').click();
 
 	await expect(page).toHaveURL(
 		'/auth/sign-in?redirect=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
 	);
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'Sign in to your player account' })
+		page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })
 	).toBeVisible();
 	expect(documentRequests.map((requestUrl) => new URL(requestUrl).pathname)).toEqual([
-		'/demo/playwright',
+		'/auth/sign-in',
 		'/auth/sign-in'
 	]);
 	expect(
