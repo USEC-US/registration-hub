@@ -1,22 +1,23 @@
 import { requestJson } from './client';
-import type { CurrentUser, InstitutionChoice, TokenPair } from './types';
+import type { CurrentUser, InstitutionChoice, RegisterAccountPayload, TokenPair } from './types';
 
 type AccountIdentityInput = {
 	first_name: string;
 	last_name: string;
 } & InstitutionChoice;
 
-export function registerAccount(
-	payload: {
-		email: string;
-		password: string;
-	} & AccountIdentityInput
-) {
-	return requestJson<CurrentUser>('/auth/register/', { method: 'POST', body: payload });
+export function registerAccount(payload: RegisterAccountPayload, turnstileToken?: string) {
+	return requestJson<CurrentUser>('/auth/register/', {
+		method: 'POST',
+		body: { ...payload, turnstile_token: turnstileToken }
+	});
 }
 
-export function signIn(email: string, password: string) {
-	return requestJson<TokenPair>('/auth/token/', { method: 'POST', body: { email, password } });
+export function signIn(email: string, password: string, turnstileToken?: string) {
+	return requestJson<TokenPair>('/auth/token/', {
+		method: 'POST',
+		body: { email, password, turnstile_token: turnstileToken }
+	});
 }
 
 export function refreshAccessToken(refresh: string) {

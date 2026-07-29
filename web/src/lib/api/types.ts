@@ -30,6 +30,13 @@ export type InstitutionChoice =
 	| { institution_id: number; institution_label?: never }
 	| { institution_id?: never; institution_label: string };
 
+export type RegisterAccountPayload = {
+	email: string;
+	password: string;
+	first_name: string;
+	last_name: string;
+} & InstitutionChoice;
+
 export interface PublicTournamentGame {
 	id: number;
 	game_name: string;
