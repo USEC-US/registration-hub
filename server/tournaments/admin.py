@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from .models import Game, Tournament, TournamentGame
 
@@ -10,7 +11,7 @@ def _is_organizer_staff(user) -> bool:
     )
 
 
-class OrganizerStaffAdmin(admin.ModelAdmin):
+class OrganizerStaffAdmin(ModelAdmin):
     def has_module_permission(self, request):
         return _is_organizer_staff(request.user) and super().has_module_permission(
             request

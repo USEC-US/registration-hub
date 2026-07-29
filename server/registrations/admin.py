@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from unfold.admin import TabularInline, ModelAdmin
 
 from .models import PaymentAttempt, Registration, RegistrationMember, RegistrationStatusEvent
 from .services import (
@@ -10,7 +11,7 @@ from .services import (
 )
 
 
-class ImmutableInline(admin.TabularInline):
+class ImmutableInline(TabularInline):
     extra = 0
     can_delete = False
 
@@ -60,7 +61,7 @@ def _is_organizer_staff(user) -> bool:
     )
 
 
-class GuardedReadOnlyAdmin(admin.ModelAdmin):
+class GuardedReadOnlyAdmin(ModelAdmin):
     def has_module_permission(self, request):
         return _is_organizer_staff(request.user) and super().has_module_permission(
             request
