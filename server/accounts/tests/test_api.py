@@ -9,7 +9,7 @@ from accounts.models import Institution
 from accounts.tests.factories import create_account
 
 
-@override_settings(ROOT_URLCONF="config.urls")
+@override_settings(ROOT_URLCONF="config.urls", DEBUG=True, TURNSTILE_SECRET_KEY="")
 class AccountApiTests(APITestCase):
     def create_catalogue_institution(self, **overrides):
         fields = {
@@ -58,7 +58,10 @@ class AccountApiTests(APITestCase):
 
         response = self.client.post(
             "/api/auth/register/",
-            self.registration_payload(institution_id=institution.pk),
+            self.registration_payload(
+                institution_id=institution.pk,
+                turnstile_token="debug-token",
+            ),
             format="json",
         )
 
@@ -69,6 +72,27 @@ class AccountApiTests(APITestCase):
         self.assertEqual(user.institution, institution)
         self.assertEqual(response.data["institution"]["id"], institution.pk)
         self.assertNotIn("password", response.data)
+
+    @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="")
+    def test_register_requires_turnstile_outside_debug(self):
+        response = self.client.post(
+            "/api/auth/register/",
+            self.registration_payload(institution_label="University of Science"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("turnstile_token", response.data)
+
+    @override_settings(DEBUG=True, TURNSTILE_SECRET_KEY="")
+    def test_register_allows_debug_bypass_when_secret_missing(self):
+        response = self.client.post(
+            "/api/auth/register/",
+            self.registration_payload(institution_label="University of Science"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_register_creates_pending_custom_institution_without_exposing_private_fields(
         self,
@@ -147,6 +171,23 @@ class AccountApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
+
+    @ignore_warnings(category=InsecureKeyLengthWarning)
+    @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="")
+    def test_token_endpoint_requires_turnstile_outside_debug(self):
+        create_account(
+            email="player@example.com",
+            password="strong-password-123",
+        )
+
+        response = self.client.post(
+            "/api/auth/token/",
+            {"email": "player@example.com", "password": "strong-password-123"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("turnstile_token", response.data)
 
     def test_current_user_requires_authentication(self):
         response = self.client.get("/api/account/me/")

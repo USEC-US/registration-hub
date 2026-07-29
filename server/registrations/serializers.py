@@ -98,6 +98,7 @@ class RegistrationSubmissionSerializer(StrictFieldsSerializer):
     )
     team_name = serializers.CharField(max_length=100, allow_blank=True)
     members = RegistrationMemberSubmissionSerializer(many=True)
+    turnstile_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     def to_member_inputs(self) -> list[RegistrationMemberInput]:
         return [
@@ -110,6 +111,7 @@ class PaymentAttemptSubmissionSerializer(StrictFieldsSerializer):
     currency = serializers.CharField(max_length=3)
     proof_file = serializers.FileField(required=False, allow_null=True)
     reference = serializers.CharField(max_length=128, allow_blank=True, required=False)
+    turnstile_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
 
 class PaymentAttemptReceiptSerializer(serializers.ModelSerializer):

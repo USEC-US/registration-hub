@@ -54,6 +54,7 @@ class AccountRegistrationSerializer(
     password = serializers.CharField(write_only=True, min_length=8)
     first_name = serializers.CharField(required=True, max_length=150)
     last_name = serializers.CharField(required=True, max_length=150)
+    turnstile_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = get_user_model()
@@ -66,11 +67,13 @@ class AccountRegistrationSerializer(
             "institution",
             "institution_id",
             "institution_label",
+            "turnstile_token",
         )
         read_only_fields = ("id",)
 
     def create(self, validated_data):
         password = validated_data.pop("password")
+        validated_data.pop("turnstile_token", None)
         return get_user_model().objects.create_user(password=password, **validated_data)
 
 
