@@ -53,6 +53,10 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(player.check_password("player@123"))
         self.assertEqual(player.first_name, "Development")
         self.assertEqual(player.last_name, "Player")
+        self.assertEqual(
+            player.institution.label,
+            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+        )
         self.assertEqual(player.institution.short_name, "HCMUS")
         self.assertEqual(player.institution.english_name, "University of Science - VNU")
         self.assertEqual(player.institution.source, Institution.Source.CATALOGUE)
@@ -321,6 +325,10 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(player.check_password("player@123"))
         self.assertEqual(player.first_name, "Development")
         self.assertEqual(player.last_name, "Player")
+        self.assertEqual(
+            player.institution.label,
+            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+        )
         self.assertEqual(player.institution.short_name, "HCMUS")
         self.assertEqual(player.institution.english_name, "University of Science - VNU")
         self.assertEqual(player.institution.source, Institution.Source.CATALOGUE)

@@ -1,11 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
+import json
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 
 from accounts.models import Institution
+from accounts.services.institutions import normalize_institution_label
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .models import PaymentAttempt, Registration, RegistrationStatusEvent
@@ -98,19 +102,39 @@ def _set_account(
     return user
 
 
+def _load_player_institution_defaults() -> dict[str, str]:
+    try:
+        payload = json.loads((settings.BASE_DIR / "university.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValidationError(f"Unable to load institution catalogue: {error}") from error
+
+    records = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        raise ValidationError("Institution catalogue payload must contain a data list.")
+
+    for record in records:
+        if not isinstance(record, dict) or str(record.get("value")) != HCMUS_INSTITUTION_VALUE:
+            continue
+        label = record["label"].strip()
+        return {
+            "label": label,
+            "normalized_label": normalize_institution_label(label),
+            "code": record.get("code", "").strip(),
+            "short_name": record.get("shortName", "").strip(),
+            "english_name": record.get("eng", "").strip(),
+            "type": record.get("type", "").strip(),
+            "location": record.get("location", "").strip(),
+            "review_status": Institution.ReviewStatus.VERIFIED,
+        }
+
+    raise ValidationError("HCMUS institution catalogue record is missing.")
+
+
 def _seed_player_institution() -> Institution:
-    institution, _ = Institution.objects.get_or_create(
+    institution, _ = Institution.objects.update_or_create(
         source=Institution.Source.CATALOGUE,
         value=HCMUS_INSTITUTION_VALUE,
-        defaults={
-            "label": "University of Science",
-            "code": "QST",
-            "short_name": "HCMUS",
-            "english_name": "University of Science - VNU",
-            "type": "National university",
-            "location": "Ho Chi Minh City",
-            "review_status": Institution.ReviewStatus.VERIFIED,
-        },
+        defaults=_load_player_institution_defaults(),
     )
     return institution
 
