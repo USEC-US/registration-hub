@@ -1,13 +1,17 @@
 import { requestJson } from './client';
-import type { CurrentUser, TokenPair } from './types';
+import type { CurrentUser, InstitutionChoice, TokenPair } from './types';
 
-export function registerAccount(payload: {
-	email: string;
-	password: string;
+type AccountIdentityInput = {
 	first_name: string;
 	last_name: string;
-	school?: string;
-}) {
+} & InstitutionChoice;
+
+export function registerAccount(
+	payload: {
+		email: string;
+		password: string;
+	} & AccountIdentityInput
+) {
 	return requestJson<CurrentUser>('/auth/register/', { method: 'POST', body: payload });
 }
 
@@ -28,7 +32,7 @@ export function getCurrentUser(accessToken: string) {
 
 export function updateCurrentUser(
 	accessToken: string,
-	payload: Pick<CurrentUser, 'first_name' | 'last_name' | 'school'>
+	payload: AccountIdentityInput
 ) {
 	return requestJson<CurrentUser>('/account/me/', {
 		method: 'PATCH',

@@ -49,7 +49,16 @@ const currentUser: CurrentUser = {
 	email: 'player@example.com',
 	first_name: 'Minh',
 	last_name: 'Nguyen',
-	school: 'HCMUS'
+	institution: {
+		id: 7,
+		value: '227',
+		label: 'University of Science',
+		code: 'QST',
+		shortName: 'HCMUS',
+		eng: 'University of Science',
+		type: 'Public',
+		location: 'Ho Chi Minh City'
+	}
 };
 
 const newCurrentUser: CurrentUser = {
@@ -57,7 +66,16 @@ const newCurrentUser: CurrentUser = {
 	email: 'new@example.com',
 	first_name: 'Lan',
 	last_name: 'Tran',
-	school: 'HCMUT'
+	institution: {
+		id: 8,
+		value: '228',
+		label: 'University of Technology',
+		code: 'QSB',
+		shortName: 'HCMUT',
+		eng: 'University of Technology',
+		type: 'Public',
+		location: 'Ho Chi Minh City'
+	}
 };
 
 const tokens: TokenPair = { access: 'access-token', refresh: 'refresh-token' };

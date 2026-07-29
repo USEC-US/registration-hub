@@ -12,8 +12,23 @@ export interface CurrentUser {
 	email: string;
 	first_name: string;
 	last_name: string;
-	school: string;
+	institution: Institution | null;
 }
+
+export interface Institution {
+	id: number;
+	value: string;
+	label: string;
+	code: string;
+	shortName: string;
+	eng: string;
+	type: string;
+	location: string;
+}
+
+export type InstitutionChoice =
+	| { institution_id: number; institution_label?: never }
+	| { institution_id?: never; institution_label: string };
 
 export interface PublicTournamentGame {
 	id: number;

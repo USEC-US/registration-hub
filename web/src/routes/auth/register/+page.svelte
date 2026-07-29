@@ -2,9 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { registerAccount, signIn } from '$lib/api/auth';
+	import type { InstitutionChoice } from '$lib/api/types';
 	import { saveSession } from '$lib/auth/session';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import Field from '$lib/components/forms/Field.svelte';
+	import InstitutionCombobox from '$lib/components/forms/InstitutionCombobox.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
@@ -19,7 +21,7 @@
 	let password = $state('');
 	let firstName = $state('');
 	let lastName = $state('');
-	let school = $state('');
+	let institutionChoice = $state<InstitutionChoice | undefined>(undefined);
 	let phase = $state<RegistrationPhase>('form');
 	let submitting = $state(false);
 	let recoveryEmail = $state('');
@@ -35,12 +37,13 @@
 		formErrors = [];
 
 		try {
+			const institution = institutionChoice ?? { institution_label: '' };
 			const account = await registerAccount({
 				email,
 				password,
 				first_name: firstName,
 				last_name: lastName,
-				school
+				...institution
 			});
 			recoveryEmail = account.email;
 			phase = 'signing-in';
@@ -160,14 +163,14 @@
 						error={fieldErrors.password?.[0]}
 						bind:value={password}
 					/>
-					<Field
-						label={m.field_school()}
-						name="school"
-						autocomplete="organization"
-						maxlength={128}
-						error={fieldErrors.school?.[0]}
-						bind:value={school}
-					/>
+						<InstitutionCombobox
+							error={
+								fieldErrors.institution?.[0] ??
+								fieldErrors.institution_id?.[0] ??
+								fieldErrors.institution_label?.[0]
+							}
+							bind:choice={institutionChoice}
+						/>
 				</FormField.Group>
 			</Card.Content>
 			<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">

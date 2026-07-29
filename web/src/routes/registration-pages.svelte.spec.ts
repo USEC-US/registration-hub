@@ -3,7 +3,6 @@ import { goto } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { getCurrentUser } from '$lib/api/auth';
 import { ApiRequestError } from '$lib/api/client';
 import {
 	getRegistration,
@@ -12,7 +11,6 @@ import {
 	submitRegistration
 } from '$lib/api/registrations';
 import type {
-	CurrentUser,
 	PublicTournament,
 	PublicTournamentGame,
 	RegistrationRead
@@ -33,7 +31,6 @@ const mockPage = vi.hoisted(() => ({
 vi.mock('$env/dynamic/public', () => ({ env: {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({ page: mockPage }));
-vi.mock('$lib/api/auth', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('$lib/api/registrations', () => ({
 	getRegistration: vi.fn(),
 	listRegistrations: vi.fn(),
@@ -44,13 +41,6 @@ vi.mock('$lib/auth/session', () => ({ getAccessToken: vi.fn(), clearSession: vi.
 vi.mock('$lib/auth/navigation', () => ({ replaceInternalLocation: vi.fn() }));
 
 const accessToken = 'access-token';
-const user: CurrentUser = {
-	id: 7,
-	email: 'player@example.com',
-	first_name: 'Player',
-	last_name: 'One',
-	school: 'HCMUS'
-};
 const game: PublicTournamentGame = {
 	id: 10,
 	game_name: 'Valorant',
@@ -117,7 +107,6 @@ beforeEach(() => {
 	mockPage.params = { id: '33' };
 	vi.mocked(goto).mockReset().mockResolvedValue(undefined);
 	vi.mocked(getAccessToken).mockReset().mockReturnValue(accessToken);
-	vi.mocked(getCurrentUser).mockReset().mockResolvedValue(user);
 	vi.mocked(listRegistrations).mockReset().mockResolvedValue([registration]);
 	vi.mocked(getRegistration).mockReset().mockResolvedValue(registration);
 	vi.mocked(submitRegistration).mockReset().mockResolvedValue(registration);
@@ -145,7 +134,6 @@ describe('participant registration pages', () => {
 		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
 		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
 		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
-		expect(getCurrentUser).not.toHaveBeenCalled();
 		await page.getByLabelText('Team name').fill('Blue Team');
 		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
 		await page.getByLabelText('School').nth(0).fill('HCMUS');

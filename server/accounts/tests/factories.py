@@ -9,6 +9,9 @@ def create_account(
     last_name: str = "User",
     **extra_fields,
 ):
+    if extra_fields.get("is_staff"):
+        extra_fields.setdefault("student_id", "22120001")
+
     return get_user_model().objects.create_user(
         email=email,
         password=password,

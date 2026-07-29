@@ -25,7 +25,16 @@ const user: CurrentUser = {
 	email: 'thang@example.com',
 	first_name: 'Thắng',
 	last_name: 'Nguyễn Hữu Quốc',
-	school: 'HCMUS'
+	institution: {
+		id: 7,
+		value: '227',
+		label: 'University of Science',
+		code: 'QST',
+		shortName: 'HCMUS',
+		eng: 'University of Science',
+		type: 'Public',
+		location: 'Ho Chi Minh City'
+	}
 };
 
 function renderShell() {
