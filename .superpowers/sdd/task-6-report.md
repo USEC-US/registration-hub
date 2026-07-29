@@ -57,3 +57,35 @@ No blocking findings. The compile-time contract tests require all four public pr
 ## Concerns
 
 No unresolved concerns.
+
+## Review Fix: Development Bypass and Token Reset
+
+### RED
+
+`pnpm exec vitest run src/lib/components/forms/turnstile-widget.svelte.spec.ts src/routes/auth-pages.svelte.spec.ts src/lib/components/registrations/registration-flow.svelte.spec.ts` failed with the expected four regressions: a missing development key left no usable token, development sign-in stopped at the client guard, and configured sign-in/payment-proof requests did not reset their consumed Turnstile token.
+
+### GREEN
+
+- The regression run passed: 3 files, 37 tests passed.
+- Required focused verification passed: `pnpm exec vitest run src/lib/components/forms/turnstile-widget.svelte.spec.ts src/routes/auth-pages.svelte.spec.ts src/routes/registration-pages.svelte.spec.ts src/lib/components/registrations/registration-flow.svelte.spec.ts src/lib/states/auth-state.test.ts src/lib/api/auth.test.ts src/lib/api/registrations.test.ts`: 7 files, 76 tests passed.
+- `pnpm check`: `svelte-check found 0 errors and 0 warnings`.
+
+### Svelte Autofixer
+
+The official Svelte autofixer returned zero issues for `TurnstileWidget.svelte`, `auth/sign-in/+page.svelte`, `auth/register/+page.svelte`, `tournaments/[slug]/games/[gameId]/register/+page.svelte`, and `PaymentAttemptForm.svelte`. The widget was checked once more after its final type correction, again with zero issues.
+
+### Files Changed
+
+- `web/src/app.d.ts`
+- `web/src/lib/components/forms/TurnstileWidget.svelte`
+- `web/src/lib/components/forms/turnstile-widget.svelte.spec.ts`
+- `web/src/routes/auth-pages.svelte.spec.ts`
+- `web/src/routes/auth/sign-in/+page.svelte`
+- `web/src/routes/auth/register/+page.svelte`
+- `web/src/routes/tournaments/[slug]/games/[gameId]/register/+page.svelte`
+- `web/src/lib/components/registrations/PaymentAttemptForm.svelte`
+- `web/src/lib/components/registrations/registration-flow.svelte.spec.ts`
+
+### Concerns
+
+No unresolved concerns. The development-only sentinel is non-secret and preserves local flow without weakening non-development enforcement. All protected visible forms invalidate their configured token and reset the Turnstile widget after dispatch; a retry requires a fresh callback.

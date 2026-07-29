@@ -4,6 +4,8 @@
 	import * as m from '$lib/paraglide/messages';
 	import { onMount } from 'svelte';
 
+	export const DEVELOPMENT_TURNSTILE_BYPASS_TOKEN = 'development-turnstile-bypass';
+
 	interface Props {
 		action: TurnstileAction;
 		token: string;
@@ -13,10 +15,17 @@
 	let container: HTMLDivElement | null = $state(null);
 	let siteKey = $state('');
 	let warning = $state('');
+	let widgetId = $state<string | null>(null);
+
+	export function reset(): void {
+		token = siteKey ? '' : DEVELOPMENT_TURNSTILE_BYPASS_TOKEN;
+		if (widgetId) window.turnstile?.reset?.(widgetId);
+	}
 
 	onMount(() => {
 		siteKey = getTurnstileSiteKey();
 		if (!siteKey) {
+			token = DEVELOPMENT_TURNSTILE_BYPASS_TOKEN;
 			warning = m.turnstile_dev_missing_key();
 			return;
 		}
@@ -36,7 +45,7 @@
 		}
 
 		const renderWidget = () => {
-			window.turnstile?.render(target, {
+			widgetId = window.turnstile?.render(target, {
 				sitekey: siteKey,
 				action,
 				callback: (value: string) => {
@@ -48,7 +57,7 @@
 				'error-callback': () => {
 					token = '';
 				}
-			});
+			}) ?? null;
 		};
 
 		if (window.turnstile) {

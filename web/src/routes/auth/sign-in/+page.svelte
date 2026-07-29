@@ -17,6 +17,7 @@
 	let email = $state('');
 	let password = $state('');
 	let turnstileToken = $state('');
+	let turnstileWidget = $state<{ reset: () => void } | null>(null);
 	let submitting = $state(false);
 	let fieldErrors = $state<Record<string, string[]>>({});
 	let formErrors = $state<string[]>([]);
@@ -34,7 +35,9 @@
 		formErrors = [];
 
 		try {
-			const user = await authState.signIn(email, password, turnstileToken);
+			const request = authState.signIn(email, password, turnstileToken);
+			turnstileWidget?.reset();
+			const user = await request;
 			if (!user) {
 				formErrors = [m.auth_sign_in_failed()];
 				return;
@@ -108,7 +111,11 @@
 					error={fieldErrors.password?.[0]}
 					bind:value={password}
 				/>
-				<TurnstileWidget action="sign-in" bind:token={turnstileToken} />
+				<TurnstileWidget
+					bind:this={turnstileWidget}
+					action="sign-in"
+					bind:token={turnstileToken}
+				/>
 			</FormField.Group>
 		</Card.Content>
 		<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">

@@ -26,6 +26,7 @@
 	let members = $state<RegistrationMemberInput[]>([]);
 	let teamName = $state('');
 	let turnstileToken = $state('');
+	let turnstileWidget = $state<{ reset: () => void } | null>(null);
 	let loading = $state(true);
 	let submitting = $state(false);
 	let redirecting = $state(false);
@@ -78,7 +79,7 @@
 		formErrors = [];
 
 		try {
-			const registration = await submitRegistration(
+			const request = submitRegistration(
 				accessToken,
 				{
 					tournament_game: data.game.id,
@@ -87,6 +88,8 @@
 				},
 				turnstileToken
 			);
+			turnstileWidget?.reset();
+			const registration = await request;
 			await goto(resolve(localizeInternalHref(`/account/registrations/${registration.id}`)));
 		} catch (cause) {
 			if (isAuthenticationError(cause)) {
@@ -176,7 +179,11 @@
 					teamSizeMax={data.game.team_size_max}
 					bind:members
 				/>
-				<TurnstileWidget action="registration-submit" bind:token={turnstileToken} />
+				<TurnstileWidget
+					bind:this={turnstileWidget}
+					action="registration-submit"
+					bind:token={turnstileToken}
+				/>
 			</Card.Content>
 			<Card.Footer class="justify-end border-t">
 				<Button class="min-h-11" type="submit" disabled={submitting}>

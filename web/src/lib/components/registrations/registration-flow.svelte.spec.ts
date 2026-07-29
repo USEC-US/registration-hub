@@ -9,6 +9,7 @@ import * as m from '$lib/paraglide/messages';
 import PaymentAttemptForm from './PaymentAttemptForm.svelte';
 import RosterEditor from './RosterEditor.svelte';
 const turnstileTokens = vi.hoisted(() => ({ 'payment-proof-submit': 'payment-proof-submit-token' }));
+const turnstileReset = vi.hoisted(() => vi.fn());
 
 vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } }));
 
@@ -18,6 +19,7 @@ beforeEach(() => {
 	overwriteGetLocale(() => 'en');
 	vi.mocked(submitPaymentAttempt).mockReset();
 	turnstileTokens['payment-proof-submit'] = 'payment-proof-submit-token';
+	turnstileReset.mockReset();
 	document.head.querySelectorAll('script[data-turnstile-api]').forEach((script) => script.remove());
 	const turnstileScript = document.createElement('script');
 	turnstileScript.dataset.turnstileApi = 'true';
@@ -26,7 +28,8 @@ beforeEach(() => {
 		render: (_container, options) => {
 			options.callback(turnstileTokens[options.action as keyof typeof turnstileTokens] ?? '');
 			return 'widget-id';
-		}
+		},
+		reset: turnstileReset
 	};
 });
 
@@ -248,6 +251,27 @@ describe('PaymentAttemptForm', () => {
 
 		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
 		expect(submitPaymentAttempt).not.toHaveBeenCalled();
+	});
+
+	it('requires a fresh Turnstile callback before retrying payment proof upload', async () => {
+		vi.mocked(submitPaymentAttempt).mockRejectedValue(new Error('Request failed.'));
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess: vi.fn()
+		});
+
+		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
+		expect(turnstileReset).toHaveBeenCalledWith('widget-id');
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(submitPaymentAttempt).toHaveBeenCalledOnce();
 	});
 
 	it('shows serializer field errors in the summary', async () => {

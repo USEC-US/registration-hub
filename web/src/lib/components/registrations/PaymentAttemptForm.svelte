@@ -32,6 +32,7 @@
 	let currency = $state('');
 	let reference = $state('');
 	let turnstileToken = $state('');
+	let turnstileWidget = $state<{ reset: () => void } | null>(null);
 	let submitting = $state(false);
 	let formErrors = $state<string[]>([]);
 
@@ -63,7 +64,9 @@
 		formErrors = [];
 
 		try {
-			await submitPaymentAttempt(accessToken, registrationId, formData, turnstileToken);
+			const request = submitPaymentAttempt(accessToken, registrationId, formData, turnstileToken);
+			turnstileWidget?.reset();
+			await request;
 			await onSuccess();
 		} catch (cause) {
 			if (cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403)) {
@@ -107,7 +110,11 @@
 					<Field.Label for="reference">{m.field_payment_reference()}</Field.Label>
 					<Input id="reference" name="reference" maxlength={128} bind:value={reference} />
 				</Field.Field>
-				<TurnstileWidget action="payment-proof-submit" bind:token={turnstileToken} />
+				<TurnstileWidget
+					bind:this={turnstileWidget}
+					action="payment-proof-submit"
+					bind:token={turnstileToken}
+				/>
 			</Field.Group>
 		</Card.Content>
 		<Card.Footer class="justify-end border-t">

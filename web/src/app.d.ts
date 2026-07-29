@@ -13,6 +13,7 @@ declare global {
 					'error-callback': () => void;
 				}
 			) => string;
+			reset?: (widgetId?: string) => void;
 		};
 	}
 

@@ -34,8 +34,12 @@ const turnstileTokens = vi.hoisted(() => ({
 	'sign-in': 'sign-in-token',
 	'account-register': 'account-register-token'
 }));
+const turnstileDependencies = vi.hoisted(() => ({
+	env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } as Record<string, string>,
+	reset: vi.fn()
+}));
 
-vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } }));
+vi.mock('$env/dynamic/public', () => ({ env: turnstileDependencies.env }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({
 	page: mockPage
@@ -112,6 +116,8 @@ beforeEach(() => {
 	authStateMock.signIn.mockReset();
 	turnstileTokens['sign-in'] = 'sign-in-token';
 	turnstileTokens['account-register'] = 'account-register-token';
+	turnstileDependencies.env.PUBLIC_TURNSTILE_SITE_KEY = 'site-key';
+	turnstileDependencies.reset.mockReset();
 	document.head.querySelectorAll('script[data-turnstile-api]').forEach((script) => script.remove());
 	const turnstileScript = document.createElement('script');
 	turnstileScript.dataset.turnstileApi = 'true';
@@ -120,7 +126,8 @@ beforeEach(() => {
 		render: (_container, options) => {
 			options.callback(turnstileTokens[options.action as keyof typeof turnstileTokens] ?? '');
 			return 'widget-id';
-		}
+		},
+		reset: turnstileDependencies.reset
 	};
 });
 
@@ -243,6 +250,37 @@ describe('sign-in page', () => {
 
 		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
 		expect(authStateMock.signIn).not.toHaveBeenCalled();
+	});
+
+	it('submits in development without a Turnstile site key', async () => {
+		delete turnstileDependencies.env.PUBLIC_TURNSTILE_SITE_KEY;
+		window.turnstile = undefined;
+		authStateMock.signIn.mockResolvedValue(user);
+		render(SignInPage);
+
+		await expect.element(page.getByText(/PUBLIC_TURNSTILE_SITE_KEY/)).toBeVisible();
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await vi.waitFor(() => expect(authStateMock.signIn).toHaveBeenCalledOnce());
+		expect(authStateMock.signIn.mock.calls[0][2]).not.toBe('');
+	});
+
+	it('requires a fresh Turnstile callback before retrying sign-in', async () => {
+		authStateMock.signIn.mockRejectedValue(new Error('Request failed.'));
+		render(SignInPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await vi.waitFor(() => expect(authStateMock.signIn).toHaveBeenCalledOnce());
+		expect(turnstileDependencies.reset).toHaveBeenCalledWith('widget-id');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(authStateMock.signIn).toHaveBeenCalledOnce();
 	});
 });
 

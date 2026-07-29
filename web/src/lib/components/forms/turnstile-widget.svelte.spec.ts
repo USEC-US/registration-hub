@@ -20,9 +20,19 @@ beforeEach(() => {
 });
 
 it('renders a development warning when the site key is missing', async () => {
-	render(TurnstileWidget, { action: 'sign-in', token: '' });
+	let token = '';
+	render(TurnstileWidget, {
+		action: 'sign-in',
+		get token() {
+			return token;
+		},
+		set token(value) {
+			token = value;
+		}
+	});
 
 	await expect.element(page.getByText(/PUBLIC_TURNSTILE_SITE_KEY/)).toBeVisible();
+	expect(token).not.toBe('');
 });
 
 it('appends one pending Turnstile script and renders after it loads with a configured key', async () => {
