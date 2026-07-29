@@ -36,6 +36,7 @@
 	"field_gamer_tag": "Gamer tag",
 	"field_institution": "Institution",
 	"institution_search_placeholder": "Type to search institutions",
+	"institution_searching": "Searching…",
 	"institution_no_matches": "No institutions found",
 	"institution_use_custom": "Use \"{label}\"",
 	"field_school": "School",

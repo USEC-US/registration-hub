@@ -36,6 +36,7 @@
 	"field_gamer_tag": "Tên trong game",
 	"field_institution": "Cơ sở đào tạo",
 	"institution_search_placeholder": "Nhập để tìm cơ sở đào tạo",
+	"institution_searching": "Đang tìm kiếm…",
 	"institution_no_matches": "Không tìm thấy cơ sở đào tạo",
 	"institution_use_custom": "Dùng \"{label}\"",
 	"field_school": "Trường",
