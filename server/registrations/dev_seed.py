@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
+from accounts.models import Institution
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .models import PaymentAttempt, Registration, RegistrationStatusEvent
@@ -21,6 +22,7 @@ from .services import (
 PLAYER_EMAIL = "player@email.com"
 ORGANIZER_EMAIL = "organizer@email.com"
 ADMIN_EMAIL = "admin@email.com"
+HCMUS_INSTITUTION_VALUE = "222"
 
 ACCOUNT_CREDENTIALS = (
     ("Player", PLAYER_EMAIL, "player@123"),
@@ -63,7 +65,7 @@ def _set_account(
     password: str,
     first_name: str,
     last_name: str,
-    school: str,
+    institution: Institution | None,
     is_staff: bool,
     is_superuser: bool,
     groups: tuple[Group, ...],
@@ -74,7 +76,7 @@ def _set_account(
         defaults={
             "first_name": first_name,
             "last_name": last_name,
-            "school": school,
+            "institution": institution,
             "is_active": True,
             "is_staff": is_staff,
             "is_superuser": is_superuser,
@@ -86,7 +88,7 @@ def _set_account(
             "password",
             "first_name",
             "last_name",
-            "school",
+            "institution",
             "is_active",
             "is_staff",
             "is_superuser",
@@ -96,14 +98,32 @@ def _set_account(
     return user
 
 
+def _seed_player_institution() -> Institution:
+    institution, _ = Institution.objects.get_or_create(
+        source=Institution.Source.CATALOGUE,
+        value=HCMUS_INSTITUTION_VALUE,
+        defaults={
+            "label": "University of Science",
+            "code": "QST",
+            "short_name": "HCMUS",
+            "english_name": "University of Science - VNU",
+            "type": "National university",
+            "location": "Ho Chi Minh City",
+            "review_status": Institution.ReviewStatus.VERIFIED,
+        },
+    )
+    return institution
+
+
 def _seed_accounts():
     organizers = Group.objects.get(name="Organizers")
+    player_institution = _seed_player_institution()
     player = _set_account(
         email=PLAYER_EMAIL,
         password="player@123",
         first_name="Development",
         last_name="Player",
-        school="HCMUS",
+        institution=player_institution,
         is_staff=False,
         is_superuser=False,
         groups=(),
@@ -113,7 +133,7 @@ def _seed_accounts():
         password="organizer@123",
         first_name="Development",
         last_name="Organizer",
-        school="",
+        institution=None,
         is_staff=True,
         is_superuser=False,
         groups=(organizers,),
@@ -123,7 +143,7 @@ def _seed_accounts():
         password="admin@123",
         first_name="Development",
         last_name="Administrator",
-        school="",
+        institution=None,
         is_staff=True,
         is_superuser=True,
         groups=(),
