@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { refreshAccessToken, registerAccount, signIn } from './auth';
 import { requestJson } from './client';
 
@@ -60,5 +60,18 @@ describe('auth api', () => {
 				turnstile_token: 'turnstile-token'
 			}
 		});
+	});
+
+	it('requires Turnstile tokens for protected auth requests', () => {
+		expectTypeOf(registerAccount).parameters.toEqualTypeOf<[
+			payload: Parameters<typeof registerAccount>[0],
+			turnstileToken: string
+		]>();
+		expectTypeOf(signIn).parameters.toEqualTypeOf<[
+			email: string,
+			password: string,
+			turnstileToken: string
+		]>();
+		expect(registerAccount).toBeTypeOf('function');
 	});
 });

@@ -6,14 +6,14 @@ type AccountIdentityInput = {
 	last_name: string;
 } & InstitutionChoice;
 
-export function registerAccount(payload: RegisterAccountPayload, turnstileToken?: string) {
+export function registerAccount(payload: RegisterAccountPayload, turnstileToken: string) {
 	return requestJson<CurrentUser>('/auth/register/', {
 		method: 'POST',
 		body: { ...payload, turnstile_token: turnstileToken }
 	});
 }
 
-export function signIn(email: string, password: string, turnstileToken?: string) {
+export function signIn(email: string, password: string, turnstileToken: string) {
 	return requestJson<TokenPair>('/auth/token/', {
 		method: 'POST',
 		body: { email, password, turnstile_token: turnstileToken }

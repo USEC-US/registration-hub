@@ -5,15 +5,29 @@ import { ApiRequestError } from '$lib/api/client';
 import { submitPaymentAttempt } from '$lib/api/registrations';
 import type { RegistrationMemberInput } from '$lib/api/types';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
+import * as m from '$lib/paraglide/messages';
 import PaymentAttemptForm from './PaymentAttemptForm.svelte';
 import RosterEditor from './RosterEditor.svelte';
-vi.mock('$env/dynamic/public', () => ({ env: {} }));
+const turnstileTokens = vi.hoisted(() => ({ 'payment-proof-submit': 'payment-proof-submit-token' }));
+
+vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } }));
 
 vi.mock('$lib/api/registrations', () => ({ submitPaymentAttempt: vi.fn() }));
 
 beforeEach(() => {
 	overwriteGetLocale(() => 'en');
 	vi.mocked(submitPaymentAttempt).mockReset();
+	turnstileTokens['payment-proof-submit'] = 'payment-proof-submit-token';
+	document.head.querySelectorAll('script[data-turnstile-api]').forEach((script) => script.remove());
+	const turnstileScript = document.createElement('script');
+	turnstileScript.dataset.turnstileApi = 'true';
+	document.head.appendChild(turnstileScript);
+	window.turnstile = {
+		render: (_container, options) => {
+			options.callback(turnstileTokens[options.action as keyof typeof turnstileTokens] ?? '');
+			return 'widget-id';
+		}
+	};
 });
 
 describe('RosterEditor', () => {
@@ -131,13 +145,14 @@ describe('PaymentAttemptForm', () => {
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
-		const [token, registrationId, formData] = vi.mocked(submitPaymentAttempt).mock.calls[0];
+		const [token, registrationId, formData, turnstileToken] = vi.mocked(submitPaymentAttempt).mock.calls[0];
 		expect(token).toBe('access-token');
 		expect(registrationId).toBe(12);
 		expect(formData.get('amount')).toBe('50000.00');
 		expect(formData.get('currency')).toBe('VND');
 		expect(formData.get('reference')).toBe('');
 		expect(formData.get('proof_file')).toBeInstanceOf(File);
+		expect(turnstileToken).toBe('payment-proof-submit-token');
 		expect(onSuccess).toHaveBeenCalledOnce();
 	});
 
@@ -215,6 +230,23 @@ describe('PaymentAttemptForm', () => {
 		await expect
 			.element(page.getByText('Provide a payment proof or reference.'))
 			.toBeInTheDocument();
+		expect(submitPaymentAttempt).not.toHaveBeenCalled();
+	});
+
+	it('requires Turnstile before uploading payment evidence', async () => {
+		turnstileTokens['payment-proof-submit'] = '';
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess: vi.fn()
+		});
+
+		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
 		expect(submitPaymentAttempt).not.toHaveBeenCalled();
 	});
 

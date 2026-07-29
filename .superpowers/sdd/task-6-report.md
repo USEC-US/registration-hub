@@ -1,57 +1,59 @@
-# Task 6 report: frontend design system
+# Task 6 Report: Protect Public Forms with Turnstile
 
-## Outcome
+## Implemented
 
-Implemented the HCMUS USEC tournament operations visual system, a typed root shell, localized English/Vietnamese UI copy, and reusable typed form, tournament, and registration-status components.
+- Made the Turnstile parameters required for account registration, sign-in, registration submission, and payment-proof uploads.
+- Passed the sign-in token through `AuthState.signIn`; `refreshAccessToken` remains unchanged.
+- Added `TurnstileWidget` and an empty-token guard to the sign-in, account registration, tournament registration, and visible payment-proof form.
+- Passed each action-specific token to its protected request and left forms idle after an early missing-token validation failure.
+- After account creation, the automatic sign-in flow now renders a fresh `sign-in` widget token instead of reusing the consumed `account-register` token.
 
-The design uses paper white (`#fff`) inside a muted operations board (`#f7f7f8`), near-black ink (`#111827`), restrained gray rules (`#d9dee7`), and HCMUS blue (`#002fa7`). Manrope carries headings, IBM Plex Sans carries interface copy, and JetBrains Mono is limited to IDs, dates, fees, capacity, and status data. The shell and components use square corners, 1px bracket rules, and small blue nodes at real brand/navigation and tournament/game/action intersections.
+## TDD Evidence
 
-## Inherited RED
+### RED
 
-The focused browser spec was already established before implementation. It failed while resolving the missing `StatusTimeline.svelte`; the existing 13 unit tests passed. That was the expected feature-missing failure and served as the RED gate.
+Before implementation, the focused browser and API suite failed with 15 expected failures: required-token contract assertions showed optional parameters; `AuthState` omitted the token; route tests showed the widget token was neither guarded nor passed; and payment-proof submission lacked the token.
 
-The first post-component run surfaced two test-contract issues and one compiler diagnostic:
+### GREEN
 
-- `vitest-browser-svelte` treats `events` as a reserved Svelte mount option, so the timeline test now passes it explicitly under `{ props: { events } }`.
-- A false top-level Svelte `{#if}` leaves an internal comment anchor. The empty-summary assertion now checks `childElementCount === 0`, preserving the contract that no summary element renders without asserting against framework internals.
-- `Field` originally captured the initial `name` in a constant. Its error ID is now `$derived`, so label/error associations stay reactive and the Svelte warning is gone.
+- `pnpm exec vitest run src/routes/auth-pages.svelte.spec.ts src/routes/registration-pages.svelte.spec.ts src/lib/api/auth.test.ts src/lib/api/registrations.test.ts src/lib/states/auth-state.test.ts`: passed as part of the focused suite.
+- `pnpm exec vitest run src/lib/components/registrations/registration-flow.svelte.spec.ts`: passed as part of the focused suite.
+- Combined focused run: 6 files, 70 tests passed.
+- `pnpm check`: `svelte-check found 0 errors and 0 warnings`.
 
-Each correction was rerun against its exact focused test before the combined browser spec.
+## Svelte Autofixer
 
-## GREEN implementation
+Ran the official Svelte autofixer on all modified components/routes:
 
-- Added `AppShell` with typed snippet children, skip link, responsive rule-based navigation, SvelteKit-resolved internal links, and a visible accessible EN/VI locale switch.
-- Mounted the shell from the root layout and kept the favicon source as a real tracked asset.
-- Added typed `Field`, `ErrorSummary`, `TournamentCard`, `TournamentGameRow`, and `StatusTimeline` components.
-- Added English and Vietnamese navigation, action, form, empty-state, tournament, registration-state, and status-timeline messages.
-- Replaced generic theme defaults with the brief's exact token and font system, visible focus treatment, reduced-motion handling, grid-board utility, and blue bracket-node signature.
-- Added JetBrains Mono as a frontend dependency and retained the updated workspace lockfile.
-- Kept generated Paraglide output untouched and excluded it narrowly from Prettier and ESLint. Generated Inlang metadata is excluded from Prettier.
-- Mechanically formatted the requested handwritten utility and the three inherited API files that blocked the project-wide lint baseline; their API diffs contain line wrapping only.
+- `web/src/routes/auth/sign-in/+page.svelte`
+- `web/src/routes/auth/register/+page.svelte`
+- `web/src/routes/tournaments/[slug]/games/[gameId]/register/+page.svelte`
+- `web/src/lib/components/registrations/PaymentAttemptForm.svelte`
 
-## Design self-critique
+All four runs returned zero issues and required no follow-up invocation.
 
-The strongest choice is the bracket structure: borders and blue square nodes encode actual transitions between tournament, game, registration action, and status rather than acting as detached decoration. The type roles also remain disciplined; monospaced text is not used as a general tech aesthetic.
+## Files Changed
 
-The system deliberately spends its visual emphasis on those intersections. The surrounding shell stays left-aligned, quiet, square, and information-first, avoiding gradients, neon, rounded generic cards, fake content, icon ornament, and unnecessary motion. Mobile layouts collapse by preserving the same rule hierarchy rather than turning every section into an unrelated card.
+- `web/src/lib/api/auth.ts`
+- `web/src/lib/api/auth.test.ts`
+- `web/src/lib/api/registrations.ts`
+- `web/src/lib/api/registrations.test.ts`
+- `web/src/lib/states/auth-state.svelte.ts`
+- `web/src/lib/states/auth-state.test.ts`
+- `web/src/routes/auth/sign-in/+page.svelte`
+- `web/src/routes/auth/register/+page.svelte`
+- `web/src/routes/tournaments/[slug]/games/[gameId]/register/+page.svelte`
+- `web/src/routes/auth-pages.svelte.spec.ts`
+- `web/src/routes/registration-pages.svelte.spec.ts`
+- `web/src/lib/components/registrations/PaymentAttemptForm.svelte`
+- `web/src/lib/components/registrations/registration-flow.svelte.spec.ts`
+- `.superpowers/sdd/task-5-report.md`
+- `.superpowers/sdd/task-6-report.md`
 
-One temporary compromise is explicit `Pathname` casts for navigation destinations implemented in later tasks. Every URL still passes through SvelteKit's `resolve`; the casts can be removed when those routes enter the generated route union. Full destination-page visual QA also belongs to those later route tasks, while this slice is covered by browser component semantics, Svelte diagnostics, and lint.
+## Self-Review
 
-## Verification
+No blocking findings. The compile-time contract tests require all four public protected API tokens, and the browser tests cover missing-token blocking plus token forwarding. The payment-proof UI is owned by `PaymentAttemptForm.svelte`, rendered from the registration detail route, so it receives the same visible-form protection.
 
-Run from `web/` after all fixes:
+## Concerns
 
-- `pnpm exec vitest --run src/lib/components/design-system.svelte.spec.ts` — 1 file passed, 8 tests passed.
-- `pnpm test:unit -- --run` — 6 files passed, 21 tests passed.
-- `pnpm check` — 0 errors and 0 warnings.
-- `pnpm lint` — all matched files use Prettier style; ESLint exited 0 with no diagnostics.
-
-## Review fix pass
-
-- RED: the registration action emitted a game slug without the active Vietnamese locale. GREEN: the route now uses numeric `game.id`, the current locale, and SvelteKit `resolve`.
-- RED: AppShell and TournamentCard links dropped the current Vietnamese locale. GREEN: all outgoing internal links share typed Paraglide localization and remain visibly wrapped in `resolve` at the Svelte call site.
-- RED: locale switching returned `/vi/tournaments` instead of `/vi/tournaments?registration=open#games`. GREEN: the shared locale-switch helper preserves `page.url.search` and `page.url.hash`.
-- RED: Field omitted `autocomplete` and `spellcheck`. GREEN: both are typed from `HTMLInputAttributes` and forwarded to the real input.
-- The initial post-fix lint run found only formatting drift; after formatting it exposed the Svelte lint rule's syntactic `resolve` requirement. The final helper contract returns a typed localized `Pathname`, leaving each component's `resolve(...)` explicit. All final verification gates above were then rerun from the formatted sources.
-
-No generated `web/src/lib/paraglide/*` file was edited or staged. Root `.gitignore`, `server/.gitignore`, unrelated docs, and server/temp paths remain outside the Task 6 staging scope.
+No unresolved concerns.

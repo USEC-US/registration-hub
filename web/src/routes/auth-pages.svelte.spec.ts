@@ -30,8 +30,12 @@ const authStateMock = vi.hoisted(() => ({
 const mockPage = vi.hoisted(() => ({
 	url: new URL('https://usec.test/vi/account/profile?section=identity#school')
 }));
+const turnstileTokens = vi.hoisted(() => ({
+	'sign-in': 'sign-in-token',
+	'account-register': 'account-register-token'
+}));
 
-vi.mock('$env/dynamic/public', () => ({ env: {} }));
+vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({
 	page: mockPage
@@ -106,6 +110,18 @@ beforeEach(() => {
 	authStateMock.updateCurrentUser.mockReset().mockReturnValue(true);
 	authStateMock.signOutAndRedirect.mockReset();
 	authStateMock.signIn.mockReset();
+	turnstileTokens['sign-in'] = 'sign-in-token';
+	turnstileTokens['account-register'] = 'account-register-token';
+	document.head.querySelectorAll('script[data-turnstile-api]').forEach((script) => script.remove());
+	const turnstileScript = document.createElement('script');
+	turnstileScript.dataset.turnstileApi = 'true';
+	document.head.appendChild(turnstileScript);
+	window.turnstile = {
+		render: (_container, options) => {
+			options.callback(turnstileTokens[options.action as keyof typeof turnstileTokens] ?? '');
+			return 'widget-id';
+		}
+	};
 });
 
 afterEach(() => {
@@ -126,7 +142,11 @@ describe('sign-in page', () => {
 		await page.getByRole('button', { name: 'Sign in' }).click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/account/registrations'));
-		expect(authStateMock.signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
+		expect(authStateMock.signIn).toHaveBeenCalledWith(
+			'player@example.com',
+			'strong-password',
+			'sign-in-token'
+		);
 		expect(saveSession).not.toHaveBeenCalled();
 		expect(container.querySelector('form')).toHaveAttribute('aria-busy', 'false');
 	});
@@ -212,6 +232,18 @@ describe('sign-in page', () => {
 		await expect.element(page.getByText(m.auth_sign_in_failed())).toBeVisible();
 		expect(goto).not.toHaveBeenCalled();
 	});
+
+	it('blocks sign-in until Turnstile has a token', async () => {
+		turnstileTokens['sign-in'] = '';
+		render(SignInPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(authStateMock.signIn).not.toHaveBeenCalled();
+	});
 });
 
 describe('logout page', () => {
@@ -257,8 +289,8 @@ describe('account creation page', () => {
 			first_name: 'Minh',
 			last_name: 'Nguyen',
 			institution_id: 7
-		});
-		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
+		}, 'account-register-token');
+		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password', 'sign-in-token');
 		expect(saveSession).toHaveBeenCalledWith(tokens);
 	});
 
@@ -287,7 +319,7 @@ describe('account creation page', () => {
 				first_name: user.first_name,
 				last_name: user.last_name,
 				institution_label: 'New Academy'
-			});
+			}, 'account-register-token');
 		});
 	});
 
@@ -297,6 +329,7 @@ describe('account creation page', () => {
 				'Check the registration details and try again.'
 			])
 		);
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
 		render(RegisterPage);
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
@@ -315,6 +348,7 @@ describe('account creation page', () => {
 	it('shows a recovery state instead of another registration form when auto-sign-in fails', async () => {
 		vi.mocked(registerAccount).mockResolvedValue(user);
 		vi.mocked(signIn).mockRejectedValue(new ApiRequestError(401, 'Invalid credentials.'));
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
 		render(RegisterPage);
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
@@ -331,6 +365,23 @@ describe('account creation page', () => {
 		expect(page.getByRole('button', { name: 'Create account' }).elements()).toHaveLength(0);
 		expect(document.querySelector('input[name="password"]')).toBeNull();
 		expect(registerAccount).toHaveBeenCalledOnce();
+	});
+
+	it('blocks account registration until Turnstile has a token', async () => {
+		turnstileTokens['account-register'] = '';
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
+		render(RegisterPage);
+
+		await page.getByLabelText('Email').fill(user.email);
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByLabelText('First name').fill(user.first_name);
+		await page.getByLabelText('Last name').fill(user.last_name);
+		await page.getByLabelText('Institution').fill('New Academy');
+		await page.getByRole('button', { name: 'Use "New Academy"' }).click();
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(registerAccount).not.toHaveBeenCalled();
 	});
 });
 

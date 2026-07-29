@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import Field from '$lib/components/forms/Field.svelte';
+	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref, sanitizeInternalRedirect } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
@@ -15,6 +16,7 @@
 
 	let email = $state('');
 	let password = $state('');
+	let turnstileToken = $state('');
 	let submitting = $state(false);
 	let fieldErrors = $state<Record<string, string[]>>({});
 	let formErrors = $state<string[]>([]);
@@ -22,13 +24,17 @@
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		if (submitting) return;
+		if (!turnstileToken) {
+			formErrors = [m.turnstile_required()];
+			return;
+		}
 
 		submitting = true;
 		fieldErrors = {};
 		formErrors = [];
 
 		try {
-			const user = await authState.signIn(email, password);
+			const user = await authState.signIn(email, password, turnstileToken);
 			if (!user) {
 				formErrors = [m.auth_sign_in_failed()];
 				return;
@@ -102,6 +108,7 @@
 					error={fieldErrors.password?.[0]}
 					bind:value={password}
 				/>
+				<TurnstileWidget action="sign-in" bind:token={turnstileToken} />
 			</FormField.Group>
 		</Card.Content>
 		<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">

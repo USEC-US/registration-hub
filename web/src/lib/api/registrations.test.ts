@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { requestJson } from './client';
 import { submitPaymentAttempt, submitRegistration } from './registrations';
 import type { RegistrationRead, RegistrationSubmissionPayload } from './types';
@@ -40,5 +40,20 @@ describe('registrations api', () => {
 			accessToken: 'access-token',
 			body: formData
 		});
+	});
+
+	it('requires Turnstile tokens for protected registration requests', () => {
+		expectTypeOf(submitRegistration).parameters.toEqualTypeOf<[
+			accessToken: string,
+			payload: RegistrationSubmissionPayload,
+			turnstileToken: string
+		]>();
+		expectTypeOf(submitPaymentAttempt).parameters.toEqualTypeOf<[
+			accessToken: string,
+			registrationId: number,
+			formData: FormData,
+			turnstileToken: string
+		]>();
+		expect(submitRegistration).toBeTypeOf('function');
 	});
 });

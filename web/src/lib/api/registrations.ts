@@ -12,7 +12,7 @@ export function getRegistration(accessToken: string, id: number) {
 export function submitRegistration(
 	accessToken: string,
 	payload: RegistrationSubmissionPayload,
-	turnstileToken?: string
+	turnstileToken: string
 ) {
 	return requestJson<RegistrationRead>('/registrations/submit/', {
 		method: 'POST',
@@ -25,9 +25,9 @@ export function submitPaymentAttempt(
 	accessToken: string,
 	registrationId: number,
 	formData: FormData,
-	turnstileToken?: string
+	turnstileToken: string
 ) {
-	formData.set('turnstile_token', turnstileToken ?? '');
+	formData.set('turnstile_token', turnstileToken);
 	return requestJson<RegistrationRead['payment_attempts'][number]>(
 		`/registrations/${registrationId}/payment-attempts/`,
 		{ method: 'POST', accessToken, body: formData }

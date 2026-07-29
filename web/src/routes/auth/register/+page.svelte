@@ -7,6 +7,7 @@
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import Field from '$lib/components/forms/Field.svelte';
 	import InstitutionCombobox from '$lib/components/forms/InstitutionCombobox.svelte';
+	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
@@ -19,6 +20,8 @@
 
 	let email = $state('');
 	let password = $state('');
+	let turnstileToken = $state('');
+	let signInTurnstileToken = $state('');
 	let firstName = $state('');
 	let lastName = $state('');
 	let institutionChoice = $state<InstitutionChoice | undefined>(undefined);
@@ -28,9 +31,36 @@
 	let fieldErrors = $state<Record<string, string[]>>({});
 	let formErrors = $state<string[]>([]);
 
+	async function signInNewAccount(): Promise<void> {
+		const token = signInTurnstileToken;
+		if (!token || !recoveryEmail) return;
+
+		signInTurnstileToken = '';
+		submitting = true;
+		try {
+			const tokens = await signIn(recoveryEmail, password, token);
+			saveSession(tokens);
+			await goto(resolve(localizeInternalHref('/account/profile')));
+		} catch {
+			password = '';
+			phase = 'recovery';
+		} finally {
+			submitting = false;
+		}
+	}
+
+	$effect(() => {
+		if (phase !== 'signing-in' || !signInTurnstileToken || submitting) return;
+		void signInNewAccount();
+	});
+
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		if (submitting || phase !== 'form') return;
+		if (!turnstileToken) {
+			formErrors = [m.turnstile_required()];
+			return;
+		}
 
 		submitting = true;
 		fieldErrors = {};
@@ -38,24 +68,19 @@
 
 		try {
 			const institution = institutionChoice ?? { institution_label: '' };
-			const account = await registerAccount({
-				email,
-				password,
-				first_name: firstName,
-				last_name: lastName,
-				...institution
-			});
+			const account = await registerAccount(
+				{
+					email,
+					password,
+					first_name: firstName,
+					last_name: lastName,
+					...institution
+				},
+				turnstileToken
+			);
 			recoveryEmail = account.email;
 			phase = 'signing-in';
-
-			try {
-				const tokens = await signIn(account.email, password);
-				saveSession(tokens);
-				await goto(resolve(localizeInternalHref('/account/profile')));
-			} catch {
-				password = '';
-				phase = 'recovery';
-			}
+			signInTurnstileToken = '';
 		} catch (cause) {
 			({ fieldErrors, formErrors } = formErrorsFrom(cause, m.auth_register_failed()));
 		} finally {
@@ -108,9 +133,10 @@
 		</div>
 	</section>
 {:else if phase === 'signing-in'}
-	<p class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm" role="status">
-		{m.auth_account_created_signing_in()}
-	</p>
+	<section class="mt-8 grid gap-4 border border-(--line) bg-(--surface-muted) p-6 text-sm" role="status">
+		<p>{m.auth_account_created_signing_in()}</p>
+		<TurnstileWidget action="sign-in" bind:token={signInTurnstileToken} />
+	</section>
 {:else}
 	<Card.Root class="mt-8 grid gap-0 py-0 lg:grid-cols-[minmax(13rem,0.34fr)_minmax(0,1fr)]">
 		<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">
@@ -163,14 +189,15 @@
 						error={fieldErrors.password?.[0]}
 						bind:value={password}
 					/>
-						<InstitutionCombobox
+					<InstitutionCombobox
 							error={
 								fieldErrors.institution?.[0] ??
 								fieldErrors.institution_id?.[0] ??
 								fieldErrors.institution_label?.[0]
 							}
-							bind:choice={institutionChoice}
-						/>
+						bind:choice={institutionChoice}
+					/>
+					<TurnstileWidget action="account-register" bind:token={turnstileToken} />
 				</FormField.Group>
 			</Card.Content>
 			<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">
