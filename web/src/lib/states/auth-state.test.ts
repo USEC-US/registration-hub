@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiRequestError } from '$lib/api/client';
 import type { CurrentUser, TokenPair } from '$lib/api/types';
+import { replaceInternalLocation } from '$lib/auth/navigation';
+import { getAccessToken, getRefreshToken, saveSession } from '$lib/auth/session';
 import { AuthState } from './auth-state.svelte';
 
 const dependencies = vi.hoisted(() => ({
@@ -57,6 +59,8 @@ const newCurrentUser: CurrentUser = {
 	last_name: 'Tran',
 	school: 'HCMUT'
 };
+
+const tokens: TokenPair = { access: 'access-token', refresh: 'refresh-token' };
 
 beforeEach(() => {
 	dependencies.accessToken = null;
@@ -507,6 +511,27 @@ describe('AuthState', () => {
 		expect(dependencies.clearSession).toHaveBeenCalledOnce();
 		expect(authState.status).toBe('signed-out');
 		expect(authState.currentUser).toBeNull();
+	});
+
+	it('clears the session and redirects on explicit sign-out', () => {
+		const state = new AuthState();
+		saveSession(tokens);
+
+		state.signOutAndRedirect('/signed-out');
+
+		expect(getAccessToken()).toBeNull();
+		expect(getRefreshToken()).toBeNull();
+		expect(replaceInternalLocation).toHaveBeenCalledWith('/signed-out');
+		expect(state.status).toBe('signed-out');
+		expect(state.currentUser).toBeNull();
+	});
+
+	it('uses the localized home route when explicit sign-out has no target', () => {
+		const state = new AuthState();
+
+		state.signOutAndRedirect();
+
+		expect(replaceInternalLocation).toHaveBeenCalledWith('/');
 	});
 
 	it('updates shared user state only while a session snapshot remains current', () => {

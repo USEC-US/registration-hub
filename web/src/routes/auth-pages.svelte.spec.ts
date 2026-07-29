@@ -10,6 +10,7 @@ import * as m from '$lib/paraglide/messages';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import type { AuthSessionSnapshot } from '$lib/states/auth-state.svelte';
 import ProfilePage from './account/profile/+page.svelte';
+import LogoutPage from './auth/logout/+page.svelte';
 import RegisterPage from './auth/register/+page.svelte';
 import SignInPage from './auth/sign-in/+page.svelte';
 
@@ -22,6 +23,7 @@ const authStateMock = vi.hoisted(() => ({
 	isSessionSnapshotCurrent: vi.fn(),
 	handleAuthenticationError: vi.fn(),
 	updateCurrentUser: vi.fn(),
+	signOutAndRedirect: vi.fn(),
 	signIn: vi.fn()
 }));
 const mockPage = vi.hoisted(() => ({
@@ -80,6 +82,7 @@ beforeEach(() => {
 	authStateMock.isSessionSnapshotCurrent.mockReset().mockReturnValue(true);
 	authStateMock.handleAuthenticationError.mockReset().mockReturnValue(false);
 	authStateMock.updateCurrentUser.mockReset().mockReturnValue(true);
+	authStateMock.signOutAndRedirect.mockReset();
 	authStateMock.signIn.mockReset();
 });
 
@@ -186,6 +189,18 @@ describe('sign-in page', () => {
 
 		await expect.element(page.getByText(m.auth_sign_in_failed())).toBeVisible();
 		expect(goto).not.toHaveBeenCalled();
+	});
+});
+
+describe('logout page', () => {
+	it('signs out and redirects to the localized home page', async () => {
+		authStateMock.signOutAndRedirect.mockClear();
+		render(LogoutPage);
+
+		await vi.waitFor(() =>
+			expect(authStateMock.signOutAndRedirect).toHaveBeenCalledWith('/en/')
+		);
+		await expect.element(page.getByText(m.auth_signed_out_redirecting())).toBeVisible();
 	});
 });
 

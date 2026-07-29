@@ -136,6 +136,12 @@
 						>
 							{m.nav_my_registrations()}
 						</a>
+						<a
+							class="flex items-center border-(--line) px-4 py-2 text-sm font-medium"
+							href={resolve(localizeInternalHref('/auth/logout'))}
+						>
+							{m.nav_logout()}
+						</a>
 					{:else if authState.status === 'signed-out'}
 						<a
 							class="flex items-center border-(--line) px-4 py-2 text-sm font-medium"

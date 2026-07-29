@@ -97,6 +97,11 @@ export class AuthState {
 		this.status = 'signed-out';
 	}
 
+	signOutAndRedirect(targetHref: string = resolve(localizeInternalHref('/'))): void {
+		this.signOut();
+		replaceInternalLocation(targetHref);
+	}
+
 	async refreshSession(): Promise<string | null> {
 		if (!browser) return null;
 
