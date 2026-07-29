@@ -4,13 +4,43 @@ from pathlib import Path
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.db import IntegrityError, transaction
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase
 
 from accounts.models import Institution
 from accounts.services.institutions import resolve_institution
 
 
 class InstitutionResolutionTests(TestCase):
+    def test_catalogue_value_is_unique_at_the_database_level(self):
+        Institution.objects.create(
+            value="227",
+            label="University of Science",
+            source=Institution.Source.CATALOGUE,
+        )
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Institution.objects.create(
+                value="227",
+                label="Another University of Science",
+                source=Institution.Source.CATALOGUE,
+            )
+
+    def test_custom_normalized_label_is_unique_at_the_database_level(self):
+        Institution.objects.create(
+            label="University of Science",
+            normalized_label="university of science",
+            source=Institution.Source.CUSTOM,
+        )
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Institution.objects.create(
+                label="University Of Science",
+                normalized_label="university of science",
+                source=Institution.Source.CUSTOM,
+            )
+
     def test_custom_label_is_normalized_and_reused(self):
         first = resolve_institution(institution_id=None, institution_label="  HCMUS  ")
         second = resolve_institution(institution_id=None, institution_label="hcmus")
@@ -33,6 +63,40 @@ class InstitutionResolutionTests(TestCase):
         )
 
         self.assertEqual(resolved.pk, catalogue.pk)
+
+
+class InstitutionCatalogueMigrationTests(TransactionTestCase):
+    migrate_from = [("accounts", "0002_remove_gamer_tag_add_student_id")]
+    migrate_to = [("accounts", "0003_institution_catalogue")]
+
+    def setUp(self):
+        super().setUp()
+        self.executor = MigrationExecutor(connection=transaction.get_connection())
+        self.executor.migrate(self.migrate_from)
+        self.old_apps = self.executor.loader.project_state(self.migrate_from).apps
+
+    def tearDown(self):
+        self.executor = MigrationExecutor(connection=transaction.get_connection())
+        self.executor.migrate(self.migrate_to)
+        super().tearDown()
+
+    def test_migration_skips_whitespace_only_school_labels(self):
+        User = self.old_apps.get_model("accounts", "User")
+        User.objects.create(
+            email="legacy@example.com",
+            first_name="Legacy",
+            last_name="User",
+            school="   \t  ",
+        )
+
+        self.executor = MigrationExecutor(connection=transaction.get_connection())
+        self.executor.migrate(self.migrate_to)
+        new_apps = self.executor.loader.project_state(self.migrate_to).apps
+        Institution = new_apps.get_model("accounts", "Institution")
+        MigratedUser = new_apps.get_model("accounts", "User")
+
+        self.assertFalse(Institution.objects.exists())
+        self.assertIsNone(MigratedUser.objects.get(email="legacy@example.com").institution)
 
 
 class InstitutionImportCommandTests(TestCase):

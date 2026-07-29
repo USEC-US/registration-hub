@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from .managers import UserManager
 
@@ -29,6 +30,20 @@ class Institution(models.Model):
         choices=ReviewStatus,
         default=ReviewStatus.PENDING,
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("source", "value"),
+                condition=Q(source="CATALOGUE"),
+                name="unique_catalogue_institution_value",
+            ),
+            models.UniqueConstraint(
+                fields=("source", "normalized_label"),
+                condition=Q(source="CUSTOM"),
+                name="unique_custom_institution_label",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.normalized_label:

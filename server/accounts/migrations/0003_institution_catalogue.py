@@ -10,6 +10,8 @@ def migrate_school_to_institution(apps, schema_editor):
 
     for user in User.objects.exclude(school="").order_by("pk"):
         label = " ".join(user.school.split())
+        if not label:
+            continue
         normalized_label = label.casefold()
         institution = Institution.objects.filter(
             source="CUSTOM", normalized_label=normalized_label
@@ -72,6 +74,20 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
+            options={
+                "constraints": [
+                    models.UniqueConstraint(
+                        condition=models.Q(("source", "CATALOGUE")),
+                        fields=("source", "value"),
+                        name="unique_catalogue_institution_value",
+                    ),
+                    models.UniqueConstraint(
+                        condition=models.Q(("source", "CUSTOM")),
+                        fields=("source", "normalized_label"),
+                        name="unique_custom_institution_label",
+                    ),
+                ],
+            },
         ),
         migrations.AddField(
             model_name="user",
