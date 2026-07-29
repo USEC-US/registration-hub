@@ -91,3 +91,13 @@ class TurnstileVerificationTests(TestCase):
 
         self.assertFalse(result.success)
         self.assertEqual(result.error_codes, ("action-mismatch",))
+
+    @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="secret")
+    def test_siteverify_success_without_an_action_rejects(self):
+        with patch("config.turnstile.urllib.request.urlopen") as urlopen:
+            urlopen.return_value = _Response(b'{"success": true}')
+
+            result = verify_turnstile_token("token", expected_action="sign-in")
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_codes, ("action-mismatch",))

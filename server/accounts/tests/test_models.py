@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
+from accounts.models import Institution
 from accounts.tests.factories import create_account
 
 
@@ -81,3 +82,17 @@ class UserModelTests(TestCase):
         )
 
         self.assertEqual(user.student_id, "22120001")
+
+
+class InstitutionModelTests(TestCase):
+    def test_renaming_updates_normalized_label_with_update_fields(self):
+        institution = Institution.objects.create(
+            label="Original Academy",
+            source=Institution.Source.CUSTOM,
+        )
+
+        institution.label = "  Renamed Academy  "
+        institution.save(update_fields=("label",))
+        institution.refresh_from_db()
+
+        self.assertEqual(institution.normalized_label, "renamed academy")

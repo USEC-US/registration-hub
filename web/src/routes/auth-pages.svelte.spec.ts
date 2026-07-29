@@ -297,6 +297,26 @@ describe('logout page', () => {
 });
 
 describe('account creation page', () => {
+	it('requires a fresh Turnstile callback before retrying account registration', async () => {
+		vi.mocked(registerAccount).mockRejectedValue(new Error('Request failed.'));
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
+		render(RegisterPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByLabelText('First name').fill('Minh');
+		await page.getByLabelText('Last name').fill('Nguyen');
+		await page.getByLabelText('Institution').fill('New Academy');
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await vi.waitFor(() => expect(registerAccount).toHaveBeenCalledOnce());
+		expect(turnstileDependencies.reset).toHaveBeenCalledWith('widget-id');
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(registerAccount).toHaveBeenCalledOnce();
+	});
+
 	it('uses normalized registration email for automatic sign-in and redirects in locale', async () => {
 		overwriteGetLocale(() => 'vi');
 		vi.mocked(registerAccount).mockResolvedValue({ ...user, email: 'player@example.com' });

@@ -76,9 +76,31 @@ it('renders immediately for a later mount when the Turnstile script is already r
 	const script = document.createElement('script');
 	script.dataset.turnstileApi = 'true';
 	document.head.appendChild(script);
-	window.turnstile = { render: dependencies.render };
+	dependencies.render.mockReturnValue('widget-id');
+	window.turnstile = { render: dependencies.render, reset: vi.fn() };
+	let token = '';
 
-	render(TurnstileWidget, { action: 'sign-in', token: '' });
+	const widget = render(TurnstileWidget, {
+		action: 'sign-in',
+		get token() {
+			return token;
+		},
+		set token(value) {
+			token = value;
+		}
+	});
 
 	await vi.waitFor(() => expect(dependencies.render).toHaveBeenCalledOnce());
+	const options = dependencies.render.mock.calls[0][1];
+	expect(options.action).toBe('sign-in');
+	options.callback('verified-token');
+	expect(token).toBe('verified-token');
+	options['expired-callback']();
+	expect(token).toBe('');
+	options.callback('replacement-token');
+	options['error-callback']();
+	expect(token).toBe('');
+
+	widget.component.reset();
+	expect(window.turnstile.reset).toHaveBeenCalledWith('widget-id');
 });

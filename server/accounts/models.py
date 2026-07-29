@@ -46,8 +46,10 @@ class Institution(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if not self.normalized_label:
-            self.normalized_label = " ".join(self.label.split()).casefold()
+        self.normalized_label = " ".join(self.label.split()).casefold()
+        if update_fields := kwargs.get("update_fields"):
+            if "label" in update_fields:
+                kwargs["update_fields"] = (*update_fields, "normalized_label")
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

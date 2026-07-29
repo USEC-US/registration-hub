@@ -75,8 +75,7 @@ def verify_turnstile_token(
     if not data.get("success"):
         return TurnstileVerificationResult(success=False, error_codes=error_codes)
 
-    action = data.get("action")
-    if action and action != expected_action:
+    if data.get("action") != expected_action:
         return TurnstileVerificationResult(
             success=False,
             error_codes=("action-mismatch",),

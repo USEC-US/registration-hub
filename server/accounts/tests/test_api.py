@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from unittest.mock import patch
+
 from django.test import override_settings
 from django.test.utils import ignore_warnings
 from jwt.warnings import InsecureKeyLengthWarning
@@ -83,6 +85,27 @@ class AccountApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("turnstile_token", response.data)
+
+    @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="secret")
+    def test_rejected_registration_does_not_create_a_custom_institution(self):
+        user_count = get_user_model().objects.count()
+        institution_count = Institution.objects.count()
+        with patch("config.turnstile.urllib.request.urlopen") as urlopen:
+            urlopen.return_value.__enter__.return_value.read.return_value = (
+                b'{"success": false, "error-codes": ["invalid-input-response"]}'
+            )
+            response = self.client.post(
+                "/api/auth/register/",
+                self.registration_payload(
+                    institution_label="Rejected Academy",
+                    turnstile_token="invalid-token",
+                ),
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(get_user_model().objects.count(), user_count)
+        self.assertEqual(Institution.objects.count(), institution_count)
 
     @override_settings(DEBUG=True, TURNSTILE_SECRET_KEY="")
     def test_register_allows_debug_bypass_when_secret_missing(self):
