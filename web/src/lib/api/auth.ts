@@ -1,18 +1,23 @@
 import { requestJson } from './client';
-import type { CurrentUser, TokenPair } from './types';
+import type { CurrentUser, InstitutionChoice, RegisterAccountPayload, TokenPair } from './types';
 
-export function registerAccount(payload: {
-	email: string;
-	password: string;
+type AccountIdentityInput = {
 	first_name: string;
 	last_name: string;
-	school?: string;
-}) {
-	return requestJson<CurrentUser>('/auth/register/', { method: 'POST', body: payload });
+} & InstitutionChoice;
+
+export function registerAccount(payload: RegisterAccountPayload, turnstileToken: string) {
+	return requestJson<CurrentUser>('/auth/register/', {
+		method: 'POST',
+		body: { ...payload, turnstile_token: turnstileToken }
+	});
 }
 
-export function signIn(email: string, password: string) {
-	return requestJson<TokenPair>('/auth/token/', { method: 'POST', body: { email, password } });
+export function signIn(email: string, password: string, turnstileToken: string) {
+	return requestJson<TokenPair>('/auth/token/', {
+		method: 'POST',
+		body: { email, password, turnstile_token: turnstileToken }
+	});
 }
 
 export function refreshAccessToken(refresh: string) {
@@ -28,7 +33,7 @@ export function getCurrentUser(accessToken: string) {
 
 export function updateCurrentUser(
 	accessToken: string,
-	payload: Pick<CurrentUser, 'first_name' | 'last_name' | 'school'>
+	payload: AccountIdentityInput
 ) {
 	return requestJson<CurrentUser>('/account/me/', {
 		method: 'PATCH',

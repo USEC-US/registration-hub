@@ -3,7 +3,6 @@ import { goto } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { getCurrentUser } from '$lib/api/auth';
 import { ApiRequestError } from '$lib/api/client';
 import {
 	getRegistration,
@@ -12,7 +11,6 @@ import {
 	submitRegistration
 } from '$lib/api/registrations';
 import type {
-	CurrentUser,
 	PublicTournament,
 	PublicTournamentGame,
 	RegistrationRead
@@ -29,11 +27,15 @@ const mockPage = vi.hoisted(() => ({
 	url: new URL('https://usec.test/tournaments/usec-summer-2026/games/10/register'),
 	params: { id: '33' }
 }));
+const turnstileTokens = vi.hoisted(() => ({
+	'registration-submit': 'registration-submit-token',
+	'payment-proof-submit': 'payment-proof-submit-token'
+}));
+const turnstileDependencies = vi.hoisted(() => ({ reset: vi.fn() }));
 
-vi.mock('$env/dynamic/public', () => ({ env: {} }));
+vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({ page: mockPage }));
-vi.mock('$lib/api/auth', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('$lib/api/registrations', () => ({
 	getRegistration: vi.fn(),
 	listRegistrations: vi.fn(),
@@ -44,13 +46,6 @@ vi.mock('$lib/auth/session', () => ({ getAccessToken: vi.fn(), clearSession: vi.
 vi.mock('$lib/auth/navigation', () => ({ replaceInternalLocation: vi.fn() }));
 
 const accessToken = 'access-token';
-const user: CurrentUser = {
-	id: 7,
-	email: 'player@example.com',
-	first_name: 'Player',
-	last_name: 'One',
-	school: 'HCMUS'
-};
 const game: PublicTournamentGame = {
 	id: 10,
 	game_name: 'Valorant',
@@ -117,7 +112,6 @@ beforeEach(() => {
 	mockPage.params = { id: '33' };
 	vi.mocked(goto).mockReset().mockResolvedValue(undefined);
 	vi.mocked(getAccessToken).mockReset().mockReturnValue(accessToken);
-	vi.mocked(getCurrentUser).mockReset().mockResolvedValue(user);
 	vi.mocked(listRegistrations).mockReset().mockResolvedValue([registration]);
 	vi.mocked(getRegistration).mockReset().mockResolvedValue(registration);
 	vi.mocked(submitRegistration).mockReset().mockResolvedValue(registration);
@@ -130,6 +124,20 @@ beforeEach(() => {
 	});
 	vi.mocked(replaceInternalLocation).mockReset();
 	vi.mocked(clearSession).mockReset();
+	turnstileDependencies.reset.mockReset();
+	turnstileTokens['registration-submit'] = 'registration-submit-token';
+	turnstileTokens['payment-proof-submit'] = 'payment-proof-submit-token';
+	document.head.querySelectorAll('script[data-turnstile-api]').forEach((script) => script.remove());
+	const turnstileScript = document.createElement('script');
+	turnstileScript.dataset.turnstileApi = 'true';
+	document.head.appendChild(turnstileScript);
+	window.turnstile = {
+		render: (_container, options) => {
+			options.callback(turnstileTokens[options.action as keyof typeof turnstileTokens] ?? '');
+			return 'widget-id';
+		},
+		reset: turnstileDependencies.reset
+	};
 });
 
 describe('participant registration pages', () => {
@@ -145,7 +153,6 @@ describe('participant registration pages', () => {
 		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
 		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
 		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
-		expect(getCurrentUser).not.toHaveBeenCalled();
 		await page.getByLabelText('Team name').fill('Blue Team');
 		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
 		await page.getByLabelText('School').nth(0).fill('HCMUS');
@@ -171,7 +178,7 @@ describe('participant registration pages', () => {
 						display_order: 2
 					}
 				]
-			})
+			}, 'registration-submit-token')
 		);
 		expect(goto).toHaveBeenCalledWith('/en/account/registrations/33');
 	});
@@ -194,6 +201,46 @@ describe('participant registration pages', () => {
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 
 		await expect.element(page.getByText('Roster invalid.')).toBeInTheDocument();
+	});
+
+	it('requires Turnstile before submitting tournament registration', async () => {
+		turnstileTokens['registration-submit'] = '';
+		render(RegisterPage, {
+			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+			params: { slug: tournament.slug, gameId: String(game.id) }
+		});
+
+		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
+		await page.getByLabelText('School').nth(0).fill('HCMUS');
+		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
+		await page.getByLabelText('School').nth(1).fill('HCMUS');
+		await page.getByRole('button', { name: 'Submit registration' }).click();
+
+		await expect.element(page.getByText('Complete the security check before submitting.')).toBeVisible();
+		expect(submitRegistration).not.toHaveBeenCalled();
+	});
+
+	it('requires a fresh Turnstile callback before retrying tournament registration', async () => {
+		vi.mocked(submitRegistration).mockRejectedValue(new Error('Request failed.'));
+		render(RegisterPage, {
+			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+			params: { slug: tournament.slug, gameId: String(game.id) }
+		});
+
+		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
+		await page.getByLabelText('School').nth(0).fill('HCMUS');
+		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
+		await page.getByLabelText('School').nth(1).fill('HCMUS');
+		await page.getByRole('button', { name: 'Submit registration' }).click();
+
+		await vi.waitFor(() => expect(submitRegistration).toHaveBeenCalledOnce());
+		expect(turnstileDependencies.reset).toHaveBeenCalledWith('widget-id');
+		await page.getByRole('button', { name: 'Submit registration' }).click();
+
+		await expect.element(page.getByText('Complete the security check before submitting.')).toBeVisible();
+		expect(submitRegistration).toHaveBeenCalledOnce();
 	});
 
 	it('lists registration snapshots with links to their details', async () => {
@@ -223,7 +270,12 @@ describe('participant registration pages', () => {
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(2));
-		expect(submitPaymentAttempt).toHaveBeenCalledOnce();
+		expect(submitPaymentAttempt).toHaveBeenCalledWith(
+			accessToken,
+			registration.id,
+			expect.any(FormData),
+			'payment-proof-submit-token'
+		);
 		expect(appPage.params.id).toBe('33');
 	});
 

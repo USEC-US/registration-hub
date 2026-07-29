@@ -30,6 +30,11 @@ load_dotenv(BASE_DIR / '.env')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool("DEBUG", False)
 SECRET_KEY = local_secret_key("SECRET_KEY", debug=DEBUG)
+TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY", "").strip()
+TURNSTILE_SITEVERIFY_URL = os.getenv(
+    "TURNSTILE_SITEVERIFY_URL",
+    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+)
 
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
@@ -52,6 +57,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'django_filters',
     'guardian',
+    'config.apps.ConfigConfig',
     'accounts',
     'tournaments',
     'registrations',

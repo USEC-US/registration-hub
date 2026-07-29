@@ -11,7 +11,7 @@ from accounts.tests.factories import create_account
 from registrations.models import Registration
 from tournaments.models import Game, Tournament, TournamentGame
 
-@override_settings(ROOT_URLCONF="config.urls")
+@override_settings(ROOT_URLCONF="config.urls", DEBUG=True, TURNSTILE_SECRET_KEY="")
 class RegistrationOwnershipApiTests(APITestCase):
     def setUp(self):
         self.owner = create_account(
@@ -131,9 +131,15 @@ class RegistrationOwnershipApiTests(APITestCase):
 
     def test_registration_detail_exposes_safe_own_payment_attempt_summary(self):
         self.client.force_authenticate(user=self.owner)
+        payment_payload = {
+            "amount": "50000.00",
+            "currency": "VND",
+            "reference": "transfer-123",
+            "turnstile_token": "debug-token",
+        }
         self.client.post(
             f"/api/registrations/{self.registration.pk}/payment-attempts/",
-            {"amount": "50000.00", "currency": "VND", "reference": "transfer-123"},
+            payment_payload,
             format="json",
         )
 
@@ -156,15 +162,43 @@ class RegistrationOwnershipApiTests(APITestCase):
 
     def test_submit_sets_the_owner_from_request_user(self):
         self.client.force_authenticate(user=self.owner)
+        payload = self._submission_payload()
+        payload["turnstile_token"] = "debug-token"
 
         response = self.client.post(
-            "/api/registrations/submit/", self._submission_payload(), format="json"
+            "/api/registrations/submit/", payload, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         registration = Registration.objects.get(pk=response.data["id"])
         self.assertEqual(registration.submitted_by, self.owner)
         self.assertIsNone(registration.members.get().user)
+
+    @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="")
+    def test_submit_requires_turnstile_outside_debug(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            "/api/registrations/submit/",
+            self._submission_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("turnstile_token", response.data)
+
+    @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="")
+    def test_payment_attempt_requires_turnstile_outside_debug(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            f"/api/registrations/{self.registration.pk}/payment-attempts/",
+            {"amount": "50000.00", "currency": "VND", "reference": "BANK123"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("turnstile_token", response.data)
 
     def test_service_validation_errors_become_http_400(self):
         self.client.force_authenticate(user=self.owner)

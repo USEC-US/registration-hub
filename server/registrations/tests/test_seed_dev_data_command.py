@@ -12,6 +12,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from accounts.models import Institution
 from registrations.models import PaymentAttempt, Registration, RegistrationStatusEvent
 from tournaments.models import Game, Tournament, TournamentGame
 
@@ -52,17 +53,33 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(player.check_password("player@123"))
         self.assertEqual(player.first_name, "Development")
         self.assertEqual(player.last_name, "Player")
-        self.assertEqual(player.school, "HCMUS")
+        self.assertEqual(
+            player.institution.label,
+            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+        )
+        self.assertEqual(player.institution.short_name, "HCMUS")
+        self.assertEqual(player.institution.english_name, "University of Science - VNU")
+        self.assertEqual(player.institution.source, Institution.Source.CATALOGUE)
+        self.assertEqual(
+            Institution.objects.filter(
+                source=Institution.Source.CATALOGUE,
+                value="222",
+            ).count(),
+            1,
+        )
         self.assertFalse(hasattr(player, "gamer_tag"))
         self.assertTrue(player.is_active)
         self.assertFalse(player.is_staff)
         self.assertFalse(player.is_superuser)
         self.assertFalse(player.groups.exists())
+        self.assertEqual(player.student_id, "")
+        player.full_clean()
 
         self.assertTrue(organizer.check_password("organizer@123"))
         self.assertTrue(organizer.is_active)
         self.assertTrue(organizer.is_staff)
         self.assertFalse(organizer.is_superuser)
+        self.assertIsNone(organizer.institution)
         self.assertSetEqual(
             set(organizer.groups.values_list("name", flat=True)),
             {"Organizers"},
@@ -70,12 +87,17 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(organizer.has_perm("registrations.change_registration"))
         self.assertTrue(organizer.has_perm("registrations.change_paymentattempt"))
         self.assertFalse(organizer.has_perm("registrations.delete_registration"))
+        self.assertTrue(organizer.student_id)
+        organizer.full_clean()
 
         self.assertTrue(admin.check_password("admin@123"))
         self.assertTrue(admin.is_active)
         self.assertTrue(admin.is_staff)
         self.assertTrue(admin.is_superuser)
+        self.assertIsNone(admin.institution)
         self.assertFalse(admin.groups.exists())
+        self.assertTrue(admin.student_id)
+        admin.full_clean()
 
         self.assertEqual(Group.objects.filter(name="Organizers").count(), 1)
         self.assertIn("Player: player@email.com / player@123", output)
@@ -240,9 +262,11 @@ class SeedDevDataCommandTests(TestCase):
         user_model = get_user_model()
         player = user_model.objects.get(email="player@email.com")
         organizers = Group.objects.get(name="Organizers")
+        changed_institution = Institution.objects.create(label="Changed")
         player.first_name = "Changed"
         player.last_name = "Changed"
-        player.school = "Changed"
+        player.institution = changed_institution
+        player.student_id = "stale-student-id"
         player.is_staff = True
         player.is_superuser = True
         player.set_unusable_password()
@@ -308,11 +332,19 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(player.check_password("player@123"))
         self.assertEqual(player.first_name, "Development")
         self.assertEqual(player.last_name, "Player")
-        self.assertEqual(player.school, "HCMUS")
+        self.assertEqual(
+            player.institution.label,
+            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+        )
+        self.assertEqual(player.institution.short_name, "HCMUS")
+        self.assertEqual(player.institution.english_name, "University of Science - VNU")
+        self.assertEqual(player.institution.source, Institution.Source.CATALOGUE)
         self.assertFalse(hasattr(player, "gamer_tag"))
         self.assertFalse(player.is_staff)
         self.assertFalse(player.is_superuser)
         self.assertFalse(player.groups.exists())
+        self.assertEqual(player.student_id, "")
+        player.full_clean()
         self.assertEqual(
             Tournament.objects.get(slug="dev-usec-current").name,
             "USEC Development Open",
@@ -396,3 +428,4 @@ class SeedDevDataCommandTests(TestCase):
         self.assertFalse(
             Tournament.objects.filter(slug__startswith="dev-usec-").exists()
         )
+        self.assertFalse(Institution.objects.exists())

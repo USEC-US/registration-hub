@@ -4,12 +4,14 @@ import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { ApiRequestError } from '$lib/api/client';
 import { registerAccount, signIn, updateCurrentUser } from '$lib/api/auth';
-import type { CurrentUser, TokenPair } from '$lib/api/types';
+import { searchInstitutions } from '$lib/api/institutions';
+import type { CurrentUser, Institution, TokenPair } from '$lib/api/types';
 import { saveSession } from '$lib/auth/session';
 import * as m from '$lib/paraglide/messages';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import type { AuthSessionSnapshot } from '$lib/states/auth-state.svelte';
 import ProfilePage from './account/profile/+page.svelte';
+import LogoutPage from './auth/logout/+page.svelte';
 import RegisterPage from './auth/register/+page.svelte';
 import SignInPage from './auth/sign-in/+page.svelte';
 
@@ -22,13 +24,22 @@ const authStateMock = vi.hoisted(() => ({
 	isSessionSnapshotCurrent: vi.fn(),
 	handleAuthenticationError: vi.fn(),
 	updateCurrentUser: vi.fn(),
+	signOutAndRedirect: vi.fn(),
 	signIn: vi.fn()
 }));
 const mockPage = vi.hoisted(() => ({
 	url: new URL('https://usec.test/vi/account/profile?section=identity#school')
 }));
+const turnstileTokens = vi.hoisted(() => ({
+	'sign-in': 'sign-in-token',
+	'account-register': 'account-register-token'
+}));
+const turnstileDependencies = vi.hoisted(() => ({
+	env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } as Record<string, string>,
+	reset: vi.fn()
+}));
 
-vi.mock('$env/dynamic/public', () => ({ env: {} }));
+vi.mock('$env/dynamic/public', () => ({ env: turnstileDependencies.env }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({
 	page: mockPage
@@ -39,6 +50,7 @@ vi.mock('$lib/api/auth', () => ({
 	signIn: vi.fn(),
 	updateCurrentUser: vi.fn()
 }));
+vi.mock('$lib/api/institutions', () => ({ searchInstitutions: vi.fn() }));
 vi.mock('$lib/auth/session', () => ({
 	saveSession: vi.fn()
 }));
@@ -49,19 +61,38 @@ const sessionSnapshot: AuthSessionSnapshot = {
 	accessToken: tokens.access,
 	generation: 0
 };
+const institution: Institution = {
+	id: 7,
+	value: '227',
+	label: 'University of Science',
+	code: 'QST',
+	shortName: 'HCMUS',
+	eng: 'University of Science',
+	type: 'Public',
+	location: 'Ho Chi Minh City'
+};
 const user: CurrentUser = {
 	id: 7,
 	email: 'player@example.com',
 	first_name: 'Minh',
 	last_name: 'Nguyen',
-	school: 'HCMUS'
+	institution
 };
 const newerUser: CurrentUser = {
 	id: 8,
 	email: 'new@example.com',
 	first_name: 'Lan',
 	last_name: 'Tran',
-	school: 'HCMUT'
+	institution: {
+		id: 8,
+		value: '228',
+		label: 'University of Technology',
+		code: 'QSB',
+		shortName: 'HCMUT',
+		eng: 'University of Technology',
+		type: 'Public',
+		location: 'Ho Chi Minh City'
+	}
 };
 
 beforeEach(() => {
@@ -71,6 +102,7 @@ beforeEach(() => {
 	vi.mocked(registerAccount).mockReset();
 	vi.mocked(signIn).mockReset();
 	vi.mocked(updateCurrentUser).mockReset();
+	vi.mocked(searchInstitutions).mockReset().mockResolvedValue([institution]);
 	vi.mocked(saveSession).mockReset();
 	authStateMock.status = 'idle';
 	authStateMock.currentUser = null;
@@ -80,7 +112,23 @@ beforeEach(() => {
 	authStateMock.isSessionSnapshotCurrent.mockReset().mockReturnValue(true);
 	authStateMock.handleAuthenticationError.mockReset().mockReturnValue(false);
 	authStateMock.updateCurrentUser.mockReset().mockReturnValue(true);
+	authStateMock.signOutAndRedirect.mockReset();
 	authStateMock.signIn.mockReset();
+	turnstileTokens['sign-in'] = 'sign-in-token';
+	turnstileTokens['account-register'] = 'account-register-token';
+	turnstileDependencies.env.PUBLIC_TURNSTILE_SITE_KEY = 'site-key';
+	turnstileDependencies.reset.mockReset();
+	document.head.querySelectorAll('script[data-turnstile-api]').forEach((script) => script.remove());
+	const turnstileScript = document.createElement('script');
+	turnstileScript.dataset.turnstileApi = 'true';
+	document.head.appendChild(turnstileScript);
+	window.turnstile = {
+		render: (_container, options) => {
+			options.callback(turnstileTokens[options.action as keyof typeof turnstileTokens] ?? '');
+			return 'widget-id';
+		},
+		reset: turnstileDependencies.reset
+	};
 });
 
 afterEach(() => {
@@ -101,7 +149,11 @@ describe('sign-in page', () => {
 		await page.getByRole('button', { name: 'Sign in' }).click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/account/registrations'));
-		expect(authStateMock.signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
+		expect(authStateMock.signIn).toHaveBeenCalledWith(
+			'player@example.com',
+			'strong-password',
+			'sign-in-token'
+		);
 		expect(saveSession).not.toHaveBeenCalled();
 		expect(container.querySelector('form')).toHaveAttribute('aria-busy', 'false');
 	});
@@ -187,9 +239,84 @@ describe('sign-in page', () => {
 		await expect.element(page.getByText(m.auth_sign_in_failed())).toBeVisible();
 		expect(goto).not.toHaveBeenCalled();
 	});
+
+	it('blocks sign-in until Turnstile has a token', async () => {
+		turnstileTokens['sign-in'] = '';
+		render(SignInPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(authStateMock.signIn).not.toHaveBeenCalled();
+	});
+
+	it('submits in development without a Turnstile site key', async () => {
+		delete turnstileDependencies.env.PUBLIC_TURNSTILE_SITE_KEY;
+		window.turnstile = undefined;
+		authStateMock.signIn.mockResolvedValue(user);
+		render(SignInPage);
+
+		await expect.element(page.getByText(/PUBLIC_TURNSTILE_SITE_KEY/)).toBeVisible();
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await vi.waitFor(() => expect(authStateMock.signIn).toHaveBeenCalledOnce());
+		expect(authStateMock.signIn.mock.calls[0][2]).not.toBe('');
+	});
+
+	it('requires a fresh Turnstile callback before retrying sign-in', async () => {
+		authStateMock.signIn.mockRejectedValue(new Error('Request failed.'));
+		render(SignInPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await vi.waitFor(() => expect(authStateMock.signIn).toHaveBeenCalledOnce());
+		expect(turnstileDependencies.reset).toHaveBeenCalledWith('widget-id');
+		await page.getByRole('button', { name: 'Sign in' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(authStateMock.signIn).toHaveBeenCalledOnce();
+	});
+});
+
+describe('logout page', () => {
+	it('signs out and redirects to the localized home page', async () => {
+		authStateMock.signOutAndRedirect.mockClear();
+		render(LogoutPage);
+
+		await vi.waitFor(() =>
+			expect(authStateMock.signOutAndRedirect).toHaveBeenCalledWith('/en/')
+		);
+		await expect.element(page.getByText(m.auth_signed_out_redirecting())).toBeVisible();
+	});
 });
 
 describe('account creation page', () => {
+	it('requires a fresh Turnstile callback before retrying account registration', async () => {
+		vi.mocked(registerAccount).mockRejectedValue(new Error('Request failed.'));
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
+		render(RegisterPage);
+
+		await page.getByLabelText('Email').fill('player@example.com');
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByLabelText('First name').fill('Minh');
+		await page.getByLabelText('Last name').fill('Nguyen');
+		await page.getByLabelText('Institution').fill('New Academy');
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await vi.waitFor(() => expect(registerAccount).toHaveBeenCalledOnce());
+		expect(turnstileDependencies.reset).toHaveBeenCalledWith('widget-id');
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(registerAccount).toHaveBeenCalledOnce();
+	});
+
 	it('uses normalized registration email for automatic sign-in and redirects in locale', async () => {
 		overwriteGetLocale(() => 'vi');
 		vi.mocked(registerAccount).mockResolvedValue({ ...user, email: 'player@example.com' });
@@ -204,12 +331,13 @@ describe('account creation page', () => {
 		expect(container.querySelector('input[name="password"]')).toHaveAttribute('minlength', '8');
 		expect(container.querySelector('input[name="first_name"]')).toHaveAttribute('maxlength', '150');
 		expect(container.querySelector('input[name="last_name"]')).toHaveAttribute('maxlength', '150');
-		expect(container.querySelector('input[name="school"]')).toHaveAttribute('maxlength', '128');
+		expect(container.querySelector('input[name="institution"]')).not.toBeNull();
 		await page.getByLabelText('Email').fill('PLAYER@EXAMPLE.COM');
 		await page.getByLabelText('Mật khẩu').fill('strong-password');
 		await page.getByLabelText('Họ').fill('Minh');
 		await page.getByLabelText('Tên').fill('Nguyen');
-		await page.getByLabelText('Trường').fill('HCMUS');
+		await page.getByLabelText('Cơ sở đào tạo').fill('science');
+		await page.getByRole('option', { name: /University of Science/ }).click();
 		await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/account/profile'));
@@ -218,27 +346,28 @@ describe('account creation page', () => {
 			password: 'strong-password',
 			first_name: 'Minh',
 			last_name: 'Nguyen',
-			school: 'HCMUS'
-		});
-		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password');
+			institution_id: 7
+		}, 'account-register-token');
+		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password', 'sign-in-token');
 		expect(saveSession).toHaveBeenCalledWith(tokens);
 	});
 
-	it('submits a blank optional school with required account names', async () => {
-		vi.mocked(registerAccount).mockResolvedValue({ ...user, school: '' });
+	it('submits a custom institution choice with required account names', async () => {
+		vi.mocked(registerAccount).mockResolvedValue(user);
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
 		vi.mocked(signIn).mockResolvedValue(tokens);
 		const { container } = render(RegisterPage);
 
 		const firstName = container.querySelector('input[name="first_name"]');
 		const lastName = container.querySelector('input[name="last_name"]');
-		const school = container.querySelector('input[name="school"]');
 		expect(firstName).toBeRequired();
 		expect(lastName).toBeRequired();
-		expect(school).not.toBeRequired();
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
 		await page.getByLabelText('First name').fill(user.first_name);
 		await page.getByLabelText('Last name').fill(user.last_name);
+		await page.getByLabelText('Institution').fill('New Academy');
+		await page.getByRole('button', { name: 'Use "New Academy"' }).click();
 		await page.getByRole('button', { name: 'Create account' }).click();
 
 		await vi.waitFor(() => {
@@ -247,8 +376,8 @@ describe('account creation page', () => {
 				password: 'strong-password',
 				first_name: user.first_name,
 				last_name: user.last_name,
-				school: ''
-			});
+				institution_label: 'New Academy'
+			}, 'account-register-token');
 		});
 	});
 
@@ -258,12 +387,14 @@ describe('account creation page', () => {
 				'Check the registration details and try again.'
 			])
 		);
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
 		render(RegisterPage);
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
 		await page.getByLabelText('First name').fill(user.first_name);
 		await page.getByLabelText('Last name').fill(user.last_name);
-		await page.getByLabelText('School').fill(user.school);
+		await page.getByLabelText('Institution').fill('New Academy');
+		await page.getByRole('button', { name: 'Use "New Academy"' }).click();
 		await page.getByRole('button', { name: 'Create account' }).click();
 
 		await expect.element(page.getByText('Email is unavailable.')).toBeInTheDocument();
@@ -275,12 +406,14 @@ describe('account creation page', () => {
 	it('shows a recovery state instead of another registration form when auto-sign-in fails', async () => {
 		vi.mocked(registerAccount).mockResolvedValue(user);
 		vi.mocked(signIn).mockRejectedValue(new ApiRequestError(401, 'Invalid credentials.'));
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
 		render(RegisterPage);
 		await page.getByLabelText('Email').fill(user.email);
 		await page.getByLabelText('Password').fill('strong-password');
 		await page.getByLabelText('First name').fill(user.first_name);
 		await page.getByLabelText('Last name').fill(user.last_name);
-		await page.getByLabelText('School').fill(user.school);
+		await page.getByLabelText('Institution').fill('New Academy');
+		await page.getByRole('button', { name: 'Use "New Academy"' }).click();
 		await page.getByRole('button', { name: 'Create account' }).click();
 
 		await expect
@@ -290,6 +423,23 @@ describe('account creation page', () => {
 		expect(page.getByRole('button', { name: 'Create account' }).elements()).toHaveLength(0);
 		expect(document.querySelector('input[name="password"]')).toBeNull();
 		expect(registerAccount).toHaveBeenCalledOnce();
+	});
+
+	it('blocks account registration until Turnstile has a token', async () => {
+		turnstileTokens['account-register'] = '';
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
+		render(RegisterPage);
+
+		await page.getByLabelText('Email').fill(user.email);
+		await page.getByLabelText('Password').fill('strong-password');
+		await page.getByLabelText('First name').fill(user.first_name);
+		await page.getByLabelText('Last name').fill(user.last_name);
+		await page.getByLabelText('Institution').fill('New Academy');
+		await page.getByRole('button', { name: 'Use "New Academy"' }).click();
+		await page.getByRole('button', { name: 'Create account' }).click();
+
+		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
+		expect(registerAccount).not.toHaveBeenCalled();
 	});
 });
 
@@ -308,7 +458,7 @@ describe('profile page', () => {
 		authStateMock.currentUser = user;
 		vi.mocked(updateCurrentUser).mockResolvedValue({
 			...user,
-			school: 'HCMUS - VNU'
+			institution: { ...institution, label: 'HCMUS - VNU' }
 		});
 		const { container } = render(ProfilePage);
 		await vi.waitFor(() => expect(authStateMock.initialize).toHaveBeenCalledOnce());
@@ -320,20 +470,22 @@ describe('profile page', () => {
 		expect(container.querySelector('input[name="email"]')).toBeNull();
 		await page.getByLabelText('First name').fill(' Minh ');
 		await page.getByLabelText('Last name').fill(' Nguyen ');
-		await page.getByLabelText('School').fill('HCMUS - VNU');
+		vi.mocked(searchInstitutions).mockResolvedValue([]);
+		await page.getByLabelText('Institution').fill('HCMUS - VNU');
+		await page.getByRole('button', { name: 'Use "HCMUS - VNU"' }).click();
 		await page.getByRole('button', { name: 'Save profile' }).click();
 
 		await vi.waitFor(() => {
 			expect(updateCurrentUser).toHaveBeenCalledWith(tokens.access, {
 				first_name: ' Minh ',
 				last_name: ' Nguyen ',
-				school: 'HCMUS - VNU'
+				institution_label: 'HCMUS - VNU'
 			});
 		});
 		expect(authStateMock.requireSessionSnapshot).toHaveBeenCalledOnce();
 		expect(authStateMock.updateCurrentUser).toHaveBeenCalledWith(sessionSnapshot, {
 			...user,
-			school: 'HCMUS - VNU'
+			institution: { ...institution, label: 'HCMUS - VNU' }
 		});
 		await expect.element(page.getByLabelText('First name')).toHaveValue(user.first_name);
 		await expect.element(page.getByLabelText('Last name')).toHaveValue(user.last_name);
@@ -420,7 +572,7 @@ describe('profile page', () => {
 		authStateMock.isSessionSnapshotCurrent.mockReturnValue(false);
 		rejectUpdate(
 			new ApiRequestError(400, 'Stale profile error.', {
-				school: ['This school error belongs to the old session.']
+				institution_label: ['This institution error belongs to the old session.']
 			})
 		);
 		await vi.waitFor(() =>
@@ -432,29 +584,9 @@ describe('profile page', () => {
 
 		expect(authStateMock.handleAuthenticationError).not.toHaveBeenCalled();
 		expect(document.body.textContent).not.toContain(
-			'This school error belongs to the old session.'
+			'This institution error belongs to the old session.'
 		);
 		expect(document.body.textContent).not.toContain(m.profile_save_failed());
-	});
-
-	it('allows the optional school to be cleared', async () => {
-		authStateMock.requireAccessToken.mockReturnValue(tokens.access);
-		authStateMock.initialize.mockResolvedValue(user);
-		authStateMock.currentUser = user;
-		vi.mocked(updateCurrentUser).mockResolvedValue({ ...user, school: '' });
-		const { container } = render(ProfilePage);
-
-		await page.getByLabelText('School').fill('');
-		expect(container.querySelector('input[name="school"]')).not.toBeRequired();
-		await page.getByRole('button', { name: 'Save profile' }).click();
-
-		await vi.waitFor(() => {
-			expect(updateCurrentUser).toHaveBeenCalledWith(tokens.access, {
-				first_name: user.first_name,
-				last_name: user.last_name,
-				school: ''
-			});
-		});
 	});
 
 	it('shows a localized failure when profile hydration is unavailable', async () => {
@@ -484,7 +616,9 @@ describe('profile page', () => {
 		authStateMock.initialize.mockResolvedValue(user);
 		authStateMock.currentUser = user;
 		vi.mocked(updateCurrentUser).mockRejectedValue(
-			new ApiRequestError(400, 'Invalid profile.', { school: ['Use 128 characters or fewer.'] })
+			new ApiRequestError(400, 'Invalid profile.', {
+				institution_label: ['Use 128 characters or fewer.']
+			})
 		);
 		render(ProfilePage);
 

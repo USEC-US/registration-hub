@@ -9,6 +9,7 @@
 	import { clearSession, getAccessToken } from '$lib/auth/session';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import Field from '$lib/components/forms/Field.svelte';
+	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import RosterEditor from '$lib/components/registrations/RosterEditor.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
@@ -24,6 +25,8 @@
 	let accessToken = $state<string | null>(null);
 	let members = $state<RegistrationMemberInput[]>([]);
 	let teamName = $state('');
+	let turnstileToken = $state('');
+	let turnstileWidget = $state<{ reset: () => void } | null>(null);
 	let loading = $state(true);
 	let submitting = $state(false);
 	let redirecting = $state(false);
@@ -66,17 +69,27 @@
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		if (submitting || !accessToken) return;
+		if (!turnstileToken) {
+			formErrors = [m.turnstile_required()];
+			return;
+		}
 
 		submitting = true;
 		fieldErrors = {};
 		formErrors = [];
 
 		try {
-			const registration = await submitRegistration(accessToken, {
-				tournament_game: data.game.id,
-				team_name: data.game.team_size_max > 1 ? teamName : '',
-				members
-			});
+			const request = submitRegistration(
+				accessToken,
+				{
+					tournament_game: data.game.id,
+					team_name: data.game.team_size_max > 1 ? teamName : '',
+					members
+				},
+				turnstileToken
+			);
+			turnstileWidget?.reset();
+			const registration = await request;
 			await goto(resolve(localizeInternalHref(`/account/registrations/${registration.id}`)));
 		} catch (cause) {
 			if (isAuthenticationError(cause)) {
@@ -165,6 +178,11 @@
 					teamSizeMin={data.game.team_size_min}
 					teamSizeMax={data.game.team_size_max}
 					bind:members
+				/>
+				<TurnstileWidget
+					bind:this={turnstileWidget}
+					action="registration-submit"
+					bind:token={turnstileToken}
 				/>
 			</Card.Content>
 			<Card.Footer class="justify-end border-t">

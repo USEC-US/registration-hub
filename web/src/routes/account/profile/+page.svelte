@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { updateCurrentUser } from '$lib/api/auth';
+	import type { InstitutionChoice } from '$lib/api/types';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import Field from '$lib/components/forms/Field.svelte';
+	import InstitutionCombobox from '$lib/components/forms/InstitutionCombobox.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { authState } from '$lib/states/auth-state.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -13,7 +15,7 @@
 
 	let firstName = $state('');
 	let lastName = $state('');
-	let school = $state('');
+	let institutionChoice = $state<InstitutionChoice | undefined>(undefined);
 	let loading = $state(true);
 	let saving = $state(false);
 	let saved = $state(false);
@@ -43,7 +45,7 @@
 
 		firstName = user.first_name;
 		lastName = user.last_name;
-		school = user.school;
+		institutionChoice = user.institution ? { institution_id: user.institution.id } : undefined;
 		loading = false;
 	});
 
@@ -63,16 +65,17 @@
 		formErrors = [];
 
 		try {
+			const institution = institutionChoice ?? { institution_label: '' };
 			const user = await updateCurrentUser(session.accessToken, {
 				first_name: firstName,
 				last_name: lastName,
-				school
+				...institution
 			});
 			if (!authState.updateCurrentUser(session, user)) return;
 
 			firstName = user.first_name;
 			lastName = user.last_name;
-			school = user.school;
+			institutionChoice = user.institution ? { institution_id: user.institution.id } : undefined;
 			saved = true;
 		} catch (cause) {
 			if (!authState.isSessionSnapshotCurrent(session)) return;
@@ -152,13 +155,14 @@
 						bind:value={lastName}
 					/>
 				</FormField.Group>
-				<Field
-					label={m.field_school()}
-					name="school"
-					autocomplete="organization"
-					maxlength={128}
-					error={fieldErrors.school?.[0]}
-					bind:value={school}
+				<InstitutionCombobox
+					initialLabel={authState.currentUser.institution?.label ?? ''}
+					error={
+						fieldErrors.institution?.[0] ??
+						fieldErrors.institution_id?.[0] ??
+						fieldErrors.institution_label?.[0]
+					}
+					bind:choice={institutionChoice}
 				/>
 			</Card.Content>
 			<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">

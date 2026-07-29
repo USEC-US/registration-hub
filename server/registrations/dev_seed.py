@@ -1,10 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
+import json
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 
+from accounts.models import Institution
+from accounts.services.institutions import normalize_institution_label
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .models import PaymentAttempt, Registration, RegistrationStatusEvent
@@ -21,6 +26,7 @@ from .services import (
 PLAYER_EMAIL = "player@email.com"
 ORGANIZER_EMAIL = "organizer@email.com"
 ADMIN_EMAIL = "admin@email.com"
+HCMUS_INSTITUTION_VALUE = "222"
 
 ACCOUNT_CREDENTIALS = (
     ("Player", PLAYER_EMAIL, "player@123"),
@@ -63,7 +69,8 @@ def _set_account(
     password: str,
     first_name: str,
     last_name: str,
-    school: str,
+    institution: Institution | None,
+    student_id: str,
     is_staff: bool,
     is_superuser: bool,
     groups: tuple[Group, ...],
@@ -74,7 +81,8 @@ def _set_account(
         defaults={
             "first_name": first_name,
             "last_name": last_name,
-            "school": school,
+            "institution": institution,
+            "student_id": student_id,
             "is_active": True,
             "is_staff": is_staff,
             "is_superuser": is_superuser,
@@ -86,7 +94,8 @@ def _set_account(
             "password",
             "first_name",
             "last_name",
-            "school",
+            "institution",
+            "student_id",
             "is_active",
             "is_staff",
             "is_superuser",
@@ -96,14 +105,53 @@ def _set_account(
     return user
 
 
+def _load_player_institution_defaults() -> dict[str, str]:
+    try:
+        payload = json.loads((settings.BASE_DIR / "university.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValidationError(f"Unable to load institution catalogue: {error}") from error
+
+    records = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        raise ValidationError("Institution catalogue payload must contain a data list.")
+
+    for record in records:
+        if not isinstance(record, dict) or str(record.get("value")) != HCMUS_INSTITUTION_VALUE:
+            continue
+        label = record["label"].strip()
+        return {
+            "label": label,
+            "normalized_label": normalize_institution_label(label),
+            "code": record.get("code", "").strip(),
+            "short_name": record.get("shortName", "").strip(),
+            "english_name": record.get("eng", "").strip(),
+            "type": record.get("type", "").strip(),
+            "location": record.get("location", "").strip(),
+            "review_status": Institution.ReviewStatus.VERIFIED,
+        }
+
+    raise ValidationError("HCMUS institution catalogue record is missing.")
+
+
+def _seed_player_institution() -> Institution:
+    institution, _ = Institution.objects.update_or_create(
+        source=Institution.Source.CATALOGUE,
+        value=HCMUS_INSTITUTION_VALUE,
+        defaults=_load_player_institution_defaults(),
+    )
+    return institution
+
+
 def _seed_accounts():
     organizers = Group.objects.get(name="Organizers")
+    player_institution = _seed_player_institution()
     player = _set_account(
         email=PLAYER_EMAIL,
         password="player@123",
         first_name="Development",
         last_name="Player",
-        school="HCMUS",
+        institution=player_institution,
+        student_id="",
         is_staff=False,
         is_superuser=False,
         groups=(),
@@ -113,7 +161,8 @@ def _seed_accounts():
         password="organizer@123",
         first_name="Development",
         last_name="Organizer",
-        school="",
+        institution=None,
+        student_id="DEV-ORGANIZER-001",
         is_staff=True,
         is_superuser=False,
         groups=(organizers,),
@@ -123,7 +172,8 @@ def _seed_accounts():
         password="admin@123",
         first_name="Development",
         last_name="Administrator",
-        school="",
+        institution=None,
+        student_id="DEV-ADMIN-001",
         is_staff=True,
         is_superuser=True,
         groups=(),

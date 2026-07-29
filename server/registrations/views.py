@@ -5,6 +5,8 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from config.turnstile import require_turnstile
+
 from .models import Registration
 from .permissions import IsRegistrationSubmitter
 from .serializers import (
@@ -41,6 +43,11 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
     def submit(self, request):
         serializer = RegistrationSubmissionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        require_turnstile(
+            request,
+            token=serializer.validated_data.get("turnstile_token", ""),
+            expected_action="registration-submit",
+        )
         try:
             registration = submit_registration(
                 submitted_by=request.user,
@@ -62,6 +69,11 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
         registration = self.get_object()
         serializer = PaymentAttemptSubmissionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        require_turnstile(
+            request,
+            token=serializer.validated_data.pop("turnstile_token", ""),
+            expected_action="payment-proof-submit",
+        )
         try:
             payment_attempt = submit_payment_attempt(
                 actor=request.user,

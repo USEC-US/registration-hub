@@ -1,14 +1,72 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from .managers import UserManager
+
+
+class Institution(models.Model):
+    class Source(models.TextChoices):
+        CATALOGUE = "CATALOGUE", "Catalogue"
+        CUSTOM = "CUSTOM", "Custom"
+
+    class ReviewStatus(models.TextChoices):
+        VERIFIED = "VERIFIED", "Verified"
+        PENDING = "PENDING", "Pending"
+        REJECTED = "REJECTED", "Rejected"
+
+    value = models.CharField(max_length=32, blank=True)
+    label = models.CharField(max_length=255)
+    normalized_label = models.CharField(max_length=255, db_index=True)
+    code = models.CharField(max_length=64, blank=True)
+    short_name = models.CharField(max_length=255, blank=True)
+    english_name = models.CharField(max_length=255, blank=True)
+    type = models.CharField(max_length=255, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    source = models.CharField(max_length=16, choices=Source, default=Source.CUSTOM)
+    review_status = models.CharField(
+        max_length=16,
+        choices=ReviewStatus,
+        default=ReviewStatus.PENDING,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("source", "value"),
+                condition=Q(source="CATALOGUE"),
+                name="unique_catalogue_institution_value",
+            ),
+            models.UniqueConstraint(
+                fields=("source", "normalized_label"),
+                condition=Q(source="CUSTOM"),
+                name="unique_custom_institution_label",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.normalized_label = " ".join(self.label.split()).casefold()
+        if update_fields := kwargs.get("update_fields"):
+            if "label" in update_fields:
+                kwargs["update_fields"] = (*update_fields, "normalized_label")
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.label
 
 
 class User(AbstractUser):
     username = None
     email = models.EmailField(unique=True)
-    school = models.CharField(max_length=128, blank=True)
-    student_id = models.CharField(max_length=128, blank=True) # Only useful if it's staff
+    institution = models.ForeignKey(
+        Institution,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="users",
+    )
+    student_id = models.CharField(max_length=128, blank=True)
 
     objects = UserManager()
 
@@ -16,8 +74,16 @@ class User(AbstractUser):
     REQUIRED_FIELDS: list[str] = [
         "first_name",
         "last_name",
-        "school"
     ]
+
+    def clean(self):
+        super().clean()
+        if self.is_staff and not self.student_id:
+            raise ValidationError({"student_id": "Staff users require a student ID."})
+        if not self.is_staff and self.student_id:
+            raise ValidationError(
+                {"student_id": "Only staff users may have a student ID."}
+            )
 
     def __str__(self) -> str:
         return self.email

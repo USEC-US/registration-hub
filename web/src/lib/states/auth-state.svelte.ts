@@ -73,11 +73,11 @@ export class AuthState {
 		return promise;
 	}
 
-	async signIn(email: string, password: string): Promise<CurrentUser | null> {
+	async signIn(email: string, password: string, turnstileToken: string): Promise<CurrentUser | null> {
 		if (!browser) return null;
 
 		const generation = this.beginTokenOperation();
-		const tokens = await requestSignIn(email, password).catch((error: unknown) => {
+		const tokens = await requestSignIn(email, password, turnstileToken).catch((error: unknown) => {
 			if (!this.isActiveTokenOperation(generation)) return null;
 			void this.initialize();
 			throw error;
@@ -95,6 +95,11 @@ export class AuthState {
 		clearSession();
 		this.currentUser = null;
 		this.status = 'signed-out';
+	}
+
+	signOutAndRedirect(targetHref: string = resolve(localizeInternalHref('/'))): void {
+		this.signOut();
+		replaceInternalLocation(targetHref);
 	}
 
 	async refreshSession(): Promise<string | null> {

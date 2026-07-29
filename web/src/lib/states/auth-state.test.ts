@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiRequestError } from '$lib/api/client';
 import type { CurrentUser, TokenPair } from '$lib/api/types';
+import { replaceInternalLocation } from '$lib/auth/navigation';
+import { getAccessToken, getRefreshToken, saveSession } from '$lib/auth/session';
 import { AuthState } from './auth-state.svelte';
 
 const dependencies = vi.hoisted(() => ({
@@ -47,7 +49,16 @@ const currentUser: CurrentUser = {
 	email: 'player@example.com',
 	first_name: 'Minh',
 	last_name: 'Nguyen',
-	school: 'HCMUS'
+	institution: {
+		id: 7,
+		value: '227',
+		label: 'University of Science',
+		code: 'QST',
+		shortName: 'HCMUS',
+		eng: 'University of Science',
+		type: 'Public',
+		location: 'Ho Chi Minh City'
+	}
 };
 
 const newCurrentUser: CurrentUser = {
@@ -55,8 +66,19 @@ const newCurrentUser: CurrentUser = {
 	email: 'new@example.com',
 	first_name: 'Lan',
 	last_name: 'Tran',
-	school: 'HCMUT'
+	institution: {
+		id: 8,
+		value: '228',
+		label: 'University of Technology',
+		code: 'QSB',
+		shortName: 'HCMUT',
+		eng: 'University of Technology',
+		type: 'Public',
+		location: 'Ho Chi Minh City'
+	}
 };
+
+const tokens: TokenPair = { access: 'access-token', refresh: 'refresh-token' };
 
 beforeEach(() => {
 	dependencies.accessToken = null;
@@ -134,7 +156,7 @@ describe('AuthState', () => {
 		const authState = new AuthState();
 
 		const oldInitialization = authState.initialize();
-		const signIn = authState.signIn('new@example.com', 'password');
+		const signIn = authState.signIn('new@example.com', 'password', 'turnstile-token');
 		await vi.waitFor(() =>
 			expect(dependencies.getCurrentUser).toHaveBeenLastCalledWith('new-access-token')
 		);
@@ -167,7 +189,7 @@ describe('AuthState', () => {
 		const authState = new AuthState();
 
 		const oldInitialization = authState.initialize();
-		const signIn = authState.signIn('new@example.com', 'password');
+		const signIn = authState.signIn('new@example.com', 'password', 'turnstile-token');
 		rejectOldHydration(new ApiRequestError(401, 'Expired.'));
 		await expect(oldInitialization).resolves.toBeNull();
 		resolveSignIn({
@@ -210,7 +232,9 @@ describe('AuthState', () => {
 		dependencies.getCurrentUser.mockResolvedValue(currentUser);
 		const authState = new AuthState();
 
-		await expect(authState.signIn('player@example.com', 'password')).resolves.toEqual(currentUser);
+		await expect(
+			authState.signIn('player@example.com', 'password', 'sign-in-token')
+		).resolves.toEqual(currentUser);
 
 		expect(dependencies.saveSession).toHaveBeenCalledWith({
 			access: 'new-access-token',
@@ -218,6 +242,11 @@ describe('AuthState', () => {
 		});
 		expect(authState.status).toBe('signed-in');
 		expect(authState.currentUser).toEqual(currentUser);
+		expect(dependencies.requestSignIn).toHaveBeenCalledWith(
+			'player@example.com',
+			'password',
+			'sign-in-token'
+		);
 	});
 
 	it('does not commit a deferred sign-in after sign-out invalidates it', async () => {
@@ -230,7 +259,7 @@ describe('AuthState', () => {
 		dependencies.getCurrentUser.mockResolvedValue(currentUser);
 		const authState = new AuthState();
 
-		const signIn = authState.signIn('player@example.com', 'password');
+		const signIn = authState.signIn('player@example.com', 'password', 'turnstile-token');
 		authState.signOut();
 		resolveSignIn({
 			access: 'late-access-token',
@@ -255,7 +284,7 @@ describe('AuthState', () => {
 		);
 		const authState = new AuthState();
 
-		const signIn = authState.signIn('player@example.com', 'password');
+		const signIn = authState.signIn('player@example.com', 'password', 'turnstile-token');
 		authState.signOut();
 		rejectSignIn(new ApiRequestError(401, 'Invalid credentials.'));
 
@@ -286,8 +315,8 @@ describe('AuthState', () => {
 			.mockResolvedValueOnce(currentUser);
 		const authState = new AuthState();
 
-		const firstSignIn = authState.signIn('first@example.com', 'password');
-		const secondSignIn = authState.signIn('new@example.com', 'password');
+		const firstSignIn = authState.signIn('first@example.com', 'password', 'first-turnstile-token');
+		const secondSignIn = authState.signIn('new@example.com', 'password', 'second-turnstile-token');
 		resolveSecondSignIn({
 			access: 'new-access-token',
 			refresh: 'new-refresh-token'
@@ -322,7 +351,9 @@ describe('AuthState', () => {
 		const authState = new AuthState();
 
 		const oldInitialization = authState.initialize();
-		await expect(authState.signIn('player@example.com', 'password')).rejects.toBe(signInError);
+		await expect(
+			authState.signIn('player@example.com', 'password', 'turnstile-token')
+		).rejects.toBe(signInError);
 		resolveOldHydration(currentUser);
 
 		await expect(oldInitialization).resolves.toBeNull();
@@ -456,7 +487,9 @@ describe('AuthState', () => {
 		const authState = new AuthState();
 
 		const refresh = authState.refreshSession();
-		await expect(authState.signIn('new@example.com', 'password')).resolves.toEqual(newCurrentUser);
+		await expect(
+			authState.signIn('new@example.com', 'password', 'turnstile-token')
+		).resolves.toEqual(newCurrentUser);
 		resolveRefresh({ access: 'stale-refreshed-access-token' });
 
 		await expect(refresh).resolves.toBeNull();
@@ -485,7 +518,9 @@ describe('AuthState', () => {
 		const authState = new AuthState();
 
 		const refresh = authState.refreshSession();
-		await expect(authState.signIn('new@example.com', 'password')).resolves.toEqual(newCurrentUser);
+		await expect(
+			authState.signIn('new@example.com', 'password', 'turnstile-token')
+		).resolves.toEqual(newCurrentUser);
 		rejectRefresh(new ApiRequestError(401, 'Refresh failed.'));
 
 		await expect(refresh).resolves.toBeNull();
@@ -507,6 +542,27 @@ describe('AuthState', () => {
 		expect(dependencies.clearSession).toHaveBeenCalledOnce();
 		expect(authState.status).toBe('signed-out');
 		expect(authState.currentUser).toBeNull();
+	});
+
+	it('clears the session and redirects on explicit sign-out', () => {
+		const state = new AuthState();
+		saveSession(tokens);
+
+		state.signOutAndRedirect('/signed-out');
+
+		expect(getAccessToken()).toBeNull();
+		expect(getRefreshToken()).toBeNull();
+		expect(replaceInternalLocation).toHaveBeenCalledWith('/signed-out');
+		expect(state.status).toBe('signed-out');
+		expect(state.currentUser).toBeNull();
+	});
+
+	it('uses the localized home route when explicit sign-out has no target', () => {
+		const state = new AuthState();
+
+		state.signOutAndRedirect();
+
+		expect(replaceInternalLocation).toHaveBeenCalledWith('/');
 	});
 
 	it('updates shared user state only while a session snapshot remains current', () => {

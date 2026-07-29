@@ -1,12 +1,27 @@
 import importlib
 import os
 
+from django.core.checks import Error
 from django.test import SimpleTestCase
+from django.test import override_settings
 
+from config.checks import check_turnstile_settings
 from config.env import env_bool, env_list, local_secret_key
 
 
 class EnvHelperTests(SimpleTestCase):
+    @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="")
+    def test_turnstile_secret_is_required_outside_debug(self):
+        messages = check_turnstile_settings(app_configs=None)
+
+        self.assertEqual(len(messages), 1)
+        self.assertIsInstance(messages[0], Error)
+        self.assertEqual(messages[0].id, "config.E001")
+
+    @override_settings(DEBUG=True, TURNSTILE_SECRET_KEY="")
+    def test_turnstile_secret_can_be_missing_in_debug(self):
+        self.assertEqual(check_turnstile_settings(app_configs=None), [])
+
     def test_env_list_discards_empty_values(self):
         with self.settings():
             import os

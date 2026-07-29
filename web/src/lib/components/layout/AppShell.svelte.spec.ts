@@ -25,7 +25,16 @@ const user: CurrentUser = {
 	email: 'thang@example.com',
 	first_name: 'Thắng',
 	last_name: 'Nguyễn Hữu Quốc',
-	school: 'HCMUS'
+	institution: {
+		id: 7,
+		value: '227',
+		label: 'University of Science',
+		code: 'QST',
+		shortName: 'HCMUS',
+		eng: 'University of Science',
+		type: 'Public',
+		location: 'Ho Chi Minh City'
+	}
 };
 
 function renderShell() {
@@ -98,6 +107,20 @@ describe('AppShell secondary navigation', () => {
 		expect(authStateMock.initialize).toHaveBeenCalledOnce();
 		expect(container.querySelector('a[href="/auth/sign-in"]')).toBeNull();
 		expect(container.querySelector('a[href="/auth/register"]')).toBeNull();
+	});
+
+	it('shows a logout link for signed-in users', async () => {
+		authStateMock.status = 'signed-in';
+		authStateMock.currentUser = user;
+		authStateMock.initialize.mockResolvedValue(user);
+
+		renderShell();
+
+		await expect.element(page.getByRole('link', { name: m.nav_logout() })).toBeVisible();
+		expect(page.getByRole('link', { name: m.nav_logout() })).toHaveAttribute(
+			'href',
+			'/en/auth/logout'
+		);
 	});
 
 	it('uses Vietnamese name order for the signed-in welcome link', async () => {
