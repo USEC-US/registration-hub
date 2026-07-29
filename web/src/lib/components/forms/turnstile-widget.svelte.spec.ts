@@ -1,6 +1,7 @@
 import { render } from 'vitest-browser-svelte';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import * as m from '$lib/paraglide/messages';
 import TurnstileWidget from './TurnstileWidget.svelte';
 
 const dependencies = vi.hoisted(() => ({
@@ -71,6 +72,28 @@ it('appends one pending Turnstile script and renders after it loads with a confi
 	await vi.waitFor(() => expect(dependencies.render).toHaveBeenCalledOnce());
 });
 
+it('shows a retryable error when the Turnstile script cannot load', async () => {
+	dependencies.env.PUBLIC_TURNSTILE_SITE_KEY = 'site-key';
+	let token = 'stale-token';
+	render(TurnstileWidget, {
+		action: 'sign-in',
+		get token() {
+			return token;
+		},
+		set token(value) {
+			token = value;
+		}
+	});
+
+	const script = document.head.querySelector<HTMLScriptElement>('script[data-turnstile-api]');
+	expect(script).not.toBeNull();
+	script!.dispatchEvent(new Event('error'));
+
+	await expect.element(page.getByText(m.turnstile_script_load_error())).toBeVisible();
+	expect(token).toBe('');
+	await expect.element(page.getByRole('button', { name: m.turnstile_retry() })).toBeVisible();
+});
+
 it('renders immediately for a later mount when the Turnstile script is already ready', async () => {
 	dependencies.env.PUBLIC_TURNSTILE_SITE_KEY = 'site-key';
 	const script = document.createElement('script');
@@ -102,5 +125,36 @@ it('renders immediately for a later mount when the Turnstile script is already r
 	expect(token).toBe('');
 
 	widget.component.reset();
+	expect(window.turnstile.reset).toHaveBeenCalledWith('widget-id');
+});
+
+it('shows retryable errors for Turnstile challenge and unsupported-client callbacks', async () => {
+	dependencies.env.PUBLIC_TURNSTILE_SITE_KEY = 'site-key';
+	const script = document.createElement('script');
+	script.dataset.turnstileApi = 'true';
+	document.head.appendChild(script);
+	dependencies.render.mockReturnValue('widget-id');
+	window.turnstile = { render: dependencies.render, reset: vi.fn() };
+	let token = 'verified-token';
+
+	render(TurnstileWidget, {
+		action: 'sign-in',
+		get token() {
+			return token;
+		},
+		set token(value) {
+			token = value;
+		}
+	});
+
+	await vi.waitFor(() => expect(dependencies.render).toHaveBeenCalledOnce());
+	const options = dependencies.render.mock.calls[0][1];
+	options['error-callback']();
+	await expect.element(page.getByText(m.turnstile_challenge_error())).toBeVisible();
+	expect(token).toBe('');
+
+	options['unsupported-callback']();
+	await expect.element(page.getByText(m.turnstile_unsupported())).toBeVisible();
+	await page.getByRole('button', { name: m.turnstile_retry() }).click();
 	expect(window.turnstile.reset).toHaveBeenCalledWith('widget-id');
 });

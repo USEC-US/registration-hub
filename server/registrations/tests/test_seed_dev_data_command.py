@@ -72,6 +72,8 @@ class SeedDevDataCommandTests(TestCase):
         self.assertFalse(player.is_staff)
         self.assertFalse(player.is_superuser)
         self.assertFalse(player.groups.exists())
+        self.assertEqual(player.student_id, "")
+        player.full_clean()
 
         self.assertTrue(organizer.check_password("organizer@123"))
         self.assertTrue(organizer.is_active)
@@ -85,6 +87,8 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(organizer.has_perm("registrations.change_registration"))
         self.assertTrue(organizer.has_perm("registrations.change_paymentattempt"))
         self.assertFalse(organizer.has_perm("registrations.delete_registration"))
+        self.assertTrue(organizer.student_id)
+        organizer.full_clean()
 
         self.assertTrue(admin.check_password("admin@123"))
         self.assertTrue(admin.is_active)
@@ -92,6 +96,8 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(admin.is_superuser)
         self.assertIsNone(admin.institution)
         self.assertFalse(admin.groups.exists())
+        self.assertTrue(admin.student_id)
+        admin.full_clean()
 
         self.assertEqual(Group.objects.filter(name="Organizers").count(), 1)
         self.assertIn("Player: player@email.com / player@123", output)
@@ -260,6 +266,7 @@ class SeedDevDataCommandTests(TestCase):
         player.first_name = "Changed"
         player.last_name = "Changed"
         player.institution = changed_institution
+        player.student_id = "stale-student-id"
         player.is_staff = True
         player.is_superuser = True
         player.set_unusable_password()
@@ -336,6 +343,8 @@ class SeedDevDataCommandTests(TestCase):
         self.assertFalse(player.is_staff)
         self.assertFalse(player.is_superuser)
         self.assertFalse(player.groups.exists())
+        self.assertEqual(player.student_id, "")
+        player.full_clean()
         self.assertEqual(
             Tournament.objects.get(slug="dev-usec-current").name,
             "USEC Development Open",

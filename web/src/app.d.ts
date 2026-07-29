@@ -11,6 +11,7 @@ declare global {
 					callback: (token: string) => void;
 					'expired-callback': () => void;
 					'error-callback': () => void;
+					'unsupported-callback': () => void;
 				}
 			) => string;
 			reset?: (widgetId?: string) => void;
