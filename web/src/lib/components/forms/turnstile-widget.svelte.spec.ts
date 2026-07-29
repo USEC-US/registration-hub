@@ -7,11 +7,26 @@ const dependencies = vi.hoisted(() => ({
 	env: {} as Record<string, string>,
 	render: vi.fn()
 }));
+let appendChildSpy: ReturnType<typeof vi.spyOn> | null = null;
+let preventedTurnstileScriptSrcs: string[] = [];
 
 vi.mock('$app/environment', () => ({ dev: true, browser: true }));
 vi.mock('$env/dynamic/public', () => ({ env: dependencies.env }));
 
 beforeEach(() => {
+	appendChildSpy?.mockRestore();
+	preventedTurnstileScriptSrcs = [];
+	const appendChild = document.head.appendChild.bind(document.head);
+	appendChildSpy = vi.spyOn(document.head, 'appendChild').mockImplementation((node) => {
+		if (node instanceof HTMLScriptElement) {
+			const src = node.getAttribute('src') ?? '';
+			if (src.startsWith('https://challenges.cloudflare.com/turnstile/')) {
+				preventedTurnstileScriptSrcs.push(src);
+				node.removeAttribute('src');
+			}
+		}
+		return appendChild(node);
+	});
 	document.body.innerHTML = '';
 	document.head.querySelectorAll('script[data-turnstile-api]').forEach((script) => script.remove());
 	dependencies.env.PUBLIC_TURNSTILE_SITE_KEY = '';
@@ -45,6 +60,9 @@ it('appends one pending Turnstile script and renders after it loads with a confi
 	);
 	const script = document.head.querySelector<HTMLScriptElement>('script[data-turnstile-api]');
 	expect(script).not.toBeNull();
+	expect(preventedTurnstileScriptSrcs).toEqual([
+		'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+	]);
 	expect(dependencies.render).not.toHaveBeenCalled();
 
 	window.turnstile = { render: dependencies.render };
