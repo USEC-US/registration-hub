@@ -86,8 +86,11 @@
 			event.preventDefault();
 			chooseInstitution(results[activeIndex]);
 		} else if (event.key === 'Escape') {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			requestId += 1;
 			results = [];
 			activeIndex = -1;
+			loading = false;
 		}
 	}
 

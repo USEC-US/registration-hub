@@ -125,6 +125,28 @@ it('does not choose a stale active result when Enter is pressed after changing t
 	expect(choice).toBeUndefined();
 });
 
+it('does not reopen search results when Escape is pressed during an in-flight search', async () => {
+	let resolveSearch!: (institutions: typeof institution[]) => void;
+	vi.mocked(searchInstitutions).mockImplementation(
+		() => new Promise((resolve) => {
+			resolveSearch = resolve;
+		})
+	);
+	render(InstitutionCombobox);
+
+	const input = page.getByLabelText('Institution');
+	await input.fill('science');
+	await expect.poll(() => vi.mocked(searchInstitutions).mock.calls).toHaveLength(1);
+	const inputElement = input.elements()[0] as HTMLInputElement;
+	inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+	resolveSearch([institution]);
+	await new Promise((resolve) => setTimeout(resolve));
+
+	await expect
+		.element(page.getByRole('option', { name: /University of Science/ }))
+		.not.toBeInTheDocument();
+});
+
 it('renders an account field error', async () => {
 	render(InstitutionCombobox, { error: 'Choose an institution.' });
 
