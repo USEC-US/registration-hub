@@ -24,35 +24,38 @@
 		const target = container;
 
 		const existing = document.querySelector<HTMLScriptElement>('script[data-turnstile-api]');
-		const script =
-			existing ??
-			Object.assign(document.createElement('script'), {
+		const script = existing ?? document.createElement('script');
+		if (!existing) {
+			Object.assign(script, {
 				src: 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit',
 				async: true,
-				defer: true,
-				dataset: { turnstileApi: 'true' }
+				defer: true
 			});
-		if (!existing) document.head.appendChild(script);
+			script.dataset.turnstileApi = 'true';
+			document.head.appendChild(script);
+		}
 
-		script.addEventListener(
-			'load',
-			() => {
-				window.turnstile?.render(target, {
-					sitekey: siteKey,
-					action,
-					callback: (value: string) => {
-						token = value;
-					},
-					'expired-callback': () => {
-						token = '';
-					},
-					'error-callback': () => {
-						token = '';
-					}
-				});
-			},
-			{ once: true }
-		);
+		const renderWidget = () => {
+			window.turnstile?.render(target, {
+				sitekey: siteKey,
+				action,
+				callback: (value: string) => {
+					token = value;
+				},
+				'expired-callback': () => {
+					token = '';
+				},
+				'error-callback': () => {
+					token = '';
+				}
+			});
+		};
+
+		if (window.turnstile) {
+			renderWidget();
+		} else {
+			script.addEventListener('load', renderWidget, { once: true });
+		}
 	});
 </script>
 
