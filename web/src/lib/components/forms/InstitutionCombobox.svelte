@@ -4,6 +4,9 @@
 	import type { Institution, InstitutionChoice } from '$lib/api/types';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import * as Popover from '$lib/components/ui/popover';
+	import * as Command from '$lib/components/ui/command';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as m from '$lib/paraglide/messages';
 
 	interface Props {
@@ -13,52 +16,93 @@
 	}
 
 	let { choice = $bindable(), error, initialLabel = '' }: Props = $props();
+
+	let inputEl = $state<HTMLInputElement | null>(null);
 	let inputValue = $state('');
 	let results = $state<Institution[]>([]);
 	let loading = $state(false);
-	let activeIndex = $state(-1);
+	let commandValue = $state('');
+	let suppressed = $state(false);
+	/** Query that `results` reflects, or null while stale/not yet searched. */
+	let searchedQuery = $state<string | null>(null);
 	let requestId = 0;
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
 	const inputId = $props.id();
 	const listboxId = `${inputId}-results`;
 	const errorId = `${inputId}-error`;
+
+	const query = $derived(inputValue.trim());
+	const activeIndex = $derived(
+		results.findIndex((institution) => String(institution.id) === commandValue)
+	);
+	const hasContent = $derived(
+		loading || results.length > 0 || (query.length > 0 && searchedQuery === query)
+	);
+	const panelOpen = $derived(!suppressed && hasContent);
 
 	onMount(() => {
 		inputValue = initialLabel;
 	});
 
+	function focusNextField(current: HTMLElement): void {
+		const root = current.closest('form') ?? document.body;
+		const focusable = Array.from(
+			root.querySelectorAll<HTMLElement>(
+				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			)
+		).filter((el) => el.getClientRects().length > 0);
+		const index = focusable.indexOf(current);
+		if (index === -1) return;
+		focusable[index + 1]?.focus();
+	}
+
+	function resetSearchState(): void {
+		if (debounceTimer) clearTimeout(debounceTimer);
+		requestId += 1;
+		results = [];
+		loading = false;
+		searchedQuery = null;
+		commandValue = '';
+	}
+
 	function chooseInstitution(institution: Institution): void {
 		choice = { institution_id: institution.id };
 		inputValue = institution.label;
-		results = [];
-		activeIndex = -1;
+		resetSearchState();
+		suppressed = true;
+		if (inputEl) focusNextField(inputEl);
 	}
 
 	function chooseCustomLabel(): void {
 		const label = inputValue.trim();
 		if (!label) return;
 		choice = { institution_label: label };
-		results = [];
-		activeIndex = -1;
+		resetSearchState();
+		suppressed = true;
+		if (inputEl) focusNextField(inputEl);
 	}
 
-	async function search(query: string): Promise<void> {
+	async function search(q: string): Promise<void> {
 		const currentRequest = ++requestId;
-		if (!query) {
+		if (!q) {
 			results = [];
 			loading = false;
+			searchedQuery = null;
 			return;
 		}
 
 		loading = true;
 		try {
-			const nextResults = await searchInstitutions(query);
+			const nextResults = await searchInstitutions(q);
 			if (currentRequest !== requestId) return;
 			results = nextResults;
-			activeIndex = -1;
+			searchedQuery = q;
+			commandValue = '';
 		} catch {
 			if (currentRequest !== requestId) return;
 			results = [];
+			searchedQuery = q;
 		} finally {
 			if (currentRequest === requestId) loading = false;
 		}
@@ -66,32 +110,46 @@
 
 	function handleInput(): void {
 		choice = undefined;
-		const query = inputValue.trim();
+		suppressed = false;
+		const q = inputValue.trim();
 		if (debounceTimer) clearTimeout(debounceTimer);
 		requestId += 1;
 		results = [];
-		activeIndex = -1;
-		loading = Boolean(query);
-		debounceTimer = setTimeout(() => void search(query), 200);
+		searchedQuery = null;
+		commandValue = '';
+		loading = Boolean(q);
+		debounceTimer = setTimeout(() => void search(q), 200);
+	}
+
+	function handleFocus(): void {
+		suppressed = false;
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.key === 'ArrowDown' && results.length > 0) {
 			event.preventDefault();
-			activeIndex = Math.min(activeIndex + 1, results.length - 1);
+			const next = Math.min(activeIndex + 1, results.length - 1);
+			commandValue = String(results[next]?.id ?? '');
 		} else if (event.key === 'ArrowUp' && results.length > 0) {
 			event.preventDefault();
-			activeIndex = Math.max(activeIndex - 1, 0);
-		} else if (event.key === 'Enter' && activeIndex >= 0) {
+			const next = Math.max(activeIndex - 1, 0);
+			commandValue = String(results[next]?.id ?? '');
+		} else if (event.key === 'Enter' && activeIndex >= 0 && results[activeIndex]) {
 			event.preventDefault();
 			chooseInstitution(results[activeIndex]);
 		} else if (event.key === 'Escape') {
-			if (debounceTimer) clearTimeout(debounceTimer);
-			requestId += 1;
-			results = [];
-			activeIndex = -1;
-			loading = false;
+			resetSearchState();
+			suppressed = true;
+			inputEl?.blur();
 		}
+	}
+
+	function getOpen(): boolean {
+		return panelOpen;
+	}
+
+	function setOpen(next: boolean): void {
+		if (!next) suppressed = true;
 	}
 
 	onDestroy(() => {
@@ -102,6 +160,7 @@
 <Field.Field data-invalid={error ? true : undefined}>
 	<Field.Label for={inputId}>{m.field_institution()}</Field.Label>
 	<Input
+		bind:ref={inputEl}
 		id={inputId}
 		name="institution"
 		autocomplete="organization"
@@ -109,50 +168,66 @@
 		bind:value={inputValue}
 		oninput={handleInput}
 		onkeydown={handleKeydown}
+		onfocus={handleFocus}
 		role="combobox"
 		aria-autocomplete="list"
 		aria-controls={listboxId}
-		aria-expanded={results.length > 0}
+		aria-expanded={panelOpen}
 		aria-activedescendant={activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
 		aria-describedby={error ? errorId : undefined}
 		aria-invalid={error ? 'true' : undefined}
 	/>
-	{#if results.length > 0}
-		<ul id={listboxId} role="listbox" class="mt-2 divide-y border border-(--line) bg-card">
-			{#each results as institution, index (institution.id)}
-				<li>
-					<button
-						id={`${listboxId}-${index}`}
-						type="button"
-						role="option"
-						aria-selected={activeIndex === index}
-						class="grid w-full gap-1 px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
-						onclick={() => chooseInstitution(institution)}
-					>
-						<span class="font-semibold">{institution.label}</span>
-						{#if institution.shortName || institution.code || institution.location}
-							<span class="text-xs text-muted-foreground">
-								{[institution.shortName, institution.code, institution.location]
-									.filter(Boolean)
-									.join(' · ')}
-							</span>
-						{/if}
-					</button>
-				</li>
-			{/each}
-		</ul>
-	{:else if inputValue.trim() && !loading}
-		<div class="mt-2 flex flex-wrap items-center justify-between gap-3 border border-(--line) bg-muted p-3">
-			<p class="text-sm text-muted-foreground">{m.institution_no_matches()}</p>
-			<button
-				type="button"
-				class="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-ring"
-				onclick={chooseCustomLabel}
-			>
-				{m.institution_use_custom({ label: inputValue.trim() })}
-			</button>
-		</div>
-	{/if}
+	<Popover.Root bind:open={getOpen, setOpen}>
+		<Popover.Content
+			customAnchor={inputEl}
+			align="start"
+			sideOffset={4}
+			trapFocus={false}
+			onOpenAutoFocus={(event) => event.preventDefault()}
+			onCloseAutoFocus={(event) => event.preventDefault()}
+			class="w-(--bits-popover-anchor-width) p-0"
+		>
+			<Command.Root shouldFilter={false} bind:value={commandValue} class="rounded-md! p-1">
+				{#if loading}
+					<div class="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+						<Spinner class="size-4" />
+						{m.institution_searching()}
+					</div>
+				{:else if results.length > 0}
+					<Command.List id={listboxId}>
+						{#each results as institution, index (institution.id)}
+							<Command.Item
+								id={`${listboxId}-${index}`}
+								value={String(institution.id)}
+								class="flex-col items-start gap-0.5"
+								onSelect={() => chooseInstitution(institution)}
+							>
+								<span class="font-semibold">{institution.label}</span>
+								{#if institution.shortName || institution.code || institution.location}
+									<span class="text-xs text-muted-foreground">
+										{[institution.shortName, institution.code, institution.location]
+											.filter(Boolean)
+											.join(' · ')}
+									</span>
+								{/if}
+							</Command.Item>
+						{/each}
+					</Command.List>
+				{:else}
+					<div class="flex flex-wrap items-center justify-between gap-3 p-2">
+						<p class="text-sm text-muted-foreground">{m.institution_no_matches()}</p>
+						<button
+							type="button"
+							class="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-ring"
+							onclick={chooseCustomLabel}
+						>
+							{m.institution_use_custom({ label: query })}
+						</button>
+					</div>
+				{/if}
+			</Command.Root>
+		</Popover.Content>
+	</Popover.Root>
 	{#if error}
 		<Field.Error id={errorId}>{error}</Field.Error>
 	{/if}
