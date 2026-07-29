@@ -1,18 +1,18 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from unfold.admin import ModelAdmin
 from .models import Institution, User
 
 
 @admin.register(Institution)
-class InstitutionAdmin(admin.ModelAdmin):
+class InstitutionAdmin(ModelAdmin):
     list_display = ("label", "source", "review_status", "code", "location")
     list_filter = ("source", "review_status")
     search_fields = ("label", "code", "short_name", "english_name", "location")
 
 
 @admin.register(User)
-class AccountUserAdmin(UserAdmin):
+class AccountUserAdmin(BaseUserAdmin, ModelAdmin):
     model = User
     ordering = ("email",)
     list_display = ("email", "first_name", "last_name", "institution", "student_id", "is_staff", "is_active")
