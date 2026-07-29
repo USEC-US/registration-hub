@@ -88,6 +88,43 @@ it('selects the active search result with ArrowDown and Enter', async () => {
 	expect(choice).toEqual({ institution_id: 7 });
 });
 
+it('removes stale result buttons before a new search debounce completes', async () => {
+	vi.mocked(searchInstitutions).mockResolvedValue([institution]);
+	render(InstitutionCombobox);
+
+	const input = page.getByLabelText('Institution');
+	await input.fill('science');
+	await expect.element(page.getByRole('option', { name: /University of Science/ })).toBeVisible();
+	await input.fill('new query');
+
+	await expect
+		.element(page.getByRole('option', { name: /University of Science/ }))
+		.not.toBeInTheDocument();
+});
+
+it('does not choose a stale active result when Enter is pressed after changing the query', async () => {
+	let choice: InstitutionChoice | undefined;
+	vi.mocked(searchInstitutions).mockResolvedValue([institution]);
+	render(InstitutionCombobox, {
+		get choice() {
+			return choice;
+		},
+		set choice(value) {
+			choice = value;
+		}
+	});
+
+	const input = page.getByLabelText('Institution');
+	await input.fill('science');
+	await expect.element(page.getByRole('option', { name: /University of Science/ })).toBeVisible();
+	const inputElement = input.elements()[0] as HTMLInputElement;
+	inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+	await input.fill('new query');
+	inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+	expect(choice).toBeUndefined();
+});
+
 it('renders an account field error', async () => {
 	render(InstitutionCombobox, { error: 'Choose an institution.' });
 

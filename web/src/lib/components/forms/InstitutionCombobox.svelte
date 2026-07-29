@@ -68,6 +68,10 @@
 		choice = undefined;
 		const query = inputValue.trim();
 		if (debounceTimer) clearTimeout(debounceTimer);
+		requestId += 1;
+		results = [];
+		activeIndex = -1;
+		loading = Boolean(query);
 		debounceTimer = setTimeout(() => void search(query), 200);
 	}
 
