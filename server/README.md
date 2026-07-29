@@ -8,6 +8,7 @@ Useful commands:
 uv run python manage.py migrate
 uv run python manage.py bootstrap_organizers
 uv run python manage.py makemigrations --check --dry-run
+uv run python manage.py import_institutions
 uv run python manage.py check
 uv run python manage.py test -v 2
 uv run ruff check .
