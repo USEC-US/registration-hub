@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
 from django.conf import settings
 from rest_framework.exceptions import ValidationError as DRFValidationError
+
+
+logger = logging.getLogger(__name__)
+_debug_bypass_warning_emitted = False
 
 
 @dataclass(frozen=True)
@@ -22,9 +27,17 @@ def verify_turnstile_token(
     expected_action: str,
     remote_ip: str | None = None,
 ) -> TurnstileVerificationResult:
+    global _debug_bypass_warning_emitted
+
     secret = settings.TURNSTILE_SECRET_KEY
     if not secret:
         if settings.DEBUG:
+            if not _debug_bypass_warning_emitted:
+                logger.warning(
+                    "Turnstile secret is missing; using the DEBUG-only local "
+                    "development bypass."
+                )
+                _debug_bypass_warning_emitted = True
             return TurnstileVerificationResult(
                 success=True,
                 bypassed=True,

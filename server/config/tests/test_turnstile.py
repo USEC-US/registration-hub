@@ -1,6 +1,8 @@
-from django.test import TestCase, override_settings
 from unittest.mock import patch
 
+from django.test import TestCase, override_settings
+
+import config.turnstile as turnstile
 from config.turnstile import verify_turnstile_token
 
 
@@ -19,6 +21,17 @@ class _Response:
 
 
 class TurnstileVerificationTests(TestCase):
+    @override_settings(DEBUG=True, TURNSTILE_SECRET_KEY="")
+    def test_debug_without_secret_emits_developer_warning(self):
+        with patch.object(turnstile, "_debug_bypass_warning_emitted", False):
+            with self.assertLogs("config.turnstile", level="WARNING") as captured:
+                result = verify_turnstile_token("", expected_action="sign-in")
+
+        self.assertTrue(result.success)
+        self.assertEqual(len(captured.records), 1)
+        self.assertIn("Turnstile secret is missing", captured.records[0].getMessage())
+        self.assertIn("local development", captured.records[0].getMessage())
+
     @override_settings(DEBUG=True, TURNSTILE_SECRET_KEY="")
     def test_debug_without_secret_bypasses_verification(self):
         result = verify_turnstile_token(
