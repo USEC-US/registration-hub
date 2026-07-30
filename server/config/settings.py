@@ -216,3 +216,9 @@ STATIC_URL = "static/"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", BASE_DIR / "media"))
+
+
+UNFOLD = {
+  "SITE_TITLE": "HCMUSEC Tournament Registration",
+  "SITE_URL": os.getenv("REDIRECT_ROOT", "http://localhost:5173")
+}
