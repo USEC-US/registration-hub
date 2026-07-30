@@ -14,7 +14,6 @@ class PublicTournamentGameSerializer(serializers.ModelSerializer):
     registration_state = serializers.SerializerMethodField()
     is_registration_open = serializers.SerializerMethodField()
     capacity_remaining = serializers.SerializerMethodField()
-
     class Meta:
         model = TournamentGame
         fields = (
@@ -66,6 +65,16 @@ class PublicTournamentGameSerializer(serializers.ModelSerializer):
 
 class PublicTournamentSerializer(serializers.ModelSerializer):
     tournament_games = PublicTournamentGameSerializer(many=True, read_only=True)
+    cover_image = serializers.SerializerMethodField()
+    is_featured = serializers.BooleanField(read_only=True)
+
+    def get_cover_image(self, obj: Tournament) -> str | None:
+      if not obj.cover_image:
+        return None
+      request = self.context.get('request')
+      if request:
+        return request.build_absolute_uri(obj.cover_image.url)
+      return obj.cover_image.url
 
     class Meta:
         model = Tournament
@@ -77,5 +86,7 @@ class PublicTournamentSerializer(serializers.ModelSerializer):
             "starts_at",
             "ends_at",
             "location",
+            "cover_image",
+            "is_featured",
             "tournament_games",
         )

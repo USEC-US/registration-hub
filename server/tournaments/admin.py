@@ -1,5 +1,5 @@
 from django.contrib import admin
-from unfold.admin import ModelAdmin
+from unfold.admin import ModelAdmin, StackedInline
 
 from .models import Game, Tournament, TournamentGame
 
@@ -45,10 +45,26 @@ class GameAdmin(OrganizerStaffAdmin):
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
 
+class TournamentGameInline(StackedInline):
+    model = TournamentGame
+    extra = 1
+    min_num = 0
+    show_change_link = True
+    fields = (
+      'game',
+      'team_size_min',
+      'team_size_max',
+      'registration_opens_at',
+      'registration_closes_at',
+      'registration_capacity',
+      'fee_amount',
+      'fee_currency',
+    )
 
 @admin.register(Tournament)
 class TournamentAdmin(OrganizerStaffAdmin):
-    list_display = ("name", "slug", "starts_at", "ends_at", "is_published")
+    inlines = [TournamentGameInline]
+    list_display = ("name", "slug", "starts_at", "ends_at", "is_published", "is_featured", "cover_image")
     list_filter = ("is_published",)
     search_fields = ("name", "slug", "location")
     prepopulated_fields = {"slug": ("name",)}

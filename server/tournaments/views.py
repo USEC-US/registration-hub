@@ -27,5 +27,5 @@ class PublicTournamentViewSet(viewsets.ReadOnlyModelViewSet):
             .prefetch_related(
                 Prefetch("tournament_games", queryset=tournament_games)
             )
-            .order_by("starts_at", "name", "pk")
+            .order_by("-is_featured", "starts_at", "name", "pk")
         )
