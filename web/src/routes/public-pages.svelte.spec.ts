@@ -99,10 +99,12 @@ describe('public tournament pages', () => {
 	it('renders a localized empty state without fabricated tournament cards', async () => {
 		overwriteGetLocale(() => 'vi');
 		render(HomePage, { data: { tournaments: [], displayTimeZone }, params: {} });
+		render(TournamentListPage, { data: { tournaments: [], displayTimeZone }, params: {} });
 
-		await expect
-			.element(page.getByText('Hiện không có giải đấu nào được công bố.'))
-			.toBeInTheDocument();
+		expect(page.getByText('Hiện không có giải đấu nào được công bố.').elements()).toHaveLength(2);
+		expect(page.getByText('Hãy quay lại sau để xem các giải đấu sắp tới.').elements()).toHaveLength(
+			2
+		);
 		expect(page.getByRole('article').elements()).toHaveLength(0);
 	});
 
@@ -291,6 +293,17 @@ describe('public tournament pages', () => {
 		expect(page.getByText('Not open', { exact: true }).elements()).toHaveLength(2);
 		expect(page.getByText('Full', { exact: true }).elements()).toHaveLength(2);
 		expect(page.getByText('Closed', { exact: true }).elements()).toHaveLength(2);
+	});
+	it('keeps open games visibly actionable on the detail page', async () => {
+		render(TournamentDetailPage, {
+			data: { tournament, displayTimeZone },
+			params: { slug: tournament.slug }
+		});
+
+		expect(page.getByText('Open', { exact: true }).elements()).toHaveLength(1);
+		await expect
+			.element(page.getByRole('link', { name: 'Register' }))
+			.toHaveAttribute('href', '/en/tournaments/usec-summer-2026/games/9/register');
 	});
 	it('shows a localized empty game state and no registration action', async () => {
 		overwriteGetLocale(() => 'vi');

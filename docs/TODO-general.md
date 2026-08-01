@@ -23,10 +23,10 @@
   - [x] Omit the image slot entirely when no cover image exists.
   - [x] Preserve useful card metadata in both grid and featured variants, including dates, location, and configured game count.
   - [x] Render the tournament cover image on the tournament detail page when available.
-- [ ] Improve public tournament UI states.
-  - [ ] Improve empty states on the home page and `/tournaments` with localized supporting guidance.
-  - [ ] Decide whether the new tournament-card skeleton is rendered during real client loading, or remove the unused imports until a real loading path exists.
-  - [ ] Verify tournament detail states for upcoming, open, closed, and full registration windows remain clear and actionable.
+- [x] Improve public tournament UI states.
+  - [x] Improve empty states on the home page and `/tournaments` with localized supporting guidance.
+  - [x] Defer the tournament-card skeleton until a real client loading path exists, and keep the public pages free of unused skeleton imports.
+  - [x] Verify tournament detail states for upcoming, open, closed, and full registration windows remain clear and actionable.
 - [ ] Audit navigation, tournament detail pages, mobile layout, accessibility, and translations.
   - [ ] Add and test active tournament navigation state, including localized route prefixes.
   - [ ] Prevent public navigation overflow on narrow mobile screens.
