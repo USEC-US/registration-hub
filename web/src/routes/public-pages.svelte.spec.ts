@@ -142,6 +142,24 @@ describe('public tournament pages', () => {
 		}
 	});
 
+	it('uses the wide featured treatment before compact listing cards', () => {
+		const tournaments = [
+			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
+			makeTournament({ id: 2, name: 'Campus Clash', slug: 'campus-clash' })
+		];
+
+		const { container } = render(TournamentListPage, {
+			data: { tournaments, displayTimeZone },
+			params: {}
+		});
+		const articles = [...container.querySelectorAll('article')];
+
+		expect(articles[0]).toHaveClass('col-span-full');
+		expect(articles[0]).toHaveTextContent('Featured Cup');
+		expect(articles[1]).not.toHaveClass('col-span-full');
+		expect(articles[1]).toHaveTextContent('Campus Clash');
+	});
+
 	it('uses the full bottom metadata row for the longer Dates datum', () => {
 		const { container } = render(TournamentListPage, {
 			data: { tournaments: [tournament], displayTimeZone },

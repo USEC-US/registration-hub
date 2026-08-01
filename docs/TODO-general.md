@@ -36,20 +36,20 @@
   - [x] Keep `TournamentGameInline` available from `TournamentAdmin`.
   - [x] Confirm organizer-only admin permissions still gate tournament and division management.
   - [x] Cover the inline configuration with tests or a documented manual smoke check.
-- [ ] Decide and implement the tournament listing scale behavior.
-  - [ ] Keep featured tournaments first on the listing page with a stronger highlighted treatment than a normal compact card.
-  - [ ] Decide whether pagination belongs in section 2 now or should move to a later catalogue-discovery slice.
-  - [ ] If pagination stays in section 2, cover the backend response contract, frontend controls, empty pages, and localized labels with tests.
-- [ ] Add missing section-2 test coverage before marking this section complete.
+- [x] Decide and implement the tournament listing scale behavior.
+  - [x] Keep featured tournaments first on the listing page with a stronger highlighted treatment than a normal compact card.
+  - [x] Defer pagination to a later catalogue-discovery slice.
+  - [x] Keep pagination controls, empty pages, and localized pagination labels out of section 2 because pagination was deferred.
+- [x] Add missing section-2 test coverage before marking this section complete.
   - [x] Backend tests for `cover_image` serialization, `is_featured`, featured-first ordering, and admin inline wiring.
   - [x] Frontend tests for `TournamentCard` grid/featured variants, cover fallback, heading levels, listing grids, empty states, nav state, and translations.
   - [x] Update existing `PublicTournament` test fixtures and e2e route mocks with `cover_image` and `is_featured`.
-  - [ ] Run backend checks/migrations and frontend check/Vitest after the section-2 scope is implemented.
-- [ ] Defer larger catalogue improvements out of section 2.
-  - [ ] Public tournament search, filtering, and sorting controls.
-  - [ ] Image resizing, thumbnail generation, upload preview, cropping, CDN, or production media optimization.
-  - [ ] A custom organizer tournament-management frontend beyond the Django admin inline.
-  - [ ] Registration-flow, bracket, payment, and organizer-operations changes covered by later sections.
+  - [x] Run backend checks/migrations and frontend check/Vitest after the section-2 scope is implemented.
+- [x] Defer larger catalogue improvements out of section 2.
+  - [x] Public tournament search, filtering, and sorting controls.
+  - [x] Image resizing, thumbnail generation, upload preview, cropping, CDN, or production media optimization.
+  - [x] A custom organizer tournament-management frontend beyond the Django admin inline.
+  - [x] Registration-flow, bracket, payment, and organizer-operations changes covered by later sections.
 
 ## 3. Registration journey
 
