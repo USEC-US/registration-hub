@@ -27,11 +27,11 @@
   - [x] Improve empty states on the home page and `/tournaments` with localized supporting guidance.
   - [x] Defer the tournament-card skeleton until a real client loading path exists, and keep the public pages free of unused skeleton imports.
   - [x] Verify tournament detail states for upcoming, open, closed, and full registration windows remain clear and actionable.
-- [ ] Audit navigation, tournament detail pages, mobile layout, accessibility, and translations.
-  - [ ] Add and test active tournament navigation state, including localized route prefixes.
-  - [ ] Prevent public navigation overflow on narrow mobile screens.
-  - [ ] Validate all new English and Vietnamese message keys, JSON formatting, and generated Paraglide types.
-  - [ ] Recheck semantic heading levels, time elements, image alt text, and registration-action visibility.
+- [x] Audit navigation, tournament detail pages, mobile layout, accessibility, and translations.
+  - [x] Add and test active tournament navigation state, including localized route prefixes.
+  - [x] Prevent public navigation overflow on narrow mobile screens.
+  - [x] Validate all new English and Vietnamese message keys, JSON formatting, and generated Paraglide types.
+  - [x] Recheck semantic heading levels, time elements, image alt text, and registration-action visibility.
 - [ ] Let admins add and edit divisions (TournamentGame) directly inside a tournament.
   - [ ] Keep `TournamentGameInline` available from `TournamentAdmin`.
   - [ ] Confirm organizer-only admin permissions still gate tournament and division management.
@@ -42,7 +42,7 @@
   - [ ] If pagination stays in section 2, cover the backend response contract, frontend controls, empty pages, and localized labels with tests.
 - [ ] Add missing section-2 test coverage before marking this section complete.
   - [x] Backend tests for `cover_image` serialization, `is_featured`, featured-first ordering, and admin inline wiring.
-  - [ ] Frontend tests for `TournamentCard` grid/featured variants, cover fallback, heading levels, listing grids, empty states, nav state, and translations.
+  - [x] Frontend tests for `TournamentCard` grid/featured variants, cover fallback, heading levels, listing grids, empty states, nav state, and translations.
   - [x] Update existing `PublicTournament` test fixtures and e2e route mocks with `cover_image` and `is_featured`.
   - [ ] Run backend checks/migrations and frontend check/Vitest after the section-2 scope is implemented.
 - [ ] Defer larger catalogue improvements out of section 2.

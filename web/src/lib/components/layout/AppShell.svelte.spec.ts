@@ -12,10 +12,13 @@ const authStateMock = vi.hoisted(() => ({
 	currentUser: null as CurrentUser | null,
 	initialize: vi.fn()
 }));
+const pageStateMock = vi.hoisted(() => ({
+	url: new URL('https://usec.test/tournaments')
+}));
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }));
 vi.mock('$app/state', () => ({
-	page: { url: new URL('https://usec.test/tournaments') }
+	page: pageStateMock
 }));
 vi.mock('$lib/states/auth-state.svelte', () => ({ authState: authStateMock }));
 
@@ -43,6 +46,7 @@ function renderShell() {
 
 beforeEach(() => {
 	overwriteGetLocale(() => 'en');
+	pageStateMock.url = new URL('https://usec.test/tournaments');
 	authStateMock.status = 'idle';
 	authStateMock.currentUser = null;
 	authStateMock.initialize.mockReset().mockResolvedValue(null);
@@ -69,12 +73,23 @@ describe('AppShell secondary navigation', () => {
 		const rules = page.getByText('Rules');
 		await expect.element(tournaments).toHaveClass('flex-1');
 		await expect.element(rules).toHaveClass('flex-1');
+		expect(tournaments.elements()[0].parentElement).toHaveClass('flex-wrap');
 		expect(
 			(tournaments.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')
 		).toBe('9rem');
 		expect((rules.elements()[0] as HTMLElement).style.getPropertyValue('--nav-cell-min')).toBe(
 			'7rem'
 		);
+	});
+
+	it('marks tournament navigation active on prefixed tournament routes', async () => {
+		pageStateMock.url = new URL('https://usec.test/en/tournaments/usec-summer-2026');
+
+		renderShell();
+
+		const tournaments = page.getByRole('link', { name: m.nav_tournaments() });
+		await expect.element(tournaments).toHaveAttribute('href', '/en/tournaments');
+		await expect.element(tournaments).toHaveAttribute('aria-current', 'page');
 	});
 
 	it('renders sign-in, register, and the current language in a radio dropdown without a session', async () => {
