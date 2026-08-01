@@ -16,13 +16,13 @@
   - [x] Preserve a sensible order for featured and non-featured tournaments without duplicating or hiding tournaments accidentally.
   - [x] Make tournament cards clickable as a whole while preserving accessible link semantics and focus states.
   - [x] Limit the home page to a small preview set of recent or featured tournaments, then add a clear link to view all tournaments.
-- [ ] Complete the image-ready tournament card contract.
-  - [ ] Expose and type `cover_image` and `is_featured` consistently across backend API responses and frontend fixtures.
-  - [ ] Constrain cover image aspect ratio and height so uploaded images cannot overflow or destabilize the layout.
-  - [ ] Render cover images with localized alt text when present.
-  - [ ] Omit the image slot entirely when no cover image exists.
-  - [ ] Preserve useful card metadata in both grid and featured variants, including dates, location, and configured game count.
-  - [ ] Render the tournament cover image on the tournament detail page when available.
+- [x] Complete the image-ready tournament card contract.
+  - [x] Expose and type `cover_image` and `is_featured` consistently across backend API responses and frontend fixtures.
+  - [x] Constrain cover image aspect ratio and height so uploaded images cannot overflow or destabilize the layout.
+  - [x] Render cover images with localized alt text when present.
+  - [x] Omit the image slot entirely when no cover image exists.
+  - [x] Preserve useful card metadata in both grid and featured variants, including dates, location, and configured game count.
+  - [x] Render the tournament cover image on the tournament detail page when available.
 - [ ] Improve public tournament UI states.
   - [ ] Improve empty states on the home page and `/tournaments` with localized supporting guidance.
   - [ ] Decide whether the new tournament-card skeleton is rendered during real client loading, or remove the unused imports until a real loading path exists.
@@ -41,7 +41,7 @@
   - [ ] Decide whether pagination belongs in section 2 now or should move to a later catalogue-discovery slice.
   - [ ] If pagination stays in section 2, cover the backend response contract, frontend controls, empty pages, and localized labels with tests.
 - [ ] Add missing section-2 test coverage before marking this section complete.
-  - [ ] Backend tests for `cover_image` serialization, `is_featured`, featured-first ordering, and admin inline wiring.
+  - [x] Backend tests for `cover_image` serialization, `is_featured`, featured-first ordering, and admin inline wiring.
   - [ ] Frontend tests for `TournamentCard` grid/featured variants, cover fallback, heading levels, listing grids, empty states, nav state, and translations.
   - [x] Update existing `PublicTournament` test fixtures and e2e route mocks with `cover_image` and `is_featured`.
   - [ ] Run backend checks/migrations and frontend check/Vitest after the section-2 scope is implemented.

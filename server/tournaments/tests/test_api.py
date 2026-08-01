@@ -48,6 +48,35 @@ class PublicTournamentApiTests(APITestCase):
         slugs = {item["slug"] for item in response.data}
         self.assertEqual(slugs, {"usec-summer-2026"})
 
+    def test_list_serializes_cover_image_and_featured_first_ordering(self):
+        self.published.cover_image.name = "tournaments/covers/usec-summer.jpg"
+        self.published.is_featured = True
+        self.published.save(update_fields=("cover_image", "is_featured"))
+        Tournament.objects.create(
+            name="Campus Clash",
+            slug="campus-clash",
+            is_published=True,
+        )
+
+        response = self.client.get("/api/tournaments/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["slug"] for item in response.data],
+            [
+                "usec-summer-2026",
+                "campus-clash",
+            ],
+        )
+        self.assertTrue(response.data[0]["is_featured"])
+        self.assertTrue(
+            response.data[0]["cover_image"].endswith(
+                "/media/tournaments/covers/usec-summer.jpg"
+            )
+        )
+        self.assertIsNone(response.data[1]["cover_image"])
+        self.assertFalse(response.data[1]["is_featured"])
+
     def test_detail_returns_published_tournament_games(self):
         response = self.client.get("/api/tournaments/usec-summer-2026/")
 
@@ -59,9 +88,7 @@ class PublicTournamentApiTests(APITestCase):
         self.assertEqual(
             response.data["tournament_games"][0]["registration_state"], "open"
         )
-        self.assertTrue(
-            response.data["tournament_games"][0]["is_registration_open"]
-        )
+        self.assertTrue(response.data["tournament_games"][0]["is_registration_open"])
 
     def test_unpublished_detail_returns_404(self):
         response = self.client.get("/api/tournaments/draft-event/")
@@ -129,6 +156,4 @@ class PublicTournamentApiTests(APITestCase):
             response.data["tournament_games"][0]["registration_state"],
             "full",
         )
-        self.assertFalse(
-            response.data["tournament_games"][0]["is_registration_open"]
-        )
+        self.assertFalse(response.data["tournament_games"][0]["is_registration_open"])

@@ -18,59 +18,71 @@
 </svelte:head>
 
 <article>
-	<header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.45fr)]">
-		<div class="p-5 sm:p-7 lg:p-9">
-			<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-				{m.tournament_label()}
-			</p>
-			<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
-				{data.tournament.name}
-			</h1>
-			{#if data.tournament.description}
-				<p class="mt-5 max-w-3xl text-base leading-7 text-(--text-muted)">
-					{data.tournament.description}
+	<header class="overflow-hidden border border-(--line)">
+		{#if data.tournament.cover_image}
+			<figure class="aspect-video max-h-[26rem] overflow-hidden bg-(--surface-muted)">
+				<img
+					class="h-full w-full object-cover"
+					src={data.tournament.cover_image}
+					alt={m.tournament_cover_alt({ name: data.tournament.name })}
+					loading="eager"
+				/>
+			</figure>
+		{/if}
+		<div class="grid lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.45fr)]">
+			<div class="p-5 sm:p-7 lg:p-9">
+				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+					{m.tournament_label()}
 				</p>
-			{/if}
-		</div>
+				<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
+					{data.tournament.name}
+				</h1>
+				{#if data.tournament.description}
+					<p class="mt-5 max-w-3xl text-base leading-7 text-(--text-muted)">
+						{data.tournament.description}
+					</p>
+				{/if}
+			</div>
 
-		<dl
-			class="grid gap-px border-t border-(--line) bg-(--line) text-sm sm:grid-cols-3 lg:grid-cols-1 lg:border-l lg:border-t-0"
-		>
-			<div class="bg-(--surface-muted) p-4 sm:p-5">
-				<dt class="text-xs text-(--text-muted)">{m.tournament_location()}</dt>
-				<dd class="mt-1 font-medium">
-					{data.tournament.location || m.tournament_location_tba()}
-				</dd>
-			</div>
-			<div class="bg-(--surface-muted) p-4 sm:p-5">
-				<dt class="text-xs text-(--text-muted)">{m.tournament_starts()}</dt>
-				<dd class="font-mono-data mt-1 text-xs font-medium">
-					{#if data.tournament.starts_at}
-						<time datetime={data.tournament.starts_at}>
-							{formatTournamentDateTime(
-								data.tournament.starts_at,
-								getLocale(),
-								data.displayTimeZone
-							)}
-						</time>
-					{:else}
-						{m.tournament_schedule_tba()}
-					{/if}
-				</dd>
-			</div>
-			<div class="bg-(--surface-muted) p-4 sm:p-5">
-				<dt class="text-xs text-(--text-muted)">{m.tournament_ends()}</dt>
-				<dd class="font-mono-data mt-1 text-xs font-medium">
-					{#if data.tournament.ends_at}
-						<time datetime={data.tournament.ends_at}>
-							{formatTournamentDateTime(data.tournament.ends_at, getLocale(), data.displayTimeZone)}
-						</time>
-					{:else}
-						{m.tournament_schedule_tba()}
-					{/if}
-				</dd>
-			</div>
-		</dl>
+			<dl
+				class="grid gap-px border-t border-(--line) bg-(--line) text-sm sm:grid-cols-3 lg:grid-cols-1 lg:border-l lg:border-t-0"
+			>
+				<div class="bg-(--surface-muted) p-4 sm:p-5">
+					<dt class="text-xs text-(--text-muted)">{m.tournament_location()}</dt>
+					<dd class="mt-1 font-medium">
+						{data.tournament.location || m.tournament_location_tba()}
+					</dd>
+				</div>
+				<div class="bg-(--surface-muted) p-4 sm:p-5">
+					<dt class="text-xs text-(--text-muted)">{m.tournament_starts()}</dt>
+					<dd class="font-mono-data mt-1 text-xs font-medium">
+						{#if data.tournament.starts_at}
+							<time datetime={data.tournament.starts_at}>
+								{formatTournamentDateTime(
+									data.tournament.starts_at,
+									getLocale(),
+									data.displayTimeZone
+								)}
+							</time>
+						{:else}
+							{m.tournament_schedule_tba()}
+						{/if}
+					</dd>
+				</div>
+				<div class="bg-(--surface-muted) p-4 sm:p-5">
+					<dt class="text-xs text-(--text-muted)">{m.tournament_ends()}</dt>
+					<dd class="font-mono-data mt-1 text-xs font-medium">
+						{#if data.tournament.ends_at}
+							<time datetime={data.tournament.ends_at}>
+								{formatTournamentDateTime(data.tournament.ends_at, getLocale(), data.displayTimeZone)}
+							</time>
+						{:else}
+							{m.tournament_schedule_tba()}
+						{/if}
+					</dd>
+				</div>
+			</dl>
+		</div>
 	</header>
 
 	<section class="mt-9" aria-labelledby="configured-games-heading">

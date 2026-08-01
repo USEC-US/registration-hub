@@ -179,6 +179,22 @@ describe('public tournament pages', () => {
 		expect(page.getByText('Địa điểm sẽ được cập nhật').elements()).toHaveLength(2);
 		expect(page.getByText('Trực tuyến').elements()).toHaveLength(0);
 	});
+	it('renders the tournament cover image on the detail page when present', async () => {
+		const coveredTournament = makeTournament({
+			cover_image: '/media/tournaments/covers/usec-summer.jpg'
+		});
+		const { container } = render(TournamentDetailPage, {
+			data: { tournament: coveredTournament, displayTimeZone },
+			params: { slug: coveredTournament.slug }
+		});
+		const image = container.querySelector('header img');
+
+		await expect
+			.element(page.getByRole('img', { name: `Cover image for ${coveredTournament.name}` }))
+			.toBeVisible();
+		expect(image).toHaveAttribute('src', coveredTournament.cover_image);
+		expect(image?.parentElement).toHaveClass('aspect-video', 'max-h-[26rem]', 'overflow-hidden');
+	});
 	it('keeps UTC values in semantic times and formats them in the merged display zone', () => {
 		const boundaryTournament = {
 			...tournament,

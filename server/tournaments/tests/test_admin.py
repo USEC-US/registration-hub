@@ -4,8 +4,8 @@ from django.test import RequestFactory, TestCase
 
 from accounts.tests.factories import create_account
 
-from tournaments.admin import GameAdmin
-from tournaments.models import Game
+from tournaments.admin import GameAdmin, TournamentAdmin, TournamentGameInline
+from tournaments.models import Game, Tournament, TournamentGame
 
 
 class TournamentAdminAccessTests(TestCase):
@@ -33,3 +33,23 @@ class TournamentAdminAccessTests(TestCase):
         self.assertFalse(model_admin.has_module_permission(request))
         self.assertFalse(model_admin.has_view_permission(request, game))
         self.assertFalse(model_admin.has_change_permission(request, game))
+
+    def test_tournament_admin_exposes_tournament_game_inline(self):
+        model_admin = TournamentAdmin(Tournament, AdminSite())
+        inline = TournamentGameInline(Tournament, AdminSite())
+
+        self.assertIn(TournamentGameInline, model_admin.inlines)
+        self.assertIs(inline.model, TournamentGame)
+        self.assertEqual(
+            inline.fields,
+            (
+                "game",
+                "team_size_min",
+                "team_size_max",
+                "registration_opens_at",
+                "registration_closes_at",
+                "registration_capacity",
+                "fee_amount",
+                "fee_currency",
+            ),
+        )

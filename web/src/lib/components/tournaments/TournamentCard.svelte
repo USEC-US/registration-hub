@@ -27,7 +27,7 @@
 			aria-label={tournament.name}
 		>
 			{#if tournament.cover_image}
-				<figure class="aspect-video overflow-hidden rounded-t-(--radius)">
+				<figure class="aspect-video max-h-[28rem] overflow-hidden rounded-t-(--radius) bg-muted">
 					<img
 						class="h-full w-full object-cover"
 						src={tournament.cover_image}
@@ -103,7 +103,7 @@
 		>
 			<Card.Root class="flex h-full flex-col gap-0 py-0 transition-shadow group-hover:shadow-sm">
 				{#if tournament.cover_image}
-					<figure class="aspect-video overflow-hidden rounded-t-(--radius)">
+					<figure class="aspect-video max-h-56 overflow-hidden rounded-t-(--radius) bg-muted">
 						<img
 							class="h-full w-full object-cover"
 							src={tournament.cover_image}

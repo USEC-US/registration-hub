@@ -46,6 +46,34 @@ afterEach(() => {
 });
 
 describe('TournamentCard', () => {
+	it('renders a bounded cover image with localized alt text when present', () => {
+		const coveredTournament = {
+			...tournament,
+			cover_image: '/media/tournaments/covers/usec-summer.jpg'
+		};
+		const { container } = render(TournamentCard, {
+			tournament: coveredTournament,
+			displayTimeZone,
+			variant: 'grid'
+		});
+		const image = container.querySelector('img');
+
+		expect(image).toHaveAttribute('src', coveredTournament.cover_image);
+		expect(image).toHaveAttribute('alt', `Cover image for ${coveredTournament.name}`);
+		expect(image?.parentElement).toHaveClass('aspect-video', 'max-h-56', 'overflow-hidden');
+	});
+
+	it('omits the cover image slot when no cover image exists', () => {
+		const { container } = render(TournamentCard, {
+			tournament,
+			displayTimeZone,
+			variant: 'grid'
+		});
+
+		expect(container.querySelector('figure')).toBeNull();
+		expect(container.querySelector('img')).toBeNull();
+	});
+
 	it('uses a single whole-card link target for the grid card', async () => {
 		const { container } = render(TournamentCard, {
 			tournament,
@@ -74,5 +102,19 @@ describe('TournamentCard', () => {
 
 		expect(datesCell).toHaveClass('col-span-2');
 		expect(metadataCells.at(-1)).toBe(datesCell);
+	});
+
+	it('keeps date, location, and game-count metadata in the featured card', () => {
+		const { container } = render(TournamentCard, {
+			tournament,
+			displayTimeZone,
+			variant: 'featured'
+		});
+		const labels = [...container.querySelectorAll('dt')].map((element) => element.textContent);
+
+		expect(labels).toEqual(['Dates', 'Location', 'Games']);
+		expect(container.querySelectorAll('time')).toHaveLength(2);
+		expect(container).toHaveTextContent('HCMUS');
+		expect(container).toHaveTextContent('1');
 	});
 });
