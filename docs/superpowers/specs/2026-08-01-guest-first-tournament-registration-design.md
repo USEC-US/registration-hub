@@ -32,7 +32,7 @@ Current roster sizing already belongs to `TournamentGame` through `team_size_min
 
 Registration is guest-first and locked after submission. Guests can submit without creating an account. If they make a mistake, they contact organizers through the existing club contact channels, matching the previous Google Forms workflow.
 
-Signed-in users use the same registration form. The UI may show quiet account-benefit callouts for guests, but those callouts must not block or interrupt registration. Benefits can include easier future registration, saved profile data later, and account-visible registration history.
+Signed-in users use the same registration form. The UI may show quiet account-benefit callouts for guests, but those callouts must not block or interrupt registration. Benefits can include easier future registration, saved profile data later, account-visible registration history, and self-serviceable info fix before submit (think: Cổng Dịch vụ Công Quốc gia/National Public Service Portal, offers a chance to save to draft before submit) (deferred until project is stable).
 
 Every registration has a per-registration submitter role:
 
