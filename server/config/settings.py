@@ -17,6 +17,10 @@ from dotenv import load_dotenv
 
 from config.env import env_bool, env_list, local_secret_key
 
+from django.templatetags.static import static
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as t
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -87,23 +91,19 @@ DEFAULT_FRONTEND_ORIGINS = [
 ]
 
 CORS_ALLOWED_ORIGINS = list(
-    dict.fromkeys(
-        [
-            *DEFAULT_FRONTEND_ORIGINS,
-            *env_list(
-                "CORS_ALLOWED_ORIGINS",
-                default=env_list("CORS_ORIGINS", default=DEFAULT_FRONTEND_ORIGINS),
-            ),
-        ]
-    )
+    dict.fromkeys([
+        *DEFAULT_FRONTEND_ORIGINS,
+        *env_list(
+            "CORS_ALLOWED_ORIGINS",
+            default=env_list("CORS_ORIGINS", default=DEFAULT_FRONTEND_ORIGINS),
+        ),
+    ])
 )
 
 CSRF_TRUSTED_ORIGINS = list(
-    dict.fromkeys(
-        [
-            *env_list("CSRF_ALLOWED_ORIGINS", default=CORS_ALLOWED_ORIGINS),
-        ]
-    )
+    dict.fromkeys([
+        *env_list("CSRF_ALLOWED_ORIGINS", default=CORS_ALLOWED_ORIGINS),
+    ])
 )
 
 CORS_ALLOW_CREDENTIALS = True
@@ -213,12 +213,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", BASE_DIR / "media"))
 
 
 UNFOLD = {
-  "SITE_TITLE": "HCMUSEC Tournament Registration",
-  "SITE_URL": os.getenv("REDIRECT_ROOT", "http://localhost:5173")
+    "SITE_TITLE": "HCMUSEC Tournament Registration",
+    "SITE_URL": os.getenv("REDIRECT_ROOT", "http://localhost:5173"),
+    "SITE_HEADER": "HCMUSEC Tournament Registration",
+    "SITE_FOOTER": "Management Admin",
+    "SITE_ICON": {
+        "light": lambda request: static("admin/logos/light-mode-black.png"),
+        "dark": lambda request: static("admin/logos/dark-mode-silver.png"),
+    },
 }
