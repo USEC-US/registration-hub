@@ -25,6 +25,7 @@
 	"action_save_profile": "Save profile",
 	"action_upload_payment_proof": "Upload payment proof",
 	"action_view_tournament": "View tournament",
+	"action_view_all_tournaments": "See all tournaments",
 	"action_browse_tournaments": "Browse all tournaments",
 	"empty_tournaments": "No published tournaments are available.",
 	"empty_tournament_games": "This tournament has no configured games yet.",
@@ -150,5 +151,12 @@
 	"profile_save_failed": "Your profile could not be saved. Check your details and try again.",
 	"address_title": "{#bold}Address:{/bold}",
 	"address_1": "{#bold}Campus 1{/bold}: 227 Nguyen Van Cu St., Cho Quan Ward, Ho Chi Minh City",
-	"address_2": "{#bold}Campus 2{/bold}: VNUHCM Urban Area, Dong Hoa Ward, Ho Chi Minh City."
+	"address_2": "{#bold}Campus 2{/bold}: VNUHCM Urban Area, Dong Hoa Ward, Ho Chi Minh City.",
+
+	"empty_tournaments_note": "Check back later for upcoming tournaments.",
+	"tournament_cover_alt": "Cover image for {name}",
+	"tournament_featured_label": "Featured",
+	"tournament_loading": "Loading tournaments…",
+	"featured_tournaments_text": "Featured Tournaments",
+	"other_tournaments_text": "More Tournaments"
 }

@@ -2,20 +2,54 @@
 
 ## 1. Account and identity foundation
 
-- [ ] Finish logout navigation, route behavior, and session tests.
-- [ ] Implement the existing institution catalogue work.
-- [ ] Replace free-text account school fields with institution selection.
-- [ ] Review sign-in, registration, profile, redirects, and expired-session behavior together.
-- [ ] Confirm private account information never appears in public APIs.
+- [x] Finish logout navigation, route behavior, and session tests.
+- [x] Implement the existing institution catalogue work.
+- [x] Replace free-text account school fields with institution selection.
+- [x] Review sign-in, registration, profile, redirects, and expired-session behavior together.
+- [x] Confirm private account information never appears in public APIs.
 
 ## 2. Tournament catalogue and public UI
 
-- [ ] Replace full-width desktop tournament listings with a responsive card grid.
-- [ ] Keep the wide presentation as an optional featured-tournament treatment.
-- [ ] Add an image-ready tournament card contract, cover support, and fallback state.
-- [ ] Improve empty, loading, closed, upcoming, and full-registration states.
+- [x] Finish the responsive public catalogue layout.
+  - [x] Replace full-width desktop tournament listings with a 1/2/3-column responsive card grid on both the home page and `/tournaments`.
+  - [x] Keep the wide presentation as an optional featured-tournament treatment driven by `is_featured`.
+  - [x] Preserve a sensible order for featured and non-featured tournaments without duplicating or hiding tournaments accidentally.
+  - [x] Make tournament cards clickable as a whole while preserving accessible link semantics and focus states.
+  - [x] Limit the home page to a small preview set of recent or featured tournaments, then add a clear link to view all tournaments.
+- [ ] Complete the image-ready tournament card contract.
+  - [ ] Expose and type `cover_image` and `is_featured` consistently across backend API responses and frontend fixtures.
+  - [ ] Constrain cover image aspect ratio and height so uploaded images cannot overflow or destabilize the layout.
+  - [ ] Render cover images with localized alt text when present.
+  - [ ] Omit the image slot entirely when no cover image exists.
+  - [ ] Preserve useful card metadata in both grid and featured variants, including dates, location, and configured game count.
+  - [ ] Render the tournament cover image on the tournament detail page when available.
+- [ ] Improve public tournament UI states.
+  - [ ] Improve empty states on the home page and `/tournaments` with localized supporting guidance.
+  - [ ] Decide whether the new tournament-card skeleton is rendered during real client loading, or remove the unused imports until a real loading path exists.
+  - [ ] Verify tournament detail states for upcoming, open, closed, and full registration windows remain clear and actionable.
 - [ ] Audit navigation, tournament detail pages, mobile layout, accessibility, and translations.
+  - [ ] Add and test active tournament navigation state, including localized route prefixes.
+  - [ ] Prevent public navigation overflow on narrow mobile screens.
+  - [ ] Validate all new English and Vietnamese message keys, JSON formatting, and generated Paraglide types.
+  - [ ] Recheck semantic heading levels, time elements, image alt text, and registration-action visibility.
 - [ ] Let admins add and edit divisions (TournamentGame) directly inside a tournament.
+  - [ ] Keep `TournamentGameInline` available from `TournamentAdmin`.
+  - [ ] Confirm organizer-only admin permissions still gate tournament and division management.
+  - [ ] Cover the inline configuration with tests or a documented manual smoke check.
+- [ ] Decide and implement the tournament listing scale behavior.
+  - [ ] Keep featured tournaments first on the listing page with a stronger highlighted treatment than a normal compact card.
+  - [ ] Decide whether pagination belongs in section 2 now or should move to a later catalogue-discovery slice.
+  - [ ] If pagination stays in section 2, cover the backend response contract, frontend controls, empty pages, and localized labels with tests.
+- [ ] Add missing section-2 test coverage before marking this section complete.
+  - [ ] Backend tests for `cover_image` serialization, `is_featured`, featured-first ordering, and admin inline wiring.
+  - [ ] Frontend tests for `TournamentCard` grid/featured variants, cover fallback, heading levels, listing grids, empty states, nav state, and translations.
+  - [x] Update existing `PublicTournament` test fixtures and e2e route mocks with `cover_image` and `is_featured`.
+  - [ ] Run backend checks/migrations and frontend check/Vitest after the section-2 scope is implemented.
+- [ ] Defer larger catalogue improvements out of section 2.
+  - [ ] Public tournament search, filtering, and sorting controls.
+  - [ ] Image resizing, thumbnail generation, upload preview, cropping, CDN, or production media optimization.
+  - [ ] A custom organizer tournament-management frontend beyond the Django admin inline.
+  - [ ] Registration-flow, bracket, payment, and organizer-operations changes covered by later sections.
 
 ## 3. Registration journey
 

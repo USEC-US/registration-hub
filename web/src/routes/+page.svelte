@@ -9,6 +9,7 @@
 	import { ChevronRight } from '@lucide/svelte';
 
 	let { data }: PageProps = $props();
+	const tournamentPreview = $derived(data.tournaments.slice(0, 3));
 </script>
 
 <svelte:head>
@@ -18,7 +19,7 @@
 
 <header class="grid border border-(--line) lg:grid-cols-[minmax(0,1.6fr)_minmax(16rem,0.4fr)]">
 	<div class="p-5 sm:p-7 lg:p-9">
-		<p class="text-xs font-semibold uppercase tracking-[0.16em] text--accent">
+		<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 			{m.hero_subtitle()}
 		</p>
 		<h1 class="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight sm:text-5xl">
@@ -51,17 +52,32 @@
 	<Separator class="mb-4" />
 
 	{#if data.tournaments.length > 0}
-		<div class="flex flex-col gap-4">
-			{#each data.tournaments as tournament (tournament.id)}
-				<TournamentCard {tournament} displayTimeZone={data.displayTimeZone} headingLevel={3} />
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+			{#each tournamentPreview as tournament (tournament.id)}
+				<TournamentCard
+					{tournament}
+					displayTimeZone={data.displayTimeZone}
+					headingLevel={3}
+					variant={tournament.is_featured ? 'featured' : 'grid'}
+				/>
 			{/each}
 		</div>
+		<div class="mt-5 flex justify-end">
+			<a
+				class="flex items-center gap-3 text-sm font-semibold text-primary"
+				href={resolve(localizeInternalHref('/tournaments'))}
+			>
+				{m.action_view_all_tournaments()}
+				<ChevronRight />
+			</a>
+		</div>
 	{:else}
-		<p
-			class="border border-(--line) bg-(--surface-muted) p-6 text-sm text-(--text-muted)"
+		<div
+			class="border border-(--line) bg-(--surface-muted) p-8 text-center"
 			role="status"
 		>
-			{m.empty_tournaments()}
-		</p>
+			<p class="text-sm font-medium text-(--text-muted)">{m.empty_tournaments()}</p>
+			<p class="mt-2 text-xs text-(--text-muted)">{m.empty_tournaments_note()}</p>
+		</div>
 	{/if}
 </section>

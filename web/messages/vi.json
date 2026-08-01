@@ -25,6 +25,7 @@
 	"action_save_profile": "Lưu hồ sơ",
 	"action_upload_payment_proof": "Tải minh chứng thanh toán lên",
 	"action_view_tournament": "Xem giải đấu",
+	"action_view_all_tournaments": "Xem tất cả giải đấu",
 	"action_browse_tournaments": "Xem tất cả giải đấu",
 	"empty_tournaments": "Hiện không có giải đấu nào được công bố.",
 	"empty_tournament_games": "Giải đấu này chưa có nội dung thi đấu.",
@@ -150,5 +151,12 @@
 	"profile_save_failed": "Không thể lưu hồ sơ. Hãy kiểm tra thông tin và thử lại.",
 	"address_title": "{#bold}Địa chỉ:{/bold}",
 	"address_1": "{#bold}Cơ sở 1{/bold}: 227 đường Nguyễn Văn Cừ, Phường Chợ Quán, Thành phố Hồ Chí Minh",
-	"address_2": "{#bold}Cơ sở 2{/bold}: Khu đô thị Đại học Quốc gia Thành phố Hồ Chí Minh, Phường Đông Hoà, Thành phố Hồ Chí Minh"
+	"address_2": "{#bold}Cơ sở 2{/bold}: Khu đô thị Đại học Quốc gia Thành phố Hồ Chí Minh, Phường Đông Hoà, Thành phố Hồ Chí Minh",
+
+	"empty_tournaments_note": "Hãy quay lại sau để xem các giải đấu sắp tới.",
+	"tournament_cover_alt": "Ảnh bìa cho {name}",
+	"tournament_featured_label": "Nổi bật",
+	"tournament_loading": "Đang tải giải đấu…",
+	"featured_tournaments_text": "Giải đấu nổi bật",
+	"other_tournaments_text": "Các giải đấu khác"
 }

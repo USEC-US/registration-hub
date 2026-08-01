@@ -17,9 +17,11 @@ const tournament: PublicTournament = {
 	name: 'Giải Mùa Hè',
 	slug: 'giai-mua-he',
 	description: 'Giải đấu dành cho sinh viên HCMUS.',
+	cover_image: null,
 	starts_at: '2026-08-15T01:00:00Z',
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
+	is_featured: false,
 	tournament_games: [
 		{
 			id: 31,
@@ -126,7 +128,7 @@ describe('tournament components', () => {
 
 		expect(shell.container.querySelector('a[href="/"]')).not.toBeNull();
 		expect(shell.container.querySelector('a[href="/tournaments"]')).not.toBeNull();
-		expect(card.container.querySelectorAll('a[href="/tournaments/giai-mua-he"]')).toHaveLength(2);
+		expect(card.container.querySelectorAll('a[href="/tournaments/giai-mua-he"]')).toHaveLength(1);
 	});
 
 	it('uses the supplied responsive logo instead of the decorative brand dot', () => {

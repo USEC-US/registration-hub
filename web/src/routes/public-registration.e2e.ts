@@ -5,9 +5,11 @@ const tournament = {
 	name: 'USEC Summer 2026',
 	slug: 'usec-summer-2026',
 	description: 'Summer tournament',
+	cover_image: null,
 	starts_at: '2026-08-15T01:00:00Z',
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
+	is_featured: false,
 	tournament_games: [
 		{
 			id: 9,

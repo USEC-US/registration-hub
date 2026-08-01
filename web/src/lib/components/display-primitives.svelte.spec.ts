@@ -10,9 +10,11 @@ const tournament: PublicTournament = {
 	name: 'Summer Tournament',
 	slug: 'summer-tournament',
 	description: 'Tournament description.',
+	cover_image: null,
 	starts_at: '2026-08-15T01:00:00Z',
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
+	is_featured: false,
 	tournament_games: [
 		{
 			id: 31,

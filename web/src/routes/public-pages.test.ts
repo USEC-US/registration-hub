@@ -18,9 +18,11 @@ const tournament: PublicTournament = {
 	name: 'USEC Summer 2026',
 	slug: 'usec-summer-2026',
 	description: 'Summer tournament',
+	cover_image: null,
 	starts_at: null,
 	ends_at: null,
 	location: 'HCMUS',
+	is_featured: false,
 	tournament_games: [
 		{
 			id: 10,

@@ -33,16 +33,24 @@
 </header>
 
 {#if data.tournaments.length > 0}
-	<section class="mt-8 flex flex-col gap-4" aria-label={m.published_tournaments_heading()}>
+	<section
+		class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+		aria-label={m.published_tournaments_heading()}
+	>
 		{#each data.tournaments as tournament (tournament.id)}
-			<TournamentCard {tournament} displayTimeZone={data.displayTimeZone} />
+			<TournamentCard
+				{tournament}
+				displayTimeZone={data.displayTimeZone}
+				variant={tournament.is_featured ? 'featured' : 'grid'}
+			/>
 		{/each}
 	</section>
 {:else}
-	<p
-		class="mt-8 border border-(--line) bg-(--surface-muted) p-6 text-sm text-(--text-muted)"
+	<div
+		class="mt-8 border border-(--line) bg-(--surface-muted) p-8 text-center"
 		role="status"
 	>
-		{m.empty_tournaments()}
-	</p>
+		<p class="text-sm font-medium text-(--text-muted)">{m.empty_tournaments()}</p>
+		<p class="mt-2 text-xs text-(--text-muted)">{m.empty_tournaments_note()}</p>
+	</div>
 {/if}

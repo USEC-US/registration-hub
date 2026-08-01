@@ -100,12 +100,14 @@
 				</span>
 			</a>
 
-			<div class="flex min-h-11 border-(--line)">
+			<div class="flex min-h-11 flex-wrap border-(--line)">
 				<a
 					class="flex min-w-(--nav-cell-min) flex-1 items-center justify-center px-4 py-2 text-center text-lg font-medium"
 					style:--nav-cell-min="9rem"
-					href={resolve(localizeInternalHref('/tournaments'))}>{m.nav_tournaments()}</a
-				>
+					href={resolve(localizeInternalHref('/tournaments'))}
+					aria-current={page.url.pathname.includes('/tournaments') ? 'page' : undefined}
+					>{m.nav_tournaments()}
+				</a>
 				<span
 					class="flex min-w-(--nav-cell-min) flex-1 cursor-not-allowed items-center justify-center px-4 py-2 text-center text-lg font-medium text-(--text-muted)"
 					style:--nav-cell-min="7rem"

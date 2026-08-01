@@ -58,9 +58,11 @@ export interface PublicTournament {
 	name: string;
 	slug: string;
 	description: string;
+	cover_image: string | null;
 	starts_at: string | null;
 	ends_at: string | null;
 	location: string;
+	is_featured: boolean;
 	tournament_games: PublicTournamentGame[];
 }
 

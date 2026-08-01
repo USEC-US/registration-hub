@@ -13,9 +13,11 @@ const tournament: PublicTournament = {
 	name: 'USEC Summer 2026',
 	slug: 'usec-summer-2026',
 	description: 'A university tournament for HCMUS students.',
+	cover_image: null,
 	starts_at: '2026-08-15T01:00:00Z',
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
+	is_featured: false,
 	tournament_games: [
 		{
 			id: 9,
@@ -37,6 +39,22 @@ const tournament: PublicTournament = {
 
 const displayTimeZone = resolveDisplayTimeZone('Asia/Ho_Chi_Minh');
 
+function makeTournament(overrides: Partial<PublicTournament>): PublicTournament {
+	return {
+		...tournament,
+		id: overrides.id ?? tournament.id,
+		name: overrides.name ?? tournament.name,
+		slug: overrides.slug ?? tournament.slug,
+		description: overrides.description ?? tournament.description,
+		cover_image: overrides.cover_image ?? tournament.cover_image,
+		starts_at: overrides.starts_at ?? tournament.starts_at,
+		ends_at: overrides.ends_at ?? tournament.ends_at,
+		location: overrides.location ?? tournament.location,
+		is_featured: overrides.is_featured ?? tournament.is_featured,
+		tournament_games: overrides.tournament_games ?? tournament.tournament_games
+	};
+}
+
 beforeEach(() => {
 	overwriteGetLocale(() => 'en');
 });
@@ -56,6 +74,26 @@ describe('public tournament pages', () => {
 			.element(page.getByRole('heading', { level: 3, name: tournament.name }))
 			.toBeInTheDocument();
 		expect(document.title).toBe('University of Science Esports Club');
+	});
+
+	it('renders a three-tournament home preview with a link to the full catalogue', async () => {
+		const tournaments = [
+			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
+			makeTournament({ id: 2, name: 'Campus Clash', slug: 'campus-clash' }),
+			makeTournament({ id: 3, name: 'Spring Arena', slug: 'spring-arena' }),
+			makeTournament({ id: 4, name: 'Fourth Tournament', slug: 'fourth-tournament' })
+		];
+
+		const { container } = render(HomePage, { data: { tournaments, displayTimeZone }, params: {} });
+
+		expect(container.querySelectorAll('article')).toHaveLength(3);
+		await expect.element(page.getByRole('link', { name: 'Featured Cup' })).toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'Campus Clash' })).toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'Spring Arena' })).toBeVisible();
+		expect(page.getByRole('link', { name: 'Fourth Tournament' }).elements()).toHaveLength(0);
+		await expect
+			.element(page.getByRole('link', { name: 'See all tournaments' }))
+			.toHaveAttribute('href', '/en/tournaments');
 	});
 
 	it('renders a localized empty state without fabricated tournament cards', async () => {
@@ -82,16 +120,36 @@ describe('public tournament pages', () => {
 			.toBeInTheDocument();
 	});
 
-	it('uses the full mobile metadata row for the odd Games datum', () => {
+	it('renders all published tournaments in a responsive listing grid once each', () => {
+		const tournaments = [
+			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
+			makeTournament({ id: 2, name: 'Campus Clash', slug: 'campus-clash' }),
+			makeTournament({ id: 3, name: 'Spring Arena', slug: 'spring-arena' })
+		];
+
+		const { container } = render(TournamentListPage, {
+			data: { tournaments, displayTimeZone },
+			params: {}
+		});
+		const listing = container.querySelector('section[aria-label="Published tournaments"]');
+
+		expect(listing).toHaveClass('grid', 'grid-cols-1', 'md:grid-cols-2', 'xl:grid-cols-3');
+		expect(container.querySelectorAll('article')).toHaveLength(3);
+		for (const item of tournaments) {
+			expect(page.getByRole('link', { name: item.name }).elements()).toHaveLength(1);
+		}
+	});
+
+	it('uses the full bottom metadata row for the longer Dates datum', () => {
 		const { container } = render(TournamentListPage, {
 			data: { tournaments: [tournament], displayTimeZone },
 			params: {}
 		});
-		const gamesTerm = [...container.querySelectorAll('dt')].find(
-			(element) => element.textContent === 'Games'
+		const datesTerm = [...container.querySelectorAll('dt')].find(
+			(element) => element.textContent === 'Dates'
 		);
 
-		expect(gamesTerm?.parentElement).toHaveClass('col-span-2', 'md:col-span-1');
+		expect(datesTerm?.parentElement).toHaveClass('col-span-2');
 	});
 	it('keeps explanatory tournament-list prose in the body typeface', () => {
 		const { container } = render(TournamentListPage, {
