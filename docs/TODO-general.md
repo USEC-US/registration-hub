@@ -32,10 +32,10 @@
   - [x] Prevent public navigation overflow on narrow mobile screens.
   - [x] Validate all new English and Vietnamese message keys, JSON formatting, and generated Paraglide types.
   - [x] Recheck semantic heading levels, time elements, image alt text, and registration-action visibility.
-- [ ] Let admins add and edit divisions (TournamentGame) directly inside a tournament.
-  - [ ] Keep `TournamentGameInline` available from `TournamentAdmin`.
-  - [ ] Confirm organizer-only admin permissions still gate tournament and division management.
-  - [ ] Cover the inline configuration with tests or a documented manual smoke check.
+- [x] Let admins add and edit divisions (TournamentGame) directly inside a tournament.
+  - [x] Keep `TournamentGameInline` available from `TournamentAdmin`.
+  - [x] Confirm organizer-only admin permissions still gate tournament and division management.
+  - [x] Cover the inline configuration with tests or a documented manual smoke check.
 - [ ] Decide and implement the tournament listing scale behavior.
   - [ ] Keep featured tournaments first on the listing page with a stronger highlighted treatment than a normal compact card.
   - [ ] Decide whether pagination belongs in section 2 now or should move to a later catalogue-discovery slice.
