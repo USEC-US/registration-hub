@@ -53,6 +53,8 @@
 
 ## 3. Registration journey
 
+- [ ] Allow unauthenticated accounts to register to the tournaments.
+- [ ] Advertisements/callouts for account registration (benefits) on [signin page](../web/src/routes/auth/sign-in/+page.svelte) `m.auth_access_note()`) and other suitable places. (note: don't be intrusive.)
 - [ ] Keep the tournament registration form accessible to authenticated accounts.
 - [ ] Ask whether the submitter is acting as captain or manager for each sign-up.
 - [ ] Do not add a permanent account role or role database column.
