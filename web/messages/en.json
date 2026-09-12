@@ -102,7 +102,7 @@
 	"published_tournaments_heading": "Published tournaments",
 	"published_tournaments_intro": "Review the tournaments currently published by USEC and open one for game-specific registration details.",
 	"published_tournaments_note": "Availability, fees, and registration windows come directly from tournament operations.",
-	"configured_games_heading": "Configured games",
+	"configured_games_heading": "Available events",
 	"tournament_starts": "Starts",
 	"tournament_ends": "Ends",
 	"tournament_detail_meta_description": "Tournament schedule, game requirements, fees, and registration availability.",
@@ -186,5 +186,6 @@
 	"registration_corrections": "Submitted registrations are locked. For corrections, contact the organizers and include your registration reference.",
 	"registration_contact_organizers": "Contact organizers on Facebook",
 	"registration_session_expired": "Your session expired. Your entries are preserved. You can submit as a guest (payment proof is required for paid entries), or sign in again.",
-	"registration_loading": "Loading registration…"
+	"registration_loading": "Loading registration…",
+	"tournament_detail_title": "Tournament Info"
 }

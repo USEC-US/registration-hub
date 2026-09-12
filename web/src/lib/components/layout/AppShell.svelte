@@ -230,7 +230,7 @@
 				</div>
 			</div>
 			<div id="contact" class="flex flex-col">
-				<div class="flex flex-wrap gap-3 flex-1">
+				<div class="flex flex-wrap gap-3 flex-1 mb-6">
 					{#each Object.entries(socials) as [key, social] (key)}
 						{@const Icon = social.icon}
 						<a

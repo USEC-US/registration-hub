@@ -7,6 +7,7 @@ import { resolveDisplayTimeZone } from '$lib/time/tournament-time';
 import HomePage from './+page.svelte';
 import TournamentListPage from './tournaments/+page.svelte';
 import TournamentDetailPage from './tournaments/[slug]/+page.svelte';
+import './layout.css';
 
 const tournament: PublicTournament = {
 	id: 1,
@@ -213,7 +214,10 @@ describe('public tournament pages', () => {
 			.element(page.getByRole('img', { name: `Cover image for ${coveredTournament.name}` }))
 			.toBeVisible();
 		expect(image).toHaveAttribute('src', coveredTournament.cover_image);
-		expect(image?.parentElement).toHaveClass('aspect-video', 'max-h-[26rem]', 'overflow-hidden');
+		container.style.width = '1024px';
+		const frame = image!.parentElement!.getBoundingClientRect();
+		expect(frame.width).toBeGreaterThan(0);
+		expect(frame.height).toBeCloseTo((frame.width * 9) / 16, 1);
 	});
 	it('keeps UTC values in semantic times and formats them in the merged display zone', () => {
 		const boundaryTournament = {

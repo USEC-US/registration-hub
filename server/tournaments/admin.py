@@ -1,5 +1,7 @@
 from django.contrib import admin
+from django.db import models
 from unfold.admin import ModelAdmin, StackedInline
+from unfold.contrib.forms.widgets import WysiwygWidget
 
 from .models import Game, Tournament, TournamentGame
 
@@ -76,6 +78,11 @@ class TournamentAdmin(OrganizerStaffAdmin):
     list_filter = ("is_published",)
     search_fields = ("name", "slug", "location")
     prepopulated_fields = {"slug": ("name",)}
+    formfield_overrides = {
+        models.TextField: {
+            "widget": WysiwygWidget
+        }
+    }
 
 
 @admin.register(TournamentGame)

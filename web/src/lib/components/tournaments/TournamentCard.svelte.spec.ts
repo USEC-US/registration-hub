@@ -5,6 +5,7 @@ import type { PublicTournament } from '$lib/api/types';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import { resolveDisplayTimeZone } from '$lib/time/tournament-time';
 import TournamentCard from './TournamentCard.svelte';
+import '../../../routes/layout.css';
 
 const displayTimeZone = resolveDisplayTimeZone('Asia/Ho_Chi_Minh');
 
@@ -46,22 +47,28 @@ afterEach(() => {
 });
 
 describe('TournamentCard', () => {
-	it('renders a bounded cover image with localized alt text when present', () => {
-		const coveredTournament = {
-			...tournament,
-			cover_image: '/media/tournaments/covers/usec-summer.jpg'
-		};
-		const { container } = render(TournamentCard, {
-			tournament: coveredTournament,
-			displayTimeZone,
-			variant: 'grid'
-		});
-		const image = container.querySelector('img');
+	it.each(['grid', 'featured'] as const)(
+		'renders a 16:9 %s cover with localized alt text',
+		(variant) => {
+			const coveredTournament = {
+				...tournament,
+				cover_image: '/media/tournaments/covers/usec-summer.jpg'
+			};
+			const { container } = render(TournamentCard, {
+				tournament: coveredTournament,
+				displayTimeZone,
+				variant
+			});
+			container.style.width = '1024px';
+			const image = container.querySelector('img');
 
-		expect(image).toHaveAttribute('src', coveredTournament.cover_image);
-		expect(image).toHaveAttribute('alt', `Cover image for ${coveredTournament.name}`);
-		expect(image?.parentElement).toHaveClass('aspect-video', 'max-h-56', 'overflow-hidden');
-	});
+			expect(image).toHaveAttribute('src', coveredTournament.cover_image);
+			expect(image).toHaveAttribute('alt', `Cover image for ${coveredTournament.name}`);
+			const frame = image!.parentElement!.getBoundingClientRect();
+			expect(frame.width).toBeGreaterThan(0);
+			expect(frame.height).toBeCloseTo((frame.width * 9) / 16, 1);
+		}
+	);
 
 	it('omits the cover image slot when no cover image exists', () => {
 		const { container } = render(TournamentCard, {
@@ -98,7 +105,9 @@ describe('TournamentCard', () => {
 			variant: 'grid'
 		});
 		const metadataCells = [...container.querySelectorAll('dl > div')];
-		const datesCell = metadataCells.find((cell) => cell.querySelector('dt')?.textContent === 'Dates');
+		const datesCell = metadataCells.find(
+			(cell) => cell.querySelector('dt')?.textContent === 'Dates'
+		);
 
 		expect(datesCell).toHaveClass('col-span-2');
 		expect(metadataCells.at(-1)).toBe(datesCell);

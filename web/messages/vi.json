@@ -102,7 +102,7 @@
 	"published_tournaments_heading": "Giải đấu đã công bố",
 	"published_tournaments_intro": "Xem các giải đấu hiện được USEC công bố và mở từng giải để biết chi tiết đăng ký theo nội dung thi đấu.",
 	"published_tournaments_note": "Số chỗ, lệ phí và thời hạn đăng ký được cập nhật trực tiếp từ ban vận hành giải đấu.",
-	"configured_games_heading": "Nội dung thi đấu đã cấu hình",
+	"configured_games_heading": "Danh sách các bộ môn thi đấu",
 	"tournament_starts": "Bắt đầu",
 	"tournament_ends": "Kết thúc",
 	"tournament_detail_meta_description": "Lịch thi đấu, yêu cầu, lệ phí và tình trạng đăng ký của giải đấu.",
@@ -186,5 +186,6 @@
 	"registration_corrections": "Đơn đăng ký sẽ được khóa sau khi gửi. Nếu cần chỉnh sửa, hãy liên hệ ban tổ chức và cung cấp mã đăng ký.",
 	"registration_contact_organizers": "Liên hệ ban tổ chức qua Facebook",
 	"registration_session_expired": "Phiên đăng nhập đã hết hạn. Thông tin đã nhập vẫn được giữ lại. Bạn có thể gửi với tư cách khách (cần minh chứng thanh toán nếu nội dung thi đấu có lệ phí) hoặc đăng nhập lại.",
-	"registration_loading": "Đang tải đăng ký…"
+	"registration_loading": "Đang tải đăng ký…",
+	"tournament_detail_title": "Chi tiết giải đấu"
 }
