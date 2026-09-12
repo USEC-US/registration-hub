@@ -213,5 +213,11 @@
 	"registration_game_label": "Game",
 	"registration_main_count_label": "Main players",
 	"registration_substitute_count_label": "Substitute places",
-	"roster_student_id_required_badge": "Student ID required"
+	"roster_student_id_required_badge": "Student ID required",
+	"payment_image_choose": "Choose image",
+	"payment_image_replace": "Replace image",
+	"payment_image_remove": "Remove image",
+	"payment_image_drop": "Drop your payment proof image here",
+	"payment_image_preview": "Selected payment proof preview",
+	"payment_image_single": "Choose one payment proof image at a time."
 }

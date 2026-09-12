@@ -3,6 +3,7 @@
 	import { submitPaymentAttempt } from '$lib/api/registrations';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
+	import PaymentProofField from './PaymentProofField.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import * as m from '$lib/paraglide/messages';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -31,6 +32,8 @@
 	let amount = $state('');
 	let currency = $state('');
 	let reference = $state('');
+	let proofFile = $state<File | undefined>();
+	let proofSelectionError = $state('');
 	let turnstileToken = $state('');
 	let turnstileWidget = $state<{ reset: () => void } | null>(null);
 	let submitting = $state(false);
@@ -45,12 +48,11 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting) return;
+		if (submitting || proofSelectionError) return;
 
 		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const proofFile = formData.get('proof_file');
-		const hasProofFile = proofFile instanceof File && proofFile.size > 0;
-		if (!hasProofFile) {
+		if (proofFile) formData.set('proof_file', proofFile);
+		if (!proofFile || proofFile.size === 0) {
 			formErrors = [m.payment_evidence_required()];
 			return;
 		}
@@ -108,20 +110,12 @@
 						<Input id="currency" name="currency" required maxlength={3} bind:value={currency} />
 					</Field.Field>
 				</Field.Group>
-				<Field.Field>
-					<Field.Label for="proof_file">{m.field_payment_proof()}</Field.Label>
-					<Input
-						id="proof_file"
-						type="file"
-						name="proof_file"
-						accept="image/jpeg,image/png,image/webp"
-						aria-required="true"
-						aria-describedby="payment-image-hint"
-					/>
-					<p id="payment-image-hint" class="text-sm text-muted-foreground">
-						{m.payment_image_hint()}
-					</p>
-				</Field.Field>
+				<PaymentProofField
+					required
+					disabled={submitting}
+					bind:file={proofFile}
+					bind:selectionError={proofSelectionError}
+				/>
 				<Field.Field>
 					<Field.Label for="reference">{m.field_payment_reference()}</Field.Label>
 					<Input id="reference" name="reference" maxlength={128} bind:value={reference} />

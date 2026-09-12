@@ -52,14 +52,16 @@ describe('RosterEditor', () => {
 				state.current = value;
 			}
 		});
-		await expect.element(page.getByLabelText('First name', { exact: true })).toBeRequired();
+		await expect
+			.element(page.getByLabelText(m.roster_first_name(), { exact: true }))
+			.toBeRequired();
 		await expect.element(page.getByLabelText('Last name', { exact: true })).toBeRequired();
 		await expect.element(page.getByLabelText('Date of birth', { exact: true })).toBeRequired();
 		expect(page.getByLabelText('Student ID', { exact: true }).element()).toHaveProperty(
 			'required',
 			studentsOnly
 		);
-		await page.getByLabelText('First name', { exact: true }).fill('Minh Anh');
+		await page.getByLabelText(m.roster_first_name(), { exact: true }).fill('Minh Anh');
 		await page.getByLabelText('Last name', { exact: true }).fill('Nguyễn');
 		await page.getByLabelText('Date of birth', { exact: true }).fill('2005-03-12');
 		await page.getByLabelText('Student ID', { exact: true }).fill('00123');

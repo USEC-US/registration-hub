@@ -38,7 +38,7 @@ async function registrationUrl(request: APIRequestContext, slug: string) {
 async function fillRoster(page: Page, tags: string[]) {
 	for (const [index, tag] of tags.entries()) {
 		const row = page.locator('[data-roster-row]').nth(index);
-		await row.getByLabel('First name', { exact: true }).fill(`Player ${index + 1}`);
+		await row.getByLabel('First and Middle name', { exact: true }).fill(`Player ${index + 1}`);
 		await row.getByLabel('Last name', { exact: true }).fill('Example');
 		await row.getByLabel('Date of birth', { exact: true }).fill('2005-01-01');
 		await expect(row.getByLabel('Student ID', { exact: true })).toHaveJSProperty('required', true);
@@ -188,7 +188,15 @@ test('paid guest proof reaches organizer verification and registration approval'
 	await page.goto(await registrationUrl(request, 'solo-paid'));
 	await fillContacts(page);
 	await fillRoster(page, ['PaidGuest#ONE']);
-	await page.locator('input[name="proof_file"]').setInputFiles(proof);
+	await page.locator('[data-payment-proof-drop-zone]').evaluate((target, encoded) => {
+		const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+		const transfer = new DataTransfer();
+		transfer.items.add(new File([bytes], 'proof.png', { type: 'image/png' }));
+		target.dispatchEvent(
+			new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer })
+		);
+	}, proof.buffer.toString('base64'));
+	await expect(page.getByAltText('Selected payment proof preview')).toBeVisible();
 	const receipt = await submit(page);
 	expect(receipt.payment_attempts).toHaveLength(1);
 	expect(receipt.payment_attempts[0].status).toBe('PENDING');
@@ -223,7 +231,11 @@ test('signed-in participant submits and uploads proof from the account page', as
 	await fillRoster(page, ['SignedPlayer#ONE']);
 	const receipt = await submit(page);
 	await expect(page).toHaveURL(`/en/account/registrations/${receipt.id}`);
-	await page.locator('input[name="proof_file"]').setInputFiles(proof);
+	const chooserPromise = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Choose image', exact: true }).focus();
+	await page.keyboard.press('Enter');
+	await (await chooserPromise).setFiles(proof);
+	await expect(page.getByAltText('Selected payment proof preview')).toBeVisible();
 	const responsePromise = page.waitForResponse(
 		(response) => response.url() === `${api}/api/registrations/${receipt.id}/payment-attempts/`
 	);

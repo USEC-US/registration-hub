@@ -213,5 +213,11 @@
 	"registration_game_label": "Trò chơi",
 	"registration_main_count_label": "Thành viên chính thức",
 	"registration_substitute_count_label": "Số chỗ dự bị",
-	"roster_student_id_required_badge": "Bắt buộc mã số sinh viên"
+	"roster_student_id_required_badge": "Bắt buộc mã số sinh viên",
+	"payment_image_choose": "Chọn ảnh",
+	"payment_image_replace": "Thay ảnh",
+	"payment_image_remove": "Xóa ảnh",
+	"payment_image_drop": "Kéo và thả ảnh minh chứng thanh toán vào đây",
+	"payment_image_preview": "Xem trước ảnh minh chứng thanh toán đã chọn",
+	"payment_image_single": "Vui lòng chọn từng ảnh minh chứng thanh toán một."
 }

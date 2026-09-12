@@ -10,6 +10,7 @@
 	import Field from '$lib/components/forms/Field.svelte';
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import RosterEditor from '$lib/components/registrations/RosterEditor.svelte';
+	import PaymentProofField from '$lib/components/registrations/PaymentProofField.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
@@ -19,14 +20,12 @@
 	import * as FormField from '$lib/components/ui/field';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Alert from '$lib/components/ui/alert';
-	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Badge } from '$lib/components/ui/badge';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
-	import FileImage from '@lucide/svelte/icons/file-image';
 	import { onMount } from 'svelte';
 	import type { PageProps } from './$types';
 
@@ -44,6 +43,8 @@
 	let email = $state('');
 	let discord = $state('');
 	let reference = $state('');
+	let proofFile = $state<File | undefined>();
+	let proofSelectionError = $state('');
 	let confirmation = $state<RegistrationRead | null>(null);
 	const paymentRequired = $derived(Number(data.game.fee_amount) > 0);
 	let submitting = $state(false);
@@ -65,7 +66,7 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting || loading || confirmation) return;
+		if (submitting || loading || confirmation || proofSelectionError) return;
 		fieldErrors = {};
 		formErrors = [];
 		if (!facebook.trim())
@@ -76,9 +77,6 @@
 		if (members.some((member) => !member.institution_id && !member.institution_label?.trim()))
 			fieldErrors.members = [m.registration_institution_required()];
 		if (Object.keys(fieldErrors).length) return;
-		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const file = formData.get('proof_file');
-		const proofFile = file instanceof File && file.size > 0 ? file : undefined;
 		if (paymentRequired && !accessToken && !proofFile) {
 			fieldErrors.proof_file = [m.payment_evidence_required()];
 			return;
@@ -412,32 +410,13 @@
 										: m.registration_proof_guest()}</FormField.Description
 								>
 								<FormField.Group>
-									<FormField.Field
-										class="rounded-lg border border-dashed p-4 sm:p-5"
-										data-invalid={!!fieldErrors.proof_file}
-									>
-										<FileImage class="size-6 text-muted-foreground" aria-hidden="true" />
-										<FormField.Label for="proof_file">{m.field_payment_proof()}</FormField.Label>
-										<Input
-											id="proof_file"
-											name="proof_file"
-											type="file"
-											accept="image/jpeg,image/png,image/webp"
-											aria-required={!accessToken}
-											aria-invalid={!!fieldErrors.proof_file}
-											aria-describedby="payment-image-hint proof-error"
-										/>
-										<FormField.Description id="payment-image-hint"
-											>{m.payment_image_hint()}</FormField.Description
-										>
-										{#if fieldErrors.proof_file}<p
-												id="proof-error"
-												role="alert"
-												class="text-sm text-destructive"
-											>
-												{fieldErrors.proof_file[0]}
-											</p>{/if}
-									</FormField.Field>
+									<PaymentProofField
+										required={!accessToken}
+										disabled={submitting}
+										error={fieldErrors.proof_file?.[0]}
+										bind:file={proofFile}
+										bind:selectionError={proofSelectionError}
+									/>
 									<Field
 										label={m.field_payment_reference()}
 										name="reference"

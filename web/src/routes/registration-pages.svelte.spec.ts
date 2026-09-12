@@ -1,3 +1,4 @@
+import * as m from '$lib/paraglide/messages';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { page as appPage } from '$app/state';
@@ -148,7 +149,7 @@ beforeEach(() => {
 
 async function chooseInstitution(index: number, label = 'HCMUS') {
 	await page
-		.getByLabelText('First name', { exact: true })
+		.getByLabelText(m.roster_first_name(), { exact: true })
 		.nth(index)
 		.fill(`Player ${index + 1}`);
 	await page.getByLabelText('Last name', { exact: true }).nth(index).fill('Example');
@@ -179,12 +180,14 @@ describe('participant registration pages', () => {
 		const invalid = new DataTransfer();
 		invalid.items.add(new File(['pdf'], 'proof.pdf', { type: 'application/pdf' }));
 		input.files = invalid.files;
+		input.dispatchEvent(new Event('change', { bubbles: true }));
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 		await expect.element(page.getByLabelText('Gamer tag')).toHaveValue('player#123');
 		expect(submitRegistration).not.toHaveBeenCalled();
 		const valid = new DataTransfer();
 		valid.items.add(new File(['image'], 'proof.png', { type: 'image/png' }));
 		input.files = valid.files;
+		input.dispatchEvent(new Event('change', { bubbles: true }));
 		await page.getByLabelText('Payment reference').fill('bank-123');
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 		await expect
@@ -197,6 +200,36 @@ describe('participant registration pages', () => {
 		expect(challenge).toBe('registration-submit-token');
 		expect(proof?.name).toBe('proof.png');
 		expect(reference).toBe('bank-123');
+	});
+
+	it('blocks an invalid optional proof until a signed-in player removes it', async () => {
+		vi.mocked(getAccessToken).mockReturnValue('access-token');
+		render(RegisterPage, {
+			data: {
+				tournament,
+				game: { ...game, main_roster_size: 1, substitute_limit: 0 },
+				displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE
+			},
+			params: { slug: tournament.slug, gameId: String(game.id) }
+		});
+		await page.getByLabelText('Facebook', { exact: true }).fill('facebook.com/player');
+		await page.getByLabelText('Phone', { exact: true }).fill('0901234567');
+		await page.getByLabelText('Gamer tag').fill('player#123');
+		await chooseInstitution(0);
+		const input = document.querySelector<HTMLInputElement>('input[type=file]')!;
+		const transfer = new DataTransfer();
+		transfer.items.add(new File(['pdf'], 'proof.pdf', { type: 'application/pdf' }));
+		input.files = transfer.files;
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+		await page.getByRole('button', { name: 'Submit registration' }).click();
+		await expect
+			.element(page.getByText('Choose a JPEG, PNG, or WebP image no larger than 10 MB.'))
+			.toBeVisible();
+		expect(submitRegistration).not.toHaveBeenCalled();
+		await page.getByRole('button', { name: 'Remove image', exact: true }).click();
+		await page.getByRole('button', { name: 'Submit registration' }).click();
+		await vi.waitFor(() => expect(submitRegistration).toHaveBeenCalledOnce());
+		expect(vi.mocked(submitRegistration).mock.calls[0][3]).toBeUndefined();
 	});
 
 	it('submits a free guest manager with a separate name and confirms organizer corrections', async () => {
