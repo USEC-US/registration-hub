@@ -6,6 +6,12 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Alert from '$lib/components/ui/alert';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import UserPlus from '@lucide/svelte/icons/user-plus';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		submitterRole?: SubmitterRole;
@@ -142,48 +148,75 @@
 </script>
 
 <section aria-labelledby="roster-heading">
-	<header class="mb-4 border-b border-(--line) pb-4">
-		<h2 class="font-heading text-2xl font-semibold" id="roster-heading">{m.roster_heading()}</h2>
-		<p class="mt-2 text-sm text-(--text-muted)">
-			{m.roster_size_note({ main: mainRosterSize, substitutes: substituteLimit })}
-		</p>
+	<header class="mb-6 flex flex-col gap-4">
+		<div class="flex items-start gap-3">
+			<span
+				class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono-data text-sm font-semibold text-primary"
+				aria-hidden="true">02</span
+			>
+			<div class="flex flex-col gap-1">
+				<h2 class="font-semibold" id="roster-heading">{m.roster_heading()}</h2>
+				<p class="text-sm text-muted-foreground">
+					{m.roster_size_note({ main: mainRosterSize, substitutes: substituteLimit })}
+				</p>
+			</div>
+		</div>
+		<div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+			<p class="flex flex-1 items-start gap-2 text-xs leading-5 text-muted-foreground">
+				<ShieldCheck
+					class="mt-0.5 size-4 shrink-0"
+					aria-hidden="true"
+				/>{m.roster_identity_private()}
+			</p>
+			{#if studentsOnly}<Badge variant="secondary">{m.roster_student_id_required_badge()}</Badge
+				>{/if}
+		</div>
+		<p class="text-xs leading-5 text-muted-foreground">{m.registration_gamer_tag_hint()}</p>
 	</header>
-
-	{#if studentsOnly}<p class="mb-4 text-sm font-medium">{m.registration_students_only()}</p>{/if}
-	<p class="mb-4 text-sm text-muted-foreground">{m.roster_identity_private()}</p>
-	<p class="mb-4 text-sm text-muted-foreground">{m.roster_representative_hint()}</p>
-	<p class="mb-4 text-sm text-muted-foreground">{m.registration_gamer_tag_hint()}</p>
-	{#if errors.length}<div role="alert" class="mb-4 text-sm text-destructive">
-			{#each errors as error (error)}<p>{error}</p>{/each}
-		</div>{/if}
+	{#if errors.length}
+		<Alert.Root variant="destructive" class="mb-4 rounded-lg"
+			><Alert.Description
+				>{#each errors as error (error)}<p>{error}</p>{/each}</Alert.Description
+			></Alert.Root
+		>
+	{/if}
 	<RadioGroup.Root
 		value={captainValue}
 		onValueChange={(value) => selectCaptain(Number(value))}
 		aria-label={m.roster_captain()}
-		class="border border-(--line) gap-0"
+		class="gap-4"
 	>
 		{#each members as member, index (rowIds[index])}
 			{#if index === 0 || member.roster_role !== members[index - 1].roster_role}
-				<h3 class="border-b bg-muted px-4 py-3 font-semibold">
+				<h3 class="pt-2 text-sm font-semibold first:pt-0">
 					{member.roster_role === 'main'
 						? m.roster_main_heading({ count: mainRosterSize })
 						: m.roster_substitutes_heading({ count: substituteLimit })}
 				</h3>
 			{/if}
 			<Field.Set
-				class="flex flex-col gap-4 border-b border-(--line) p-4 last:border-b-0 sm:p-5"
+				class="flex min-w-0 flex-col gap-0 overflow-hidden rounded-lg border"
 				data-roster-row
 			>
 				<Field.Legend class="sr-only">{m.roster_member_label({ number: index + 1 })}</Field.Legend>
-				<div class="flex flex-wrap items-center justify-between gap-3">
+				<div
+					class="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5"
+				>
 					<div class="flex items-center gap-3">
-						<span class="font-mono-data text-2xl font-semibold text-accent"
-							>{String(index + 1).padStart(2, '0')}</span
+						<span
+							class={cn(
+								'flex size-8 items-center justify-center rounded-full font-mono-data text-xs font-semibold',
+								member.is_captain
+									? 'bg-primary text-primary-foreground'
+									: 'bg-muted text-muted-foreground'
+							)}>{String(index + 1).padStart(2, '0')}</span
 						>
 						<span class="text-sm font-medium">{m.roster_member_number({ number: index + 1 })}</span>
 					</div>
 					<div class="flex flex-wrap items-center gap-3">
-						<Field.Label class="flex min-h-11 items-center gap-2 border px-3">
+						<Field.Label
+							class="flex min-h-9 cursor-pointer items-center gap-2 rounded-full border bg-card px-3"
+						>
 							<RadioGroup.Item
 								value={String(index)}
 								disabled={submitterRole === 'captain'}
@@ -195,15 +228,16 @@
 						{#if member.roster_role === 'substitute'}
 							<Button
 								type="button"
-								variant="outline"
+								variant="ghost"
+								size="icon"
+								aria-label={m.roster_remove_member({ number: index + 1 })}
 								disabled={submitterRole === 'captain' && index === 0}
-								onclick={() => removeMember(index)}
-								>{m.roster_remove_member({ number: index + 1 })}</Button
+								onclick={() => removeMember(index)}><Trash2 aria-hidden="true" /></Button
 							>
 						{/if}
 					</div>
 				</div>
-				<Field.Group class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				<Field.Group class="grid gap-5 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
 					<Field.Field>
 						<Field.Label for={`member-${index + 1}-first-name`}>{m.roster_first_name()}</Field.Label
 						>
@@ -284,10 +318,11 @@
 		<Button
 			type="button"
 			variant="outline"
-			class="mt-4"
+			class="mt-4 min-h-12 w-full rounded-lg border-dashed"
 			disabled={members.filter((member) => member.roster_role === 'substitute').length >=
 				substituteLimit}
-			onclick={addMember}>{m.roster_add_substitute()}</Button
+			onclick={addMember}
+			><UserPlus data-icon="inline-start" aria-hidden="true" />{m.roster_add_substitute()}</Button
 		>
 	{/if}
 </section>

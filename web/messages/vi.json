@@ -203,5 +203,15 @@
 	"roster_student_id_optional": "Không bắt buộc đối với giải đấu này.",
 	"roster_identity_private": "Họ tên, ngày sinh và mã số sinh viên được gửi riêng cho ban tổ chức để kiểm tra điều kiện tham dự.",
 	"registration_students_only": "Chỉ dành cho sinh viên. Mỗi thành viên chính thức và dự bị đều phải cung cấp mã số sinh viên.",
-	"tournament_students_only": "Chỉ dành cho sinh viên"
+	"tournament_students_only": "Chỉ dành cho sinh viên",
+	"registration_back_to_tournament": "Quay lại giải đấu",
+	"registration_details_heading": "Thông tin đội và liên hệ",
+	"registration_details_intro": "Chọn vai trò của bạn và cung cấp thông tin để ban tổ chức liên hệ.",
+	"registration_payment_and_submit": "Thanh toán và gửi đăng ký",
+	"registration_ready_to_submit": "Hoàn tất đăng ký",
+	"registration_overview_heading": "Thông tin đăng ký",
+	"registration_game_label": "Trò chơi",
+	"registration_main_count_label": "Thành viên chính thức",
+	"registration_substitute_count_label": "Số chỗ dự bị",
+	"roster_student_id_required_badge": "Bắt buộc mã số sinh viên"
 }

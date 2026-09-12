@@ -203,5 +203,15 @@
 	"roster_student_id_optional": "Optional for this tournament.",
 	"roster_identity_private": "Names, birth dates, and Student IDs are shared with organizers for eligibility review.",
 	"registration_students_only": "Students only. Every main player and substitute must provide a Student ID.",
-	"tournament_students_only": "Students only"
+	"tournament_students_only": "Students only",
+	"registration_back_to_tournament": "Back to tournament",
+	"registration_details_heading": "Team & contact",
+	"registration_details_intro": "Choose your role and tell organizers how to reach you.",
+	"registration_payment_and_submit": "Payment & submission",
+	"registration_ready_to_submit": "Ready to submit",
+	"registration_overview_heading": "Your registration",
+	"registration_game_label": "Game",
+	"registration_main_count_label": "Main players",
+	"registration_substitute_count_label": "Substitute places",
+	"roster_student_id_required_badge": "Student ID required"
 }
