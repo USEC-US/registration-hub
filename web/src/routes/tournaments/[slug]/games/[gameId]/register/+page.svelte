@@ -46,7 +46,7 @@
 	}
 
 	function isAuthenticationError(cause: unknown): boolean {
-		return cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403);
+		return cause instanceof ApiRequestError && cause.status === 401;
 	}
 
 	function formatFee(): string {

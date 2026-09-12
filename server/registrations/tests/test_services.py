@@ -3,8 +3,9 @@ from decimal import Decimal
 
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from .images import payment_image
+from tempfile import TemporaryDirectory
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from accounts.tests.factories import create_account
@@ -24,6 +25,11 @@ from tournaments.models import Game, Tournament, TournamentGame
 
 class RegistrationServiceTests(TestCase):
     def setUp(self):
+        media = TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=media.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
         self.captain = create_account(
             email="captain@example.com",
             password="strong-password",
@@ -291,7 +297,7 @@ class RegistrationServiceTests(TestCase):
             registration_id=registration.pk,
             amount=Decimal("50000.00"),
             currency="vnd",
-            proof_file=SimpleUploadedFile("proof.txt", b"payment proof"),
+            proof_file=payment_image(),
         )
 
         self.assertEqual(attempt.status, PaymentAttempt.Status.PENDING)
@@ -355,6 +361,7 @@ class RegistrationServiceTests(TestCase):
             amount=Decimal("50000.00"),
             currency="VND",
             reference="BANK-1",
+            proof_file=payment_image(),
         )
         organizer = self._organizer()
 

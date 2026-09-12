@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -19,6 +20,27 @@ from tournaments.models import Game, Tournament, TournamentGame
 
 @override_settings(DEBUG=True)
 class SeedDevDataCommandTests(TestCase):
+    def test_rerun_removes_replaced_sample_images_after_commit(self):
+        self.run_seed()
+        previous = [attempt.proof_file for attempt in PaymentAttempt.objects.all()]
+        self.assertTrue(all(proof.storage.exists(proof.name) for proof in previous))
+        with self.captureOnCommitCallbacks(execute=True):
+            self.run_seed()
+        self.assertTrue(all(not proof.storage.exists(proof.name) for proof in previous))
+        self.assertTrue(
+            all(
+                attempt.proof_file.storage.exists(attempt.proof_file.name)
+                for attempt in PaymentAttempt.objects.all()
+            )
+        )
+
+    def setUp(self):
+        media = TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=media.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
+
     def run_seed(self, **options) -> str:
         output = StringIO()
         call_command("seed_dev_data", stdout=output, **options)
@@ -55,7 +77,7 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(player.last_name, "Player")
         self.assertEqual(
             player.institution.label,
-            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+            "TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)",
         )
         self.assertEqual(player.institution.short_name, "HCMUS")
         self.assertEqual(player.institution.english_name, "University of Science - VNU")
@@ -202,8 +224,8 @@ class SeedDevDataCommandTests(TestCase):
             rocket_payments[1].created_at,
         )
         self.assertLess(rocket_payments[1].created_at, rejection_event.created_at)
-        self.assertFalse(
-            any(
+        self.assertTrue(
+            all(
                 attempt.proof_file.name
                 for attempt in PaymentAttempt.objects.filter(
                     registration__submitted_by=player
@@ -334,7 +356,7 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(player.last_name, "Player")
         self.assertEqual(
             player.institution.label,
-            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+            "TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)",
         )
         self.assertEqual(player.institution.short_name, "HCMUS")
         self.assertEqual(player.institution.english_name, "University of Science - VNU")

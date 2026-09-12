@@ -49,10 +49,16 @@
 
 		const formData = new FormData(event.currentTarget as HTMLFormElement);
 		const proofFile = formData.get('proof_file');
-		const paymentReference = String(formData.get('reference') ?? '').trim();
 		const hasProofFile = proofFile instanceof File && proofFile.size > 0;
-		if (!hasProofFile && !paymentReference) {
+		if (!hasProofFile) {
 			formErrors = [m.payment_evidence_required()];
+			return;
+		}
+		if (
+			proofFile.size > 10 * 1024 * 1024 ||
+			!['image/jpeg', 'image/png', 'image/webp'].includes(proofFile.type)
+		) {
+			formErrors = [m.payment_image_invalid()];
 			return;
 		}
 		if (!turnstileToken) {
@@ -69,7 +75,7 @@
 			await request;
 			await onSuccess();
 		} catch (cause) {
-			if (cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403)) {
+			if (cause instanceof ApiRequestError && cause.status === 401) {
 				await onAuthenticationError();
 				return;
 			}
@@ -104,7 +110,17 @@
 				</Field.Group>
 				<Field.Field>
 					<Field.Label for="proof_file">{m.field_payment_proof()}</Field.Label>
-					<Input id="proof_file" type="file" name="proof_file" accept="image/*,.pdf" />
+					<Input
+						id="proof_file"
+						type="file"
+						name="proof_file"
+						accept="image/jpeg,image/png,image/webp"
+						aria-required="true"
+						aria-describedby="payment-image-hint"
+					/>
+					<p id="payment-image-hint" class="text-sm text-muted-foreground">
+						{m.payment_image_hint()}
+					</p>
 				</Field.Field>
 				<Field.Field>
 					<Field.Label for="reference">{m.field_payment_reference()}</Field.Label>

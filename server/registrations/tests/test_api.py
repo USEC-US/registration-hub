@@ -1,5 +1,8 @@
 from datetime import timedelta
 from decimal import Decimal
+from tempfile import TemporaryDirectory
+from django.core.files.uploadedfile import SimpleUploadedFile
+from .images import payment_image
 
 from django.test import override_settings
 from django.utils import timezone
@@ -11,9 +14,15 @@ from accounts.tests.factories import create_account
 from registrations.models import Registration
 from tournaments.models import Game, Tournament, TournamentGame
 
+
 @override_settings(ROOT_URLCONF="config.urls", DEBUG=True, TURNSTILE_SECRET_KEY="")
 class RegistrationOwnershipApiTests(APITestCase):
     def setUp(self):
+        media = TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=media.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
         self.owner = create_account(
             email="owner@example.com",
             password="strong-password",
@@ -66,6 +75,91 @@ class RegistrationOwnershipApiTests(APITestCase):
                 }
             ],
         }
+
+    def test_payment_requires_a_valid_bounded_image(self):
+        self.client.force_authenticate(user=self.owner)
+        for proof in (
+            None,
+            SimpleUploadedFile("proof.jpg", b"not an image", content_type="image/jpeg"),
+            SimpleUploadedFile(
+                "proof.svg", b'<svg xmlns="http://www.w3.org/2000/svg"/>'
+            ),
+            SimpleUploadedFile("proof.png", b"x" * (10 * 1024 * 1024 + 1)),
+            payment_image("GIF"),
+        ):
+            with self.subTest(proof=getattr(proof, "name", None)):
+                payload = {
+                    "amount": "50000.00",
+                    "currency": "VND",
+                    "reference": "BANK123",
+                }
+                if proof is not None:
+                    payload["proof_file"] = proof
+                response = self.client.post(
+                    f"/api/registrations/{self.registration.pk}/payment-attempts/",
+                    payload,
+                    format="multipart",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("proof_file", response.data)
+        self.assertFalse(self.registration.payment_attempts.exists())
+
+    def test_payment_accepts_supported_images(self):
+        self.client.force_authenticate(user=self.owner)
+        for format in ("JPEG", "PNG", "WEBP"):
+            with self.subTest(format=format):
+                response = self.client.post(
+                    f"/api/registrations/{self.registration.pk}/payment-attempts/",
+                    {
+                        "amount": "50000.00",
+                        "currency": "VND",
+                        "proof_file": payment_image(format),
+                    },
+                    format="multipart",
+                )
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+                self.assertNotIn("proof_file", response.data)
+
+    def test_payment_image_download_requires_owner_or_organizer(self):
+        from django.contrib.auth.models import Group, Permission
+        from registrations.services import submit_payment_attempt
+
+        attempt = submit_payment_attempt(
+            actor=self.owner,
+            registration_id=self.registration.pk,
+            amount=Decimal("50000.00"),
+            currency="VND",
+            proof_file=payment_image(),
+        )
+        url = attempt.proof_file.url
+        response = self.client.get(url)
+        self.assertIn(response.status_code, (401, 403))
+        if response.streaming:
+            self.assertTrue(b"".join(response.streaming_content))
+        self.client.force_authenticate(self.other_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+        if response.streaming:
+            self.assertTrue(b"".join(response.streaming_content))
+        self.client.force_authenticate(self.owner)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Cache-Control"], "private, no-store")
+        if response.streaming:
+            self.assertTrue(b"".join(response.streaming_content))
+        self.client.force_authenticate(user=None)
+        self.other_user.is_staff = True
+        self.other_user.save(update_fields=["is_staff"])
+        self.client.force_login(self.other_user)
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.other_user.groups.add(Group.objects.get_or_create(name="Organizers")[0])
+        self.other_user.user_permissions.add(
+            Permission.objects.get(codename="view_paymentattempt")
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        if response.streaming:
+            self.assertTrue(b"".join(response.streaming_content))
 
     def test_unauthenticated_list_and_detail_are_not_available(self):
         list_response = self.client.get("/api/registrations/")
@@ -135,12 +229,13 @@ class RegistrationOwnershipApiTests(APITestCase):
             "amount": "50000.00",
             "currency": "VND",
             "reference": "transfer-123",
+            "proof_file": payment_image(),
             "turnstile_token": "debug-token",
         }
         self.client.post(
             f"/api/registrations/{self.registration.pk}/payment-attempts/",
             payment_payload,
-            format="json",
+            format="multipart",
         )
 
         response = self.client.get(f"/api/registrations/{self.registration.pk}/")
@@ -193,8 +288,8 @@ class RegistrationOwnershipApiTests(APITestCase):
 
         response = self.client.post(
             f"/api/registrations/{self.registration.pk}/payment-attempts/",
-            {"amount": "50000.00", "currency": "VND", "reference": "BANK123"},
-            format="json",
+            {"amount": "50000.00", "currency": "VND", "proof_file": payment_image()},
+            format="multipart",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

@@ -56,7 +56,7 @@
 	"payment_attempt_intro": "Submit the transfer details and proof for review.",
 	"payment_uploading": "Uploading…",
 	"payment_upload_failed": "Payment proof could not be uploaded. Check the details and try again.",
-	"payment_evidence_required": "Provide a payment proof or reference.",
+	"payment_evidence_required": "Upload a payment proof image.",
 	"turnstile_dev_missing_key": "Development bypass: set PUBLIC_TURNSTILE_SITE_KEY in web/.env to render Cloudflare Turnstile.",
 	"turnstile_script_load_error": "The security check could not be loaded. Check your connection and try again.",
 	"turnstile_challenge_error": "The security check could not be completed. Try again.",
@@ -152,11 +152,14 @@
 	"address_title": "{#bold}Address:{/bold}",
 	"address_1": "{#bold}Campus 1{/bold}: 227 Nguyen Van Cu St., Cho Quan Ward, Ho Chi Minh City",
 	"address_2": "{#bold}Campus 2{/bold}: VNUHCM Urban Area, Dong Hoa Ward, Ho Chi Minh City.",
-
 	"empty_tournaments_note": "Check back later for upcoming tournaments.",
 	"tournament_cover_alt": "Cover image for {name}",
 	"tournament_featured_label": "Featured",
 	"tournament_loading": "Loading tournaments…",
 	"featured_tournaments_text": "Featured Tournaments",
-	"other_tournaments_text": "More Tournaments"
+	"other_tournaments_text": "More Tournaments",
+	"roster_add_player": "Add player",
+	"roster_remove_member": "Remove member {number}",
+	"payment_image_hint": "JPEG, PNG, or WebP. Maximum 10 MB and 20 megapixels. Still images only.",
+	"payment_image_invalid": "Choose a JPEG, PNG, or WebP image no larger than 10 MB."
 }

@@ -1,0 +1,2032 @@
+{
+  "source": "https://tuyensinh.moet.gov.vn/ts/ThongTinTruong/GetData",
+  "retrieved_at": "2026-09-12",
+  "count": 405,
+  "data": [
+    {
+      "Id": "e6e4405e-b900-4666-9008-6cbdc488d851",
+      "MA": "AIS",
+      "TEN_DON_VI": "HỌC VIỆN QUỐC TẾ"
+    },
+    {
+      "Id": "359394D9-2F4F-49C1-9D10-2B9A78D3B279",
+      "MA": "ANH",
+      "TEN_DON_VI": "HỌC VIỆN AN NINH NHÂN DÂN"
+    },
+    {
+      "Id": "DD282BF4-5C08-4241-A34D-8E2826D9A32A",
+      "MA": "ANS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC AN NINH NHÂN DÂN"
+    },
+    {
+      "Id": "35FA1DF9-F200-464F-A2F6-59981415E74B",
+      "MA": "AUV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC MỸ TẠI VIỆT NAM"
+    },
+    {
+      "Id": "6E692850-F037-4149-9A94-79FB74C5FF92",
+      "MA": "BKA",
+      "TEN_DON_VI": "ĐẠI HỌC BÁCH KHOA HÀ NỘI"
+    },
+    {
+      "Id": "30AAB1C7-27AE-4201-A822-19014759CE70",
+      "MA": "BMU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y DƯỢC BUÔN MA THUỘT"
+    },
+    {
+      "Id": "F1E902B8-98A5-45B0-B9F1-BC2C9126BC03",
+      "MA": "BPH",
+      "TEN_DON_VI": "HỌC VIỆN BIÊN PHÒNG"
+    },
+    {
+      "Id": "3F60AE1D-3CDB-4C6C-95EA-3FE26F0F6D5A",
+      "MA": "BUV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ANH QUỐC - VIỆT NAM"
+    },
+    {
+      "Id": "6365D620-C684-4395-B0CB-18162D225147",
+      "MA": "BVH",
+      "TEN_DON_VI": "HỌC VIỆN CÔNG NGHỆ BƯU CHÍNH VIỄN THÔNG"
+    },
+    {
+      "Id": "9DDF20AE-D633-4278-92A3-2F892D6981C6",
+      "MA": "BVS",
+      "TEN_DON_VI": "Học viện Công nghệ Bưu chính viễn thông - Cơ sở tại TP. Hồ Chí Minh"
+    },
+    {
+      "Id": "4D28565A-741B-49A0-A084-A0E408554D8B",
+      "MA": "BVU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC BÀ RỊA - VŨNG TÀU"
+    },
+    {
+      "Id": "7318F4BD-0D33-4BD0-919E-5C1BDA9F2A92",
+      "MA": "C05",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM HÀ GIANG"
+    },
+    {
+      "Id": "729FF60F-7BB3-4BC3-8E3F-CA013298F639",
+      "MA": "C06",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG CAO BẰNG"
+    },
+    {
+      "Id": "0881EE18-E66C-40A4-9CBF-9DB59180C7E0",
+      "MA": "C10",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG LẠNG SƠN"
+    },
+    {
+      "Id": "B7C0018E-AB29-46C8-B702-94EB4929595C",
+      "MA": "C11",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG BẮC KẠN"
+    },
+    {
+      "Id": "11B186CB-0104-4670-A422-C4E72FA4CD71",
+      "MA": "C12",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG THÁI NGUYÊN"
+    },
+    {
+      "Id": "F2CBE3DB-36DF-4E89-9CA1-0A82121C0463",
+      "MA": "C13",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM YÊN BÁI"
+    },
+    {
+      "Id": "EED8EA53-57B9-4313-ACB0-CD1B860B42EF",
+      "MA": "C14",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƠN LA"
+    },
+    {
+      "Id": "C51A6F8A-67E4-4C96-82A7-F985A52BA629",
+      "MA": "C16",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG VĨNH PHÚC"
+    },
+    {
+      "Id": "41FA1719-7041-43C2-AE25-E7F5AA8D530F",
+      "MA": "C18",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG BẮC GIANG"
+    },
+    {
+      "Id": "43A686E0-21E9-40CC-B898-7313641FC80B",
+      "MA": "C19",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM BẮC NINH"
+    },
+    {
+      "Id": "2CBF4866-0D95-4E85-8F5F-C307CD4ACA80",
+      "MA": "C20",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM HÀ TÂY"
+    },
+    {
+      "Id": "11AEA456-A31E-4F16-9E01-593487DA0729",
+      "MA": "C21",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG HẢI DƯƠNG"
+    },
+    {
+      "Id": "C024E778-DD9E-4C5A-905F-4C73ADAC4FF7",
+      "MA": "C22",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG CỘNG ĐỒNG HƯNG YÊN"
+    },
+    {
+      "Id": "BA88E7AD-1DA0-49A3-BE48-5A966A7403AA",
+      "MA": "C23",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM HÒA BÌNH"
+    },
+    {
+      "Id": "1EACE330-4EA9-40A6-818B-AAEAB204CF83",
+      "MA": "C25",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM NAM ĐỊNH"
+    },
+    {
+      "Id": "658AFA67-BF90-4448-8216-0A5E39A27FB9",
+      "MA": "C26",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM THÁI BÌNH"
+    },
+    {
+      "Id": "9A9652C5-4869-4515-A061-73E3BDB12BC5",
+      "MA": "C29",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM NGHỆ AN"
+    },
+    {
+      "Id": "B72FA552-3348-4930-A5DA-11A6953D3F44",
+      "MA": "C32",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM QUẢNG TRỊ"
+    },
+    {
+      "Id": "BCB0B259-3CD7-4B68-8ABC-736A5D221D3E",
+      "MA": "C33",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG HUẾ"
+    },
+    {
+      "Id": "19EF84C2-19DE-43A5-9F26-005193BB9E63",
+      "MA": "C36",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG KON TUM"
+    },
+    {
+      "Id": "B3EC3FCA-BF34-4DE3-B9F9-FDEF56543C34",
+      "MA": "C37",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG KỸ THUẬT CÔNG NGHỆ QUY NHƠN"
+    },
+    {
+      "Id": "44C08740-A8C8-47C4-AFE8-D609A089E00C",
+      "MA": "C40",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM ĐẮK LẮK"
+    },
+    {
+      "Id": "4F7189D9-8D7B-4C6F-9E4F-FAF956F6F411",
+      "MA": "C42",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG ĐÀ LẠT"
+    },
+    {
+      "Id": "C52BC39F-59E3-4FB2-A07A-6DF3E20DB795",
+      "MA": "C43",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG BÌNH PHƯỚC"
+    },
+    {
+      "Id": "D4804E08-4EDD-4979-AA12-987B3DE7027E",
+      "MA": "C46",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM TÂY NINH"
+    },
+    {
+      "Id": "00530BF6-E8FA-4807-A9AE-75071D76C073",
+      "MA": "C47",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG BÌNH THUẬN"
+    },
+    {
+      "Id": "B6EAFE05-9B7F-43CD-A157-B3A50891A6E1",
+      "MA": "C49",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM LONG AN"
+    },
+    {
+      "Id": "273854C6-B83C-4119-8776-182BA703A1B5",
+      "MA": "C52",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM BÀ RỊA - VŨNG TÀU"
+    },
+    {
+      "Id": "9B786E13-D2BE-4AAE-9F2C-CFC905D047B4",
+      "MA": "C54",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM KIÊN GIANG"
+    },
+    {
+      "Id": "76C97F75-63D8-4551-B417-73BA68FC508A",
+      "MA": "C55",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG CẦN THƠ"
+    },
+    {
+      "Id": "99C611DD-909B-4CB0-9CCC-6BFE1E76B581",
+      "MA": "C56",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG BẾN TRE"
+    },
+    {
+      "Id": "496FA02F-A876-45BD-9D75-E178CB986B7A",
+      "MA": "C57",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG VĨNH LONG"
+    },
+    {
+      "Id": "0c38f617-6894-4a7a-bf3b-5745e018e43a",
+      "MA": "CCE",
+      "TEN_DON_VI": "Trung tâm Đào tạo thường xuyên (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "AD371FB5-540D-4F25-A5C8-14182E8F8663",
+      "MA": "CCM",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHIỆP VÀ THƯƠNG MẠI HÀ NỘI"
+    },
+    {
+      "Id": "3C9BE863-9AF3-46C2-9520-169F2359DB54",
+      "MA": "CLC",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG LAI CHÂU"
+    },
+    {
+      "Id": "154449D1-2E13-4DD9-91F4-E8E3E0FA33AA",
+      "MA": "CM1",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM TRUNG ƯƠNG"
+    },
+    {
+      "Id": "666A59CD-E31B-49F9-A06A-FB44C7E1E5BF",
+      "MA": "CM2",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM TRUNG ƯƠNG NHA TRANG"
+    },
+    {
+      "Id": "509637F7-D1F6-4F3A-A08C-B022DAB9BB13",
+      "MA": "CM3",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG SƯ PHẠM TRUNG ƯƠNG TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "018EC5D1-29F6-404D-9189-5431161C1C84",
+      "MA": "CMC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CMC"
+    },
+    {
+      "Id": "C88FFFBD-1DEF-43E8-A9E0-C777C1D8E277",
+      "MA": "CSH",
+      "TEN_DON_VI": "HỌC VIỆN CẢNH SÁT NHÂN DÂN"
+    },
+    {
+      "Id": "14A9D0F4-F828-49F7-8EBD-F9F4F20B46EB",
+      "MA": "CSS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CẢNH SÁT NHÂN DÂN"
+    },
+    {
+      "Id": "10598581-186B-417C-A5FB-9645B7657A2B",
+      "MA": "CST",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG CỘNG ĐỒNG SÓC TRĂNG"
+    },
+    {
+      "Id": "F0A0F102-C276-4EF3-8C2A-081D1C131F2F",
+      "MA": "D61",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG CỘNG ĐỒNG CÀ MAU"
+    },
+    {
+      "Id": "FA146C59-10B6-472C-8342-C2B05EBCD710",
+      "MA": "D64",
+      "TEN_DON_VI": "TRƯỜNG CAO ĐẲNG CỘNG ĐỒNG HẬU GIANG"
+    },
+    {
+      "Id": "A80A287E-61B2-48A5-AAB8-82912D69DCC4",
+      "MA": "DAD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐÔNG Á"
+    },
+    {
+      "Id": "456f209e-d3e1-44ae-9363-4f0bffe06bb8",
+      "MA": "DBC",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Bình Dương tại Cà Mau"
+    },
+    {
+      "Id": "E17016EA-F38E-4435-A41C-B0155AB54624",
+      "MA": "DBD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC BÌNH DƯƠNG"
+    },
+    {
+      "Id": "9519749E-73A4-445D-9C85-56114D2E7AEC",
+      "MA": "DBG",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NÔNG LÂM BẮC GIANG"
+    },
+    {
+      "Id": "6CD475BB-BA30-4259-BCCD-F5F7E33E29FF",
+      "MA": "DBH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUỐC TẾ BẮC HÀ"
+    },
+    {
+      "Id": "88EE5F87-BFD5-45D4-8ECF-A33629A1F3FE",
+      "MA": "DBL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC BẠC LIÊU"
+    },
+    {
+      "Id": "2BE784B8-6470-412C-901B-26E0F10262BF",
+      "MA": "DCD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ ĐỒNG NAI"
+    },
+    {
+      "Id": "76E0CC55-B644-428F-B910-11634A571435",
+      "MA": "DCH",
+      "TEN_DON_VI": "TRƯỜNG SĨ QUAN ĐẶC CÔNG"
+    },
+    {
+      "Id": "899996E2-0635-4CA0-BD73-790ACC97D825",
+      "MA": "DCL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CỬU LONG"
+    },
+    {
+      "Id": "B31270CF-7A1B-4A7C-A630-4FF9F5719CEF",
+      "MA": "DCN",
+      "TEN_DON_VI": "ĐẠI HỌC CÔNG NGHIỆP HÀ NỘI"
+    },
+    {
+      "Id": "E5AAB9A7-41F7-4996-ADD9-EC1203277253",
+      "MA": "DCQ",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ VÀ QUẢN LÝ HỮU NGHỊ"
+    },
+    {
+      "Id": "BB0E9B30-C598-4942-ABDB-5E974A635CF8",
+      "MA": "DCT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG THƯƠNG THÀNH PHỐ HỒ CHÍ MINH"
+    },
+    {
+      "Id": "FD3E4DF9-2E0A-47D8-B9B9-79AD1ADA8396",
+      "MA": "DCV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHIỆP VINH"
+    },
+    {
+      "Id": "07C98309-49E7-4EE5-81A5-3E17EAB57420",
+      "MA": "DDA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ ĐÔNG Á"
+    },
+    {
+      "Id": "61474427-008E-4A8F-B1A5-7FD41D8C9D27",
+      "MA": "DDB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THÀNH ĐÔNG"
+    },
+    {
+      "Id": "2F631F18-A3F4-4740-92F3-DA25CE978588",
+      "MA": "DDF",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGOẠI NGỮ (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "51419132-DB2E-40A0-A5AD-57163D1E2ED1",
+      "MA": "DDK",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC BÁCH KHOA (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "822E5889-4FD9-4EA8-A3E7-5BC90C7357ED",
+      "MA": "DDL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐIỆN LỰC"
+    },
+    {
+      "Id": "3FE59DE9-D680-4295-9C33-DFE6E219E6A8",
+      "MA": "DDM",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHIỆP QUẢNG NINH"
+    },
+    {
+      "Id": "3700D847-91DE-4778-ADE1-CCE0EE458A84",
+      "MA": "DDN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐẠI NAM"
+    },
+    {
+      "Id": "7F252448-F14D-4B9B-9C00-035C563FA5DC",
+      "MA": "DDP",
+      "TEN_DON_VI": "Phân hiệu Đại học Đà Nẵng tại Kon Tum"
+    },
+    {
+      "Id": "14D43D8C-BC05-4211-B073-D7A64CCF722D",
+      "MA": "DDQ",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "4D55D948-BC67-47AD-AE4E-AC16311C8C19",
+      "MA": "DDS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "F273C01F-D563-48ED-861B-56C962AD0EE0",
+      "MA": "DDT",
+      "TEN_DON_VI": "ĐẠI HỌC DUY TÂN"
+    },
+    {
+      "Id": "CE24CDE3-E9A0-4318-8039-13E15A6ED743",
+      "MA": "DDU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐÔNG ĐÔ"
+    },
+    {
+      "Id": "63EA65CA-A015-49B0-9584-EA798C0CD6AF",
+      "MA": "DDV",
+      "TEN_DON_VI": "Viện Nghiên cứu và Đào tạo Việt - Anh (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "F94318A0-5F85-438A-AFA5-FF15FC430D82",
+      "MA": "DDY",
+      "TEN_DON_VI": "Trường Y DƯỢC (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "1FE8905D-8265-47B2-99F8-6C1A7CFD80A7",
+      "MA": "DH",
+      "TEN_DON_VI": "ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "59A48889-207F-4959-B45A-4F8261F26FAB",
+      "MA": "DHA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LUẬT, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "FF537405-6B1E-4034-983E-3633D3BCC65D",
+      "MA": "DHC",
+      "TEN_DON_VI": "KHOA GIÁO DỤC THỂ CHẤT, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "7E7E5A85-394A-4AB9-AEF2-98D0E72BA8FD",
+      "MA": "DHD",
+      "TEN_DON_VI": "TRƯỜNG DU LỊCH, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "76082e68-0e15-413a-b84b-5577a488440e",
+      "MA": "DHE",
+      "TEN_DON_VI": "KHOA KỸ THUẬT VÀ CÔNG NGHỆ, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "BA7D4E54-6916-4692-983D-5B0D5BEDF223",
+      "MA": "DHF",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGOẠI NGỮ, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "69EBA3BB-A183-4309-B5A2-1CB720212106",
+      "MA": "DHH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HÀ HOA TIÊN"
+    },
+    {
+      "Id": "f783b7cd-f297-4334-9264-bd97e95bb5c8",
+      "MA": "DHI",
+      "TEN_DON_VI": "KHOA QUỐC TẾ, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "EBD47A55-3098-4011-9DEB-D5DFAD213612",
+      "MA": "DHK",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "7E03E815-C8FE-4CA1-BB38-609ADC70D312",
+      "MA": "DHL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NÔNG LÂM, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "1e1e8f81-ad00-4b94-8115-3d44943a8004",
+      "MA": "DHM",
+      "TEN_DON_VI": "Viện Đào tạo Mở và Công nghệ thông tin, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "7C01D128-A5A6-4DB4-8BE3-87D2D0FB3919",
+      "MA": "DHN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGHỆ THUẬT, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "A4E4FE6D-D623-42D6-B85E-159295F82ABD",
+      "MA": "DHQ",
+      "TEN_DON_VI": "Phân hiệu Đại học Huế tại Quảng Trị"
+    },
+    {
+      "Id": "03CF0889-D184-486C-98ED-06A1B40AD680",
+      "MA": "DHS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "1623F6D4-2B4F-4FAD-916E-31F8F29F5BF9",
+      "MA": "DHT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "073CB029-7D73-492A-A8EC-F9CF2B646E6C",
+      "MA": "DHV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "6F90098F-FE05-4F69-A97B-2013C8A10C5F",
+      "MA": "DHY",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y - DƯỢC, ĐẠI HỌC HUẾ"
+    },
+    {
+      "Id": "B0D6CFC8-4A7C-404F-AC37-913B5647A18B",
+      "MA": "DKB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ - KỸ THUẬT BÌNH DƯƠNG"
+    },
+    {
+      "Id": "4349ABBC-DC65-4A29-92EF-1A6B3FE4B835",
+      "MA": "DKC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "3338F86E-6226-4D06-AA08-0F4E46F7F518",
+      "MA": "DKH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC DƯỢC HÀ NỘI"
+    },
+    {
+      "Id": "F7227BFD-88A5-4062-9E96-4797FA8D1FD3",
+      "MA": "DKK",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ - KỸ THUẬT CÔNG NGHIỆP"
+    },
+    {
+      "Id": "6914C6E1-60D8-4FDC-96EC-74E4E6A1E749",
+      "MA": "DKS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KIỂM SÁT"
+    },
+    {
+      "Id": "383E7CC7-506C-40DB-AED3-E24E3F67958E",
+      "MA": "DKT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HẢI DƯƠNG"
+    },
+    {
+      "Id": "2C07CE60-B2E8-4919-8DBD-FCA756B71827",
+      "MA": "DKY",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KỸ THUẬT Y TẾ HẢI DƯƠNG"
+    },
+    {
+      "Id": "63FE0DE5-EA32-43F6-92E5-023FDFEB34C3",
+      "MA": "DLA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ CÔNG NGHIỆP LONG AN"
+    },
+    {
+      "Id": "E022928A-3BC3-4A84-B996-BB146F769567",
+      "MA": "DLH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LẠC HỒNG"
+    },
+    {
+      "Id": "47CD559E-8274-463F-8D64-002ABC7A6606",
+      "MA": "DLS",
+      "TEN_DON_VI": "Trường Đại học Lao động - Xã hội - Cơ sở II phía Nam"
+    },
+    {
+      "Id": "FA503802-C846-4CB3-A886-508227FAE321",
+      "MA": "DLX",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LAO ĐỘNG - XÃ HỘI"
+    },
+    {
+      "Id": "D9F4CA16-4A50-47D1-A90F-C4FCE0364D2C",
+      "MA": "DMS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÀI CHÍNH - MARKETING"
+    },
+    {
+      "Id": "23CC3566-8DD5-42FC-A21D-9074E55B0EAE",
+      "MA": "DMT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÀI NGUYÊN VÀ MÔI TRƯỜNG HÀ NỘI"
+    },
+    {
+      "Id": "AA4C4195-F942-4CCF-86EB-7E1D59F0672B",
+      "MA": "DN",
+      "TEN_DON_VI": "ĐẠI HỌC ĐÀ NẴNG"
+    },
+    {
+      "Id": "5B6CD731-6FDF-471E-B2C6-2E2FCEAC6998",
+      "MA": "DNB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HOA LƯ"
+    },
+    {
+      "Id": "81993FE0-AB8F-400D-825B-674F7FA641D8",
+      "MA": "DNC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NAM CẦN THƠ"
+    },
+    {
+      "Id": "E9C39F41-9F31-4128-A58C-FE976B190815",
+      "MA": "DNT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGOẠI NGỮ - TIN HỌC TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "11F3E56F-307F-4E78-87E7-AD612BEA3707",
+      "MA": "DNU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐỒNG NAI"
+    },
+    {
+      "Id": "377C4194-6540-401C-B61B-6BA29D9FBBBB",
+      "MA": "DNV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NỘI VỤ"
+    },
+    {
+      "Id": "501DE153-5425-47F4-AD88-77106EA9F972",
+      "MA": "DPC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC PHAN CHÂU TRINH"
+    },
+    {
+      "Id": "6FA54DB2-E161-4119-AF7B-1A249E922B25",
+      "MA": "DPD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC DÂN LẬP PHƯƠNG ĐÔNG"
+    },
+    {
+      "Id": "07448E74-20D1-412C-BB98-A6788B38BF13",
+      "MA": "DPQ",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC PHẠM VĂN ĐỒNG"
+    },
+    {
+      "Id": "33349240-FDE1-435A-A612-001006E30223",
+      "MA": "DPT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC PHAN THIẾT"
+    },
+    {
+      "Id": "F93E5044-FCD7-4CFA-9C0E-931B235E3226",
+      "MA": "DPX",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC PHÚ XUÂN"
+    },
+    {
+      "Id": "7AFFA811-5BE7-4862-88CC-77FE9CAF5798",
+      "MA": "DPY",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC PHÚ YÊN"
+    },
+    {
+      "Id": "0AE8E5E7-2A60-4863-B51C-9E7EFF987FE9",
+      "MA": "DQB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUẢNG BÌNH"
+    },
+    {
+      "Id": "6CC76FDC-B9D5-4E9F-86FE-55BC4C03F2FE",
+      "MA": "DQK",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH DOANH VÀ CÔNG NGHỆ HÀ NỘI"
+    },
+    {
+      "Id": "1FAC9403-8EC5-49F9-BC8B-3563D6C6B91A",
+      "MA": "DQN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUY NHƠN"
+    },
+    {
+      "Id": "EFE0E9D3-A4B4-4B3B-BFE0-790664FC1414",
+      "MA": "DQT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUANG TRUNG"
+    },
+    {
+      "Id": "92F7B520-9CFB-48AB-82AF-4E99EE96E906",
+      "MA": "DQU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUẢNG NAM"
+    },
+    {
+      "Id": "74F0A7E4-D40B-4E8F-B21E-E75D3A8B689F",
+      "MA": "DSD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SÂN KHẤU - ĐIỆN ẢNH THÀNH PHỐ HỒ CHÍ MINH"
+    },
+    {
+      "Id": "7868CE6B-76BA-4399-91D2-922E78B846B0",
+      "MA": "DSG",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ SÀI GÒN"
+    },
+    {
+      "Id": "F833A2BB-AB62-4D60-9EEB-70AEE47CC04D",
+      "MA": "DSK",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM KỸ THUẬT (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "86B1B039-4D70-4287-8950-0F058FF37B20",
+      "MA": "DTB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THÁI BÌNH"
+    },
+    {
+      "Id": "C2038A75-D2C3-4619-A970-45CC1DBE0830",
+      "MA": "DTC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "793AC3A2-7494-4C94-B3FE-3AF71F957135",
+      "MA": "DTD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÂY ĐÔ"
+    },
+    {
+      "Id": "F339ECAE-37DF-4C42-827F-E7AF14295EEB",
+      "MA": "DTE",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ VÀ QUẢN TRỊ KINH DOANH (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "A9FDD11E-B99D-4A80-99D1-F7DBCC329DE8",
+      "MA": "DTF",
+      "TEN_DON_VI": "TRƯỜNG NGOẠI NGỮ (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "11de4e75-f75f-425f-9b9a-25c56a74543a",
+      "MA": "DTG",
+      "TEN_DON_VI": "Phân hiệu Đại học Thái Nguyên tại tỉnh Hà Giang"
+    },
+    {
+      "Id": "61A0999E-9819-4091-8ADC-A4747FB06B07",
+      "MA": "DTK",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KỸ THUẬT CÔNG NGHIỆP (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "0C292CEB-2D0E-4A80-BD7E-908040D5B18F",
+      "MA": "DTL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THĂNG LONG"
+    },
+    {
+      "Id": "E42658AF-8796-4501-9A4F-7430F235B413",
+      "MA": "DTM",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÀI NGUYÊN VÀ MÔI TRƯỜNG TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "EEE5F4D8-9D9D-4669-B2D2-D3BD6CADAC69",
+      "MA": "DTN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NÔNG LÂM (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "2AA9DFC8-1D17-4643-A143-2F860C0DEB5B",
+      "MA": "DTO",
+      "TEN_DON_VI": "Phân hiệu Đại học Thái Nguyên tại tỉnh Điện Biên"
+    },
+    {
+      "Id": "846D0C11-C168-4998-996B-78256DAE7090",
+      "MA": "DTP",
+      "TEN_DON_VI": "Phân hiệu Đại học Thái Nguyên tại tỉnh Lào Cai"
+    },
+    {
+      "Id": "BBE3283E-AC3B-4568-B693-8F2D97200133",
+      "MA": "DTQ",
+      "TEN_DON_VI": "KHOA QUỐC TẾ (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "5C7B9DA8-C828-4162-B2A7-BDF7A1327A39",
+      "MA": "DTS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "D47EB30B-14DE-4F58-968F-60FC8D391147",
+      "MA": "DTT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÔN ĐỨC THẮNG"
+    },
+    {
+      "Id": "2AC68B94-AA50-4060-A6CB-CAF8A63625CA",
+      "MA": "DTV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LƯƠNG THẾ VINH"
+    },
+    {
+      "Id": "18f8b990-2fbd-4b80-94d2-b9e0b4d0fdc0",
+      "MA": "DTX",
+      "TEN_DON_VI": "Trung tâm Đào tạo từ xa (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "A25CDC8A-C4F8-4158-999B-9A91D17DE626",
+      "MA": "DTY",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y DƯỢC (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "EDBCDBB2-9A2F-44AB-90A6-5E20B803970A",
+      "MA": "DTZ",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC (ĐẠI HỌC THÁI NGUYÊN)"
+    },
+    {
+      "Id": "6D9D7EDC-33B9-4F28-9D1D-10A7A3F8ADBD",
+      "MA": "DVB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ - CÔNG NGHỆ THÁI NGUYÊN"
+    },
+    {
+      "Id": "0222F531-D358-4363-B81C-F02E791661E4",
+      "MA": "DVD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VĂN HÓA, THỂ THAO VÀ DU LỊCH THANH HÓA"
+    },
+    {
+      "Id": "D30C51EC-7737-4E89-9553-33E35479E49A",
+      "MA": "DVH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VĂN HIẾN"
+    },
+    {
+      "Id": "0627A42B-BBA2-4D70-844A-165CF9A26F3F",
+      "MA": "DVL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VĂN LANG"
+    },
+    {
+      "Id": "2AF249B2-3568-4406-8F22-DDAEEF98BA0F",
+      "MA": "DVP",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TRƯNG VƯƠNG"
+    },
+    {
+      "Id": "0542F69B-AEB2-4801-BF05-0E5F72D283A4",
+      "MA": "DVT",
+      "TEN_DON_VI": "ĐẠI HỌC TRÀ VINH"
+    },
+    {
+      "Id": "28FB33F9-43BA-411E-A2BE-3543E1361B5D",
+      "MA": "DVX",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ VẠN XUÂN"
+    },
+    {
+      "Id": "223CA64B-B0AB-4F6C-B59E-89D3ED42F1D6",
+      "MA": "DYD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC YERSIN ĐÀ LẠT"
+    },
+    {
+      "Id": "59B8A04B-FECD-4FCD-A598-9D235DFEA7B7",
+      "MA": "EIU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUỐC TẾ MIỀN ĐÔNG"
+    },
+    {
+      "Id": "FD68D1F6-4F34-463F-AB23-90FD5AA36F60",
+      "MA": "ETU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HÒA BÌNH"
+    },
+    {
+      "Id": "F109B56F-60B2-41F5-83CE-A336DE114807",
+      "MA": "FBU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÀI CHÍNH - NGÂN HÀNG HÀ NỘI"
+    },
+    {
+      "Id": "57E561B5-9F8A-4EB0-B3D1-BF447B09E8F2",
+      "MA": "FMH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÀI CHÍNH - MARKETING - Phân hiệu Huế"
+    },
+    {
+      "Id": "1B029A46-42FC-4BEF-AC8D-4BDDB97B0DFB",
+      "MA": "FMQ",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÀI CHÍNH - MARKETING - Phân hiệu Quảng Ngãi"
+    },
+    {
+      "Id": "D4FF5661-8A22-4F02-9E22-EBA140059194",
+      "MA": "FPT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC FPT"
+    },
+    {
+      "Id": "F465A98E-23E7-4EBA-BECD-4C5B394ABB65",
+      "MA": "FUV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC FULBRIGHT VIỆT NAM"
+    },
+    {
+      "Id": "c7d71c07-6f76-4e23-bc1a-b0ce3083f593",
+      "MA": "GDU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC GIA ĐỊNH"
+    },
+    {
+      "Id": "8907629C-BCF1-40C9-96DE-95A7D663B046",
+      "MA": "GHA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI"
+    },
+    {
+      "Id": "E8584942-D265-4E4F-955E-B772B2BE9831",
+      "MA": "GNT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM NGHỆ THUẬT TRUNG ƯƠNG"
+    },
+    {
+      "Id": "9A3331AA-3DAF-4DDB-9394-37561A2AFFF8",
+      "MA": "GSA",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Giao thông vận tải tại TP. Hồ Chí Minh"
+    },
+    {
+      "Id": "6A0D6A46-39C3-45C7-A178-58537B5A2BFC",
+      "MA": "GTP",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GIAO THÔNG VẬN TẢI"
+    },
+    {
+      "Id": "7A3092A5-02ED-4CC4-9062-7894FD0286A2",
+      "MA": "HAH",
+      "TEN_DON_VI": "HỌC VIỆN CHÍNH TRỊ"
+    },
+    {
+      "Id": "88E79381-FA46-43D6-B235-F1306D30B49F",
+      "MA": "HBT",
+      "TEN_DON_VI": "HỌC VIỆN BÁO CHÍ VÀ TUYÊN TRUYỀN"
+    },
+    {
+      "Id": "23EC5F2C-D5E9-444F-BC07-F27B429CC064",
+      "MA": "HCA",
+      "TEN_DON_VI": "HỌC VIỆN CHÍNH TRỊ CÔNG AN NHÂN DÂN"
+    },
+    {
+      "Id": "12D6D9A9-9223-4AA9-A75E-46E7DFBD0CDE",
+      "MA": "HCC",
+      "TEN_DON_VI": "HỌC VIỆN CHÍNH TRỊ KHU VỰC I"
+    },
+    {
+      "Id": "328DB8AF-07DC-47DF-A196-458D3F734018",
+      "MA": "HCH",
+      "TEN_DON_VI": "HỌC VIỆN HÀNH CHÍNH VÀ QUẢN TRỊ CÔNG"
+    },
+    {
+      "Id": "ab9a2005-33cf-44c4-bcf5-002b5ad671e6",
+      "MA": "hcn",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KỸ THUẬT - HẬU CẦN CÔNG AN NHÂN DÂN"
+    },
+    {
+      "Id": "31CC805D-AAE0-4060-8594-DD743E8F0D2C",
+      "MA": "HCP",
+      "TEN_DON_VI": "HỌC VIỆN CHÍNH SÁCH VÀ PHÁT TRIỂN"
+    },
+    {
+      "Id": "C230C230-26B7-4FF9-8A5A-E1D85D87DF89",
+      "MA": "HDT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HỒNG ĐỨC"
+    },
+    {
+      "Id": "7AD98FEB-9311-44AF-A702-E87A32D1C16A",
+      "MA": "HEH",
+      "TEN_DON_VI": "HỌC VIỆN HẬU CẦN"
+    },
+    {
+      "Id": "C85D65CA-5272-4C0D-8FC8-FEDCB5A2D229",
+      "MA": "HGH",
+      "TEN_DON_VI": "TRƯỜNG SĨ QUAN PHÒNG HÓA"
+    },
+    {
+      "Id": "CE968657-80F0-4A6E-9D3C-CE37FCEB690F",
+      "MA": "HHA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HÀNG HẢI VIỆT NAM"
+    },
+    {
+      "Id": "65387A0E-2BC5-4B80-B677-B19E8471AB89",
+      "MA": "HHK",
+      "TEN_DON_VI": "HỌC VIỆN HÀNG KHÔNG VIỆT NAM"
+    },
+    {
+      "Id": "499CC988-5744-4AAA-875F-7526C2AD422A",
+      "MA": "HHT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HÀ TĨNH"
+    },
+    {
+      "Id": "5D6FF651-45C2-48FE-896E-ADC93870A7BA",
+      "MA": "HIU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUỐC TẾ HỒNG BÀNG"
+    },
+    {
+      "Id": "0E6F3E83-9A36-4792-AFF8-3DD284963B98",
+      "MA": "HKC",
+      "TEN_DON_VI": "HỌC VIỆN KHOA HỌC VÀ CÔNG NGHỆ"
+    },
+    {
+      "Id": "4DAF1EFD-8E6B-4666-B3A0-7FACDE858127",
+      "MA": "HLQ",
+      "TEN_DON_VI": "HỌC VIỆN LỤC QUÂN"
+    },
+    {
+      "Id": "2C550736-829E-48FA-AE89-A2F48B7D53D5",
+      "MA": "HLU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HẠ LONG"
+    },
+    {
+      "Id": "9B3C5A9D-DEC7-49DA-984A-6FC23F1C2B8A",
+      "MA": "HNM",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THỦ ĐÔ HÀ NỘI"
+    },
+    {
+      "Id": "FAF76B1D-7B02-4888-9D64-A8E24DD1233A",
+      "MA": "HPN",
+      "TEN_DON_VI": "HỌC VIỆN PHỤ NỮ VIỆT NAM"
+    },
+    {
+      "Id": "2f5d60f9-a1dd-41f9-adb4-9e63ada9569b",
+      "MA": "HPU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUẢN LÝ VÀ CÔNG NGHỆ HẢI PHÒNG"
+    },
+    {
+      "Id": "42A19B39-E7BE-4D0A-BA7C-DEFA8A453919",
+      "MA": "HQH",
+      "TEN_DON_VI": "HỌC VIỆN HẢI QUÂN"
+    },
+    {
+      "Id": "e0263499-cf55-436b-ba6a-769830aefd83",
+      "MA": "HQP",
+      "TEN_DON_VI": "HỌC VIỆN QUỐC PHÒNG"
+    },
+    {
+      "Id": "EDACEDCA-ABBE-4E2F-8FEF-C54C270F28A6",
+      "MA": "HQT",
+      "TEN_DON_VI": "HỌC VIỆN NGOẠI GIAO"
+    },
+    {
+      "Id": "eabb5062-3884-4675-bc70-312c709f04db",
+      "MA": "HSU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HOA SEN"
+    },
+    {
+      "Id": "CF1C3147-203E-4D9E-B461-F09D49071BF4",
+      "MA": "HTA",
+      "TEN_DON_VI": "HỌC VIỆN TÒA ÁN"
+    },
+    {
+      "Id": "AD63AD6B-67F1-454A-B62D-15CE7C516BEA",
+      "MA": "HTC",
+      "TEN_DON_VI": "HỌC VIỆN TÀI CHÍNH"
+    },
+    {
+      "Id": "e8342d6a-56a5-4db2-bc90-41412f58661a",
+      "MA": "HTH",
+      "TEN_DON_VI": "Phân hiệu Học viện Thanh thiếu niên Việt Nam tại Thành phố Hồ Chí Minh"
+    },
+    {
+      "Id": "6A3EEC0C-0E74-4E2A-9B30-80F0AF5F2C24",
+      "MA": "HTN",
+      "TEN_DON_VI": "HỌC VIỆN THANH THIẾU NIÊN VIỆT NAM"
+    },
+    {
+      "Id": "51953437-ADC5-4B1C-A053-DF2440CAA2F2",
+      "MA": "HTY",
+      "TEN_DON_VI": "Phân hiệu Học viện Tài chính tại tỉnh Hưng Yên"
+    },
+    {
+      "Id": "46E00E20-4C4A-41A9-A86E-5F75E67B6D44",
+      "MA": "HVA",
+      "TEN_DON_VI": "HỌC VIỆN ÂM NHẠC HUẾ"
+    },
+    {
+      "Id": "772DED52-BBBF-422C-8DFB-B5F640AA6B41",
+      "MA": "HVC",
+      "TEN_DON_VI": "HỌC VIỆN CÁN BỘ TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "7C69C7C7-8010-4AA6-A2C2-451605279EFF",
+      "MA": "HVD",
+      "TEN_DON_VI": "HỌC VIỆN DÂN TỘC"
+    },
+    {
+      "Id": "58C2EFED-33D9-41C2-8A9F-01C52DD6CC09",
+      "MA": "HVH",
+      "TEN_DON_VI": "HỌC VIỆN CHÍNH TRỊ QUỐC GIA HỒ CHÍ MINH"
+    },
+    {
+      "Id": "07f84949-6d99-4427-bcdc-7df228f67abb",
+      "MA": "HVM",
+      "TEN_DON_VI": "HỌC VIỆN MÚA VIỆT NAM"
+    },
+    {
+      "Id": "8132D6FA-15EA-4ED0-B5CC-DC81C02CDAAE",
+      "MA": "HVN",
+      "TEN_DON_VI": "HỌC VIỆN NÔNG NGHIỆP VIỆT NAM"
+    },
+    {
+      "Id": "8A56AF05-D78D-4E68-97CE-F76E98802AD0",
+      "MA": "HVQ",
+      "TEN_DON_VI": "HỌC VIỆN QUẢN LÝ GIÁO DỤC"
+    },
+    {
+      "Id": "2402FE48-7313-4BE6-8FE3-0ED3E5E47697",
+      "MA": "HXH",
+      "TEN_DON_VI": "HỌC VIỆN KHOA HỌC XÃ HỘI"
+    },
+    {
+      "Id": "47F4C2C5-36D2-4EEF-A0E8-E773E5704F83",
+      "MA": "HYD",
+      "TEN_DON_VI": "HỌC VIỆN Y DƯỢC HỌC CỔ TRUYỀN VIỆT NAM"
+    },
+    {
+      "Id": "79CCDE3D-241B-4B6A-A14D-31E8B6759405",
+      "MA": "INU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC INTRACOM"
+    },
+    {
+      "Id": "cfa54343-66eb-4d13-b160-41d1e02e6f3e",
+      "MA": "IUH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHIỆP TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "B8F2054E-B7F7-4BF5-A077-8E83925D56EA",
+      "MA": "IUQ",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Công nghiệp Thành phố Hồ Chí Minh tại tỉnh Quảng Ngãi"
+    },
+    {
+      "Id": "4787C88D-6227-4300-B86B-426BF8F06706",
+      "MA": "IVI",
+      "TEN_DON_VI": "Viện Công nghệ thông tin (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "A2E895AC-0C6B-4E54-856D-C105DAF6CA33",
+      "MA": "KBD",
+      "TEN_DON_VI": "VIỆN KHOA HỌC ĐO ĐẠC VÀ BẢN ĐỒ"
+    },
+    {
+      "Id": "D6143F81-E7CB-4DE5-88EE-954443F4E880",
+      "MA": "KCC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KỸ THUẬT - CÔNG NGHỆ CẦN THƠ"
+    },
+    {
+      "Id": "CD8C567B-A91E-4698-B828-B1AF809C7C3D",
+      "MA": "KCN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC VÀ CÔNG NGHỆ HÀ NỘI"
+    },
+    {
+      "Id": "E47314E2-C59B-487C-B0A6-7B889367858D",
+      "MA": "KGH",
+      "TEN_DON_VI": "TRƯỜNG SĨ QUAN KHÔNG QUÂN"
+    },
+    {
+      "Id": "8D07E346-DA01-4A4B-92C6-DEC29D234A94",
+      "MA": "KHA",
+      "TEN_DON_VI": "ĐẠI HỌC KINH TẾ QUỐC DÂN"
+    },
+    {
+      "Id": "DD42CA44-1BB2-4B7A-8BA6-DCCF171BBB27",
+      "MA": "KMA",
+      "TEN_DON_VI": "HỌC VIỆN KỸ THUẬT MẬT MÃ"
+    },
+    {
+      "Id": "EF3E097E-D6BD-4837-938A-1830056D93F6",
+      "MA": "KQH",
+      "TEN_DON_VI": "HỌC VIỆN KỸ THUẬT QUÂN SỰ"
+    },
+    {
+      "Id": "346CFBED-68BF-4C62-9771-11509CAC85A0",
+      "MA": "KSA",
+      "TEN_DON_VI": "ĐẠI HỌC KINH TẾ TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "cc0ab5bb-7b46-40e8-b7e8-0bb72f7381e3",
+      "MA": "KSV",
+      "TEN_DON_VI": "Phân hiệu Đại học Kinh tế Thành phố Hồ Chí Minh tại tỉnh Vĩnh Long"
+    },
+    {
+      "Id": "1E53E04D-9281-4B8B-BA21-D4DEF804DD42",
+      "MA": "KTA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KIẾN TRÚC HÀ NỘI"
+    },
+    {
+      "Id": "BB709602-59D6-40CC-9499-2753F2B2890C",
+      "MA": "KTD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KIẾN TRÚC ĐÀ NẴNG"
+    },
+    {
+      "Id": "6604c0a4-2f14-4b41-851c-c0dbaede1103",
+      "MA": "KTH",
+      "TEN_DON_VI": "HỌC VIỆN KỸ THUẬT VÀ CÔNG NGHỆ AN NINH"
+    },
+    {
+      "Id": "ECA50047-4204-4EF0-BD71-C54C2166F768",
+      "MA": "KTS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KIẾN TRÚC TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "B2005193-4E70-44B6-A35E-7F2B7144B878",
+      "MA": "LAH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TRẦN QUỐC TUẤN"
+    },
+    {
+      "Id": "9FAD0629-4DB9-48BC-9C41-DA416F2BDE2A",
+      "MA": "LBH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGUYỄN HUỆ"
+    },
+    {
+      "Id": "CBA5D51F-EE6A-4A09-A880-AFD1AD558B47",
+      "MA": "LCH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CHÍNH TRỊ"
+    },
+    {
+      "Id": "81BEF2A7-8D6D-4613-AA5F-0EB37E8EA336",
+      "MA": "LDA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG ĐOÀN"
+    },
+    {
+      "Id": "e77e2319-df03-4531-93db-3fe0029bbb01",
+      "MA": "LNA",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Lâm nghiệp tại tỉnh Gia Lai"
+    },
+    {
+      "Id": "E40206F9-CA32-4E12-A715-836C93A253C8",
+      "MA": "LNH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LÂM NGHIỆP"
+    },
+    {
+      "Id": "DC493590-4B3D-4D04-8E9B-31F1217C7A2A",
+      "MA": "LNS",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Lâm nghiệp tại tỉnh Đồng Nai"
+    },
+    {
+      "Id": "48D316F4-191F-4834-A6CB-3B935E552976",
+      "MA": "LPH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LUẬT HÀ NỘI"
+    },
+    {
+      "Id": "BA22DA78-C48B-4CC9-852F-2B94CECDCAB6",
+      "MA": "LPS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LUẬT TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "46B7F779-58C9-436B-9A8B-4E8772BC5697",
+      "MA": "MBS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC MỞ TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "18577784-6A11-44EC-BC2C-950771C855F5",
+      "MA": "MDA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC MỎ - ĐỊA CHẤT"
+    },
+    {
+      "Id": "3F2B965A-62DC-4D9A-8DCC-D3BFC3D0427D",
+      "MA": "MHN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI"
+    },
+    {
+      "Id": "711C0491-F833-47EE-9CB7-6FA63C40B019",
+      "MA": "MIT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ MIỀN ĐÔNG"
+    },
+    {
+      "Id": "8DB5D84D-B479-44F4-88B6-C5CEFCC615CC",
+      "MA": "MTC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC MỸ THUẬT CÔNG NGHIỆP"
+    },
+    {
+      "Id": "49C67106-75FF-41D2-B6D3-FCA0C4810E0F",
+      "MA": "MTH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC MỸ THUẬT VIỆT NAM"
+    },
+    {
+      "Id": "200C22F2-5096-4898-9EB2-203844BBA5BD",
+      "MA": "MTS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC MỸ THUẬT TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "1514078F-7699-4EED-A690-A6F3B8A43AEF",
+      "MA": "MTU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC XÂY DỰNG MIỀN TÂY"
+    },
+    {
+      "Id": "19A7881A-F510-47AA-90D3-B4FE9930B7BB",
+      "MA": "NAU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGHỆ AN"
+    },
+    {
+      "Id": "4675D2C4-C96B-4BF8-A357-E6F980564526",
+      "MA": "NHB",
+      "TEN_DON_VI": "Học viện ngân hàng - Phân viện Bắc Ninh"
+    },
+    {
+      "Id": "07D9143E-E10A-43FF-BAE8-49A812000109",
+      "MA": "NHF",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HÀ NỘI"
+    },
+    {
+      "Id": "6AC7812C-18CE-4AE7-B7CA-FE9FF981A8E3",
+      "MA": "NHH",
+      "TEN_DON_VI": "HỌC VIỆN NGÂN HÀNG"
+    },
+    {
+      "Id": "219B7EE9-2EFF-4BA1-9ABE-C9F20EEFAEA4",
+      "MA": "NHP",
+      "TEN_DON_VI": "Học viện ngân hàng - Cơ sở Phú Yên"
+    },
+    {
+      "Id": "850463CC-A8EF-4B33-887C-9D519A507B36",
+      "MA": "NHS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGÂN HÀNG TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "3BA03FD3-5E59-43D4-A68C-13649282B228",
+      "MA": "NLN",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Nông Lâm TP. Hồ Chí Minh tại Ninh Thuận"
+    },
+    {
+      "Id": "D879B090-1A8C-46B6-87E3-B7DD5D1E73AA",
+      "MA": "NLS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NÔNG LÂM TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "088AF491-8E01-46E3-B651-CE13C2C7173F",
+      "MA": "NQC",
+      "TEN_DON_VI": "VIỆN KIỂM NGHIỆM THUỐC TRUNG ƯƠNG"
+    },
+    {
+      "Id": "74934CCB-A3CA-45F5-89C0-3A022A8E4FFB",
+      "MA": "NQH",
+      "TEN_DON_VI": "HỌC VIỆN KHOA HỌC QUÂN SỰ"
+    },
+    {
+      "Id": "B39BF1DE-10B9-4676-951C-445E4CB587A6",
+      "MA": "NTH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGOẠI THƯƠNG "
+    },
+    {
+      "Id": "FD714F35-BC41-4687-8FBF-0870467EF0EE",
+      "MA": "NTS",
+      "TEN_DON_VI": "Trường Đại học Ngoại thương - Cơ sở phía Nam"
+    },
+    {
+      "Id": "5F0A580C-EF02-4BC7-A9D6-FC0A70F872E5",
+      "MA": "NTT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGUYỄN TẤT THÀNH"
+    },
+    {
+      "Id": "92FD84B5-33A2-4AE3-9CBB-206DE747773B",
+      "MA": "NTU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGUYỄN TRÃI"
+    },
+    {
+      "Id": "AF17C86F-CA59-47EB-8435-F15D7436A1BE",
+      "MA": "NVH",
+      "TEN_DON_VI": "HỌC VIỆN ÂM NHẠC QUỐC GIA VIỆT NAM"
+    },
+    {
+      "Id": "FA1D89A7-3E75-4F72-9C06-713DE3495484",
+      "MA": "NVS",
+      "TEN_DON_VI": "NHẠC VIỆN TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "34BA99FE-A8A1-4A1B-BCDF-91825E8A7FBB",
+      "MA": "PBH",
+      "TEN_DON_VI": "TRƯỜNG SĨ QUAN PHÁO BINH"
+    },
+    {
+      "Id": "4F5E3300-F985-47A2-B205-5AEFE452943D",
+      "MA": "PCH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC PHÒNG CHÁY CHỮA CHÁY "
+    },
+    {
+      "Id": "BC6ABBFD-0765-4A95-B705-FAF6BEE03ED3",
+      "MA": "PCS",
+      "TEN_DON_VI": "Trường Đại học Phòng cháy Chữa cháy - Cơ sở Đồng Nai"
+    },
+    {
+      "Id": "57a81dda-bd33-4cfb-8d15-f8b7dc6b5361",
+      "MA": "PKA",
+      "TEN_DON_VI": "ĐẠI HỌC PHENIKAA"
+    },
+    {
+      "Id": "948DBD2C-DC4D-44B8-9C87-89440372AECF",
+      "MA": "PKH",
+      "TEN_DON_VI": "HỌC VIỆN PHÒNG KHÔNG - KHÔNG QUÂN"
+    },
+    {
+      "Id": "A21FDDA0-412F-4750-97A6-253C2477CB99",
+      "MA": "PVU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC DẦU KHÍ VIỆT NAM"
+    },
+    {
+      "Id": "6EC514B7-C28D-4ECF-914B-944B852961CF",
+      "MA": "QH",
+      "TEN_DON_VI": "ĐẠI HỌC QUỐC GIA HÀ NỘI"
+    },
+    {
+      "Id": "84749C05-AAB2-4502-813D-E3C884C9645E",
+      "MA": "QHD",
+      "TEN_DON_VI": "Trường Quản trị và Kinh doanh (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "115B6AB0-8A75-441F-B4B5-03B3EBAD1E1F",
+      "MA": "QHE",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "E455459A-86CD-4A4B-8F12-00EB8A4B8AAD",
+      "MA": "QHF",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGOẠI NGỮ (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "8AD234A5-8533-4DFC-8074-5E3D21E1CDD5",
+      "MA": "QHI",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "8e258d1b-03a6-45f3-bd43-2b4ba18f5364",
+      "MA": "QHK",
+      "TEN_DON_VI": "Trường Khoa học liên ngành và Nghệ thuật (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "8576B762-EE67-49A9-94C5-5387C8F51348",
+      "MA": "QHL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC LUẬT (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "2A200BF5-5A17-4EFE-9A74-B7C88DC31CD0",
+      "MA": "QHP",
+      "TEN_DON_VI": "Khoa Quốc tế Pháp ngữ (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "FE8DE529-9386-46A4-BFF6-F175657F20BB",
+      "MA": "QHQ",
+      "TEN_DON_VI": "Trường Quốc tế (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "943BF5E2-52F7-40CE-83CA-EF1A4C69CF94",
+      "MA": "QHS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC GIÁO DỤC (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "0B3B658C-B499-4EF8-8C77-7021C46721C2",
+      "MA": "QHT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "67311816-C25A-4A39-ADD0-8FBCC85AEE37",
+      "MA": "QHX",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "B3C56495-CB94-4491-896F-D67BAF9800D4",
+      "MA": "QHY",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y DƯỢC (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "5D353244-460D-43FB-9B72-001960A45E8F",
+      "MA": "QS",
+      "TEN_DON_VI": "ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "aadff764-2754-462f-83be-ebaee9da70a7",
+      "MA": "QSA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC AN GIANG (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "EC27BCBF-F875-43C2-A870-2DA4E8D2E25B",
+      "MA": "QSB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC BÁCH KHOA (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "539C3C4E-75E1-40EC-9100-0448AA16FA98",
+      "MA": "QSC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "FE298BAC-9AEC-4E21-857B-213FCC0C6751",
+      "MA": "QSE",
+      "TEN_DON_VI": "VIỆN MÔI TRƯỜNG VÀ TÀI NGUYÊN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "5810ec19-d01e-4170-8c87-9d39ea9e3a5d",
+      "MA": "QSH",
+      "TEN_DON_VI": "KHOA CHÍNH TRỊ - HÀNH CHÍNH (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "AE8A12E8-CB1A-4F1A-B65B-9F76DB341C37",
+      "MA": "QSK",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ - LUẬT (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "844294d2-15e6-4f5d-816a-7035b5b3fbc0",
+      "MA": "QSP",
+      "TEN_DON_VI": "Phân hiệu của Đại học Quốc gia TP. Hồ Chí Minh tại Bến Tre"
+    },
+    {
+      "Id": "0AE0EE98-103C-4C48-8B23-EBD0340C7F4B",
+      "MA": "QSQ",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUỐC TẾ (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "61D352E2-D688-4A91-ACE8-F52DB5B77207",
+      "MA": "QST",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "0519C44C-1874-4388-B951-3029027FC162",
+      "MA": "QSX",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC XÃ HỘI VÀ NHÂN VĂN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "260ECD25-28E6-46F0-875D-57243E157A39",
+      "MA": "QSY",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHOA HỌC SỨC KHỎE (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)"
+    },
+    {
+      "Id": "7B51269C-48F8-4E38-B9C4-71A5F6AC1EC8",
+      "MA": "RMIT",
+      "TEN_DON_VI": "ĐẠI HỌC RMIT VIỆT NAM"
+    },
+    {
+      "Id": "96364F5E-3D8C-4F00-9906-ECCC9DF6D180",
+      "MA": "SDU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SAO ĐỎ"
+    },
+    {
+      "Id": "6167187B-D1D1-4C50-A427-9DABDEA3377E",
+      "MA": "SGD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SÀI GÒN"
+    },
+    {
+      "Id": "9ab6a788-0fb8-4946-a3ac-533086af6eda",
+      "MA": "SIU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TƯ THỤC QUỐC TẾ SÀI GÒN"
+    },
+    {
+      "Id": "1C5BD3EF-B94F-4BE9-81DD-BF3C50E860AF",
+      "MA": "SKD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SÂN KHẤU - ĐIỆN ẢNH HÀ NỘI"
+    },
+    {
+      "Id": "1147DB60-9537-4BA4-B07D-5B07B9B900B2",
+      "MA": "SKH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM KỸ THUẬT HƯNG YÊN"
+    },
+    {
+      "Id": "6B067A8B-30BA-42FE-860B-E3FE543DB7BE",
+      "MA": "SKN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM KỸ THUẬT NAM ĐỊNH"
+    },
+    {
+      "Id": "8A4F26B7-14E9-4689-9927-B0705EC87999",
+      "MA": "SKV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM KỸ THUẬT VINH"
+    },
+    {
+      "Id": "FA53A520-7721-4465-BC7E-8E3443B39DAA",
+      "MA": "SNH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NGÔ QUYỀN"
+    },
+    {
+      "Id": "25D831BD-01AF-4914-82EF-FC3965A8E321",
+      "MA": "SP2",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM HÀ NỘI 2"
+    },
+    {
+      "Id": "8410C86F-3A1F-4582-A755-1304DCADE864",
+      "MA": "SPD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐỒNG THÁP"
+    },
+    {
+      "Id": "EE4C55E7-E5C7-459D-A778-E12634F756A5",
+      "MA": "SPH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM HÀ NỘI"
+    },
+    {
+      "Id": "56B6A7D4-D466-4D5C-9BDB-E6F7918E77D5",
+      "MA": "SPS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "85F51C5C-17B8-4072-9A96-6E47F9C0DC69",
+      "MA": "STS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM THỂ DỤC THỂ THAO TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "87FEE5C8-B361-4C2D-BFE2-83870019EB0F",
+      "MA": "TBD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THÁI BÌNH DƯƠNG"
+    },
+    {
+      "Id": "4C97EBA7-1A34-4D0C-9C91-B74A60A50B4C",
+      "MA": "TCT",
+      "TEN_DON_VI": "ĐẠI HỌC CẦN THƠ"
+    },
+    {
+      "Id": "7692E72F-42BD-43B8-BB72-F5E2579BEDB3",
+      "MA": "TDB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THỂ DỤC THỂ THAO BẮC NINH"
+    },
+    {
+      "Id": "E97FB3A2-68F5-43CF-848C-F30A61786B63",
+      "MA": "TDD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THÀNH ĐÔ"
+    },
+    {
+      "Id": "6F0F8F42-D624-46B2-BB3E-72C3424164A8",
+      "MA": "TDH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM THỂ DỤC THỂ THAO HÀ NỘI"
+    },
+    {
+      "Id": "875CF336-81A2-4AF9-B989-7F171D9DB7F5",
+      "MA": "TDL",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐÀ LẠT"
+    },
+    {
+      "Id": "D5D3C7FE-4826-40DF-80E9-86D6429AE8F4",
+      "MA": "TDM",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THỦ DẦU MỘT"
+    },
+    {
+      "Id": "4E30433A-1CF3-442E-B3BF-C34E85A855BC",
+      "MA": "TDS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THỂ DỤC THỂ THAO TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "D96E5D5E-A1DF-499F-A258-D1BCB3D99102",
+      "MA": "TDV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VINH"
+    },
+    {
+      "Id": "92F324BF-3F0B-4ED8-9D3F-3C245B62300F",
+      "MA": "TGH",
+      "TEN_DON_VI": "TRƯỜNG SĨ QUAN TĂNG - THIẾT GIÁP"
+    },
+    {
+      "Id": "9B60126B-8642-42EB-815F-D5A886ECB0B3",
+      "MA": "THP",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HẢI PHÒNG"
+    },
+    {
+      "Id": "E1EAD6A3-48A9-44D9-A83C-2BC63D5EE4CD",
+      "MA": "THU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y KHOA TOKYO VIỆT NAM"
+    },
+    {
+      "Id": "FF15EA0C-5A76-454D-A3C4-12208047BAD5",
+      "MA": "THV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG"
+    },
+    {
+      "Id": "EDF55EFA-7E5A-4E26-9FD2-87062DD2329C",
+      "MA": "TKG",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KIÊN GIANG"
+    },
+    {
+      "Id": "55550308-DB91-459F-9D16-68E1252F70A6",
+      "MA": "TLA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THUỶ LỢI "
+    },
+    {
+      "Id": "426F4DBC-1561-448C-9727-E48907D8849C",
+      "MA": "TLS",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Thuỷ lợi tại tỉnh Bình Dương"
+    },
+    {
+      "Id": "88C271D8-5CEA-41AA-9377-EBB7E6D9D345",
+      "MA": "TMU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THƯƠNG MẠI"
+    },
+    {
+      "Id": "B0E27FAD-3660-4287-BC4F-08453022BE54",
+      "MA": "TN",
+      "TEN_DON_VI": "ĐẠI HỌC THÁI NGUYÊN"
+    },
+    {
+      "Id": "B32C55B2-0058-4ED7-A204-622656EC2AE7",
+      "MA": "TQU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÂN TRÀO"
+    },
+    {
+      "Id": "1131626A-4D21-4E3E-9C2C-7850E2FD1ED4",
+      "MA": "TSN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC NHA TRANG"
+    },
+    {
+      "Id": "09955294-DD15-4EF5-8B8A-74ECFAD824BE",
+      "MA": "TTB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÂY BẮC"
+    },
+    {
+      "Id": "A3585162-7801-466E-ACFB-FFAAF7FA08DC",
+      "MA": "TTD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC THỂ DỤC THỂ THAO ĐÀ NẴNG"
+    },
+    {
+      "Id": "3997FA49-4063-467B-8B87-CF92065BE1D7",
+      "MA": "TTG",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TIỀN GIANG"
+    },
+    {
+      "Id": "3C04584A-D29D-4FC5-B948-1C1FDB4F61DE",
+      "MA": "TTH",
+      "TEN_DON_VI": "TRƯỜNG SĨ QUAN THÔNG TIN (TRƯỜNG ĐẠI HỌC THÔNG TIN LIÊN LẠC)"
+    },
+    {
+      "Id": "8F71A8EC-F5F1-46B2-8A1A-A51ACC690547",
+      "MA": "TTN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÂY NGUYÊN"
+    },
+    {
+      "Id": "A68EA221-43FD-4713-AEF0-A63168AFB7E1",
+      "MA": "TTU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC TÂN TẠO"
+    },
+    {
+      "Id": "3EAE1358-0880-46D3-B4BD-0DC8807104C2",
+      "MA": "TYS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y KHOA PHẠM NGỌC THẠCH"
+    },
+    {
+      "Id": "A58B33B2-0C1B-4FFE-BB28-020CA7B7E54C",
+      "MA": "UEF",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KINH TẾ - TÀI CHÍNH TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "A7251B65-9500-4310-BAB4-ED16D87138F3",
+      "MA": "UKH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KHÁNH HOÀ"
+    },
+    {
+      "Id": "42758f52-92dc-4114-87f5-a9ec6ce6bdbd",
+      "MA": "UMT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC QUẢN LÝ VÀ CÔNG NGHỆ THÀNH PHỐ HỒ CHÍ MINH"
+    },
+    {
+      "Id": "4B866095-C188-4BEE-A282-0D17CD447DFB",
+      "MA": "UTE",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ KỸ THUẬT THÀNH PHỐ HỒ CHÍ CHINH"
+    },
+    {
+      "Id": "DF9B25C6-9EB4-4389-983F-960B63C0BE75",
+      "MA": "UTH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "7BA795A4-6A27-45A3-8022-758E5520FFEA",
+      "MA": "V02",
+      "TEN_DON_VI": "VIỆN NGHIÊN CỨU ĐIỆN TỬ, TIN HỌC, TỰ ĐỘNG HOÁ"
+    },
+    {
+      "Id": "D3A7F9EA-0522-4AB4-95D0-BBC7F695799D",
+      "MA": "V04",
+      "TEN_DON_VI": "VIỆN NĂNG LƯỢNG NGUYÊN TỬ VIỆT NAM"
+    },
+    {
+      "Id": "29C85666-8DC6-40B0-9A2A-DFBAE9947358",
+      "MA": "V08",
+      "TEN_DON_VI": "VIỆN CÔNG NGHIỆP THỰC PHẨM"
+    },
+    {
+      "Id": "6F835D64-5DCF-4D7C-874A-1C75FD530FC7",
+      "MA": "V11",
+      "TEN_DON_VI": "VIỆN HOÁ HỌC CÔNG NGHIỆP VIỆT NAM"
+    },
+    {
+      "Id": "64AD15E6-301B-4323-8408-C01B3DDFABDA",
+      "MA": "V12",
+      "TEN_DON_VI": "VIỆN KIẾN TRÚC QUỐC GIA"
+    },
+    {
+      "Id": "4D995C37-2D3D-4838-A4AB-A5A818E0FEE0",
+      "MA": "V13",
+      "TEN_DON_VI": "VIỆN KHOA HỌC VÀ CÔNG NGHỆ GIAO THÔNG VẬN TẢI"
+    },
+    {
+      "Id": "24F375EA-2E41-4DC0-95EF-668832D434EC",
+      "MA": "V14",
+      "TEN_DON_VI": "VIỆN KHOA HỌC CÔNG NGHỆ XÂY DỰNG"
+    },
+    {
+      "Id": "5FFE9240-B4DC-43EE-A3A2-9E4AF2850C58",
+      "MA": "V17",
+      "TEN_DON_VI": "VIỆN NGHIÊN CỨU CHIẾN LƯỢC, CHÍNH SÁCH CÔNG THƯƠNG"
+    },
+    {
+      "Id": "F88476E6-7ADD-422D-A958-9059CA375F7A",
+      "MA": "V18",
+      "TEN_DON_VI": "VIỆN NGHIÊN CỨU QUẢN LÝ KINH TẾ TRUNG ƯƠNG"
+    },
+    {
+      "Id": "092320D9-BCFA-4ECE-829B-F1BFCBF64C65",
+      "MA": "V19",
+      "TEN_DON_VI": "VIỆN CHIẾN LƯỢC PHÁT TRIỂN"
+    },
+    {
+      "Id": "AA3801B9-F500-44FD-B78B-36140EF094AB",
+      "MA": "V22",
+      "TEN_DON_VI": "VIỆN DƯỢC LIỆU"
+    },
+    {
+      "Id": "A35F97D9-001B-4643-A3B8-8B03AD2185F6",
+      "MA": "V24",
+      "TEN_DON_VI": "HỌC VIỆN KHOA HỌC, CÔNG NGHỆ VÀ ĐỔI MỚI SÁNG TẠO"
+    },
+    {
+      "Id": "7200458C-6FFA-47F8-84F9-2FFF4CB9E900",
+      "MA": "V25",
+      "TEN_DON_VI": "VIỆN SỐT RÉT - KÝ SINH TRÙNG - CÔN TRÙNG TRUNG ƯƠNG"
+    },
+    {
+      "Id": "7B790336-BADE-46CF-A34E-D648A8FF18A7",
+      "MA": "V26",
+      "TEN_DON_VI": "VIỆN PASTEUR TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "A5319FC4-7C8F-4DD8-8350-C7DC34A8E28B",
+      "MA": "V27",
+      "TEN_DON_VI": "VIỆN VỆ SINH DỊCH TỄ TRUNG ƯƠNG"
+    },
+    {
+      "Id": "18615D75-3529-40CE-8062-6CD5D80BDB92",
+      "MA": "V28",
+      "TEN_DON_VI": "VIỆN Y HỌC CỔ TRUYỀN QUÂN ĐỘI"
+    },
+    {
+      "Id": "1FD38AC2-C6BC-4082-BF8E-0315831B7B65",
+      "MA": "V45",
+      "TEN_DON_VI": "VIỆN VĂN HÓA NGHỆ THUẬT QUỐC GIA VIỆT NAM"
+    },
+    {
+      "Id": "4E70F3D2-CAE7-4E77-BC36-99038EDFB362",
+      "MA": "V46",
+      "TEN_DON_VI": "VIỆN KHOA HỌC GIÁO DỤC VIỆT NAM"
+    },
+    {
+      "Id": "B2877C80-936D-4AB6-B0F5-E78EB653D053",
+      "MA": "V47",
+      "TEN_DON_VI": "VIỆN KHOA HỌC ĐỊA CHẤT VÀ KHOÁNG SẢN"
+    },
+    {
+      "Id": "B12D84B0-4E6E-4C57-A474-23FF914E22F0",
+      "MA": "V48",
+      "TEN_DON_VI": "VIỆN MÁY VÀ DỤNG CỤ CÔNG NGHIỆP"
+    },
+    {
+      "Id": "67DC7504-2BC8-426D-A335-AE1BA483EBF8",
+      "MA": "V49",
+      "TEN_DON_VI": "VIỆN NGHIÊN CỨU CƠ KHÍ"
+    },
+    {
+      "Id": "C229D2DC-67E3-47E7-8D4D-9B4CDB891ECA",
+      "MA": "V50",
+      "TEN_DON_VI": "VIỆN KHOA HỌC KHÍ TƯỢNG THỦY VĂN, MÔI TRƯỜNG VÀ BIỂN"
+    },
+    {
+      "Id": "4657F798-E4CD-4E01-A9E1-84F224A5A699",
+      "MA": "V59",
+      "TEN_DON_VI": "VIỆN TOÁN HỌC"
+    },
+    {
+      "Id": "47E2C58F-9F80-4814-9900-CA35FD039793",
+      "MA": "V60",
+      "TEN_DON_VI": "VIỆN CÔNG NGHỆ SINH HỌC"
+    },
+    {
+      "Id": "7D8395FA-CDA0-4272-A639-8887A80027A9",
+      "MA": "V62",
+      "TEN_DON_VI": "VIỆN NGHIÊN CỨU HẢI SẢN"
+    },
+    {
+      "Id": "7B5B4AF0-0509-4A23-A46C-CFC34960A38D",
+      "MA": "V65",
+      "TEN_DON_VI": "VIỆN NGHIÊN CỨU KHOA HỌC Y DƯỢC LÂM SÀNG 108"
+    },
+    {
+      "Id": "63A5A96D-C6C9-4A08-B6A2-3E03A6753F39",
+      "MA": "V66",
+      "TEN_DON_VI": "VIỆN DINH DƯỠNG"
+    },
+    {
+      "Id": "9363A7F7-F0D4-4746-8408-04D525FFA388",
+      "MA": "VCD",
+      "TEN_DON_VI": "VIỆN CƠ ĐIỆN NÔNG NGHIỆP VÀ CÔNG NGHỆ SAU THU HOẠCH"
+    },
+    {
+      "Id": "6500D2E7-5DCA-438A-9F5D-E9EA053F22DC",
+      "MA": "VCN",
+      "TEN_DON_VI": "VIỆN CHĂN NUÔI"
+    },
+    {
+      "Id": "F68F03B0-021D-45B7-A678-FA23CAC63030",
+      "MA": "VDK",
+      "TEN_DON_VI": "VIỆN DẦU KHÍ VIỆT NAM"
+    },
+    {
+      "Id": "4A7DD2C3-48E0-4F72-BF24-7537E8BB555C",
+      "MA": "VGU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VIỆT ĐỨC"
+    },
+    {
+      "Id": "A651E342-213C-4DE7-9427-9D936AFCE7F0",
+      "MA": "VHD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHIỆP VIỆT - HUNG"
+    },
+    {
+      "Id": "B999447B-42F7-427A-8288-4864586DDD09",
+      "MA": "VHH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VĂN HÓA HÀ NỘI"
+    },
+    {
+      "Id": "76FF0B9F-7187-4C61-A385-1E4AE483A625",
+      "MA": "VHS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VĂN HÓA TP. HỒ CHÍ MINH"
+    },
+    {
+      "Id": "449098c8-b341-4d67-9a07-a752e541124f",
+      "MA": "VIN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VINUNI"
+    },
+    {
+      "Id": "26DD96EE-F1A9-4CA9-87E2-03B177BB8F3D",
+      "MA": "VJU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VIỆT NHẬT (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "D5007F86-A845-4A75-A5F2-5F7C474B7AA7",
+      "MA": "VKH",
+      "TEN_DON_VI": "VIỆN KHOA HỌC VÀ CÔNG NGHỆ QUÂN SỰ"
+    },
+    {
+      "Id": "DD868129-709E-4E27-9F23-39612CD5C575",
+      "MA": "VKN",
+      "TEN_DON_VI": "VIỆN KHOA HỌC NÔNG NGHIỆP VIỆT NAM"
+    },
+    {
+      "Id": "B8DDF9F7-D007-4F4E-9621-476BADD12D87",
+      "MA": "VKT",
+      "TEN_DON_VI": "VIỆN KHOA HỌC THỂ DỤC THỂ THAO"
+    },
+    {
+      "Id": "0854e680-878c-426d-badd-7cfe98504782",
+      "MA": "VKU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG VIỆT HÀN (ĐẠI HỌC ĐÀ NẴNG)"
+    },
+    {
+      "Id": "699D6CB5-49A2-4B6B-BF6E-3457E442345F",
+      "MA": "VLN",
+      "TEN_DON_VI": "VIỆN KHOA HỌC LÂM NGHIỆP VIỆT NAM"
+    },
+    {
+      "Id": "63642723-AB05-4B5C-ACDD-994D3E740478",
+      "MA": "VLS",
+      "TEN_DON_VI": "VIỆN LỊCH SỬ QUÂN SỰ VIỆT NAM"
+    },
+    {
+      "Id": "21965753-2B90-495B-95CC-95D54C8C76F2",
+      "MA": "VLU",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC SƯ PHẠM KỸ THUẬT VĨNH LONG"
+    },
+    {
+      "Id": "F8A41EDF-B21F-4F23-89A1-A0E412C8D09C",
+      "MA": "VPH",
+      "TEN_DON_VI": "Trường Sĩ quan Kỹ thuật quân sự (Trường Đại học Trần Đại Nghĩa)"
+    },
+    {
+      "Id": "12FF6BA3-1255-428A-B0A7-5C25439868AE",
+      "MA": "VTL",
+      "TEN_DON_VI": "VIỆN KHOA HỌC THUỶ LỢI VIỆT NAM"
+    },
+    {
+      "Id": "B686F7A4-E563-41A9-8679-DE7175F117F4",
+      "MA": "VTS",
+      "TEN_DON_VI": "VIỆN NGHIÊN CỨU NUÔI TRỒNG THUỶ SẢN I"
+    },
+    {
+      "Id": "F43DA6CA-36BD-4880-AB23-340F75513AB4",
+      "MA": "VTT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VÕ TRƯỜNG TOẢN"
+    },
+    {
+      "Id": "29379818-2B99-4AE7-9255-B99B3DB0E6A1",
+      "MA": "VTY",
+      "TEN_DON_VI": "VIỆN THÚ Y"
+    },
+    {
+      "Id": "A9D6B12A-DC7C-462A-94E9-F569BFA6A018",
+      "MA": "VUD",
+      "TEN_DON_VI": "VIỆN ỨNG DỤNG CÔNG NGHỆ"
+    },
+    {
+      "Id": "100D798B-97ED-4E50-BCFF-302BDF518D8F",
+      "MA": "VUI",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC CÔNG NGHIỆP VIỆT TRÌ"
+    },
+    {
+      "Id": "F77FB657-4EFA-49DB-9C40-B3BB43DFFF0B",
+      "MA": "VVM",
+      "TEN_DON_VI": "Viện Tài nguyên và Môi trường (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "B379AC56-97F5-4DF1-8D3E-518B0CDD995A",
+      "MA": "VVN",
+      "TEN_DON_VI": "Viện Việt Nam học và Khoa học phát triển (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "750ADD1A-1306-494C-927A-AB4F0BC5DAED",
+      "MA": "VVS",
+      "TEN_DON_VI": "Viện Vi sinh vật và Công nghệ sinh học (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "3CAB286F-E8DD-4B60-84F8-D5110AC53824",
+      "MA": "VVT",
+      "TEN_DON_VI": "VIỆN TRẦN NHÂN TÔNG (ĐẠI HỌC QUỐC GIA HÀ NỘI)"
+    },
+    {
+      "Id": "F456E839-F613-4A9E-8823-FC9FCFC9AB5B",
+      "MA": "VYL",
+      "TEN_DON_VI": "VIỆN SỨC KHOẺ NGHỀ NGHIỆP VÀ MÔI TRƯỜNG"
+    },
+    {
+      "Id": "6C9F953F-A646-4D6B-ABDF-F8DE472CC86E",
+      "MA": "XDA",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC XÂY DỰNG HÀ NỘI"
+    },
+    {
+      "Id": "347E4D18-F0FA-4D1F-9B21-A9405EBC893B",
+      "MA": "XDN",
+      "TEN_DON_VI": "Phân hiệu Trường Đại học Xây dựng miền Trung tại Đà Nẵng"
+    },
+    {
+      "Id": "519D8935-1018-4170-90BA-050515759504",
+      "MA": "XDT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC XÂY DỰNG MIỀN TRUNG"
+    },
+    {
+      "Id": "B3DF9B0C-5B45-4630-BCF6-10A8ADA6FC14",
+      "MA": "YCT",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y DƯỢC CẦN THƠ"
+    },
+    {
+      "Id": "DD6A46D2-9885-4287-BDB9-4B55A92A40EB",
+      "MA": "YDD",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC ĐIỀU DƯỠNG NAM ĐỊNH"
+    },
+    {
+      "Id": "914A0EE5-FCD9-456F-9C67-F7E0E148F737",
+      "MA": "YDN",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC KỸ THUẬT Y - DƯỢC ĐÀ NẴNG"
+    },
+    {
+      "Id": "39479E4E-7D2F-4D70-9F0B-BAB4EE5CB5E7",
+      "MA": "YDS",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y DƯỢC THÀNH PHỐ HỒ CHÍ MINH"
+    },
+    {
+      "Id": "45EE5891-284A-4FCB-A44B-97DACE149E17",
+      "MA": "YHB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y HÀ NỘI"
+    },
+    {
+      "Id": "B01429E9-E1AB-4172-95C6-EFBC48427CEE",
+      "MA": "YKV",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y KHOA VINH"
+    },
+    {
+      "Id": "8D1C877F-163F-4642-90D6-CD4398EA52CE",
+      "MA": "YPB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y DƯỢC HẢI PHÒNG"
+    },
+    {
+      "Id": "25D03A95-3715-4F0B-8601-5CB64DD68E32",
+      "MA": "YQH",
+      "TEN_DON_VI": "HỌC VIỆN QUÂN Y"
+    },
+    {
+      "Id": "CD7893DD-782F-4D56-9195-9978F5BE3F22",
+      "MA": "YTB",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y DƯỢC THÁI BÌNH"
+    },
+    {
+      "Id": "CA10C968-180E-4C7E-9601-97FC9A09D7FA",
+      "MA": "YTC",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC Y TẾ CÔNG CỘNG"
+    },
+    {
+      "Id": "9B46FBC5-4C7B-4E7D-85A1-B770A830A012",
+      "MA": "ZNH",
+      "TEN_DON_VI": "TRƯỜNG ĐẠI HỌC VĂN HOÁ - NGHỆ THUẬT QUÂN ĐỘI"
+    }
+  ]
+}

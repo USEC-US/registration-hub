@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { ApiRequestError, requestJson } from './client';
 import type { ApiRequestOptions } from './client';
 
-vi.mock('$app/environment', () => ({ dev: false }));
+vi.mock('$app/environment', () => ({ dev: false, browser: false }));
 vi.mock('$env/dynamic/public', () => ({ env: {} }));
 
 describe('requestJson', () => {

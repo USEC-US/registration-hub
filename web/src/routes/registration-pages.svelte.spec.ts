@@ -10,11 +10,7 @@ import {
 	submitPaymentAttempt,
 	submitRegistration
 } from '$lib/api/registrations';
-import type {
-	PublicTournament,
-	PublicTournamentGame,
-	RegistrationRead
-} from '$lib/api/types';
+import type { PublicTournament, PublicTournamentGame, RegistrationRead } from '$lib/api/types';
 import { clearSession, getAccessToken } from '$lib/auth/session';
 import { replaceInternalLocation } from '$lib/auth/navigation';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
@@ -42,7 +38,11 @@ vi.mock('$lib/api/registrations', () => ({
 	submitPaymentAttempt: vi.fn(),
 	submitRegistration: vi.fn()
 }));
-vi.mock('$lib/auth/session', () => ({ getAccessToken: vi.fn(), clearSession: vi.fn() }));
+vi.mock('$lib/auth/session', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/auth/session')>()),
+	getAccessToken: vi.fn(),
+	clearSession: vi.fn()
+}));
 vi.mock('$lib/auth/navigation', () => ({ replaceInternalLocation: vi.fn() }));
 
 const accessToken = 'access-token';
@@ -163,24 +163,28 @@ describe('participant registration pages', () => {
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 
 		await vi.waitFor(() =>
-			expect(submitRegistration).toHaveBeenCalledWith(accessToken, {
-				tournament_game: 10,
-				team_name: 'Blue Team',
-				members: [
-					{
-						gamer_tag_snapshot: 'captain',
-						school_snapshot: 'HCMUS',
-						is_captain: true,
-						display_order: 1
-					},
-					{
-						gamer_tag_snapshot: 'teammate',
-						school_snapshot: 'HCMUS',
-						is_captain: false,
-						display_order: 2
-					}
-				]
-			}, 'registration-submit-token')
+			expect(submitRegistration).toHaveBeenCalledWith(
+				accessToken,
+				{
+					tournament_game: 10,
+					team_name: 'Blue Team',
+					members: [
+						{
+							gamer_tag_snapshot: 'captain',
+							school_snapshot: 'HCMUS',
+							is_captain: true,
+							display_order: 1
+						},
+						{
+							gamer_tag_snapshot: 'teammate',
+							school_snapshot: 'HCMUS',
+							is_captain: false,
+							display_order: 2
+						}
+					]
+				},
+				'registration-submit-token'
+			)
 		);
 		expect(goto).toHaveBeenCalledWith('/en/account/registrations/33');
 	});
@@ -219,7 +223,9 @@ describe('participant registration pages', () => {
 		await page.getByLabelText('School').nth(1).fill('HCMUS');
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 
-		await expect.element(page.getByText('Complete the security check before submitting.')).toBeVisible();
+		await expect
+			.element(page.getByText('Complete the security check before submitting.'))
+			.toBeVisible();
 		expect(submitRegistration).not.toHaveBeenCalled();
 	});
 
@@ -241,7 +247,9 @@ describe('participant registration pages', () => {
 		expect(turnstileDependencies.reset).toHaveBeenCalledWith('widget-id');
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 
-		await expect.element(page.getByText('Complete the security check before submitting.')).toBeVisible();
+		await expect
+			.element(page.getByText('Complete the security check before submitting.'))
+			.toBeVisible();
 		expect(submitRegistration).toHaveBeenCalledOnce();
 	});
 
@@ -268,6 +276,11 @@ describe('participant registration pages', () => {
 		await expect
 			.element(page.getByRole('list', { name: 'Registration status timeline' }))
 			.toBeInTheDocument();
+		const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+		const transfer = new DataTransfer();
+		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
+		fileInput.files = transfer.files;
+		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
 		await page.getByLabelText('Payment reference').fill('transfer-33');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
@@ -289,6 +302,11 @@ describe('participant registration pages', () => {
 		render(RegistrationDetailPage);
 
 		await expect.element(page.getByLabelText('Payment reference')).toBeInTheDocument();
+		const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+		const transfer = new DataTransfer();
+		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
+		fileInput.files = transfer.files;
+		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
 		await page.getByLabelText('Payment reference').fill('transfer-33');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 

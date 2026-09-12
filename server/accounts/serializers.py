@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
@@ -12,13 +13,24 @@ class InstitutionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Institution
-        fields = ("id", "value", "label", "code", "shortName", "eng", "type", "location")
+        fields = (
+            "id",
+            "value",
+            "label",
+            "code",
+            "shortName",
+            "eng",
+            "type",
+            "location",
+        )
 
 
 class InstitutionChoiceSerializerMixin(serializers.Serializer):
     defer_institution_resolution = False
     institution = InstitutionSerializer(read_only=True)
-    institution_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    institution_id = serializers.IntegerField(
+        write_only=True, required=False, allow_null=True
+    )
     institution_label = serializers.CharField(
         write_only=True,
         required=False,
@@ -41,16 +53,29 @@ class InstitutionChoiceSerializerMixin(serializers.Serializer):
                     institution_label=institution_label,
                 )
             else:
-                attrs["institution"] = resolve_institution(
-                    institution_id=attrs.pop("institution_id", None),
-                    institution_label=attrs.pop("institution_label", None),
-                )
+                if (
+                    self.instance is not None
+                    and institution_id
+                    and institution_id == self.instance.institution_id
+                    and not institution_label
+                ):
+                    # Existing affiliations remain usable while staff review them.
+                    attrs.pop("institution_id", None)
+                    attrs.pop("institution_label", None)
+                    attrs["institution"] = self.instance.institution
+                else:
+                    attrs["institution"] = resolve_institution(
+                        institution_id=attrs.pop("institution_id", None),
+                        institution_label=attrs.pop("institution_label", None),
+                    )
         except Institution.DoesNotExist as error:
             raise serializers.ValidationError(
-                {"institution_id": "Select a valid catalogue institution."}
+                {"institution_id": "Select an available institution."}
             ) from error
         except DjangoValidationError as error:
-            raise serializers.ValidationError({"institution": error.messages}) from error
+            raise serializers.ValidationError(
+                {"institution": error.messages}
+            ) from error
         return attrs
 
     def _validate_institution_choice(
@@ -69,7 +94,7 @@ class InstitutionChoiceSerializerMixin(serializers.Serializer):
         if has_institution_id:
             Institution.objects.get(
                 pk=institution_id,
-                source=Institution.Source.CATALOGUE,
+                review_status=Institution.ReviewStatus.VERIFIED,
             )
 
 
@@ -81,7 +106,21 @@ class AccountRegistrationSerializer(
     password = serializers.CharField(write_only=True, min_length=8)
     first_name = serializers.CharField(required=True, max_length=150)
     last_name = serializers.CharField(required=True, max_length=150)
-    turnstile_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    turnstile_token = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
+
+    def validate(self, attrs):
+        user = get_user_model()(
+            email=attrs.get("email", ""),
+            first_name=attrs.get("first_name", ""),
+            last_name=attrs.get("last_name", ""),
+        )
+        try:
+            validate_password(attrs["password"], user=user)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError({"password": error.messages}) from error
+        return super().validate(attrs)
 
     class Meta:
         model = get_user_model()
@@ -108,7 +147,9 @@ class AccountRegistrationSerializer(
         return get_user_model().objects.create_user(password=password, **validated_data)
 
 
-class CurrentUserSerializer(InstitutionChoiceSerializerMixin, serializers.ModelSerializer):
+class CurrentUserSerializer(
+    InstitutionChoiceSerializerMixin, serializers.ModelSerializer
+):
     class Meta:
         model = get_user_model()
         fields = (

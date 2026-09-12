@@ -18,8 +18,6 @@ from dotenv import load_dotenv
 from config.env import env_bool, env_list, local_secret_key
 
 from django.templatetags.static import static
-from django.urls import reverse_lazy
-from django.utils.translation import gettext_lazy as t
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

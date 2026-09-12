@@ -4,6 +4,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
+	import { Button } from '$lib/components/ui/button';
 
 	interface Props {
 		teamSizeMin: number;
@@ -23,7 +24,7 @@
 
 	function initializeMembers(): void {
 		if (members.length === 0) {
-			members = Array.from({ length: teamSizeMax }, (_, index) => ({
+			members = Array.from({ length: teamSizeMin }, (_, index) => ({
 				gamer_tag_snapshot: '',
 				school_snapshot: '',
 				is_captain: index === 0,
@@ -33,6 +34,30 @@
 	}
 
 	initializeMembers();
+
+	function addMember(): void {
+		if (members.length >= teamSizeMax) return;
+		members = [
+			...members,
+			{
+				gamer_tag_snapshot: '',
+				school_snapshot: '',
+				is_captain: false,
+				display_order: members.length + 1
+			}
+		];
+	}
+
+	function removeMember(index: number): void {
+		if (members.length <= teamSizeMin) return;
+		const remaining = members.filter((_, position) => position !== index);
+		const captainRemoved = !remaining.some((member) => member.is_captain);
+		members = remaining.map((member, position) => ({
+			...member,
+			display_order: position + 1,
+			is_captain: captainRemoved ? position === 0 : member.is_captain
+		}));
+	}
 
 	function selectCaptain(selectedIndex: number): void {
 		members = members.map((member, index) => ({
@@ -111,7 +136,26 @@
 					<span>{m.roster_captain()}</span>
 					<span class="sr-only">{m.roster_set_captain({ number: index + 1 })}</span>
 				</Field.Label>
+				{#if teamSizeMin < teamSizeMax}
+					<Button
+						type="button"
+						variant="outline"
+						disabled={members.length <= teamSizeMin}
+						onclick={() => removeMember(index)}
+					>
+						{m.roster_remove_member({ number: index + 1 })}
+					</Button>
+				{/if}
 			</Field.Set>
 		{/each}
 	</RadioGroup.Root>
+	{#if teamSizeMin < teamSizeMax}
+		<Button
+			type="button"
+			variant="outline"
+			class="mt-4"
+			disabled={members.length >= teamSizeMax}
+			onclick={addMember}>{m.roster_add_player()}</Button
+		>
+	{/if}
 </section>

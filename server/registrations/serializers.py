@@ -109,7 +109,7 @@ class RegistrationSubmissionSerializer(StrictFieldsSerializer):
 class PaymentAttemptSubmissionSerializer(StrictFieldsSerializer):
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     currency = serializers.CharField(max_length=3)
-    proof_file = serializers.FileField(required=False, allow_null=True)
+    proof_file = serializers.FileField()
     reference = serializers.CharField(max_length=128, allow_blank=True, required=False)
     turnstile_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
 

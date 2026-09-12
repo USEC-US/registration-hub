@@ -6,7 +6,7 @@ from .models import Institution, User
 
 @admin.register(Institution)
 class InstitutionAdmin(ModelAdmin):
-    list_display = ("label", "source", "review_status", "code", "location")
+    list_display = ("label", "source", "review_status", "code", "short_name", "location")
     list_filter = ("source", "review_status")
     search_fields = ("label", "code", "short_name", "english_name", "location")
 

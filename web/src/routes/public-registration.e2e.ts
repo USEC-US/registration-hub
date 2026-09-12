@@ -36,7 +36,9 @@ test('browser navigation runs public universal loads without extra document requ
 	const documentRequests: string[] = [];
 
 	page.on('request', (request) => {
-		if (request.resourceType() === 'document') documentRequests.push(request.url());
+		if (request.resourceType() === 'document' && request.frame() === page.mainFrame()) {
+			documentRequests.push(request.url());
+		}
 	});
 
 	await page.route('**/api/tournaments/', async (route) => {

@@ -1,5 +1,11 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -7,7 +13,7 @@ from rest_framework.response import Response
 
 from config.turnstile import require_turnstile
 
-from .models import Registration
+from .models import PaymentAttempt, Registration
 from .permissions import IsRegistrationSubmitter
 from .serializers import (
     PaymentAttemptReceiptSerializer,
@@ -16,6 +22,32 @@ from .serializers import (
     RegistrationSubmissionSerializer,
 )
 from .services import submit_payment_attempt, submit_registration
+
+
+@extend_schema(exclude=True)
+class PaymentProofView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, path):
+        attempts = PaymentAttempt.objects.all()
+        user = request.user
+        organizer = user.is_superuser or (
+            user.is_staff
+            and user.groups.filter(name="Organizers").exists()
+            and user.has_perm("registrations.view_paymentattempt")
+        )
+        if not organizer:
+            attempts = attempts.filter(registration__submitted_by=user)
+        attempt = get_object_or_404(attempts, proof_file=f"payment-proofs/{path}")
+        try:
+            proof = attempt.proof_file.open("rb")
+        except FileNotFoundError as error:
+            raise Http404 from error
+        response = FileResponse(proof, as_attachment=True)
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 def _as_drf_validation_error(error: DjangoValidationError) -> DRFValidationError:

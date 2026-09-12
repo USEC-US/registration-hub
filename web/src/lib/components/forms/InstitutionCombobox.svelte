@@ -15,6 +15,8 @@
 		initialLabel?: string;
 	}
 
+	// This binding publishes selections to the parent; it is intentionally write-only here.
+	// eslint-disable-next-line no-useless-assignment
 	let { choice = $bindable(), error, initialLabel = '' }: Props = $props();
 
 	let inputEl = $state<HTMLInputElement | null>(null);

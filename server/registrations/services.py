@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from tournaments.models import TournamentGame
+from .images import prepare_payment_image
 
 from .models import (
     PaymentAttempt,
@@ -221,8 +222,7 @@ def submit_payment_attempt(
             raise ValidationError("Payment amount must match the registration fee.")
         if currency.upper() != registration.fee_currency_snapshot:
             raise ValidationError("Payment currency must match the registration fee.")
-        if proof_file is None and not reference.strip():
-            raise ValidationError("Provide either a payment proof file or a reference.")
+        proof_file = prepare_payment_image(proof_file)
 
         return PaymentAttempt.objects.create(
             registration=registration,

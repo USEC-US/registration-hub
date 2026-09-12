@@ -2,11 +2,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 import json
+from io import BytesIO
+from django.core.files.base import ContentFile
+from PIL import Image, ImageDraw
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.db import transaction
 
 from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
@@ -22,6 +26,17 @@ from .services import (
     submit_payment_attempt,
     submit_registration,
 )
+
+
+def _sample_payment_image():
+    image = Image.new("RGB", (360, 100), "white")
+    ImageDraw.Draw(image).text(
+        (20, 40), "DEVELOPMENT SAMPLE - NOT A PAYMENT", fill="black"
+    )
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return ContentFile(output.getvalue(), name="development-sample.png")
+
 
 PLAYER_EMAIL = "player@email.com"
 ORGANIZER_EMAIL = "organizer@email.com"
@@ -107,16 +122,23 @@ def _set_account(
 
 def _load_player_institution_defaults() -> dict[str, str]:
     try:
-        payload = json.loads((settings.BASE_DIR / "university.json").read_text(encoding="utf-8"))
+        payload = json.loads(
+            (settings.BASE_DIR / "university.json").read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError) as error:
-        raise ValidationError(f"Unable to load institution catalogue: {error}") from error
+        raise ValidationError(
+            f"Unable to load institution catalogue: {error}"
+        ) from error
 
     records = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(records, list):
         raise ValidationError("Institution catalogue payload must contain a data list.")
 
     for record in records:
-        if not isinstance(record, dict) or str(record.get("value")) != HCMUS_INSTITUTION_VALUE:
+        if (
+            not isinstance(record, dict)
+            or str(record.get("value")) != HCMUS_INSTITUTION_VALUE
+        ):
             continue
         label = record["label"].strip()
         return {
@@ -394,10 +416,25 @@ def _rebuild_registrations(
     organizer,
     catalog: SeedCatalog,
 ) -> tuple[Registration, ...]:
-    Registration.objects.filter(
+    previous_registrations = Registration.objects.filter(
         submitted_by=player,
         tournament_game__tournament__slug__in=SEED_TOURNAMENT_SLUGS,
-    ).delete()
+    )
+    previous_proofs = [
+        attempt.proof_file
+        for attempt in PaymentAttempt.objects.filter(
+            registration__in=previous_registrations
+        )
+        if attempt.proof_file
+    ]
+    previous_registrations.delete()
+
+    def remove_replaced_proofs():
+        for proof in previous_proofs:
+            if not PaymentAttempt.objects.filter(proof_file=proof.name).exists():
+                proof.storage.delete(proof.name)
+
+    transaction.on_commit(remove_replaced_proofs)
 
     valorant = submit_registration(
         submitted_by=player,
@@ -414,6 +451,7 @@ def _rebuild_registrations(
         ),
     )
     submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=valorant.pk,
         amount=Decimal("50000.00"),
@@ -453,6 +491,7 @@ def _rebuild_registrations(
         ),
     )
     counter_strike_payment = submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=counter_strike.pk,
         amount=Decimal("75000.00"),
@@ -494,6 +533,7 @@ def _rebuild_registrations(
         ),
     )
     rejected_payment = submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=rocket_league.pk,
         amount=Decimal("60000.00"),
@@ -507,6 +547,7 @@ def _rebuild_registrations(
         note="Reference could not be verified.",
     )
     submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=rocket_league.pk,
         amount=Decimal("60000.00"),

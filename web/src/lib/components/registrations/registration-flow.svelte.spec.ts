@@ -1,3 +1,4 @@
+import { fromStore, writable } from 'svelte/store';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
@@ -8,7 +9,9 @@ import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import * as m from '$lib/paraglide/messages';
 import PaymentAttemptForm from './PaymentAttemptForm.svelte';
 import RosterEditor from './RosterEditor.svelte';
-const turnstileTokens = vi.hoisted(() => ({ 'payment-proof-submit': 'payment-proof-submit-token' }));
+const turnstileTokens = vi.hoisted(() => ({
+	'payment-proof-submit': 'payment-proof-submit-token'
+}));
 const turnstileReset = vi.hoisted(() => vi.fn());
 
 vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } }));
@@ -34,6 +37,38 @@ beforeEach(() => {
 });
 
 describe('RosterEditor', () => {
+	it('starts at the minimum and supports adding and removing optional players', async () => {
+		const state = fromStore(writable<RegistrationMemberInput[]>([]));
+		const { container } = render(RosterEditor, {
+			teamSizeMin: 2,
+			teamSizeMax: 3,
+			get members() {
+				return state.current;
+			},
+			set members(value) {
+				state.current = value;
+			}
+		});
+		expect(container.querySelectorAll('[data-roster-row]')).toHaveLength(2);
+		await expect
+			.element(page.getByRole('button', { name: 'Remove member 1', exact: true }))
+			.toBeDisabled();
+		await page.getByRole('button', { name: 'Add player', exact: true }).click();
+		await expect
+			.element(page.getByRole('button', { name: 'Add player', exact: true }))
+			.toBeDisabled();
+		await page.getByRole('radio', { name: 'Set member 3 as captain' }).click();
+		await page
+			.getByRole('group', { name: 'Roster member 2', exact: true })
+			.getByLabelText('Gamer tag')
+			.fill('retained');
+		await page.getByRole('button', { name: 'Remove member 3', exact: true }).click();
+		expect(state.current).toHaveLength(2);
+		expect(state.current.map((member) => member.display_order)).toEqual([1, 2]);
+		expect(state.current[1].gamer_tag_snapshot).toBe('retained');
+		expect(state.current.filter((member) => member.is_captain)).toHaveLength(1);
+		expect(state.current[0].is_captain).toBe(true);
+	});
 	it('renders one required, empty captain row for a solo game', () => {
 		const { container } = render(RosterEditor, {
 			teamSizeMin: 1,
@@ -119,6 +154,14 @@ describe('RosterEditor', () => {
 	});
 });
 
+function attachProof(file = new File(['proof'], 'proof.png', { type: 'image/png' })): void {
+	const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+	const transfer = new DataTransfer();
+	transfer.items.add(file);
+	input.files = transfer.files;
+	input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 describe('PaymentAttemptForm', () => {
 	it('uploads payment evidence as FormData and reports success', async () => {
 		vi.mocked(submitPaymentAttempt).mockResolvedValue({
@@ -148,7 +191,8 @@ describe('PaymentAttemptForm', () => {
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
-		const [token, registrationId, formData, turnstileToken] = vi.mocked(submitPaymentAttempt).mock.calls[0];
+		const [token, registrationId, formData, turnstileToken] =
+			vi.mocked(submitPaymentAttempt).mock.calls[0];
 		expect(token).toBe('access-token');
 		expect(registrationId).toBe(12);
 		expect(formData.get('amount')).toBe('50000.00');
@@ -181,6 +225,7 @@ describe('PaymentAttemptForm', () => {
 			onSuccess: vi.fn()
 		});
 
+		attachProof();
 		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
 		const button = page
 			.getByRole('button', { name: 'Upload payment proof' })
@@ -193,33 +238,38 @@ describe('PaymentAttemptForm', () => {
 		expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
 		resolveUpload();
 	});
-	it('submits a reference without requiring a proof file', async () => {
-		vi.mocked(submitPaymentAttempt).mockResolvedValue({
-			id: 5,
-			status: 'PENDING',
-			amount: '50000.00',
-			currency: 'VND',
-			created_at: '2026-07-19T00:00:00Z'
-		});
-		const onSuccess = vi.fn();
+	it('rejects a reference without an image', async () => {
 		render(PaymentAttemptForm, {
 			registrationId: 12,
 			accessToken: 'access-token',
 			initialAmount: '50000.00',
 			initialCurrency: 'VND',
-			onSuccess
+			onSuccess: vi.fn()
 		});
-
 		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
-
-		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
-		const formData = vi.mocked(submitPaymentAttempt).mock.calls[0][2];
-		expect(formData.get('reference')).toBe('bank-transfer-12');
-		expect(onSuccess).toHaveBeenCalledOnce();
+		await expect.element(page.getByText(m.payment_evidence_required())).toBeVisible();
+		expect(submitPaymentAttempt).not.toHaveBeenCalled();
 	});
 
-	it('requires either a proof file or a payment reference', async () => {
+	it.each([
+		new File(['pdf'], 'proof.pdf', { type: 'application/pdf' }),
+		new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'proof.png', { type: 'image/png' })
+	])('rejects unsupported or oversized files before submission', async (file) => {
+		render(PaymentAttemptForm, {
+			registrationId: 12,
+			accessToken: 'access-token',
+			initialAmount: '50000.00',
+			initialCurrency: 'VND',
+			onSuccess: vi.fn()
+		});
+		attachProof(file);
+		await page.getByRole('button', { name: 'Upload payment proof' }).click();
+		await expect.element(page.getByText(m.payment_image_invalid())).toBeVisible();
+		expect(submitPaymentAttempt).not.toHaveBeenCalled();
+	});
+
+	it('requires a proof image', async () => {
 		render(PaymentAttemptForm, {
 			registrationId: 12,
 			accessToken: 'access-token',
@@ -230,9 +280,7 @@ describe('PaymentAttemptForm', () => {
 
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
-		await expect
-			.element(page.getByText('Provide a payment proof or reference.'))
-			.toBeInTheDocument();
+		await expect.element(page.getByText(m.payment_evidence_required())).toBeInTheDocument();
 		expect(submitPaymentAttempt).not.toHaveBeenCalled();
 	});
 
@@ -246,6 +294,7 @@ describe('PaymentAttemptForm', () => {
 			onSuccess: vi.fn()
 		});
 
+		attachProof();
 		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
@@ -263,6 +312,7 @@ describe('PaymentAttemptForm', () => {
 			onSuccess: vi.fn()
 		});
 
+		attachProof();
 		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
@@ -285,6 +335,7 @@ describe('PaymentAttemptForm', () => {
 			initialCurrency: 'VND',
 			onSuccess: vi.fn()
 		});
+		attachProof();
 		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
 
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
@@ -305,6 +356,7 @@ describe('PaymentAttemptForm', () => {
 			onSuccess: vi.fn(),
 			onAuthenticationError
 		});
+		attachProof();
 		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
 
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();

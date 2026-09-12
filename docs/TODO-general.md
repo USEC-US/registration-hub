@@ -4,6 +4,7 @@
 
 - [x] Finish logout navigation, route behavior, and session tests.
 - [x] Implement the existing institution catalogue work.
+- [ ] Design a public contribution workflow for the institution dataset, including new schools, corrections, supporting sources, and maintainer review before publication. Keep this separate from the registration flow's "school not found" input; adding a school during registration is not a dataset contribution.
 - [x] Replace free-text account school fields with institution selection.
 - [x] Review sign-in, registration, profile, redirects, and expired-session behavior together.
 - [x] Confirm private account information never appears in public APIs.
@@ -61,7 +62,7 @@
 - [ ] Link a captain submitter to roster slot 1 for that registration.
 - [ ] Keep manager submitters outside the roster.
 - [ ] Collect private captain contact information.
-- [ ] Support actual minimum/maximum roster sizes instead of always forcing the maximum.
+- [x] Support actual minimum/maximum roster sizes instead of always forcing the maximum.
 - [ ] Handle solo entrants consistently.
 - [ ] Enforce one active entry per claimed player and division.
 - [ ] Define safe behavior for rejected entries, corrections, and resubmission.

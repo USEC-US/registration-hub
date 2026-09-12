@@ -51,7 +51,8 @@ vi.mock('$lib/api/auth', () => ({
 	updateCurrentUser: vi.fn()
 }));
 vi.mock('$lib/api/institutions', () => ({ searchInstitutions: vi.fn() }));
-vi.mock('$lib/auth/session', () => ({
+vi.mock('$lib/auth/session', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/auth/session')>()),
 	saveSession: vi.fn()
 }));
 vi.mock('$lib/states/auth-state.svelte', () => ({ authState: authStateMock }));
@@ -289,9 +290,7 @@ describe('logout page', () => {
 		authStateMock.signOutAndRedirect.mockClear();
 		render(LogoutPage);
 
-		await vi.waitFor(() =>
-			expect(authStateMock.signOutAndRedirect).toHaveBeenCalledWith('/en/')
-		);
+		await vi.waitFor(() => expect(authStateMock.signOutAndRedirect).toHaveBeenCalledWith('/en/'));
 		await expect.element(page.getByText(m.auth_signed_out_redirecting())).toBeVisible();
 	});
 });
@@ -341,13 +340,16 @@ describe('account creation page', () => {
 		await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/account/profile'));
-		expect(registerAccount).toHaveBeenCalledWith({
-			email: 'PLAYER@EXAMPLE.COM',
-			password: 'strong-password',
-			first_name: 'Minh',
-			last_name: 'Nguyen',
-			institution_id: 7
-		}, 'account-register-token');
+		expect(registerAccount).toHaveBeenCalledWith(
+			{
+				email: 'PLAYER@EXAMPLE.COM',
+				password: 'strong-password',
+				first_name: 'Minh',
+				last_name: 'Nguyen',
+				institution_id: 7
+			},
+			'account-register-token'
+		);
 		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password', 'sign-in-token');
 		expect(saveSession).toHaveBeenCalledWith(tokens);
 	});
@@ -371,13 +373,16 @@ describe('account creation page', () => {
 		await page.getByRole('button', { name: 'Create account' }).click();
 
 		await vi.waitFor(() => {
-			expect(registerAccount).toHaveBeenCalledWith({
-				email: user.email,
-				password: 'strong-password',
-				first_name: user.first_name,
-				last_name: user.last_name,
-				institution_label: 'New Academy'
-			}, 'account-register-token');
+			expect(registerAccount).toHaveBeenCalledWith(
+				{
+					email: user.email,
+					password: 'strong-password',
+					first_name: user.first_name,
+					last_name: user.last_name,
+					institution_label: 'New Academy'
+				},
+				'account-register-token'
+			);
 		});
 	});
 

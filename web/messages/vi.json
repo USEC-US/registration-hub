@@ -56,7 +56,7 @@
 	"payment_attempt_intro": "Gửi thông tin chuyển khoản và minh chứng để được xét duyệt.",
 	"payment_uploading": "Đang tải lên…",
 	"payment_upload_failed": "Không thể tải minh chứng thanh toán lên. Hãy kiểm tra thông tin và thử lại.",
-	"payment_evidence_required": "Hãy cung cấp minh chứng hoặc mã tham chiếu thanh toán.",
+	"payment_evidence_required": "Hãy tải lên ảnh minh chứng thanh toán.",
 	"turnstile_dev_missing_key": "Bỏ qua trong môi trường phát triển: đặt PUBLIC_TURNSTILE_SITE_KEY trong web/.env để hiển thị Cloudflare Turnstile.",
 	"turnstile_script_load_error": "Không thể tải bước kiểm tra bảo mật. Hãy kiểm tra kết nối và thử lại.",
 	"turnstile_challenge_error": "Không thể hoàn tất bước kiểm tra bảo mật. Hãy thử lại.",
@@ -152,11 +152,14 @@
 	"address_title": "{#bold}Địa chỉ:{/bold}",
 	"address_1": "{#bold}Cơ sở 1{/bold}: 227 đường Nguyễn Văn Cừ, Phường Chợ Quán, Thành phố Hồ Chí Minh",
 	"address_2": "{#bold}Cơ sở 2{/bold}: Khu đô thị Đại học Quốc gia Thành phố Hồ Chí Minh, Phường Đông Hoà, Thành phố Hồ Chí Minh",
-
 	"empty_tournaments_note": "Hãy quay lại sau để xem các giải đấu sắp tới.",
 	"tournament_cover_alt": "Ảnh bìa cho {name}",
 	"tournament_featured_label": "Nổi bật",
 	"tournament_loading": "Đang tải giải đấu…",
 	"featured_tournaments_text": "Giải đấu nổi bật",
-	"other_tournaments_text": "Các giải đấu khác"
+	"other_tournaments_text": "Các giải đấu khác",
+	"roster_add_player": "Thêm thành viên",
+	"roster_remove_member": "Xóa thành viên {number}",
+	"payment_image_hint": "JPEG, PNG hoặc WebP. Tối đa 10 MB và 20 megapixel. Chỉ chấp nhận ảnh tĩnh.",
+	"payment_image_invalid": "Chọn ảnh JPEG, PNG hoặc WebP có dung lượng không quá 10 MB."
 }

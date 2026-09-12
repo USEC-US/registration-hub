@@ -14,15 +14,25 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from registrations.views import PaymentProofView
+from config.media import serve_public_media
 
 urlpatterns = [
+    path(
+        "media/payment-proofs/<path:path>",
+        PaymentProofView.as_view(),
+        name="payment-proof",
+    ),
     path("admin/", admin.site.urls),
     path("api/", include("config.api_urls")),
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(
+        settings.MEDIA_URL, view=serve_public_media, document_root=settings.MEDIA_ROOT
+    )

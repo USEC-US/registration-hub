@@ -55,6 +55,25 @@ class AccountApiTests(APITestCase):
         self.assertEqual(response.data[0]["shortName"], "VNUHCM-US")
         self.assertEqual(response.data[0]["eng"], "University of Science")
 
+    def test_signup_rejects_weak_passwords_without_creating_identity_records(self):
+        for password in ("12345678", "password", "player@example.com", "MinhNguyen"):
+            with self.subTest(password=password):
+                response = self.client.post(
+                    "/api/auth/register/",
+                    self.registration_payload(
+                        password=password, institution_label="New School"
+                    ),
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("password", response.data)
+                self.assertFalse(
+                    get_user_model().objects.filter(email="player@example.com").exists()
+                )
+                self.assertFalse(
+                    Institution.objects.filter(label="New School").exists()
+                )
+
     def test_register_uses_catalogue_institution(self):
         institution = self.create_catalogue_institution()
 
@@ -146,7 +165,9 @@ class AccountApiTests(APITestCase):
             with self.subTest(choice=choice):
                 response = self.client.post(
                     "/api/auth/register/",
-                    self.registration_payload(email=f"{len(choice)}@example.com", **choice),
+                    self.registration_payload(
+                        email=f"{len(choice)}@example.com", **choice
+                    ),
                     format="json",
                 )
 
@@ -220,7 +241,9 @@ class AccountApiTests(APITestCase):
             {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN},
         )
 
-    def test_current_user_read_and_patch_institution_without_exposing_private_fields(self):
+    def test_current_user_read_and_patch_institution_without_exposing_private_fields(
+        self,
+    ):
         catalogue = self.create_catalogue_institution()
         user = create_account(
             email="player@example.com",
