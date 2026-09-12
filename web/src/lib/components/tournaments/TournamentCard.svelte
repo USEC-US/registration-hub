@@ -37,7 +37,7 @@
 					/>
 				</figure>
 			{/if}
-			<Card.Root class="grid gap-0 py-0 transition-shadow group-hover:shadow-sm md:grid-cols-[minmax(0,1fr)_17rem] rounded-none!">
+			<Card.Root class="grid gap-0 py-0 transition-shadow group-hover:shadow-sm md:grid-cols-[minmax(0,1fr)_17rem]">
 				<Card.Header class="p-5 sm:p-6 md:row-span-2">
 					<p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
 						{m.tournament_label()}
@@ -88,7 +88,7 @@
 						</div>
 					</dl>
 				</Card.Content>
-				<Card.Footer class="justify-between gap-4 border-t px-4 py-4 bg-primary">
+				<Card.Footer class="justify-between gap-4 border-t px-4 py-4 bg-primary rounded-none!">
 					<span class="flex items-center gap-4 text-sm font-semibold text-secondary">
 						{m.action_view_tournament()}
 						<ChevronRight />
@@ -166,10 +166,10 @@
 						</div>
 					</dl>
 				</Card.Content>
-				<Card.Footer class="justify-between gap-4 border-t px-4 py-4">
-					<span class="flex items-center gap-4 text-sm font-semibold text-primary">
+				<Card.Footer class="justify-between gap-4 border-t px-4 py-4 bg-primary rounded-none!">
+					<span class="flex items-center gap-4 text-sm font-semibold text-secondary">
 						{m.action_view_tournament()}
-						<span class="bracket-node" aria-hidden="true"></span>
+						<ChevronRight />
 					</span>
 				</Card.Footer>
 			</Card.Root>
