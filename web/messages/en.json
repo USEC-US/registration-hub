@@ -196,7 +196,7 @@
 	"roster_representative_hint": "The captain represents the team and appears first in the submitted roster. This does not determine who plays in a match.",
 	"game_roster_summary": "{main} main + up to {substitutes} substitutes",
 	"game_main_roster_only": "{main} main · no substitutes",
-	"roster_first_name": "First name",
+	"roster_first_name": "First and Middle name",
 	"roster_last_name": "Last name",
 	"roster_date_of_birth": "Date of birth",
 	"roster_student_id": "Student ID",
