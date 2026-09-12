@@ -99,7 +99,7 @@
 				accessToken,
 				{
 					tournament_game: data.game.id,
-					team_name: data.game.team_size_max > 1 ? teamName : '',
+					team_name: data.game.main_roster_size + data.game.substitute_limit > 1 ? teamName : '',
 					submitter_role: submitterRole,
 					manager_name_snapshot: submitterRole === 'manager' ? managerName : '',
 					contact_facebook_snapshot: facebook,
@@ -294,7 +294,7 @@
 						/>
 					</FormField.Group>
 				</FormField.Set>
-				{#if data.game.team_size_max > 1}
+				{#if data.game.main_roster_size + data.game.substitute_limit > 1}
 					<Card.Root aria-labelledby="team-identity-heading">
 						<Card.Header>
 							<Card.Title role="heading" aria-level={2} id="team-identity-heading">
@@ -315,8 +315,9 @@
 				{/if}
 
 				<RosterEditor
-					teamSizeMin={data.game.team_size_min}
-					teamSizeMax={data.game.team_size_max}
+					mainRosterSize={data.game.main_roster_size}
+					substituteLimit={data.game.substitute_limit}
+					studentsOnly={data.tournament.students_only}
 					{submitterRole}
 					errors={fieldErrors.members}
 					bind:members

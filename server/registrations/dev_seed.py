@@ -1,3 +1,4 @@
+from datetime import date
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -215,8 +216,8 @@ def _upsert_tournament_game(
     *,
     tournament: Tournament,
     game: Game,
-    team_size_min: int,
-    team_size_max: int,
+    main_roster_size: int,
+    substitute_limit: int,
     registration_opens_at: datetime,
     registration_closes_at: datetime,
     registration_capacity: int | None,
@@ -226,8 +227,8 @@ def _upsert_tournament_game(
         tournament=tournament,
         game=game,
         defaults={
-            "team_size_min": team_size_min,
-            "team_size_max": team_size_max,
+            "main_roster_size": main_roster_size,
+            "substitute_limit": substitute_limit,
             "registration_opens_at": registration_opens_at,
             "registration_closes_at": registration_closes_at,
             "registration_capacity": registration_capacity,
@@ -290,8 +291,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "valorant": _upsert_tournament_game(
             tournament=current,
             game=games["valorant"],
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=7),
             registration_closes_at=now + timedelta(days=7),
             registration_capacity=16,
@@ -300,8 +301,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "chess": _upsert_tournament_game(
             tournament=current,
             game=games["chess"],
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=7),
             registration_closes_at=now + timedelta(days=7),
             registration_capacity=None,
@@ -310,8 +311,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "counter-strike-2": _upsert_tournament_game(
             tournament=current,
             game=games["counter-strike-2"],
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=7),
             registration_closes_at=now + timedelta(days=7),
             registration_capacity=1,
@@ -320,8 +321,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "league-of-legends": _upsert_tournament_game(
             tournament=current,
             game=games["league-of-legends"],
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=now + timedelta(days=2),
             registration_closes_at=now + timedelta(days=10),
             registration_capacity=8,
@@ -330,8 +331,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "rocket-league": _upsert_tournament_game(
             tournament=archive,
             game=games["rocket-league"],
-            team_size_min=3,
-            team_size_max=3,
+            main_roster_size=3,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=75),
             registration_closes_at=now - timedelta(days=61),
             registration_capacity=8,
@@ -340,8 +341,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "ea-sports-fc": _upsert_tournament_game(
             tournament=draft,
             game=games["ea-sports-fc"],
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=1),
             registration_closes_at=now + timedelta(days=14),
             registration_capacity=32,
@@ -363,6 +364,10 @@ def _member_inputs(
 ) -> tuple[RegistrationMemberInput, ...]:
     return tuple(
         RegistrationMemberInput(
+            first_name_snapshot="Player",
+            last_name_snapshot="Example",
+            date_of_birth_snapshot=date(2005, 1, 1),
+            student_id_snapshot="0012345",
             gamer_tag_snapshot=gamer_tag,
             school_snapshot=school,
             is_captain=index == 1,

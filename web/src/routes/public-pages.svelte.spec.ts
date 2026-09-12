@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { PublicTournament } from '$lib/api/types';
+import * as m from '$lib/paraglide/messages';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import { resolveDisplayTimeZone } from '$lib/time/tournament-time';
 import HomePage from './+page.svelte';
@@ -19,13 +20,14 @@ const tournament: PublicTournament = {
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
 	is_featured: false,
+	students_only: false,
 	tournament_games: [
 		{
 			id: 9,
 			game_name: 'Valorant',
 			game_slug: 'valorant',
-			team_size_min: 5,
-			team_size_max: 5,
+			main_roster_size: 5,
+			substitute_limit: 0,
 			registration_opens_at: '2026-07-20T01:00:00Z',
 			registration_closes_at: '2026-08-10T10:00:00Z',
 			registration_capacity: 32,
@@ -266,11 +268,11 @@ describe('public tournament pages', () => {
 		});
 
 		await expect
-			.element(page.getByRole('heading', { level: 1, name: tournament.name }))
+			.element(page.getByRole('heading', { level: 3, name: tournament.name }))
 			.toBeInTheDocument();
 		await expect.element(page.getByText(tournament.description)).toBeInTheDocument();
 		await expect
-			.element(page.getByRole('heading', { level: 2, name: 'Configured games' }))
+			.element(page.getByRole('heading', { level: 2, name: m.configured_games_heading() }))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('heading', { level: 3, name: 'Valorant' }))

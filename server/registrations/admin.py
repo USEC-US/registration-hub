@@ -30,12 +30,17 @@ class ImmutableInline(TabularInline):
 class RegistrationMemberInline(ImmutableInline):
     model = RegistrationMember
     readonly_fields = (
+        "display_order",
+        "is_captain",
+        "roster_role",
+        "first_name_snapshot",
+        "last_name_snapshot",
+        "date_of_birth_snapshot",
+        "student_id_snapshot",
         "user",
         "gamer_tag_snapshot",
         "school_snapshot",
         "institution",
-        "is_captain",
-        "display_order",
     )
 
 
@@ -104,7 +109,15 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         "submitted_at",
     )
     list_filter = ("status", "tournament_game__tournament", "tournament_game__game")
-    search_fields = ("team_name", "submitted_by__email", "members__gamer_tag_snapshot")
+    search_fields = (
+        "team_name",
+        "submitted_by__email",
+        "members__gamer_tag_snapshot",
+        "members__first_name_snapshot",
+        "members__last_name_snapshot",
+        "members__student_id_snapshot",
+        "members__school_snapshot",
+    )
     list_select_related = ("tournament_game", "submitted_by")
     inlines = (
         RegistrationMemberInline,

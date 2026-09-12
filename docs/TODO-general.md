@@ -62,7 +62,8 @@
 - [x] Link a captain submitter to roster slot 1 for that registration.
 - [x] Keep manager submitters outside the roster.
 - [x] Collect private captain/responsible-contact information.
-- [x] Support actual minimum/maximum roster sizes instead of always forcing the maximum.
+- [x] Collect per-player names, date of birth, Student ID, and institution snapshots for organizer eligibility review; require Student ID for student-only tournaments.
+- [x] Configure required main roster members and optional substitute places; preserve each submitted player’s role.
 - [x] Handle solo entrants consistently.
 - [x] Enforce one active entry per claimed player and division, including concurrent submissions. Game-specific identity verification remains deferred.
 - [x] Define safe behavior for rejected entries, corrections, and resubmission.

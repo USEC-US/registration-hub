@@ -43,8 +43,8 @@ class TournamentAdminAccessTests(TestCase):
             inline.fields,
             (
                 "game",
-                "team_size_min",
-                "team_size_max",
+                "main_roster_size",
+                "substitute_limit",
                 "registration_opens_at",
                 "registration_closes_at",
                 "registration_capacity",

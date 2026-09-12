@@ -1,3 +1,4 @@
+from datetime import date
 from datetime import timedelta
 from decimal import Decimal
 from tempfile import TemporaryDirectory
@@ -49,8 +50,8 @@ class RegistrationServiceTests(TestCase):
         self.tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(minutes=1),
             registration_closes_at=timezone.now() + timedelta(days=1),
             registration_capacity=1,
@@ -60,6 +61,10 @@ class RegistrationServiceTests(TestCase):
 
     def _member(self, *, gamer_tag="captain", is_captain=True, display_order=1):
         return RegistrationMemberInput(
+            first_name_snapshot="Player",
+            last_name_snapshot="Example",
+            date_of_birth_snapshot=date(2005, 1, 1),
+            student_id_snapshot="0012345",
             gamer_tag_snapshot=gamer_tag,
             school_snapshot="HCMUS",
             is_captain=is_captain,
@@ -108,6 +113,10 @@ class RegistrationServiceTests(TestCase):
             team_name="  ",
             members=[
                 RegistrationMemberInput(
+                    first_name_snapshot="Player",
+                    last_name_snapshot="Example",
+                    date_of_birth_snapshot=date(2005, 1, 1),
+                    student_id_snapshot="0012345",
                     gamer_tag_snapshot="  captain  ",
                     school_snapshot=" HCMUS ",
                     is_captain=True,
@@ -151,11 +160,15 @@ class RegistrationServiceTests(TestCase):
             self._submit_solo()
 
     def test_roster_requires_exactly_one_captain_and_contiguous_display_order(self):
-        self.tournament_game.team_size_min = 2
-        self.tournament_game.team_size_max = 2
+        self.tournament_game.main_roster_size = 2
+        self.tournament_game.substitute_limit = 0
         self.tournament_game.registration_capacity = None
         self.tournament_game.save(
-            update_fields=("team_size_min", "team_size_max", "registration_capacity")
+            update_fields=(
+                "main_roster_size",
+                "substitute_limit",
+                "registration_capacity",
+            )
         )
 
         with self.assertRaises(ValidationError):
@@ -232,11 +245,15 @@ class RegistrationServiceTests(TestCase):
                 members=[self._member()],
             )
 
-        self.tournament_game.team_size_min = 2
-        self.tournament_game.team_size_max = 2
+        self.tournament_game.main_roster_size = 2
+        self.tournament_game.substitute_limit = 0
         self.tournament_game.registration_capacity = None
         self.tournament_game.save(
-            update_fields=("team_size_min", "team_size_max", "registration_capacity")
+            update_fields=(
+                "main_roster_size",
+                "substitute_limit",
+                "registration_capacity",
+            )
         )
         with self.assertRaises(ValidationError):
             submit_registration(

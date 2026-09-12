@@ -41,8 +41,8 @@ export interface PublicTournamentGame {
 	id: number;
 	game_name: string;
 	game_slug: string;
-	team_size_min: number;
-	team_size_max: number;
+	main_roster_size: number;
+	substitute_limit: number;
 	registration_opens_at: string;
 	registration_closes_at: string;
 	registration_capacity: number | null;
@@ -63,18 +63,27 @@ export interface PublicTournament {
 	ends_at: string | null;
 	location: string;
 	is_featured: boolean;
+	students_only: boolean;
 	tournament_games: PublicTournamentGame[];
 }
+
+export type RosterRole = 'main' | 'substitute';
 
 export interface RegistrationMemberRead {
 	gamer_tag_snapshot: string;
 	school_snapshot: string;
 	is_captain: boolean;
+	roster_role: RosterRole;
 	display_order: number;
 }
 
 export type RegistrationMemberInput = Omit<RegistrationMemberRead, 'school_snapshot'> &
-	InstitutionChoice;
+	InstitutionChoice & {
+		first_name_snapshot: string;
+		last_name_snapshot: string;
+		date_of_birth_snapshot: string;
+		student_id_snapshot: string;
+	};
 export type SubmitterRole = 'captain' | 'manager';
 
 export interface RegistrationSubmissionPayload {
@@ -95,8 +104,8 @@ export interface RegistrationRead {
 		id: number;
 		tournament_name: string;
 		game_name: string;
-		team_size_min: number;
-		team_size_max: number;
+		main_roster_size: number;
+		substitute_limit: number;
 		fee_amount: string;
 		fee_currency: string;
 	};

@@ -22,8 +22,8 @@ class RegistrationMemberModelTests(TestCase):
         self.tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=timezone.now(),
             registration_closes_at=timezone.now() + timedelta(days=1),
             fee_amount="0.00",

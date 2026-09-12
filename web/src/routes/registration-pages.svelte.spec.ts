@@ -51,8 +51,8 @@ const game: PublicTournamentGame = {
 	id: 10,
 	game_name: 'Valorant',
 	game_slug: 'valorant',
-	team_size_min: 2,
-	team_size_max: 2,
+	main_roster_size: 2,
+	substitute_limit: 0,
 	registration_opens_at: '2026-07-01T00:00:00Z',
 	registration_closes_at: '2026-07-31T00:00:00Z',
 	registration_capacity: 16,
@@ -72,6 +72,7 @@ const tournament: PublicTournament = {
 	ends_at: null,
 	location: 'HCMUS',
 	is_featured: false,
+	students_only: false,
 	tournament_games: [game]
 };
 const registration: RegistrationRead = {
@@ -80,8 +81,8 @@ const registration: RegistrationRead = {
 		id: game.id,
 		tournament_name: tournament.name,
 		game_name: game.game_name,
-		team_size_min: game.team_size_min,
-		team_size_max: game.team_size_max,
+		main_roster_size: game.main_roster_size,
+		substitute_limit: game.substitute_limit,
 		fee_amount: game.fee_amount,
 		fee_currency: game.fee_currency
 	},
@@ -95,12 +96,14 @@ const registration: RegistrationRead = {
 		{
 			gamer_tag_snapshot: 'captain',
 			school_snapshot: 'HCMUS',
+			roster_role: 'main',
 			is_captain: true,
 			display_order: 1
 		},
 		{
 			gamer_tag_snapshot: 'teammate',
 			school_snapshot: 'HCMUS',
+			roster_role: 'main',
 			is_captain: false,
 			display_order: 2
 		}
@@ -144,6 +147,12 @@ beforeEach(() => {
 });
 
 async function chooseInstitution(index: number, label = 'HCMUS') {
+	await page
+		.getByLabelText('First name', { exact: true })
+		.nth(index)
+		.fill(`Player ${index + 1}`);
+	await page.getByLabelText('Last name', { exact: true }).nth(index).fill('Example');
+	await page.getByLabelText('Date of birth', { exact: true }).nth(index).fill('2005-01-01');
 	await page.getByRole('combobox', { name: 'Institution' }).nth(index).fill(label);
 	await page.getByRole('button', { name: `Use "${label}"` }).click();
 }
@@ -154,7 +163,7 @@ describe('participant registration pages', () => {
 		render(RegisterPage, {
 			data: {
 				tournament,
-				game: { ...game, team_size_min: 1, team_size_max: 1 },
+				game: { ...game, main_roster_size: 1, substitute_limit: 0 },
 				displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE
 			},
 			params: { slug: tournament.slug, gameId: String(game.id) }
@@ -291,13 +300,23 @@ describe('participant registration pages', () => {
 					members: [
 						{
 							gamer_tag_snapshot: 'captain',
+							first_name_snapshot: 'Player 1',
+							last_name_snapshot: 'Example',
+							date_of_birth_snapshot: '2005-01-01',
+							student_id_snapshot: '',
 							institution_label: 'HCMUS',
+							roster_role: 'main',
 							is_captain: true,
 							display_order: 1
 						},
 						{
 							gamer_tag_snapshot: 'teammate',
+							first_name_snapshot: 'Player 2',
+							last_name_snapshot: 'Example',
+							date_of_birth_snapshot: '2005-01-01',
+							student_id_snapshot: '',
 							institution_label: 'HCMUS',
+							roster_role: 'main',
 							is_captain: false,
 							display_order: 2
 						}

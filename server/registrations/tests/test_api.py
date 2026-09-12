@@ -42,8 +42,8 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(minutes=1),
             registration_closes_at=timezone.now() + timedelta(days=1),
             fee_amount=Decimal("50000.00"),
@@ -72,6 +72,10 @@ class RegistrationOwnershipApiTests(APITestCase):
             "members": [
                 {
                     "gamer_tag_snapshot": "captain",
+                    "first_name_snapshot": "Player",
+                    "last_name_snapshot": "Example",
+                    "date_of_birth_snapshot": "2005-01-01",
+                    "student_id_snapshot": "0012345",
                     "institution_label": "HCMUS",
                     "is_captain": True,
                     "display_order": 1,

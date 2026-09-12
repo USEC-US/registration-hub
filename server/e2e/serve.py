@@ -54,6 +54,7 @@ def seed():
     tournament = Tournament.objects.create(
         name="Registration Journey Test",
         slug="registration-journey-test",
+        students_only=True,
         is_published=True,
     )
     for slug, minimum, maximum, fee in (
@@ -65,8 +66,8 @@ def seed():
         TournamentGame.objects.create(
             tournament=tournament,
             game=game,
-            team_size_min=minimum,
-            team_size_max=maximum,
+            main_roster_size=minimum,
+            substitute_limit=maximum - minimum,
             registration_opens_at=timezone.now() - timedelta(days=1),
             registration_closes_at=timezone.now() + timedelta(days=1),
             registration_capacity=100,

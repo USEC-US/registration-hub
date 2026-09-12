@@ -15,7 +15,13 @@ const proof = {
 interface Receipt {
 	id: number;
 	status: string;
-	members: { gamer_tag_snapshot: string; school_snapshot: string; is_captain: boolean }[];
+	members: {
+		gamer_tag_snapshot: string;
+		school_snapshot: string;
+		is_captain: boolean;
+		roster_role: string;
+		display_order: number;
+	}[];
 	payment_attempts: { id: number; status: string }[];
 }
 
@@ -32,6 +38,11 @@ async function registrationUrl(request: APIRequestContext, slug: string) {
 async function fillRoster(page: Page, tags: string[]) {
 	for (const [index, tag] of tags.entries()) {
 		const row = page.locator('[data-roster-row]').nth(index);
+		await row.getByLabel('First name', { exact: true }).fill(`Player ${index + 1}`);
+		await row.getByLabel('Last name', { exact: true }).fill('Example');
+		await row.getByLabel('Date of birth', { exact: true }).fill('2005-01-01');
+		await expect(row.getByLabel('Student ID', { exact: true })).toHaveJSProperty('required', true);
+		await row.getByLabel('Student ID', { exact: true }).fill(`000${index + 1}`);
 		await row.getByLabel('Gamer tag', { exact: true }).fill(tag);
 		await row.getByRole('combobox', { name: 'Institution' }).fill('Journey Test');
 		await page.getByRole('option').filter({ hasText: institution }).click();
@@ -125,7 +136,7 @@ test('guest captain submits a team with catalogue snapshots and private contacts
 	expect([401, 403]).toContain(detail.status());
 });
 
-test('guest manager stays outside a variable-size roster and chooses its captain', async ({
+test('guest manager registers main players and a substitute representative', async ({
 	page,
 	request
 }) => {
@@ -134,15 +145,28 @@ test('guest manager stays outside a variable-size roster and chooses its captain
 	await page.getByLabel('Manager name', { exact: true }).fill('Journey Manager');
 	await page.getByLabel('Team name', { exact: true }).fill('Managed Team');
 	await fillContacts(page);
-	await page.getByRole('button', { name: 'Add player', exact: true }).click();
+	await page.getByRole('button', { name: 'Add substitute', exact: true }).click();
 	await fillRoster(page, ['Managed#ONE', 'Managed#TWO', 'Managed#THREE']);
-	await page.getByRole('radio', { name: 'Set member 2 as captain', exact: true }).click();
+	await page.getByRole('radio', { name: 'Set member 3 as captain', exact: true }).click();
 	const receipt = await submit(page);
 	expect(receipt.members).toHaveLength(3);
-	expect(receipt.members.map((member) => member.is_captain)).toEqual([false, true, false]);
+	expect(receipt.members.map((member) => member.roster_role)).toEqual([
+		'substitute',
+		'main',
+		'main'
+	]);
+	expect(receipt.members[0]).toMatchObject({
+		gamer_tag_snapshot: 'Managed#THREE',
+		display_order: 1
+	});
+	expect(receipt.members.map((member) => member.is_captain)).toEqual([true, false, false]);
 	await organizerLogin(page);
 	await page.goto(`${api}/admin/registrations/registration/${receipt.id}/change/`);
 	await expect(adminField(page, 'Manager name snapshot')).toHaveText('Journey Manager');
+	await expect(page.locator('td.field-first_name_snapshot').first()).toHaveText('Player 3');
+	await expect(page.locator('td.field-last_name_snapshot').first()).toHaveText('Example');
+	await expect(page.locator('td.field-student_id_snapshot').first()).toHaveText('0003');
+	await expect(page.locator('td.field-date_of_birth_snapshot').first()).toContainText('2005');
 	await expect(adminField(page, 'Contact phone snapshot')).toHaveText('+84901234567');
 });
 

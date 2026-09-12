@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Sequence
 
@@ -28,6 +29,11 @@ class RegistrationMemberInput:
     gamer_tag_snapshot: str
     is_captain: bool
     display_order: int
+    first_name_snapshot: str = ""
+    last_name_snapshot: str = ""
+    date_of_birth_snapshot: date | None = None
+    student_id_snapshot: str = ""
+    roster_role: str = RegistrationMember.RosterRole.MAIN
     institution_id: int | None = None
     institution_label: str | None = None
     # Historical service callers only; never accepted by the API.
@@ -180,11 +186,25 @@ def submit_registration(
                         if submitter_role == "captain" and member.display_order == 1
                         else None,
                         gamer_tag_snapshot=member.gamer_tag_snapshot.strip(),
+                        first_name_snapshot=member.first_name_snapshot.strip(),
+                        last_name_snapshot=member.last_name_snapshot.strip(),
+                        date_of_birth_snapshot=member.date_of_birth_snapshot,
+                        student_id_snapshot=member.student_id_snapshot.strip(),
                         school_snapshot=institution.label,
                         is_captain=member.is_captain,
-                        display_order=member.display_order,
+                        roster_role=member.roster_role,
+                        display_order=display_order,
                     )
-                    for member, institution in resolved
+                    for display_order, (member, institution) in enumerate(
+                        sorted(
+                            resolved,
+                            key=lambda pair: (
+                                not pair[0].is_captain,
+                                pair[0].display_order,
+                            ),
+                        ),
+                        start=1,
+                    )
                 ]
             )
             RegistrationStatusEvent.objects.create(
@@ -217,12 +237,70 @@ def _validate_roster(
     team_name: str,
     members: Sequence[RegistrationMemberInput],
 ) -> None:
-    if (
-        not tournament_game.team_size_min
-        <= len(members)
-        <= tournament_game.team_size_max
+    for index, member in enumerate(members, 1):
+        if (
+            not member.first_name_snapshot.strip()
+            or not member.last_name_snapshot.strip()
+        ):
+            raise ValidationError(
+                {"members": f"Player {index}: first and last name are required."}
+            )
+        if (
+            len(member.first_name_snapshot.strip()) > 150
+            or len(member.last_name_snapshot.strip()) > 150
+        ):
+            raise ValidationError(
+                {"members": f"Player {index}: names must not exceed 150 characters."}
+            )
+        if (
+            type(member.date_of_birth_snapshot) is not date
+            or member.date_of_birth_snapshot > timezone.localdate()
+        ):
+            raise ValidationError(
+                {
+                    "members": f"Player {index}: enter a valid date of birth that is not in the future."
+                }
+            )
+        if len(member.student_id_snapshot.strip()) > 128:
+            raise ValidationError(
+                {
+                    "members": f"Player {index}: student ID must not exceed 128 characters."
+                }
+            )
+        if (
+            tournament_game.tournament.students_only
+            and not member.student_id_snapshot.strip()
+        ):
+            raise ValidationError(
+                {
+                    "members": f"Player {index}: student ID is required for student-only tournaments."
+                }
+            )
+    if any(
+        member.roster_role not in RegistrationMember.RosterRole.values
+        for member in members
     ):
-        raise ValidationError("Roster size is outside the configured limit.")
+        raise ValidationError(
+            {"members": "Choose a valid roster role for every player."}
+        )
+    if (
+        sum(member.roster_role == "main" for member in members)
+        != tournament_game.main_roster_size
+    ):
+        raise ValidationError(
+            {
+                "members": f"Exactly {tournament_game.main_roster_size} main players are required."
+            }
+        )
+    if (
+        sum(member.roster_role == "substitute" for member in members)
+        > tournament_game.substitute_limit
+    ):
+        raise ValidationError(
+            {
+                "members": f"At most {tournament_game.substitute_limit} substitutes are allowed."
+            }
+        )
     if sum(member.is_captain for member in members) != 1:
         raise ValidationError("A registration must have exactly one captain.")
     if bool(team_name.strip()) != tournament_game.is_team:

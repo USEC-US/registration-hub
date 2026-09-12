@@ -185,9 +185,14 @@
 								>
 								<span class="font-semibold">{member.gamer_tag_snapshot}</span>
 								<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
-								{#if member.is_captain}
-									<Badge variant="outline">{m.roster_captain()}</Badge>
-								{/if}
+								<div class="flex flex-wrap gap-2">
+									<Badge variant="secondary"
+										>{member.roster_role === 'substitute'
+											? m.roster_substitute()
+											: m.roster_main_player()}</Badge
+									>
+									{#if member.is_captain}<Badge variant="outline">{m.roster_captain()}</Badge>{/if}
+								</div>
 							</li>
 						{/each}
 					</ol>

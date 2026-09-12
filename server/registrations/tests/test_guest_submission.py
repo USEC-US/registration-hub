@@ -1,3 +1,4 @@
+from datetime import date
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -30,6 +31,10 @@ class GuestSubmissionTests(APITestCase):
             "members": [
                 {
                     "gamer_tag_snapshot": "new-player",
+                    "first_name_snapshot": "Player",
+                    "last_name_snapshot": "Example",
+                    "date_of_birth_snapshot": "2005-01-01",
+                    "student_id_snapshot": "0012345",
                     "institution_label": "New school",
                     "is_captain": True,
                     "display_order": 1,
@@ -56,6 +61,90 @@ class GuestSubmissionTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("proof_file", response.data)
         self.assertEqual(Registration.objects.count(), 2)
+
+    def team_payload(self):
+        self.tournament_game.main_roster_size = 2
+        self.tournament_game.substitute_limit = 1
+        self.tournament_game.fee_amount = 0
+        self.tournament_game.save()
+        payload = self.payload()
+        payload.update(
+            team_name="Team", submitter_role="manager", manager_name_snapshot="Manager"
+        )
+        payload["members"] = [
+            {
+                **payload["members"][0],
+                "gamer_tag_snapshot": f"player-{index}",
+                "display_order": index,
+                "is_captain": index == 3,
+                "roster_role": "substitute" if index == 3 else "main",
+            }
+            for index in (1, 2, 3)
+        ]
+        return payload
+
+    def test_substitute_representative_saved_first_and_roles_survive_config_change(
+        self,
+    ):
+        payload = self.team_payload()
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 201, response.data)
+        registration = Registration.objects.get(pk=response.data["id"])
+        members = list(registration.members.all())
+        self.assertEqual([m.display_order for m in members], [1, 2, 3])
+        self.assertTrue(members[0].is_captain)
+        self.assertEqual(members[0].roster_role, "substitute")
+        self.assertEqual(members[0].gamer_tag_snapshot, "player-3")
+        self.assertTrue(all(m.user_id is None for m in members))
+        self.tournament_game.main_roster_size = 3
+        self.tournament_game.substitute_limit = 0
+        self.tournament_game.save()
+        members[0].refresh_from_db()
+        self.assertEqual(members[0].roster_role, "substitute")
+
+    def test_substitute_duplicate_blocks_other_team_main_player(self):
+        payload = self.team_payload()
+        self.assertEqual(self.post(payload).status_code, 201)
+        payload["members"] = [
+            {
+                **payload["members"][0],
+                "gamer_tag_snapshot": "player-3",
+                "is_captain": True,
+            },
+            {**payload["members"][1], "gamer_tag_snapshot": "new-main"},
+        ]
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("already has an active registration", str(response.data))
+
+    def test_signed_captain_can_be_substitute_in_slot_one(self):
+        payload = self.team_payload()
+        payload.update(submitter_role="captain", manager_name_snapshot="")
+        payload["members"] = [payload["members"][2], *payload["members"][:2]]
+        for index, member in enumerate(payload["members"], 1):
+            member["display_order"] = index
+        self.client.force_authenticate(self.owner)
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 201, response.data)
+        member = Registration.objects.get(pk=response.data["id"]).members.get(
+            display_order=1
+        )
+        self.assertEqual(member.user_id, self.owner.pk)
+        self.assertEqual(member.roster_role, "substitute")
+
+    def test_roster_roles_are_validated_before_creating_registration(self):
+        payload = self.team_payload()
+        for roles in (
+            ("main", "substitute", "substitute"),
+            ("main", "main", "main"),
+            ("main", "main", "invalid"),
+        ):
+            with self.subTest(roles=roles):
+                for member, role in zip(payload["members"], roles):
+                    member["roster_role"] = role
+                response = self.post(payload)
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertEqual(Registration.objects.count(), 2)
 
     def test_paid_guest_atomic_proof_and_private_response(self):
         response = self.post(proof=payment_image())
@@ -190,8 +279,8 @@ class GuestSubmissionTests(APITestCase):
 
     def test_captain_slot_and_within_roster_duplicates(self):
         self.client.force_authenticate(self.owner)
-        self.tournament_game.team_size_min = 2
-        self.tournament_game.team_size_max = 2
+        self.tournament_game.main_roster_size = 2
+        self.tournament_game.substitute_limit = 0
         self.tournament_game.save()
         payload = self.payload()
         payload["team_name"] = "Team"
@@ -259,6 +348,10 @@ class ConcurrentGuestSubmissionTests(TransactionTestCase):
                         contact_phone_snapshot="0901234567",
                         members=[
                             RegistrationMemberInput(
+                                first_name_snapshot="Player",
+                                last_name_snapshot="Example",
+                                date_of_birth_snapshot=date(2005, 1, 1),
+                                student_id_snapshot="0012345",
                                 gamer_tag_snapshot="same-player",
                                 institution_label="Race school",
                                 is_captain=True,

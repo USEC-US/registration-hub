@@ -130,7 +130,7 @@
 					</Card.Title>
 					{#if tournament.description}
 						<Card.Description class="line-clamp-3 leading-6">
-							{tournament.description}
+							{@html tournament.description}
 						</Card.Description>
 					{/if}
 				</Card.Header>
