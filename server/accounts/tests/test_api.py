@@ -1,6 +1,6 @@
-from django.contrib.auth import get_user_model
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.test.utils import ignore_warnings
 from jwt.warnings import InsecureKeyLengthWarning

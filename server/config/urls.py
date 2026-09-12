@@ -19,8 +19,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
-from registrations.views import PaymentProofView
+
 from config.media import serve_public_media
+from registrations.views import PaymentProofView
 
 urlpatterns = [
     path(

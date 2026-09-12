@@ -8,7 +8,6 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.tests.factories import create_account
-
 from registrations.models import Registration
 from tournaments.models import Game, Tournament, TournamentGame
 

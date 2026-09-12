@@ -5,7 +5,6 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.tests.factories import create_account
-
 from registrations.models import Registration, RegistrationMember
 from tournaments.models import Game, Tournament, TournamentGame
 

@@ -1,6 +1,6 @@
+import warnings
 from io import BytesIO
 from uuid import uuid4
-import warnings
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile

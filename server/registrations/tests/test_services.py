@@ -1,15 +1,13 @@
 from datetime import timedelta
 from decimal import Decimal
+from tempfile import TemporaryDirectory
 
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from .images import payment_image
-from tempfile import TemporaryDirectory
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from accounts.tests.factories import create_account
-
 from registrations.models import PaymentAttempt, Registration
 from registrations.services import (
     RegistrationMemberInput,
@@ -21,6 +19,8 @@ from registrations.services import (
     submit_registration,
 )
 from tournaments.models import Game, Tournament, TournamentGame
+
+from .images import payment_image
 
 
 class RegistrationServiceTests(TestCase):

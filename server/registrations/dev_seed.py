@@ -1,16 +1,16 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-import json
 from io import BytesIO
-from django.core.files.base import ContentFile
-from PIL import Image, ImageDraw
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.db import transaction
+from PIL import Image, ImageDraw
 
 from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label

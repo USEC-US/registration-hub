@@ -7,8 +7,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from tournaments.models import TournamentGame
-from .images import prepare_payment_image
 
+from .images import prepare_payment_image
 from .models import (
     PaymentAttempt,
     Registration,

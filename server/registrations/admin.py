@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from unfold.admin import TabularInline, ModelAdmin
+from unfold.admin import ModelAdmin, TabularInline
 
 from .models import (
     PaymentAttempt,

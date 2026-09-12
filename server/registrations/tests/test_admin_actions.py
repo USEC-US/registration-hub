@@ -7,7 +7,6 @@ from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from accounts.tests.factories import create_account
-
 from registrations.admin import PaymentAttemptAdmin, RegistrationAdmin
 from registrations.models import PaymentAttempt, Registration
 from tournaments.models import Game, Tournament, TournamentGame

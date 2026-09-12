@@ -3,7 +3,6 @@ from django.contrib.auth.models import Permission
 from django.test import RequestFactory, TestCase
 
 from accounts.tests.factories import create_account
-
 from tournaments.admin import GameAdmin, TournamentAdmin, TournamentGameInline
 from tournaments.models import Game, Tournament, TournamentGame
 

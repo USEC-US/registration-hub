@@ -3,8 +3,7 @@ import os
 from unittest.mock import patch
 
 from django.core.checks import Error
-from django.test import SimpleTestCase
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 
 from config.checks import check_turnstile_settings
 from config.env import env_bool, env_list, local_secret_key

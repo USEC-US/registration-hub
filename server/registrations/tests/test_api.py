@@ -1,18 +1,18 @@
 from datetime import timedelta
 from decimal import Decimal
 from tempfile import TemporaryDirectory
-from django.core.files.uploadedfile import SimpleUploadedFile
-from .images import payment_image
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.tests.factories import create_account
-
 from registrations.models import Registration
 from tournaments.models import Game, Tournament, TournamentGame
+
+from .images import payment_image
 
 
 @override_settings(ROOT_URLCONF="config.urls", DEBUG=True, TURNSTILE_SECRET_KEY="")
@@ -122,6 +122,7 @@ class RegistrationOwnershipApiTests(APITestCase):
 
     def test_payment_image_download_requires_owner_or_organizer(self):
         from django.contrib.auth.models import Group, Permission
+
         from registrations.services import submit_payment_attempt
 
         attempt = submit_payment_attempt(

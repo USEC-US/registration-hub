@@ -6,6 +6,7 @@ from django.test import SimpleTestCase
 from PIL import Image, PngImagePlugin
 
 from registrations.images import prepare_payment_image
+
 from .images import payment_image
 
 
