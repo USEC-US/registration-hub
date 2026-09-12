@@ -331,8 +331,8 @@ class SeedDevDataCommandTests(TestCase):
         outsider_tournament_game = TournamentGame.objects.create(
             tournament=outsider_tournament,
             game=outsider_game,
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(days=1),
             registration_closes_at=timezone.now() + timedelta(days=1),
             registration_capacity=None,

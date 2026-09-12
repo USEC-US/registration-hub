@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -14,6 +15,11 @@
 	import * as FormField from '$lib/components/ui/field';
 	import { Spinner } from '$lib/components/ui/spinner';
 
+	let ready = $state(false);
+	onMount(() => {
+		ready = true;
+	});
+
 	let email = $state('');
 	let password = $state('');
 	let turnstileToken = $state('');
@@ -24,7 +30,7 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting) return;
+		if (!ready || submitting) return;
 		if (!turnstileToken) {
 			formErrors = [m.turnstile_required()];
 			return;
@@ -79,6 +85,8 @@
 	</div>
 </header>
 
+<p class="mt-6 text-sm text-muted-foreground">{m.registration_account_benefits()}</p>
+
 <Card.Root class="mt-8 grid gap-0 lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]">
 	<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">
 		<Card.Title class="font-heading font-bold text-2xl" role="heading" aria-level={2}
@@ -87,7 +95,7 @@
 		<Card.Description class="mt-3 leading-6">{m.auth_credentials_intro()}</Card.Description>
 	</Card.Header>
 
-	<form aria-busy={submitting} onsubmit={handleSubmit}>
+	<form method="post" aria-busy={submitting} onsubmit={handleSubmit}>
 		<Card.Content class="grid gap-5 p-5 sm:p-6">
 			<ErrorSummary errors={formErrors} />
 			<FormField.Group class="gap-5">
@@ -111,11 +119,7 @@
 					error={fieldErrors.password?.[0]}
 					bind:value={password}
 				/>
-				<TurnstileWidget
-					bind:this={turnstileWidget}
-					action="sign-in"
-					bind:token={turnstileToken}
-				/>
+				<TurnstileWidget bind:this={turnstileWidget} action="sign-in" bind:token={turnstileToken} />
 			</FormField.Group>
 		</Card.Content>
 		<Card.Footer class="flex flex-wrap justify-between gap-4 border-t">
@@ -125,7 +129,7 @@
 					>{m.action_create_account()}</a
 				>
 			</p>
-			<Button class="min-h-11" type="submit" disabled={submitting}>
+			<Button class="min-h-11" type="submit" disabled={!ready || submitting}>
 				{#if submitting}<Spinner aria-hidden="true" />{/if}
 				{submitting ? m.auth_signing_in() : m.nav_sign_in()}
 			</Button>

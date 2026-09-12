@@ -137,15 +137,6 @@
 				<ErrorSummary errors={formErrors} />
 				<FormField.Group class="gap-5 md:grid md:grid-cols-2">
 					<Field
-						label={m.field_first_name()}
-						name="first_name"
-						autocomplete="given-name"
-						required
-						maxlength={150}
-						error={fieldErrors.first_name?.[0]}
-						bind:value={firstName}
-					/>
-					<Field
 						label={m.field_last_name()}
 						name="last_name"
 						autocomplete="family-name"
@@ -153,6 +144,15 @@
 						maxlength={150}
 						error={fieldErrors.last_name?.[0]}
 						bind:value={lastName}
+					/>
+					<Field
+						label={m.field_first_name()}
+						name="first_name"
+						autocomplete="given-name"
+						required
+						maxlength={150}
+						error={fieldErrors.first_name?.[0]}
+						bind:value={firstName}
 					/>
 				</FormField.Group>
 				<InstitutionCombobox

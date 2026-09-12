@@ -42,8 +42,8 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(minutes=1),
             registration_closes_at=timezone.now() + timedelta(days=1),
             fee_amount=Decimal("50000.00"),
@@ -66,10 +66,17 @@ class RegistrationOwnershipApiTests(APITestCase):
         return {
             "tournament_game": self.tournament_game.pk,
             "team_name": "",
+            "submitter_role": "captain",
+            "contact_facebook_snapshot": "fb/me",
+            "contact_phone_snapshot": "0900000000",
             "members": [
                 {
                     "gamer_tag_snapshot": "captain",
-                    "school_snapshot": "HCMUS",
+                    "first_name_snapshot": "Player",
+                    "last_name_snapshot": "Example",
+                    "date_of_birth_snapshot": "2005-01-01",
+                    "student_id_snapshot": "0012345",
+                    "institution_label": "HCMUS",
                     "is_captain": True,
                     "display_order": 1,
                 }
@@ -268,7 +275,7 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         registration = Registration.objects.get(pk=response.data["id"])
         self.assertEqual(registration.submitted_by, self.owner)
-        self.assertIsNone(registration.members.get().user)
+        self.assertEqual(registration.members.get().user, self.owner)
 
     @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="")
     def test_submit_requires_turnstile_outside_debug(self):

@@ -1,3 +1,5 @@
+import json
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
@@ -6,7 +8,7 @@ from rest_framework import status, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -71,9 +73,32 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
             .prefetch_related("members", "status_events", "payment_attempts")
         )
 
-    @action(detail=False, methods=["post"], url_path="submit")
+    @action(
+        detail=False, methods=["post"], url_path="submit", permission_classes=[AllowAny]
+    )
     def submit(self, request):
-        serializer = RegistrationSubmissionSerializer(data=request.data)
+        payload = request.data
+        proof_file = None
+        reference = ""
+        if request.content_type.startswith("multipart/"):
+            unknown = set(request.data) - {"payload", "proof_file", "reference"}
+            if unknown:
+                raise DRFValidationError(
+                    {field: "This field is not allowed." for field in unknown}
+                )
+            try:
+                payload = json.loads(request.data.get("payload", ""))
+            except (TypeError, ValueError) as error:
+                raise DRFValidationError(
+                    {"payload": "Provide valid registration JSON."}
+                ) from error
+            proof_file = request.FILES.get("proof_file")
+            reference = request.data.get("reference", "")
+            if len(reference) > 128:
+                raise DRFValidationError(
+                    {"reference": "Maximum length is 128 characters."}
+                )
+        serializer = RegistrationSubmissionSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         require_turnstile(
             request,
@@ -82,7 +107,20 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
         )
         try:
             registration = submit_registration(
-                submitted_by=request.user,
+                submitted_by=request.user if request.user.is_authenticated else None,
+                proof_file=proof_file,
+                reference=reference,
+                **{
+                    key: value
+                    for key, value in serializer.validated_data.items()
+                    if key
+                    not in {
+                        "tournament_game",
+                        "team_name",
+                        "members",
+                        "turnstile_token",
+                    }
+                },
                 tournament_game_id=serializer.validated_data["tournament_game"].pk,
                 team_name=serializer.validated_data["team_name"],
                 members=serializer.to_member_inputs(),

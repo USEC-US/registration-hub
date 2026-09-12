@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { registerAccount, signIn } from '$lib/api/auth';
@@ -17,6 +18,11 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	type RegistrationPhase = 'form' | 'signing-in' | 'recovery';
+
+	let ready = $state(false);
+	onMount(() => {
+		ready = true;
+	});
 
 	let email = $state('');
 	let password = $state('');
@@ -59,7 +65,7 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting || phase !== 'form') return;
+		if (!ready || submitting || phase !== 'form') return;
 		if (!turnstileToken) {
 			formErrors = [m.turnstile_required()];
 			return;
@@ -138,7 +144,10 @@
 		</div>
 	</section>
 {:else if phase === 'signing-in'}
-	<section class="mt-8 grid gap-4 border border-(--line) bg-(--surface-muted) p-6 text-sm" role="status">
+	<section
+		class="mt-8 grid gap-4 border border-(--line) bg-(--surface-muted) p-6 text-sm"
+		role="status"
+	>
 		<p>{m.auth_account_created_signing_in()}</p>
 		<TurnstileWidget
 			bind:this={signInTurnstileWidget}
@@ -153,7 +162,7 @@
 			<Card.Description class="mt-3 leading-6">{m.auth_identity_intro()}</Card.Description>
 		</Card.Header>
 
-		<form aria-busy={submitting} onsubmit={handleSubmit}>
+		<form method="post" aria-busy={submitting} onsubmit={handleSubmit}>
 			<Card.Content class="grid gap-5 p-5 sm:p-6">
 				<ErrorSummary errors={formErrors} />
 				<FormField.Group class="gap-5 md:grid md:grid-cols-2">
@@ -199,11 +208,9 @@
 						bind:value={password}
 					/>
 					<InstitutionCombobox
-							error={
-								fieldErrors.institution?.[0] ??
-								fieldErrors.institution_id?.[0] ??
-								fieldErrors.institution_label?.[0]
-							}
+						error={fieldErrors.institution?.[0] ??
+							fieldErrors.institution_id?.[0] ??
+							fieldErrors.institution_label?.[0]}
 						bind:choice={institutionChoice}
 					/>
 					<TurnstileWidget
@@ -221,7 +228,7 @@
 						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
 					>
 				</p>
-				<Button class="min-h-11" type="submit" disabled={submitting}>
+				<Button class="min-h-11" type="submit" disabled={!ready || submitting}>
 					{#if submitting}<Spinner aria-hidden="true" />{/if}
 					{submitting ? m.auth_creating_account() : m.action_create_account()}
 				</Button>

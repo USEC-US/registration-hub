@@ -8,6 +8,10 @@ from tournaments.models import TournamentGame
 
 
 class Registration(models.Model):
+    class SubmitterRole(models.TextChoices):
+        CAPTAIN = "captain", "Captain"
+        MANAGER = "manager", "Manager"
+
     class Status(models.TextChoices):
         SUBMITTED = "SUBMITTED", "Submitted"
         UNDER_REVIEW = "UNDER_REVIEW", "Under review"
@@ -21,7 +25,17 @@ class Registration(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="submitted_registrations",
+        null=True,
+        blank=True,
     )
+    submitter_role = models.CharField(
+        max_length=10, choices=SubmitterRole.choices, blank=True
+    )
+    manager_name_snapshot = models.CharField(max_length=100, blank=True)
+    contact_facebook_snapshot = models.CharField(max_length=255, blank=True)
+    contact_phone_snapshot = models.CharField(max_length=32, blank=True)
+    contact_email_snapshot = models.EmailField(blank=True)
+    contact_discord_snapshot = models.CharField(max_length=100, blank=True)
     team_name = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices)
     fee_amount_snapshot = models.DecimalField(max_digits=12, decimal_places=2)
@@ -36,6 +50,10 @@ class Registration(models.Model):
 
 
 class RegistrationMember(models.Model):
+    class RosterRole(models.TextChoices):
+        MAIN = "main", "Main player"
+        SUBSTITUTE = "substitute", "Substitute"
+
     registration = models.ForeignKey(
         Registration, on_delete=models.CASCADE, related_name="members"
     )
@@ -47,13 +65,31 @@ class RegistrationMember(models.Model):
         related_name="claimed_registration_memberships",
     )
     gamer_tag_snapshot = models.CharField(max_length=64)
-    school_snapshot = models.CharField(max_length=128)
+    first_name_snapshot = models.CharField("first name", max_length=150, blank=True)
+    last_name_snapshot = models.CharField("last name", max_length=150, blank=True)
+    date_of_birth_snapshot = models.DateField("date of birth", null=True, blank=True)
+    student_id_snapshot = models.CharField("student ID", max_length=128, blank=True)
+    institution = models.ForeignKey(
+        "accounts.Institution",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="registration_members",
+    )
+    school_snapshot = models.CharField(max_length=255)
     is_captain = models.BooleanField(default=False)
+    roster_role = models.CharField(
+        max_length=10, choices=RosterRole.choices, default=RosterRole.MAIN
+    )
     display_order = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
 
     class Meta:
         ordering = ("display_order", "pk")
         constraints = [
+            models.CheckConstraint(
+                condition=Q(roster_role__in=("main", "substitute")),
+                name="registration_member_valid_roster_role",
+            ),
             models.UniqueConstraint(
                 fields=("registration",),
                 condition=Q(is_captain=True),

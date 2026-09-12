@@ -174,7 +174,7 @@ a:hover {
 	width: 0.5rem;
 	height: 0.5rem;
 	flex: none;
-	background: var(--accent);
+	background: var(--secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

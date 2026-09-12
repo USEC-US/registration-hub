@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from tournaments.models import TournamentGame
@@ -21,8 +22,8 @@ class TournamentGameSummarySerializer(serializers.ModelSerializer):
             "id",
             "tournament_name",
             "game_name",
-            "team_size_min",
-            "team_size_max",
+            "main_roster_size",
+            "substitute_limit",
             "fee_amount",
             "fee_currency",
         )
@@ -35,6 +36,7 @@ class RegistrationMemberReadSerializer(serializers.ModelSerializer):
             "gamer_tag_snapshot",
             "school_snapshot",
             "is_captain",
+            "roster_role",
             "display_order",
         )
 
@@ -94,13 +96,51 @@ class StrictFieldsSerializer(serializers.Serializer):
 
 
 class RegistrationMemberSubmissionSerializer(StrictFieldsSerializer):
+    first_name_snapshot = serializers.CharField(max_length=150)
+    last_name_snapshot = serializers.CharField(max_length=150)
+    date_of_birth_snapshot = serializers.DateField()
+    student_id_snapshot = serializers.CharField(
+        max_length=128, required=False, allow_blank=True, default=""
+    )
     gamer_tag_snapshot = serializers.CharField(max_length=64)
-    school_snapshot = serializers.CharField(max_length=128)
+    institution_id = serializers.IntegerField(
+        min_value=1, required=False, allow_null=True
+    )
+    institution_label = serializers.CharField(
+        max_length=255, required=False, allow_blank=True
+    )
+
+    def validate(self, attrs):
+        if bool(attrs.get("institution_id")) == bool(attrs.get("institution_label")):
+            raise serializers.ValidationError(
+                "Choose a catalogue institution or enter a custom label."
+            )
+        return attrs
+
+    def validate_date_of_birth_snapshot(self, value):
+        if value > timezone.localdate():
+            raise serializers.ValidationError("Date of birth cannot be in the future.")
+        return value
+
     is_captain = serializers.BooleanField()
+    roster_role = serializers.ChoiceField(
+        choices=RegistrationMember.RosterRole.choices, default="main"
+    )
     display_order = serializers.IntegerField(min_value=1)
 
 
 class RegistrationSubmissionSerializer(StrictFieldsSerializer):
+    submitter_role = serializers.ChoiceField(choices=Registration.SubmitterRole.choices)
+    manager_name_snapshot = serializers.CharField(
+        max_length=100, allow_blank=True, required=False
+    )
+    contact_facebook_snapshot = serializers.CharField(max_length=255)
+    contact_phone_snapshot = serializers.CharField(max_length=32)
+    contact_email_snapshot = serializers.EmailField(allow_blank=True, required=False)
+    contact_discord_snapshot = serializers.CharField(
+        max_length=100, allow_blank=True, required=False
+    )
+
     tournament_game = serializers.PrimaryKeyRelatedField(
         queryset=TournamentGame.objects.all()
     )

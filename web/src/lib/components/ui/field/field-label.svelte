@@ -22,4 +22,8 @@
 	{...restProps}
 >
 	{@render children?.()}
+	<span
+		aria-hidden="true"
+		class="hidden text-destructive after:content-['*'] group-has-[:required]/field:inline group-has-[[aria-required=true]]/field:inline"
+	></span>
 </Label>

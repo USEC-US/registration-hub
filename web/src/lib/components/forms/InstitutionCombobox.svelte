@@ -13,11 +13,12 @@
 		choice?: InstitutionChoice;
 		error?: string;
 		initialLabel?: string;
+		required?: boolean;
 	}
 
 	// This binding publishes selections to the parent; it is intentionally write-only here.
 	// eslint-disable-next-line no-useless-assignment
-	let { choice = $bindable(), error, initialLabel = '' }: Props = $props();
+	let { choice = $bindable(), error, initialLabel = '', required = false }: Props = $props();
 
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let inputValue = $state('');
@@ -165,6 +166,8 @@
 		bind:ref={inputEl}
 		id={inputId}
 		name="institution"
+		{required}
+		maxlength={255}
 		autocomplete="organization"
 		placeholder={m.institution_search_placeholder()}
 		bind:value={inputValue}

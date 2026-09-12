@@ -10,13 +10,14 @@ const tournament = {
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
 	is_featured: false,
+	students_only: false,
 	tournament_games: [
 		{
 			id: 9,
 			game_name: 'Valorant',
 			game_slug: 'valorant',
-			team_size_min: 5,
-			team_size_max: 5,
+			main_roster_size: 5,
+			substitute_limit: 0,
 			registration_opens_at: '2026-07-20T01:00:00Z',
 			registration_closes_at: '2026-08-10T10:00:00Z',
 			registration_capacity: 32,
@@ -63,7 +64,7 @@ test('browser navigation runs public universal loads without extra document requ
 	await page.getByRole('link', { name: tournament.name }).first().click();
 
 	await expect(page).toHaveURL('/tournaments/usec-summer-2026');
-	await expect(page.getByRole('heading', { level: 1, name: tournament.name })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 3, name: tournament.name })).toBeVisible();
 	await expect(page.getByRole('heading', { level: 3, name: 'Valorant' })).toBeVisible();
 	await expect(
 		page.locator('a[href="/tournaments/usec-summer-2026/games/9/register"]')
@@ -87,12 +88,11 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
 });
 
-test('client navigation to register redirects an unauthenticated visitor to sign in', async ({
-	page
-}) => {
+test('client navigation keeps a guest on the shared registration form', async ({ page }) => {
 	const documentRequests: string[] = [];
 	page.on('request', (request) => {
-		if (request.resourceType() === 'document') documentRequests.push(request.url());
+		if (request.resourceType() === 'document' && request.frame() === page.mainFrame())
+			documentRequests.push(request.url());
 	});
 
 	await page.route('**/api/tournaments/', async (route) => {
@@ -107,15 +107,10 @@ test('client navigation to register redirects an unauthenticated visitor to sign
 	await page.getByRole('link', { name: tournament.name }).first().click();
 	await page.locator('a[href="/tournaments/usec-summer-2026/games/9/register"]').click();
 
-	await expect(page).toHaveURL(
-		'/auth/sign-in?redirect=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
-	);
-	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
+	await expect(page).toHaveURL('/tournaments/usec-summer-2026/games/9/register');
+	await expect(page.locator('button[type="submit"]')).toBeVisible();
+	await expect(page.locator('input[name="contact_facebook_snapshot"]')).toBeVisible();
 	expect(documentRequests.map((requestUrl) => new URL(requestUrl).pathname)).toEqual([
-		'/auth/sign-in',
 		'/auth/sign-in'
 	]);
-	expect(
-		documentRequests.some((requestUrl) => new URL(requestUrl).pathname.endsWith('/register'))
-	).toBe(false);
 });

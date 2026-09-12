@@ -22,13 +22,14 @@ const tournament: PublicTournament = {
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
 	is_featured: false,
+	students_only: false,
 	tournament_games: [
 		{
 			id: 31,
 			game_name: 'Cờ vua',
 			game_slug: 'co-vua',
-			team_size_min: 1,
-			team_size_max: 1,
+			main_roster_size: 1,
+			substitute_limit: 0,
 			registration_opens_at: '2026-07-20T01:00:00Z',
 			registration_closes_at: '2026-08-10T10:00:00Z',
 			registration_capacity: 64,

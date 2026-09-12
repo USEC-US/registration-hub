@@ -26,8 +26,8 @@ class GuardedAdminTests(TestCase):
         tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(minutes=1),
             registration_closes_at=timezone.now() + timedelta(days=1),
             fee_amount="50000.00",

@@ -31,8 +31,8 @@ class PublicTournamentApiTests(APITestCase):
         self.tournament_game = TournamentGame.objects.create(
             tournament=self.published,
             game=self.game,
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(hours=1),
             registration_closes_at=timezone.now() + timedelta(days=2),
             registration_capacity=1,
@@ -82,7 +82,7 @@ class PublicTournamentApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["slug"], "usec-summer-2026")
         self.assertEqual(response.data["tournament_games"][0]["game_name"], "Valorant")
-        self.assertEqual(response.data["tournament_games"][0]["team_size_min"], 5)
+        self.assertEqual(response.data["tournament_games"][0]["main_roster_size"], 5)
         self.assertEqual(response.data["tournament_games"][0]["fee_currency"], "VND")
         self.assertEqual(
             response.data["tournament_games"][0]["registration_state"], "open"
@@ -118,8 +118,8 @@ class PublicTournamentApiTests(APITestCase):
         TournamentGame.objects.create(
             tournament=self.published,
             game=second_game,
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(hours=1),
             registration_closes_at=timezone.now() + timedelta(days=2),
             registration_capacity=1,
