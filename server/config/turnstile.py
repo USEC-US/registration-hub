@@ -43,7 +43,9 @@ def verify_turnstile_token(
                 bypassed=True,
                 error_codes=("missing-secret-debug-bypass",),
             )
-        return TurnstileVerificationResult(success=False, error_codes=("missing-secret",))
+        return TurnstileVerificationResult(
+            success=False, error_codes=("missing-secret",)
+        )
 
     if not token:
         return TurnstileVerificationResult(

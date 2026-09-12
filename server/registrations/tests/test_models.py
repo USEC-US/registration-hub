@@ -9,6 +9,7 @@ from accounts.tests.factories import create_account
 from registrations.models import Registration, RegistrationMember
 from tournaments.models import Game, Tournament, TournamentGame
 
+
 class RegistrationMemberModelTests(TestCase):
     def setUp(self):
         self.user = create_account(

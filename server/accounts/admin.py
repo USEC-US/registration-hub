@@ -6,7 +6,14 @@ from .models import Institution, User
 
 @admin.register(Institution)
 class InstitutionAdmin(ModelAdmin):
-    list_display = ("label", "source", "review_status", "code", "short_name", "location")
+    list_display = (
+        "label",
+        "source",
+        "review_status",
+        "code",
+        "short_name",
+        "location",
+    )
     list_filter = ("source", "review_status")
     search_fields = ("label", "code", "short_name", "english_name", "location")
 
@@ -15,8 +22,22 @@ class InstitutionAdmin(ModelAdmin):
 class AccountUserAdmin(BaseUserAdmin, ModelAdmin):
     model = User
     ordering = ("email",)
-    list_display = ("email", "first_name", "last_name", "institution", "student_id", "is_staff", "is_active")
-    search_fields = ("email", "first_name", "last_name", "institution__label", "student_id")
+    list_display = (
+        "email",
+        "first_name",
+        "last_name",
+        "institution",
+        "student_id",
+        "is_staff",
+        "is_active",
+    )
+    search_fields = (
+        "email",
+        "first_name",
+        "last_name",
+        "institution__label",
+        "student_id",
+    )
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (

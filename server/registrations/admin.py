@@ -2,7 +2,12 @@ from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from unfold.admin import TabularInline, ModelAdmin
 
-from .models import PaymentAttempt, Registration, RegistrationMember, RegistrationStatusEvent
+from .models import (
+    PaymentAttempt,
+    Registration,
+    RegistrationMember,
+    RegistrationStatusEvent,
+)
 from .services import (
     approve_registration,
     reject_registration,
@@ -100,7 +105,11 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
     list_filter = ("status", "tournament_game__tournament", "tournament_game__game")
     search_fields = ("team_name", "submitted_by__email", "members__gamer_tag_snapshot")
     list_select_related = ("tournament_game", "submitted_by")
-    inlines = (RegistrationMemberInline, PaymentAttemptInline, RegistrationStatusEventInline)
+    inlines = (
+        RegistrationMemberInline,
+        PaymentAttemptInline,
+        RegistrationStatusEventInline,
+    )
     actions = ("mark_under_review", "approve_selected", "reject_selected")
 
     def _run_transition(self, request, queryset, command):
@@ -148,7 +157,11 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
 class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_display = ("id", "registration", "amount", "currency", "status", "created_at")
     list_filter = ("status", "currency")
-    search_fields = ("registration__team_name", "registration__submitted_by__email", "reference")
+    search_fields = (
+        "registration__team_name",
+        "registration__submitted_by__email",
+        "reference",
+    )
     list_select_related = ("registration",)
     actions = ("verify_selected", "reject_selected")
 

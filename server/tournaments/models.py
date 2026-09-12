@@ -20,9 +20,9 @@ class Tournament(models.Model):
     location = models.CharField(max_length=255, blank=True)
     is_published = models.BooleanField(default=False)
     cover_image = models.ImageField(
-      upload_to="tournaments/covers/",
-      null=True,
-      blank=True,
+        upload_to="tournaments/covers/",
+        null=True,
+        blank=True,
     )
     is_featured = models.BooleanField(default=False)
 

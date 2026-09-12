@@ -89,19 +89,23 @@ DEFAULT_FRONTEND_ORIGINS = [
 ]
 
 CORS_ALLOWED_ORIGINS = list(
-    dict.fromkeys([
-        *DEFAULT_FRONTEND_ORIGINS,
-        *env_list(
-            "CORS_ALLOWED_ORIGINS",
-            default=env_list("CORS_ORIGINS", default=DEFAULT_FRONTEND_ORIGINS),
-        ),
-    ])
+    dict.fromkeys(
+        [
+            *DEFAULT_FRONTEND_ORIGINS,
+            *env_list(
+                "CORS_ALLOWED_ORIGINS",
+                default=env_list("CORS_ORIGINS", default=DEFAULT_FRONTEND_ORIGINS),
+            ),
+        ]
+    )
 )
 
 CSRF_TRUSTED_ORIGINS = list(
-    dict.fromkeys([
-        *env_list("CSRF_ALLOWED_ORIGINS", default=CORS_ALLOWED_ORIGINS),
-    ])
+    dict.fromkeys(
+        [
+            *env_list("CSRF_ALLOWED_ORIGINS", default=CORS_ALLOWED_ORIGINS),
+        ]
+    )
 )
 
 CORS_ALLOW_CREDENTIALS = True

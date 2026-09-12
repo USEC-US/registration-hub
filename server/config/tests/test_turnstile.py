@@ -59,9 +59,7 @@ class TurnstileVerificationTests(TestCase):
     @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="secret")
     def test_siteverify_success_accepts_matching_action(self):
         with patch("config.turnstile.urllib.request.urlopen") as urlopen:
-            urlopen.return_value = _Response(
-                b'{"success": true, "action": "sign-in"}'
-            )
+            urlopen.return_value = _Response(b'{"success": true, "action": "sign-in"}')
 
             result = verify_turnstile_token("token", expected_action="sign-in")
 

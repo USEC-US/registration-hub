@@ -31,7 +31,12 @@ class TournamentGameSummarySerializer(serializers.ModelSerializer):
 class RegistrationMemberReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistrationMember
-        fields = ("gamer_tag_snapshot", "school_snapshot", "is_captain", "display_order")
+        fields = (
+            "gamer_tag_snapshot",
+            "school_snapshot",
+            "is_captain",
+            "display_order",
+        )
 
 
 class RegistrationStatusEventReadSerializer(serializers.ModelSerializer):
@@ -80,7 +85,10 @@ class StrictFieldsSerializer(serializers.Serializer):
         unknown_fields = set(data.keys()) - set(self.fields)
         if unknown_fields:
             raise serializers.ValidationError(
-                {field: "This field is not allowed." for field in sorted(unknown_fields)}
+                {
+                    field: "This field is not allowed."
+                    for field in sorted(unknown_fields)
+                }
             )
         return super().to_internal_value(data)
 
@@ -98,11 +106,14 @@ class RegistrationSubmissionSerializer(StrictFieldsSerializer):
     )
     team_name = serializers.CharField(max_length=100, allow_blank=True)
     members = RegistrationMemberSubmissionSerializer(many=True)
-    turnstile_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    turnstile_token = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
 
     def to_member_inputs(self) -> list[RegistrationMemberInput]:
         return [
-            RegistrationMemberInput(**member) for member in self.validated_data["members"]
+            RegistrationMemberInput(**member)
+            for member in self.validated_data["members"]
         ]
 
 
@@ -111,7 +122,9 @@ class PaymentAttemptSubmissionSerializer(StrictFieldsSerializer):
     currency = serializers.CharField(max_length=3)
     proof_file = serializers.FileField()
     reference = serializers.CharField(max_length=128, allow_blank=True, required=False)
-    turnstile_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    turnstile_token = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
 
 
 class PaymentAttemptReceiptSerializer(serializers.ModelSerializer):

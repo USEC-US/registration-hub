@@ -12,6 +12,7 @@ from registrations.admin import PaymentAttemptAdmin, RegistrationAdmin
 from registrations.models import PaymentAttempt, Registration
 from tournaments.models import Game, Tournament, TournamentGame
 
+
 class GuardedAdminTests(TestCase):
     def setUp(self):
         self.actor = create_account(
@@ -133,7 +134,5 @@ class GuardedAdminTests(TestCase):
             payment_admin.has_view_permission(outsider_request, self.payment_attempt)
         )
         self.assertFalse(
-            payment_admin.has_change_permission(
-                outsider_request, self.payment_attempt
-            )
+            payment_admin.has_change_permission(outsider_request, self.payment_attempt)
         )

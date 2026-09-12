@@ -17,15 +17,11 @@ class PublicTournamentViewSet(viewsets.ReadOnlyModelViewSet):
         tournament_games = TournamentGame.objects.select_related("game").annotate(
             active_registration_count=Count(
                 "registrations",
-                filter=Q(
-                    registrations__status__in=Registration.active_statuses()
-                ),
+                filter=Q(registrations__status__in=Registration.active_statuses()),
             )
         )
         return (
             Tournament.objects.filter(is_published=True)
-            .prefetch_related(
-                Prefetch("tournament_games", queryset=tournament_games)
-            )
+            .prefetch_related(Prefetch("tournament_games", queryset=tournament_games))
             .order_by("-is_featured", "starts_at", "name", "pk")
         )

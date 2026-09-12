@@ -4,20 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('tournaments', '0001_initial'),
+        ("tournaments", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='tournament',
-            name='cover_image',
-            field=models.ImageField(blank=True, null=True, upload_to='tournaments/covers/'),
+            model_name="tournament",
+            name="cover_image",
+            field=models.ImageField(
+                blank=True, null=True, upload_to="tournaments/covers/"
+            ),
         ),
         migrations.AddField(
-            model_name='tournament',
-            name='is_featured',
+            model_name="tournament",
+            name="is_featured",
             field=models.BooleanField(default=False),
         ),
     ]
