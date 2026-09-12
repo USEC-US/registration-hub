@@ -153,7 +153,7 @@ async function chooseInstitution(index: number, label = 'HCMUS') {
 		.nth(index)
 		.fill(`Player ${index + 1}`);
 	await page.getByLabelText('Last name', { exact: true }).nth(index).fill('Example');
-	await page.getByLabelText('Date of birth', { exact: true }).nth(index).fill('2005-01-01');
+	await page.getByLabelText('Date of birth', { exact: true }).nth(index).fill('01/01/2005');
 	await page.getByRole('combobox', { name: 'Institution' }).nth(index).fill(label);
 	await page.getByRole('button', { name: `Use "${label}"` }).click();
 }

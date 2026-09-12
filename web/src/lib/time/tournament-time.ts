@@ -1,3 +1,4 @@
+import { dateLocale, NUMERIC_DATE_OPTIONS } from './date-format';
 import { Temporal } from '@js-temporal/polyfill';
 
 declare const displayTimeZoneBrand: unique symbol;
@@ -41,10 +42,8 @@ function toZonedDateTime(utc: string, displayTimeZone: string): Temporal.ZonedDa
 }
 
 export function formatTournamentDate(utc: string, locale: string, displayTimeZone: string): string {
-	return toZonedDateTime(utc, displayTimeZone).toLocaleString(locale, {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric'
+	return toZonedDateTime(utc, displayTimeZone).toLocaleString(dateLocale(locale), {
+		...NUMERIC_DATE_OPTIONS
 	});
 }
 
@@ -53,10 +52,8 @@ export function formatTournamentDateTime(
 	locale: string,
 	displayTimeZone: string
 ): string {
-	return toZonedDateTime(utc, displayTimeZone).toLocaleString(locale, {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
+	return toZonedDateTime(utc, displayTimeZone).toLocaleString(dateLocale(locale), {
+		...NUMERIC_DATE_OPTIONS,
 		hour: 'numeric',
 		minute: '2-digit',
 		timeZoneName: 'short'

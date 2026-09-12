@@ -199,7 +199,7 @@ describe('public tournament pages', () => {
 			params: { slug: tournament.slug }
 		});
 
-		expect(page.getByText('Địa điểm sẽ được cập nhật').elements()).toHaveLength(2);
+		expect(page.getByText('Đang cập nhật...', { exact: true }).elements()).toHaveLength(2);
 		expect(page.getByText('Trực tuyến').elements()).toHaveLength(0);
 	});
 	it('renders the tournament cover image on the detail page when present', async () => {
@@ -245,7 +245,7 @@ describe('public tournament pages', () => {
 			boundaryTournament.starts_at,
 			boundaryTournament.ends_at
 		]);
-		expect(cardTimes[0]).toHaveTextContent('Aug 14, 2026');
+		expect(cardTimes[0]).toHaveTextContent('08/14/2026');
 
 		const detail = render(TournamentDetailPage, {
 			data: { tournament: boundaryTournament, displayTimeZone: viewerTimeZone },
@@ -258,8 +258,8 @@ describe('public tournament pages', () => {
 			boundaryTournament.tournament_games[0].registration_opens_at,
 			boundaryTournament.tournament_games[0].registration_closes_at
 		]);
-		expect(detailTimes[0]).toHaveTextContent('Aug 14, 2026, 9:00 PM EDT');
-		expect(detailTimes[2]).toHaveTextContent('Aug 14, 2026, 11:00 PM EDT');
+		expect(detailTimes[0]).toHaveTextContent('08/14/2026, 9:00 PM EDT');
+		expect(detailTimes[2]).toHaveTextContent('08/14/2026, 11:00 PM EDT');
 	});
 	it('renders tournament metadata, configured games, and an open registration action', async () => {
 		const { container } = render(TournamentDetailPage, {

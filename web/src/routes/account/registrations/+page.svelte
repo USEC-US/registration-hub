@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dateLocale, NUMERIC_DATE_OPTIONS } from '$lib/time/date-format';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ApiRequestError } from '$lib/api/client';
@@ -51,7 +52,9 @@
 	}
 
 	function formatDate(value: string): string {
-		return new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium' }).format(new Date(value));
+		return new Intl.DateTimeFormat(dateLocale(getLocale()), { ...NUMERIC_DATE_OPTIONS }).format(
+			new Date(value)
+		);
 	}
 
 	function formatFee(registration: RegistrationRead): string {

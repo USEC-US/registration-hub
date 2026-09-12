@@ -63,7 +63,7 @@ describe('RosterEditor', () => {
 		);
 		await page.getByLabelText(m.roster_first_name(), { exact: true }).fill('Minh Anh');
 		await page.getByLabelText('Last name', { exact: true }).fill('Nguyễn');
-		await page.getByLabelText('Date of birth', { exact: true }).fill('2005-03-12');
+		await page.getByLabelText('Date of birth', { exact: true }).fill('03/12/2005');
 		await page.getByLabelText('Student ID', { exact: true }).fill('00123');
 		await page.getByRole('combobox', { name: 'Institution' }).fill('HCMUS');
 		await page.getByRole('button', { name: 'Use "HCMUS"' }).click();

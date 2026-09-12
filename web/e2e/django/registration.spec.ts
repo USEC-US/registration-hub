@@ -40,7 +40,7 @@ async function fillRoster(page: Page, tags: string[]) {
 		const row = page.locator('[data-roster-row]').nth(index);
 		await row.getByLabel('First and Middle name', { exact: true }).fill(`Player ${index + 1}`);
 		await row.getByLabel('Last name', { exact: true }).fill('Example');
-		await row.getByLabel('Date of birth', { exact: true }).fill('2005-01-01');
+		await row.getByLabel('Date of birth', { exact: true }).fill('01/01/2005');
 		await expect(row.getByLabel('Student ID', { exact: true })).toHaveJSProperty('required', true);
 		await row.getByLabel('Student ID', { exact: true }).fill(`000${index + 1}`);
 		await row.getByLabel('Gamer tag', { exact: true }).fill(tag);
@@ -176,7 +176,16 @@ test('guest solo uses one captain slot and no team name', async ({ page, request
 	await expect(page.locator('[data-roster-row]')).toHaveCount(1);
 	await fillContacts(page);
 	await fillRoster(page, ['Solo#ONE']);
+	await page.getByRole('button', { name: 'Open date picker' }).click();
+	await page.getByRole('combobox', { name: 'Choose year' }).selectOption('2004');
+	await page.getByRole('combobox', { name: 'Choose month' }).selectOption('2');
+	await page.locator('[data-calendar-day][data-value="2004-02-29"]').click();
+	await expect(page.getByLabel('Date of birth', { exact: true })).toHaveValue('02/29/2004');
+	const submission = page.waitForRequest(
+		(request) => request.url() === `${api}/api/registrations/submit/` && request.method() === 'POST'
+	);
 	const receipt = await submit(page);
+	expect((await submission).postDataJSON().members[0].date_of_birth_snapshot).toBe('2004-02-29');
 	expect(receipt.members).toHaveLength(1);
 	expect(receipt.members[0].is_captain).toBe(true);
 });

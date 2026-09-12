@@ -219,5 +219,11 @@
 	"payment_image_remove": "Remove image",
 	"payment_image_drop": "Drop your payment proof image here",
 	"payment_image_preview": "Selected payment proof preview",
-	"payment_image_single": "Choose one payment proof image at a time."
+	"payment_image_single": "Choose one payment proof image at a time.",
+	"date_invalid": "Enter a valid date in {format} format, no later than today.",
+	"date_open_calendar": "Open date picker",
+	"date_previous_month": "Previous month",
+	"date_next_month": "Next month",
+	"date_choose_month": "Choose month",
+	"date_choose_year": "Choose year"
 }

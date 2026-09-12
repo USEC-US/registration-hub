@@ -20,10 +20,12 @@ describe('tournament display time', () => {
 	it('converts a UTC boundary into the explicit display zone without changing the source value', () => {
 		const utc = '2026-08-14T18:30:00Z';
 
-		expect(formatTournamentDate(utc, 'en', 'Asia/Ho_Chi_Minh')).toBe('Aug 15, 2026');
+		expect(formatTournamentDate(utc, 'en', 'Asia/Ho_Chi_Minh')).toBe('08/15/2026');
 		expect(formatTournamentDateTime(utc, 'en', 'Asia/Ho_Chi_Minh')).toBe(
-			'Aug 15, 2026, 1:30 AM GMT+7'
+			'08/15/2026, 1:30 AM GMT+7'
 		);
+		expect(formatTournamentDate(utc, 'vi', 'Asia/Ho_Chi_Minh')).toBe('15/08/2026');
+		expect(formatTournamentDateTime(utc, 'vi', 'Asia/Ho_Chi_Minh')).toBe('01:30 GMT+7 15/08/2026');
 		expect(utc).toBe('2026-08-14T18:30:00Z');
 	});
 

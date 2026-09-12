@@ -1,4 +1,7 @@
 <script lang="ts">
+	import DatePicker from '$lib/components/forms/DatePicker.svelte';
+	import { getLocale } from '$lib/paraglide/runtime';
+	import { today, getLocalTimeZone } from '@internationalized/date';
 	import InstitutionCombobox from '$lib/components/forms/InstitutionCombobox.svelte';
 	import type { RegistrationMemberInput, InstitutionChoice, SubmitterRole } from '$lib/api/types';
 	import * as m from '$lib/paraglide/messages';
@@ -144,7 +147,7 @@
 				: member
 		);
 	}
-	const latestBirthDate = new Date().toISOString().slice(0, 10);
+	const latestBirthDate = today(getLocalTimeZone()).toString();
 </script>
 
 <section aria-labelledby="roster-heading">
@@ -265,14 +268,20 @@
 						<Field.Label for={`member-${index + 1}-birth-date`}
 							>{m.roster_date_of_birth()}</Field.Label
 						>
-						<Input
+						<DatePicker
 							id={`member-${index + 1}-birth-date`}
 							name={`member-${index + 1}-birth-date`}
-							type="date"
 							required
 							max={latestBirthDate}
-							value={member.date_of_birth_snapshot}
-							oninput={(event) => updateMember(index, 'date_of_birth_snapshot', event)}
+							locale={getLocale()}
+							bind:value={
+								() => members[index].date_of_birth_snapshot,
+								(value) => {
+									members = members.map((member, position) =>
+										position === index ? { ...member, date_of_birth_snapshot: value } : member
+									);
+								}
+							}
 						/>
 					</Field.Field>
 					<Field.Field>

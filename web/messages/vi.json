@@ -198,10 +198,10 @@
 	"game_main_roster_only": "{main} chính thức · không có dự bị",
 	"roster_first_name": "Tên đệm và tên",
 	"roster_last_name": "Họ",
-	"roster_date_of_birth": "Ngày sinh",
+	"roster_date_of_birth": "Ngày tháng năm sinh",
 	"roster_student_id": "Mã số sinh viên",
 	"roster_student_id_optional": "Không bắt buộc đối với giải đấu này.",
-	"roster_identity_private": "Họ tên, ngày sinh và mã số sinh viên được gửi riêng cho ban tổ chức để kiểm tra điều kiện tham dự.",
+	"roster_identity_private": "Họ tên, ngày tháng năm sinh và mã số sinh viên được gửi riêng cho ban tổ chức để kiểm tra điều kiện tham dự.",
 	"registration_students_only": "Chỉ dành cho sinh viên. Mỗi thành viên chính thức và dự bị đều phải cung cấp mã số sinh viên.",
 	"tournament_students_only": "Chỉ dành cho sinh viên",
 	"registration_back_to_tournament": "Quay lại giải đấu",
@@ -219,5 +219,11 @@
 	"payment_image_remove": "Xóa ảnh",
 	"payment_image_drop": "Kéo và thả ảnh minh chứng thanh toán vào đây",
 	"payment_image_preview": "Xem trước ảnh minh chứng thanh toán đã chọn",
-	"payment_image_single": "Vui lòng chọn từng ảnh minh chứng thanh toán một."
+	"payment_image_single": "Vui lòng chọn từng ảnh minh chứng thanh toán một.",
+	"date_invalid": "Nhập ngày hợp lệ theo định dạng {format}, không muộn hơn hôm nay.",
+	"date_open_calendar": "Mở lịch chọn ngày",
+	"date_previous_month": "Tháng trước",
+	"date_next_month": "Tháng sau",
+	"date_choose_month": "Chọn tháng",
+	"date_choose_year": "Chọn năm"
 }
