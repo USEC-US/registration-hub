@@ -8,6 +8,10 @@ from tournaments.models import TournamentGame
 
 
 class Registration(models.Model):
+    class SubmitterRole(models.TextChoices):
+        CAPTAIN = "captain", "Captain"
+        MANAGER = "manager", "Manager"
+
     class Status(models.TextChoices):
         SUBMITTED = "SUBMITTED", "Submitted"
         UNDER_REVIEW = "UNDER_REVIEW", "Under review"
@@ -21,7 +25,17 @@ class Registration(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="submitted_registrations",
+        null=True,
+        blank=True,
     )
+    submitter_role = models.CharField(
+        max_length=10, choices=SubmitterRole.choices, blank=True
+    )
+    manager_name_snapshot = models.CharField(max_length=100, blank=True)
+    contact_facebook_snapshot = models.CharField(max_length=255, blank=True)
+    contact_phone_snapshot = models.CharField(max_length=32, blank=True)
+    contact_email_snapshot = models.EmailField(blank=True)
+    contact_discord_snapshot = models.CharField(max_length=100, blank=True)
     team_name = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices)
     fee_amount_snapshot = models.DecimalField(max_digits=12, decimal_places=2)
@@ -47,7 +61,14 @@ class RegistrationMember(models.Model):
         related_name="claimed_registration_memberships",
     )
     gamer_tag_snapshot = models.CharField(max_length=64)
-    school_snapshot = models.CharField(max_length=128)
+    institution = models.ForeignKey(
+        "accounts.Institution",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="registration_members",
+    )
+    school_snapshot = models.CharField(max_length=255)
     is_captain = models.BooleanField(default=False)
     display_order = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
 

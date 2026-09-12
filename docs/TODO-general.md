@@ -54,19 +54,22 @@
 
 ## 3. Registration journey
 
-- [ ] Allow unauthenticated accounts to register to the tournaments.
-- [ ] Advertisements/callouts for account registration (benefits) on [signin page](../web/src/routes/auth/sign-in/+page.svelte) `m.auth_access_note()`) and other suitable places. (note: don't be intrusive.)
-- [ ] Keep the tournament registration form accessible to authenticated accounts.
-- [ ] Ask whether the submitter is acting as captain or manager for each sign-up.
-- [ ] Do not add a permanent account role or role database column.
-- [ ] Link a captain submitter to roster slot 1 for that registration.
-- [ ] Keep manager submitters outside the roster.
-- [ ] Collect private captain contact information.
+- [x] Allow guests to register for tournaments without creating an account.
+- [x] Show nonintrusive account-benefit callouts on the sign-in and registration pages.
+- [x] Keep the tournament registration form accessible to authenticated accounts.
+- [x] Ask whether the submitter is acting as captain or manager for each sign-up.
+- [x] Do not add a permanent account role or role database column.
+- [x] Link a captain submitter to roster slot 1 for that registration.
+- [x] Keep manager submitters outside the roster.
+- [x] Collect private captain/responsible-contact information.
 - [x] Support actual minimum/maximum roster sizes instead of always forcing the maximum.
-- [ ] Handle solo entrants consistently.
-- [ ] Enforce one active entry per claimed player and division.
-- [ ] Define safe behavior for rejected entries, corrections, and resubmission.
-- [ ] Keep historical roster and institution snapshots stable.
+- [x] Handle solo entrants consistently.
+- [x] Enforce one active entry per claimed player and division, including concurrent submissions. Game-specific identity verification remains deferred.
+- [x] Define safe behavior for rejected entries, corrections, and resubmission.
+- [x] Keep historical roster and institution snapshots stable.
+- [x] Connect roster institution selection to the catalogue and custom-institution fallback.
+- [x] Accept payment proof with initial guest submission without an account; keep evidence private.
+- [x] Verify captain, manager, solo, guest, signed-in, payment upload, and organizer review against real Django/PostgreSQL. See [verification notes](testing/registration-journey.md).
 
 ## 4. Organizer registration operations
 

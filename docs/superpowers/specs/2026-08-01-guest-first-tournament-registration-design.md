@@ -26,7 +26,7 @@ Current roster sizing already belongs to `TournamentGame` through `team_size_min
 - No email magic-link correction flow in this slice.
 - No permanent captain or manager role on accounts.
 - No public exposure of Facebook, phone, email, Discord, or payment evidence.
-- No guest-safe payment-proof upload flow in this slice. Existing account-owned payment evidence can stay account-only until the organizer/payment slice designs a guest-safe path.
+- No later guest upload link. Guests attach payment evidence before registration submission; organizer contact remains the correction path.
 
 ## Product Decisions
 
@@ -64,7 +64,11 @@ Roster member snapshots remain stable. Later account, profile, institution, or r
 
 The registration submit action accepts both authenticated and unauthenticated requests. Authentication remains useful: when a valid JWT is present, the created registration records `submitted_by`; when no user is authenticated, the registration is created as a guest submission.
 
-List, detail, and payment-attempt routes remain protected unless separately redesigned. Guest submissions do not receive account-dashboard access in this slice.
+List, detail, and subsequent payment-attempt routes remain protected. Guest submissions do not receive account-dashboard access in this slice. Initial submission accepts payment proof without an account, in the same request as the registration. Paid guest submissions require proof; signed-in submitters may attach it now or use their existing account payment flow. Free registrations reject payment evidence.
+
+For uploads, the submit endpoint accepts multipart fields `payload` (the JSON registration body), `proof_file`, and optional `reference`. Ordinary JSON submissions remain supported. Validate and sanitize proof with the existing image rules and atomically create the registration, roster, event, and pending payment attempt. Derive payment amount and currency from the division. Failed submissions must not leave a registration or stored proof behind. Proof downloads remain private.
+
+Roster members submit `institution_id` or `institution_label` using the existing catalogue/custom institution resolver. Save the resolved institution link and its label in `school_snapshot` (up to 255 characters); later catalogue edits never rewrite that snapshot. Duplicate checks compare normalized gamer tag and institution identity, with normalized saved labels as a fallback for historical rows. Check both within the incoming roster and against active registrations while holding the division lock.
 
 The registration serializer accepts:
 
@@ -94,6 +98,8 @@ The service validates:
 Active duplicate checks should treat `SUBMITTED`, `UNDER_REVIEW`, and `APPROVED` as active. `REJECTED` entries are inactive for duplicate checks so a corrected resubmission can be accepted.
 
 Because guests do not have account identity, player duplicate checks should use the roster identity captured by the form. The first implementation can enforce a normalized roster claim per tournament game using the player-identifying fields currently collected, then tighten that model later if the club adds stronger player identifiers.
+
+The gamer-tag field holds the submitted in-game identifier, such as a complete Riot ID or a Steam ID/profile link. This slice does not add game-specific validation or resolve alternate identifiers to the same game account; duplicate detection remains a check of submitted claims.
 
 `RegistrationStatusEvent.actor` should allow empty actor values for guest-created events. Organizer actions continue recording the organizer actor.
 

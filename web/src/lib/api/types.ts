@@ -66,16 +66,26 @@ export interface PublicTournament {
 	tournament_games: PublicTournamentGame[];
 }
 
-export interface RegistrationMemberInput {
+export interface RegistrationMemberRead {
 	gamer_tag_snapshot: string;
 	school_snapshot: string;
 	is_captain: boolean;
 	display_order: number;
 }
 
+export type RegistrationMemberInput = Omit<RegistrationMemberRead, 'school_snapshot'> &
+	InstitutionChoice;
+export type SubmitterRole = 'captain' | 'manager';
+
 export interface RegistrationSubmissionPayload {
 	tournament_game: number;
 	team_name: string;
+	submitter_role: SubmitterRole;
+	contact_facebook_snapshot: string;
+	contact_phone_snapshot: string;
+	contact_email_snapshot?: string;
+	contact_discord_snapshot?: string;
+	manager_name_snapshot?: string;
 	members: RegistrationMemberInput[];
 }
 
@@ -96,7 +106,7 @@ export interface RegistrationRead {
 	fee_currency_snapshot: string;
 	submitted_at: string;
 	payment_required: boolean;
-	members: RegistrationMemberInput[];
+	members: RegistrationMemberRead[];
 	status_events: { to_status: RegistrationStatus; created_at: string }[];
 	payment_attempts: {
 		id: number;

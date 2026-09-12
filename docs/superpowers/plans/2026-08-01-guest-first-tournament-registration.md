@@ -1,5 +1,7 @@
 # Guest-First Tournament Registration Implementation Plan
 
+Implementation is superseded by the [September completion plan](2026-09-12-registration-journey-completion.md), which includes the approved initial guest payment upload, institution catalogue integration, and real Django browser verification. This document remains an earlier implementation reference.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build Section 3 so tournament registration is guest-first, account-optional, captain/manager aware, contact-aware, and correctly constrained by each division's roster limits.

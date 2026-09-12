@@ -95,12 +95,36 @@ class StrictFieldsSerializer(serializers.Serializer):
 
 class RegistrationMemberSubmissionSerializer(StrictFieldsSerializer):
     gamer_tag_snapshot = serializers.CharField(max_length=64)
-    school_snapshot = serializers.CharField(max_length=128)
+    institution_id = serializers.IntegerField(
+        min_value=1, required=False, allow_null=True
+    )
+    institution_label = serializers.CharField(
+        max_length=255, required=False, allow_blank=True
+    )
+
+    def validate(self, attrs):
+        if bool(attrs.get("institution_id")) == bool(attrs.get("institution_label")):
+            raise serializers.ValidationError(
+                "Choose a catalogue institution or enter a custom label."
+            )
+        return attrs
+
     is_captain = serializers.BooleanField()
     display_order = serializers.IntegerField(min_value=1)
 
 
 class RegistrationSubmissionSerializer(StrictFieldsSerializer):
+    submitter_role = serializers.ChoiceField(choices=Registration.SubmitterRole.choices)
+    manager_name_snapshot = serializers.CharField(
+        max_length=100, allow_blank=True, required=False
+    )
+    contact_facebook_snapshot = serializers.CharField(max_length=255)
+    contact_phone_snapshot = serializers.CharField(max_length=32)
+    contact_email_snapshot = serializers.EmailField(allow_blank=True, required=False)
+    contact_discord_snapshot = serializers.CharField(
+        max_length=100, allow_blank=True, required=False
+    )
+
     tournament_game = serializers.PrimaryKeyRelatedField(
         queryset=TournamentGame.objects.all()
     )

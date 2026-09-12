@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { RegistrationMemberInput } from '$lib/api/types';
+	import InstitutionCombobox from '$lib/components/forms/InstitutionCombobox.svelte';
+	import type { RegistrationMemberInput, InstitutionChoice, SubmitterRole } from '$lib/api/types';
 	import * as m from '$lib/paraglide/messages';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -7,12 +8,20 @@
 	import { Button } from '$lib/components/ui/button';
 
 	interface Props {
+		submitterRole?: SubmitterRole;
+		errors?: string[];
 		teamSizeMin: number;
 		teamSizeMax: number;
 		members?: RegistrationMemberInput[];
 	}
 
-	let { teamSizeMin, teamSizeMax, members = $bindable([]) }: Props = $props();
+	let {
+		teamSizeMin,
+		teamSizeMax,
+		submitterRole = 'captain',
+		errors = [],
+		members = $bindable([])
+	}: Props = $props();
 	let captainValue = $derived(
 		String(
 			Math.max(
@@ -26,7 +35,7 @@
 		if (members.length === 0) {
 			members = Array.from({ length: teamSizeMin }, (_, index) => ({
 				gamer_tag_snapshot: '',
-				school_snapshot: '',
+				institution_label: '',
 				is_captain: index === 0,
 				display_order: index + 1
 			}));
@@ -34,14 +43,29 @@
 	}
 
 	initializeMembers();
+	let nextRowId = 0;
+	let rowIds = $state<number[]>([]);
+	function initializeRowIds() {
+		rowIds = members.map(() => nextRowId++);
+	}
+	initializeRowIds();
+	$effect(() => {
+		if (
+			submitterRole === 'captain' &&
+			members.some((member, index) => member.is_captain !== (index === 0))
+		) {
+			selectCaptain(0);
+		}
+	});
 
 	function addMember(): void {
 		if (members.length >= teamSizeMax) return;
+		rowIds = [...rowIds, nextRowId++];
 		members = [
 			...members,
 			{
 				gamer_tag_snapshot: '',
-				school_snapshot: '',
+				institution_label: '',
 				is_captain: false,
 				display_order: members.length + 1
 			}
@@ -49,7 +73,8 @@
 	}
 
 	function removeMember(index: number): void {
-		if (members.length <= teamSizeMin) return;
+		if (members.length <= teamSizeMin || (submitterRole === 'captain' && index === 0)) return;
+		rowIds = rowIds.filter((_, position) => position !== index);
 		const remaining = members.filter((_, position) => position !== index);
 		const captainRemoved = !remaining.some((member) => member.is_captain);
 		members = remaining.map((member, position) => ({
@@ -66,14 +91,23 @@
 		}));
 	}
 
-	function updateMember(
-		index: number,
-		field: 'gamer_tag_snapshot' | 'school_snapshot',
-		event: Event
-	): void {
+	function updateMember(index: number, field: 'gamer_tag_snapshot', event: Event): void {
 		const value = (event.currentTarget as HTMLInputElement).value;
 		members = members.map((member, memberIndex) =>
 			memberIndex === index ? { ...member, [field]: value } : member
+		);
+	}
+
+	function updateInstitution(index: number, choice: InstitutionChoice | undefined) {
+		members = members.map((member, position) =>
+			position === index
+				? {
+						gamer_tag_snapshot: member.gamer_tag_snapshot,
+						is_captain: member.is_captain,
+						display_order: member.display_order,
+						...(choice ?? { institution_label: '' })
+					}
+				: member
 		);
 	}
 </script>
@@ -86,13 +120,17 @@
 		</p>
 	</header>
 
+	<p class="mb-4 text-sm text-muted-foreground">{m.registration_gamer_tag_hint()}</p>
+	{#if errors.length}<div role="alert" class="mb-4 text-sm text-destructive">
+			{#each errors as error (error)}<p>{error}</p>{/each}
+		</div>{/if}
 	<RadioGroup.Root
 		value={captainValue}
 		onValueChange={(value) => selectCaptain(Number(value))}
 		aria-label={m.roster_captain()}
 		class="border border-(--line) gap-0"
 	>
-		{#each members as member, index (member.display_order)}
+		{#each members as member, index (rowIds[index])}
 			<Field.Set
 				class="grid gap-4 border-b border-(--line) p-4 last:border-b-0 lg:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)_8rem] lg:items-end"
 				data-roster-row
@@ -117,20 +155,15 @@
 						oninput={(event) => updateMember(index, 'gamer_tag_snapshot', event)}
 					/>
 				</Field.Field>
-				<Field.Field>
-					<Field.Label for={`member-${index + 1}-school`}>{m.field_school()}</Field.Label>
-					<Input
-						id={`member-${index + 1}-school`}
-						name={`member-${index + 1}-school`}
-						required
-						maxlength={128}
-						value={member.school_snapshot}
-						oninput={(event) => updateMember(index, 'school_snapshot', event)}
-					/>
-				</Field.Field>
+				<InstitutionCombobox
+					required
+					bind:choice={() => members[index], (choice) => updateInstitution(index, choice)}
+					initialLabel={member.institution_label ?? ''}
+				/>
 				<Field.Label class="flex min-h-11 items-center gap-2 border px-3">
 					<RadioGroup.Item
 						value={String(index)}
+						disabled={submitterRole === 'captain'}
 						aria-label={m.roster_set_captain({ number: index + 1 })}
 					/>
 					<span>{m.roster_captain()}</span>
@@ -140,7 +173,7 @@
 					<Button
 						type="button"
 						variant="outline"
-						disabled={members.length <= teamSizeMin}
+						disabled={members.length <= teamSizeMin || (submitterRole === 'captain' && index === 0)}
 						onclick={() => removeMember(index)}
 					>
 						{m.roster_remove_member({ number: index + 1 })}

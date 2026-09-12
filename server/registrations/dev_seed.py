@@ -437,6 +437,9 @@ def _rebuild_registrations(
     transaction.on_commit(remove_replaced_proofs)
 
     valorant = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["valorant"].pk,
         team_name="Blue Phoenix",
@@ -460,6 +463,9 @@ def _rebuild_registrations(
     )
 
     chess = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["chess"].pk,
         team_name="",
@@ -477,6 +483,9 @@ def _rebuild_registrations(
     )
 
     counter_strike = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["counter-strike-2"].pk,
         team_name="Campus Five",
@@ -521,6 +530,9 @@ def _rebuild_registrations(
         fields=("registration_opens_at", "registration_closes_at")
     )
     rocket_league = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=rocket_game.pk,
         team_name="Orbit Three",

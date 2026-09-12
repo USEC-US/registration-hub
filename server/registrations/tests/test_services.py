@@ -68,6 +68,9 @@ class RegistrationServiceTests(TestCase):
 
     def _submit_solo(self, *, submitted_by=None):
         return submit_registration(
+            submitter_role="captain",
+            contact_facebook_snapshot="https://facebook.com/example",
+            contact_phone_snapshot="0900000000",
             submitted_by=submitted_by or self.captain,
             tournament_game_id=self.tournament_game.pk,
             team_name="",
@@ -97,6 +100,9 @@ class RegistrationServiceTests(TestCase):
 
     def test_submission_snapshots_trimmed_values_and_creates_event(self):
         registration = submit_registration(
+            submitter_role="captain",
+            contact_facebook_snapshot="https://facebook.com/example",
+            contact_phone_snapshot="0900000000",
             submitted_by=self.captain,
             tournament_game_id=self.tournament_game.pk,
             team_name="  ",
@@ -115,7 +121,7 @@ class RegistrationServiceTests(TestCase):
         self.assertEqual(registration.team_name, "")
         self.assertEqual(member.gamer_tag_snapshot, "captain")
         self.assertEqual(member.school_snapshot, "HCMUS")
-        self.assertIsNone(member.user_id)
+        self.assertEqual(member.user_id, self.captain.pk)
         self.assertEqual(registration.fee_amount_snapshot, Decimal("50000.00"))
         self.assertEqual(event.from_status, "")
         self.assertEqual(event.to_status, Registration.Status.SUBMITTED)
@@ -154,6 +160,9 @@ class RegistrationServiceTests(TestCase):
 
         with self.assertRaises(ValidationError):
             submit_registration(
+                submitter_role="captain",
+                contact_facebook_snapshot="https://facebook.com/example",
+                contact_phone_snapshot="0900000000",
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="team",
@@ -165,6 +174,9 @@ class RegistrationServiceTests(TestCase):
 
         with self.assertRaises(ValidationError):
             submit_registration(
+                submitter_role="captain",
+                contact_facebook_snapshot="https://facebook.com/example",
+                contact_phone_snapshot="0900000000",
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="team",
@@ -178,6 +190,9 @@ class RegistrationServiceTests(TestCase):
 
         with self.assertRaises(ValidationError):
             submit_registration(
+                submitter_role="captain",
+                contact_facebook_snapshot="https://facebook.com/example",
+                contact_phone_snapshot="0900000000",
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="team",
@@ -191,6 +206,9 @@ class RegistrationServiceTests(TestCase):
 
         with self.assertRaises(ValidationError):
             submit_registration(
+                submitter_role="captain",
+                contact_facebook_snapshot="https://facebook.com/example",
+                contact_phone_snapshot="0900000000",
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="team",
@@ -205,6 +223,9 @@ class RegistrationServiceTests(TestCase):
     def test_team_name_is_required_only_for_team_games(self):
         with self.assertRaises(ValidationError):
             submit_registration(
+                submitter_role="captain",
+                contact_facebook_snapshot="https://facebook.com/example",
+                contact_phone_snapshot="0900000000",
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="not-for-solo",
@@ -219,6 +240,9 @@ class RegistrationServiceTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             submit_registration(
+                submitter_role="captain",
+                contact_facebook_snapshot="https://facebook.com/example",
+                contact_phone_snapshot="0900000000",
                 submitted_by=self.captain,
                 tournament_game_id=self.tournament_game.pk,
                 team_name="",

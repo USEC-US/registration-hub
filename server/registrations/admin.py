@@ -33,6 +33,7 @@ class RegistrationMemberInline(ImmutableInline):
         "user",
         "gamer_tag_snapshot",
         "school_snapshot",
+        "institution",
         "is_captain",
         "display_order",
     )

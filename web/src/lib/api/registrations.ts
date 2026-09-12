@@ -10,14 +10,24 @@ export function getRegistration(accessToken: string, id: number) {
 }
 
 export function submitRegistration(
-	accessToken: string,
+	accessToken: string | null,
 	payload: RegistrationSubmissionPayload,
-	turnstileToken: string
+	turnstileToken: string,
+	proofFile?: File,
+	reference?: string
 ) {
+	const registration = { ...payload, turnstile_token: turnstileToken };
+	let body: FormData | typeof registration = registration;
+	if (proofFile) {
+		body = new FormData();
+		body.set('payload', JSON.stringify(registration));
+		body.set('proof_file', proofFile);
+		if (reference) body.set('reference', reference);
+	}
 	return requestJson<RegistrationRead>('/registrations/submit/', {
 		method: 'POST',
 		accessToken,
-		body: { ...payload, turnstile_token: turnstileToken }
+		body
 	});
 }
 

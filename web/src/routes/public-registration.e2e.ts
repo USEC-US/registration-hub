@@ -87,12 +87,11 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
 });
 
-test('client navigation to register redirects an unauthenticated visitor to sign in', async ({
-	page
-}) => {
+test('client navigation keeps a guest on the shared registration form', async ({ page }) => {
 	const documentRequests: string[] = [];
 	page.on('request', (request) => {
-		if (request.resourceType() === 'document') documentRequests.push(request.url());
+		if (request.resourceType() === 'document' && request.frame() === page.mainFrame())
+			documentRequests.push(request.url());
 	});
 
 	await page.route('**/api/tournaments/', async (route) => {
@@ -107,15 +106,10 @@ test('client navigation to register redirects an unauthenticated visitor to sign
 	await page.getByRole('link', { name: tournament.name }).first().click();
 	await page.locator('a[href="/tournaments/usec-summer-2026/games/9/register"]').click();
 
-	await expect(page).toHaveURL(
-		'/auth/sign-in?redirect=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
-	);
-	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
+	await expect(page).toHaveURL('/tournaments/usec-summer-2026/games/9/register');
+	await expect(page.locator('button[type="submit"]')).toBeVisible();
+	await expect(page.locator('input[name="contact_facebook_snapshot"]')).toBeVisible();
 	expect(documentRequests.map((requestUrl) => new URL(requestUrl).pathname)).toEqual([
-		'/auth/sign-in',
 		'/auth/sign-in'
 	]);
-	expect(
-		documentRequests.some((requestUrl) => new URL(requestUrl).pathname.endsWith('/register'))
-	).toBe(false);
 });

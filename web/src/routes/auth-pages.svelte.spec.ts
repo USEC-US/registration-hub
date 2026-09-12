@@ -136,6 +136,17 @@ afterEach(() => {
 	overwriteGetLocale(() => 'en');
 });
 
+describe.each([
+	['sign-in', SignInPage, 'Sign in'],
+	['account registration', RegisterPage, 'Create account']
+] as const)('%s after hydration', (_name, Component, buttonName) => {
+	it('enables its submit action with a POST fallback once the client is ready', async () => {
+		const { container } = render(Component);
+		await expect.element(page.getByRole('button', { name: buttonName, exact: true })).toBeEnabled();
+		expect(container.querySelector('form')?.method).toBe('post');
+	});
+});
+
 describe('sign-in page', () => {
 	it('delegates sign-in to auth state before a locale-safe fallback navigation', async () => {
 		authStateMock.signIn.mockResolvedValue(user);

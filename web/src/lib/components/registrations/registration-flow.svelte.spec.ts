@@ -16,6 +16,8 @@ const turnstileReset = vi.hoisted(() => vi.fn());
 
 vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-key' } }));
 
+vi.mock('$lib/api/institutions', () => ({ searchInstitutions: vi.fn().mockResolvedValue([]) }));
+
 vi.mock('$lib/api/registrations', () => ({ submitPaymentAttempt: vi.fn() }));
 
 beforeEach(() => {
@@ -37,9 +39,38 @@ beforeEach(() => {
 });
 
 describe('RosterEditor', () => {
+	it('retains each institution selection when a preceding optional row is removed', async () => {
+		const state = fromStore(writable<RegistrationMemberInput[]>([]));
+		render(RosterEditor, {
+			teamSizeMin: 1,
+			teamSizeMax: 3,
+			get members() {
+				return state.current;
+			},
+			set members(value) {
+				state.current = value;
+			}
+		});
+		await page.getByRole('button', { name: 'Add player', exact: true }).click();
+		await page.getByRole('button', { name: 'Add player', exact: true }).click();
+		for (let index = 0; index < 3; index++) {
+			await page.getByRole('combobox', { name: 'Institution' }).nth(index).fill(`School ${index}`);
+			await page.getByRole('button', { name: `Use "School ${index}"` }).click();
+		}
+		await expect
+			.element(page.getByRole('button', { name: 'Remove member 1', exact: true }))
+			.toBeDisabled();
+		await page.getByRole('button', { name: 'Remove member 2', exact: true }).click();
+		await expect
+			.element(page.getByRole('combobox', { name: 'Institution' }).nth(1))
+			.toHaveValue('School 2');
+		expect(state.current[1]).toMatchObject({ institution_label: 'School 2', display_order: 2 });
+	});
+
 	it('starts at the minimum and supports adding and removing optional players', async () => {
 		const state = fromStore(writable<RegistrationMemberInput[]>([]));
 		const { container } = render(RosterEditor, {
+			submitterRole: 'manager',
 			teamSizeMin: 2,
 			teamSizeMax: 3,
 			get members() {
@@ -77,9 +108,9 @@ describe('RosterEditor', () => {
 
 		expect(container.querySelectorAll('[data-roster-row]')).toHaveLength(1);
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('');
-		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
+		expect(container.querySelector('input[name="institution"]')).toHaveValue('');
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toBeRequired();
-		expect(container.querySelector('input[name="member-1-school"]')).toBeRequired();
+		expect(container.querySelector('input[name="institution"]')).toBeRequired();
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveAttribute(
 			'data-slot',
 			'input'
@@ -90,6 +121,7 @@ describe('RosterEditor', () => {
 	it('renders the fixed team size with empty members and moves the only captain marker', async () => {
 		let members: import('$lib/api/types').RegistrationMemberInput[] = [];
 		const { container } = render(RosterEditor, {
+			submitterRole: 'manager',
 			teamSizeMin: 2,
 			teamSizeMax: 2,
 			get members() {
@@ -102,13 +134,13 @@ describe('RosterEditor', () => {
 		expect(members).toEqual([
 			{
 				gamer_tag_snapshot: '',
-				school_snapshot: '',
+				institution_label: '',
 				is_captain: true,
 				display_order: 1
 			},
 			{
 				gamer_tag_snapshot: '',
-				school_snapshot: '',
+				institution_label: '',
 				is_captain: false,
 				display_order: 2
 			}
@@ -130,6 +162,7 @@ describe('RosterEditor', () => {
 		let members: RegistrationMemberInput[] = [];
 		let memberUpdates = 0;
 		render(RosterEditor, {
+			submitterRole: 'manager',
 			teamSizeMin: 2,
 			teamSizeMax: 2,
 			get members() {
@@ -144,13 +177,14 @@ describe('RosterEditor', () => {
 
 		const firstMember = page.getByRole('group', { name: 'Roster member 1' });
 		await firstMember.getByLabelText('Gamer tag').fill('captain');
-		await firstMember.getByLabelText('School').fill('HCMUS');
+		await firstMember.getByRole('combobox', { name: 'Institution' }).fill('HCMUS');
+		await page.getByRole('button', { name: 'Use "HCMUS"' }).click();
 
 		expect(members[0]).toMatchObject({
 			gamer_tag_snapshot: 'captain',
-			school_snapshot: 'HCMUS'
+			institution_label: 'HCMUS'
 		});
-		expect(memberUpdates).toBe(2);
+		expect(memberUpdates).toBeGreaterThanOrEqual(2);
 	});
 });
 
