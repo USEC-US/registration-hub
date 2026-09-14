@@ -274,7 +274,9 @@
 								href={`${resolve(localizeInternalHref('/auth/register'))}?redirect=${registrationReturnTo}`}
 							>
 								<UserPlus data-icon="inline-start" aria-hidden="true" />
+								<p class="text-secondary">
 								{m.action_create_account()}
+								</p>
 							</Button>
 							<Button
 								variant="outline"
