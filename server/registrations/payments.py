@@ -20,7 +20,7 @@ class LegacyPaymentSessionError(ValidationError):
     """An old quote cannot be silently replaced after a possible bank transfer."""
 
 
-def create_payment_intent(*, tournament_game, registration=None):
+def create_payment_intent(*, tournament_game, registration=None, payment_settings=None):
     amount = (
         registration.fee_amount_snapshot if registration else tournament_game.fee_amount
     )
@@ -48,6 +48,14 @@ def create_payment_intent(*, tournament_game, registration=None):
         )
         if participant or "{participant}" not in template:
             content = render_transfer_content(template, participant, limit)
+    destination_snapshot = {}
+    if payment_settings is not None:
+        destination_snapshot = {
+            "bank_name_snapshot": payment_settings.bank_name,
+            "bank_bin_snapshot": payment_settings.bank_bin,
+            "account_number_snapshot": payment_settings.account_number,
+            "account_holder_snapshot": payment_settings.account_holder,
+        }
     for _ in range(5):
         reference = "USEC" + "".join(
             secrets.choice(PAYMENT_ALPHABET) for _ in range(10)
@@ -63,6 +71,7 @@ def create_payment_intent(*, tournament_game, registration=None):
                     registration=registration,
                     amount=amount,
                     currency=currency,
+                    **destination_snapshot,
                 )
         except IntegrityError:
             if not PaymentIntent.objects.filter(reference=reference).exists():

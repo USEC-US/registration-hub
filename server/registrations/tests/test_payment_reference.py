@@ -95,6 +95,46 @@ class PaymentReferenceTests(APITestCase):
         self.assertEqual(replacement.reference, "USEC" + "B" * 10)
         self.assertNotEqual(original.pk, replacement.pk)
 
+    def test_explicit_receiving_settings_are_snapshotted_and_stay_stable(self):
+        from registrations.models import PaymentSettings
+        from registrations.payments import create_payment_intent
+
+        settings = PaymentSettings.objects.create(
+            enabled=True,
+            bank_name="VietinBank",
+            bank_bin="970415",
+            account_number="0011001932418",
+            account_holder="HCMUSEC",
+        )
+
+        registration = self._create_registration(self.owner)
+        intent = create_payment_intent(
+            tournament_game=self.tournament_game,
+            registration=registration,
+            payment_settings=settings,
+        )
+        settings.bank_name = "Changed Bank"
+        settings.bank_bin = "970436"
+        settings.account_number = "0000000001"
+        settings.account_holder = "CHANGED HOLDER"
+        settings.save()
+        intent.refresh_from_db()
+
+        self.assertEqual(intent.bank_name_snapshot, "VietinBank")
+        self.assertEqual(intent.bank_bin_snapshot, "970415")
+        self.assertEqual(intent.account_number_snapshot, "0011001932418")
+        self.assertEqual(intent.account_holder_snapshot, "HCMUSEC")
+
+    def test_legacy_intent_call_does_not_invent_destination_snapshot(self):
+        from registrations.payments import create_payment_intent
+
+        intent = create_payment_intent(tournament_game=self.tournament_game)
+
+        self.assertEqual(intent.bank_name_snapshot, "")
+        self.assertEqual(intent.bank_bin_snapshot, "")
+        self.assertEqual(intent.account_number_snapshot, "")
+        self.assertEqual(intent.account_holder_snapshot, "")
+
     def test_reference_visible_after_submission_even_while_payment_pending(self):
         from registrations.models import Registration
 
