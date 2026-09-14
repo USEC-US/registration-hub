@@ -82,3 +82,22 @@ The complete Node Vitest project retains the documented baseline auth SSR failur
 - `git diff --check`: clean before staging.
 
 The root-owned plan edit remains unstaged and excluded from the Task 4 commit.
+
+## Review fix round 1
+
+Addressed all findings in `task-4-review.md`:
+
+- Draft parsing now accepts the roster editor's structurally valid blank `institution_label` placeholder, so incomplete roster progress round-trips. Pending/uncertain access parsing continues to require a nonblank institution choice before a submission can be retained or replayed.
+- The resilient Storage wrapper now mirrors successful primary reads. If a later quota/security failure disables primary storage, entries already observed during the browser lifetime remain available from current-page memory. While primary storage is healthy, reads and complete key enumeration treat it as authoritative, update cached values, and invalidate cached keys removed by another tab.
+- New submission attempts enforce the actor/session pair before persistence or network access: positive account actors require an access token, and explicit guests reject a supplied account token. This complements the existing resume-first recovery guard.
+- Recovery coverage now distinguishes uncertain replay 400/422 from first-attempt editable validation errors and verifies `challenge-required` before replay.
+- Added `findSubmittedAccess(storage, registrationId)`, which enumerates and strictly parses saved access records before returning a submitted credential. The payment route can resolve its credential from the registration ID without duplicating raw JSON parsing or carrying division state in the URL.
+
+TDD and verification evidence:
+
+- RED: `pnpm exec vitest run --project server src/lib/registrations/browser-storage.test.ts src/lib/registrations/submission.test.ts` — 22 passed, 4 failed. Failures were the incomplete draft, observed-access fallback, signed-in actor without token, and guest actor with token.
+- GREEN: the same command — **2 files, 26 tests passed**.
+- `pnpm check` — the fixes add no diagnostics; output remains exactly the three Task 5-owned non-exhaustive `EXPIRED` label errors and zero warnings.
+- Initial scoped ESLint found one test-only unused destructured field while constructing the incomplete member fixture; the fixture was rewritten with explicit real values before final verification.
+- Additional payment-route lookup RED: the focused storage suite failed 1 of 12 tests because `findSubmittedAccess` did not exist; the implementation reuses the same allowlisted access enumeration/parser.
+- Final affected verification: `pnpm exec vitest run --project server src/lib/registrations/browser-storage.test.ts src/lib/registrations/submission.test.ts` — **2 files, 27 tests passed**. Scoped ESLint exited 0 and scoped Prettier reported all four files matched.

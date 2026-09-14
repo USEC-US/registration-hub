@@ -3,6 +3,7 @@ import {
 	clearDraft,
 	createCredential,
 	createRegistrationStorage,
+	findSubmittedAccess,
 	forgetAccess,
 	listAccess,
 	readDraft,
@@ -94,6 +95,42 @@ describe('registration browser storage', () => {
 		expect(listAccess(storage, 9)).toEqual([access]);
 	});
 
+	it('round-trips an incomplete roster draft while rejecting it as a pending submission', () => {
+		const storage = new MemoryStorage();
+		const memberWithoutInstitution = {
+			first_name_snapshot: 'An',
+			last_name_snapshot: 'Nguyen',
+			date_of_birth_snapshot: '2005-04-03',
+			student_id_snapshot: 'SV123',
+			gamer_tag_snapshot: 'Player One',
+			is_captain: true,
+			roster_role: 'main' as const,
+			display_order: 0
+		};
+		const incompleteDraft: RegistrationDraft = {
+			...draft,
+			fields: {
+				...payload,
+				members: [{ ...memberWithoutInstitution, institution_label: '' }]
+			},
+			institutionLabels: {}
+		};
+
+		expect(writeDraft(storage, incompleteDraft)).toBe(true);
+		expect(readDraft(storage, 9, 1000)).toEqual(incompleteDraft);
+		expect(
+			saveAccess(storage, {
+				version: 1,
+				gameId: 9,
+				credential: credentialA,
+				attemptState: 'prepared',
+				registrationId: null,
+				actorId: null,
+				submittedPayload: incompleteDraft.fields
+			})
+		).toBe(false);
+	});
+
 	it('rejects malformed, wrong-division, stale-version, invalid-stage, and invalid-payload drafts', () => {
 		const storage = new MemoryStorage();
 		const key = 'usec-registration-draft:v1:9';
@@ -137,6 +174,34 @@ describe('registration browser storage', () => {
 		expect(listAccess(storage, 9)).toEqual([first, second]);
 		expect(forgetAccess(storage, credentialA)).toBe(true);
 		expect(listAccess(storage, 9)).toEqual([second]);
+	});
+
+	it('finds submitted access by registration ID without requiring division URL state', () => {
+		const storage = new MemoryStorage();
+		const expected: SavedRegistrationAccess = {
+			version: 1,
+			gameId: 14,
+			credential: credentialB,
+			attemptState: 'submitted',
+			registrationId: 84
+		};
+		expect(
+			saveAccess(storage, {
+				version: 1,
+				gameId: 9,
+				credential: credentialA,
+				attemptState: 'submitted',
+				registrationId: 41
+			})
+		).toBe(true);
+		expect(saveAccess(storage, expected)).toBe(true);
+		storage.setItem(
+			`usec-registration-access:v1:${'3'.repeat(64)}`,
+			JSON.stringify({ ...expected, credential: '3'.repeat(64), registrationId: '84' })
+		);
+
+		expect(findSubmittedAccess(storage, 84)).toEqual(expected);
+		expect(findSubmittedAccess(storage, 999)).toBeNull();
 	});
 
 	it('discards malformed access records and requires an explicit valid original actor', () => {
@@ -245,6 +310,47 @@ describe('registration browser storage', () => {
 		expect(writeDraft(access.storage, draft)).toBe(true);
 		expect(readDraft(access.storage, 9, 1000)).toEqual(draft);
 		expect(access.persistenceWarning).toMatch(/current page/i);
+	});
+
+	it('retains access observed from primary storage when a later write forces memory fallback', () => {
+		const primary = new MemoryStorage();
+		const submitted: SavedRegistrationAccess = {
+			version: 1,
+			gameId: 9,
+			credential: credentialA,
+			attemptState: 'submitted',
+			registrationId: 41
+		};
+		expect(saveAccess(primary, submitted)).toBe(true);
+		const access = createRegistrationStorage(() => primary);
+		expect(listAccess(access.storage, 9)).toEqual([submitted]);
+
+		primary.setItem = () => {
+			throw new DOMException('quota', 'QuotaExceededError');
+		};
+		expect(writeDraft(access.storage, draft)).toBe(true);
+		expect(access.persistenceWarning).toMatch(/current page/i);
+		expect(listAccess(access.storage, 9)).toEqual([submitted]);
+	});
+
+	it('uses healthy primary storage as authority after another tab overwrites or removes an entry', () => {
+		const primary = new MemoryStorage();
+		const original: SavedRegistrationAccess = {
+			version: 1,
+			gameId: 9,
+			credential: credentialA,
+			attemptState: 'submitted',
+			registrationId: 41
+		};
+		const replaced: SavedRegistrationAccess = { ...original, registrationId: 84 };
+		expect(saveAccess(primary, original)).toBe(true);
+		const access = createRegistrationStorage(() => primary);
+		expect(listAccess(access.storage, 9)).toEqual([original]);
+
+		expect(saveAccess(primary, replaced)).toBe(true);
+		expect(listAccess(access.storage, 9)).toEqual([replaced]);
+		expect(forgetAccess(primary, credentialA)).toBe(true);
+		expect(listAccess(access.storage, 9)).toEqual([]);
 	});
 
 	it('uses 32 cryptographically random bytes encoded as lowercase hex', () => {

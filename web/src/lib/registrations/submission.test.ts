@@ -146,6 +146,29 @@ describe('saved registration submission recovery', () => {
 		expect(submit).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		[7, null, 'account-session-required'],
+		[null, 'account-token', 'actor-required']
+	] as const)(
+		'rejects an inconsistent initial actor %s and session before persistence',
+		async (actorId, accessToken, status) => {
+			const storage = new MemoryStorage();
+			const submit = vi.fn();
+			const result = await submitRegistrationAttempt({
+				storage,
+				actorId,
+				accessToken,
+				payload,
+				turnstileToken: 'challenge',
+				credentialFactory: () => credential,
+				submit
+			});
+			expect(result).toMatchObject({ status, credential });
+			expect(listAccess(storage, 9)).toEqual([]);
+			expect(submit).not.toHaveBeenCalled();
+		}
+	);
+
 	it('stores exact attempted fields before submitting and replaces personal data after success', async () => {
 		const storage = new MemoryStorage();
 		let observedBeforeRequest: SavedRegistrationAccess[] = [];
@@ -256,6 +279,8 @@ describe('saved registration submission recovery', () => {
 	});
 
 	it.each([
+		[400, 'resolution-required'],
+		[422, 'resolution-required'],
 		[409, 'resolution-required'],
 		[401, 'account-session-required'],
 		[429, 'retryable']
@@ -281,6 +306,26 @@ describe('saved registration submission recovery', () => {
 			expect(listAccess(storage, 9)).toEqual([entry]);
 		}
 	);
+
+	it('requires a fresh challenge after unknown resume before replaying', async () => {
+		const storage = new MemoryStorage();
+		const entry = unresolved();
+		const submit = vi.fn();
+		const result = await recoverRegistrationAttempt({
+			storage,
+			entry,
+			currentActorId: 7,
+			accessToken: 'account-token',
+			turnstileToken: null,
+			resume: async () => {
+				throw new ApiRequestError(404, 'Not found');
+			},
+			submit
+		});
+		expect(result).toMatchObject({ status: 'challenge-required', credential });
+		expect(listAccess(storage, 9)).toEqual([entry]);
+		expect(submit).not.toHaveBeenCalled();
+	});
 
 	it('makes quota failure observable and does not submit without retaining the key', async () => {
 		const storage = new MemoryStorage();

@@ -59,18 +59,19 @@ function isNonNegativeInteger(value: unknown): value is number {
 	return Number.isInteger(value) && Number(value) >= 0;
 }
 
-function isInstitutionChoice(value: RecordValue): boolean {
+function isInstitutionChoice(value: RecordValue, allowBlankLabel = false): boolean {
 	const hasId = 'institution_id' in value;
 	const hasLabel = 'institution_label' in value;
 	return (
 		hasId !== hasLabel &&
 		(!hasId || isPositiveInteger(value.institution_id)) &&
 		(!hasLabel ||
-			(typeof value.institution_label === 'string' && value.institution_label.trim() !== ''))
+			(typeof value.institution_label === 'string' &&
+				(allowBlankLabel || value.institution_label.trim() !== '')))
 	);
 }
 
-function isMember(value: unknown): boolean {
+function isMember(value: unknown, allowBlankInstitution = false): boolean {
 	if (!isRecord(value)) return false;
 	if (
 		!hasOnlyKeys(
@@ -100,11 +101,14 @@ function isMember(value: unknown): boolean {
 		typeof value.is_captain === 'boolean' &&
 		(value.roster_role === 'main' || value.roster_role === 'substitute') &&
 		isNonNegativeInteger(value.display_order) &&
-		isInstitutionChoice(value)
+		isInstitutionChoice(value, allowBlankInstitution)
 	);
 }
 
-function isSubmissionPayload(value: unknown): value is RegistrationSubmissionPayload {
+function isSubmissionPayload(
+	value: unknown,
+	allowBlankInstitution = false
+): value is RegistrationSubmissionPayload {
 	if (!isRecord(value)) return false;
 	if (
 		!hasOnlyKeys(
@@ -132,7 +136,7 @@ function isSubmissionPayload(value: unknown): value is RegistrationSubmissionPay
 		) &&
 		(value.submitter_role === 'captain' || value.submitter_role === 'manager') &&
 		Array.isArray(value.members) &&
-		value.members.every(isMember)
+		value.members.every((member) => isMember(member, allowBlankInstitution))
 	);
 }
 
@@ -157,7 +161,7 @@ function parseDraft(value: unknown, gameId: number): RegistrationDraft | null {
 	if (value.stage !== 'details' && value.stage !== 'roster' && value.stage !== 'review')
 		return null;
 	if (
-		!isSubmissionPayload(value.fields) ||
+		!isSubmissionPayload(value.fields, true) ||
 		value.fields.tournament_game !== gameId ||
 		!isLabels(value.institutionLabels)
 	)
@@ -265,7 +269,7 @@ export function saveAccess(storage: Storage, entry: SavedRegistrationAccess): bo
 	}
 }
 
-export function listAccess(storage: Storage, gameId: number): SavedRegistrationAccess[] {
+function readAccessEntries(storage: Storage): SavedRegistrationAccess[] {
 	const entries: SavedRegistrationAccess[] = [];
 	let length: number;
 	try {
@@ -289,9 +293,26 @@ export function listAccess(storage: Storage, gameId: number): SavedRegistrationA
 			continue;
 		}
 		const entry = parseAccess(parseJson(raw), credential);
-		if (entry?.gameId === gameId) entries.push(entry);
+		if (entry) entries.push(entry);
 	}
 	return entries;
+}
+
+export function listAccess(storage: Storage, gameId: number): SavedRegistrationAccess[] {
+	return readAccessEntries(storage).filter((entry) => entry.gameId === gameId);
+}
+
+export function findSubmittedAccess(
+	storage: Storage,
+	registrationId: number
+): SubmittedSavedRegistrationAccess | null {
+	if (!isPositiveInteger(registrationId)) return null;
+	return (
+		readAccessEntries(storage).find(
+			(entry): entry is SubmittedSavedRegistrationAccess =>
+				entry.attemptState === 'submitted' && entry.registrationId === registrationId
+		) ?? null
+	);
 }
 
 export function forgetAccess(storage: Storage, credential: string): boolean {
@@ -320,18 +341,23 @@ class CurrentPageStorage implements Storage {
 	}
 
 	private keys(): string[] {
-		const keys = new Set(this.memory.keys());
 		if (this.primary) {
 			try {
+				const primaryKeys: string[] = [];
 				for (let index = 0; index < this.primary.length; index += 1) {
 					const key = this.primary.key(index);
-					if (key !== null) keys.add(key);
+					if (key !== null) primaryKeys.push(key);
 				}
+				const authoritativeKeys = new Set(primaryKeys);
+				for (const key of this.memory.keys()) {
+					if (!authoritativeKeys.has(key)) this.memory.delete(key);
+				}
+				return primaryKeys;
 			} catch {
 				this.fail();
 			}
 		}
-		return [...keys];
+		return [...this.memory.keys()];
 	}
 
 	get length() {
@@ -347,14 +373,16 @@ class CurrentPageStorage implements Storage {
 			}
 	}
 	getItem(key: string) {
-		if (this.memory.has(key)) return this.memory.get(key) ?? null;
 		if (this.primary)
 			try {
-				return this.primary.getItem(key);
+				const value = this.primary.getItem(key);
+				if (value === null) this.memory.delete(key);
+				else this.memory.set(key, value);
+				return value;
 			} catch {
 				this.fail();
 			}
-		return null;
+		return this.memory.get(key) ?? null;
 	}
 	key(index: number) {
 		return this.keys()[index] ?? null;

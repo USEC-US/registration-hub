@@ -100,6 +100,12 @@ export async function submitRegistrationAttempt(
 	if (input.actorId !== null && (!Number.isInteger(input.actorId) || input.actorId <= 0)) {
 		return { status: 'invalid-actor', credential };
 	}
+	if (input.actorId !== null && !input.accessToken) {
+		return { status: 'account-session-required', credential };
+	}
+	if (input.actorId === null && input.accessToken) {
+		return { status: 'actor-required', credential };
+	}
 	const entry: PendingSavedRegistrationAccess = {
 		version: 1,
 		gameId: input.payload.tournament_game,
