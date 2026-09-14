@@ -287,5 +287,8 @@
 	"payment_retry_hint": "Đăng ký cũ được giữ nguyên. Kiểm tra mọi trường và sửa trường không còn hợp lệ trước khi gửi đăng ký mới.",
 	"payment_retry_existing": "Nội dung này đã có bản nháp. Hãy tiếp tục hoặc bỏ bản nháp trên trang đăng ký trước khi sao chép đăng ký này.",
 	"payment_unpaid": "Chưa nhận thanh toán",
-	"payment_proof_rejected": "Minh chứng thanh toán bị từ chối. Kiểm tra ghi chú và hạn nộp lại."
+	"payment_proof_rejected": "Minh chứng thanh toán bị từ chối. Kiểm tra ghi chú và hạn nộp lại.",
+	"payment_load_temporary": "Không thể tải thông tin thanh toán. Quyền truy cập đã lưu vẫn được giữ. Vui lòng thử lại.",
+	"payment_load_retry": "Thử tải lại",
+	"payment_terminal_contact": "Nếu đã chuyển tiền, hãy liên hệ ban tổ chức kèm mã đăng ký và minh chứng chuyển khoản trước khi thử đăng ký lại."
 }

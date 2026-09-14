@@ -408,3 +408,67 @@ it('renders a warning for a late quota failure and keeps current draft values', 
 		write.mockRestore();
 	}
 });
+
+it('isolates two divisions on the same page and flushes the departing draft under its original ID', async () => {
+	const view = mountGame();
+	await fillDetails();
+	window.dispatchEvent(new Event('pagehide'));
+	const original = JSON.parse(localStorage.getItem('usec-registration-draft:v1:10')!);
+	localStorage.setItem(
+		'usec-registration-draft:v1:11',
+		JSON.stringify({
+			...original,
+			gameId: 11,
+			fields: { ...original.fields, tournament_game: 11, team_name: 'Second division team' }
+		})
+	);
+	await page.getByLabelText('Team name').fill('First division latest');
+	await view.rerender({
+		data: { tournament, game: { ...game, id: 11 }, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+		params: { slug: tournament.slug, gameId: '11' }
+	});
+	await expect.element(page.getByText('Continue your saved draft?')).toBeVisible();
+	expect(JSON.parse(localStorage.getItem('usec-registration-draft:v1:10')!).fields.team_name).toBe(
+		'First division latest'
+	);
+	expect(JSON.parse(localStorage.getItem('usec-registration-draft:v1:11')!).fields.team_name).toBe(
+		'Second division team'
+	);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect.element(page.getByLabelText('Team name')).toHaveValue('Second division team');
+	await view.rerender({
+		data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+		params: { slug: tournament.slug, gameId: '10' }
+	});
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect.element(page.getByLabelText('Team name')).toHaveValue('First division latest');
+});
+it('keeps a late submission result scoped to its departing division without redirecting the next division', async () => {
+	let finish!: (registration: RegistrationRead) => void;
+	vi.mocked(submitSavedRegistration).mockImplementation(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			})
+	);
+	const view = mountGame();
+	await fillDetails();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	for (let index = 0; index < 2; index++) {
+		await page.getByLabelText('Gamer tag').nth(index).fill(`player${index}`);
+		await chooseInstitution(index);
+	}
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+	await vi.waitFor(() => expect(submitSavedRegistration).toHaveBeenCalledOnce());
+	await view.rerender({
+		data: { tournament, game: { ...game, id: 11 }, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+		params: { slug: tournament.slug, gameId: '11' }
+	});
+	await expect.element(page.getByLabelText('Team name')).toHaveValue('');
+	vi.mocked(goto).mockClear();
+	finish(registration);
+	await vi.waitFor(() => expect(localStorage.getItem('usec-registration-draft:v1:10')).toBeNull());
+	expect(goto).not.toHaveBeenCalled();
+	await expect.element(page.getByLabelText('Team name')).toHaveValue('');
+});

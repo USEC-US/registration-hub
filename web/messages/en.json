@@ -287,5 +287,8 @@
 	"payment_retry_hint": "The old registration is retained. Review every field and correct any institution that is no longer available before a new submission.",
 	"payment_retry_existing": "A draft already exists for this division. Continue or discard it on the registration page before copying this registration.",
 	"payment_unpaid": "Payment not received",
-	"payment_proof_rejected": "Payment proof rejected. Check the staff note and replacement deadline."
+	"payment_proof_rejected": "Payment proof rejected. Check the staff note and replacement deadline.",
+	"payment_load_temporary": "Payment details could not be loaded. Your saved access is retained. Please try again.",
+	"payment_load_retry": "Try loading again",
+	"payment_terminal_contact": "If you already transferred money, contact the organizers with your registration reference and transfer proof before trying again."
 }

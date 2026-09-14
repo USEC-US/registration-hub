@@ -46,6 +46,7 @@
 		atBoundary = $state(false),
 		retryAvailable = $state(false),
 		storageWarning = $state(false);
+	let active = true;
 	let baseline = 0,
 		serverEpoch = 0,
 		refreshedBoundary = false;
@@ -89,10 +90,11 @@
 		}
 	}
 	async function refresh() {
-		if (busy) return;
+		if (!active || busy) return;
 		busy = true;
 		try {
 			const next = await getPaymentSession(session.registration.id, authority);
+			if (!active) return;
 			onupdated(next);
 			errors = [];
 		} catch (cause) {
@@ -108,6 +110,7 @@
 		};
 		document.addEventListener('visibilitychange', visible);
 		return () => {
+			active = false;
 			clearInterval(interval);
 			document.removeEventListener('visibilitychange', visible);
 		};
@@ -116,6 +119,7 @@
 		if (terminal) {
 			void getTournament(session.tournament_slug)
 				.then((tournament) => {
+					if (!active) return;
 					const game = tournament.tournament_games.find(
 						(g) => g.id === session.registration.tournament_game.id
 					);
@@ -157,6 +161,7 @@
 			const request = uploadPaymentProof(session.registration.id, form, authority);
 			widget?.reset();
 			const next = await request;
+			if (!active) return;
 			file = undefined;
 			errors = [];
 			onupdated(next);
@@ -197,6 +202,7 @@
 			return;
 		}
 
+		if (!active) return;
 		writeDraft(storage.storage, {
 			version: 1,
 			gameId: fields.tournament_game,
@@ -221,6 +227,7 @@
 			const img = new Image();
 			img.src = instructions.qr_png_data_url;
 			await img.decode();
+			if (!active) return;
 			const canvas = document.createElement('canvas');
 			canvas.width = 800;
 			const ctx = canvas.getContext('2d');
@@ -276,7 +283,13 @@
 		<ErrorSummary {errors} />
 		{#if storageWarning}<p role="alert">{m.stages_storage()}</p>{/if}
 		{#if terminal}<Alert.Root variant="destructive"
-				><Alert.Description>{m.payment_expired()}</Alert.Description></Alert.Root
+				><Alert.Description
+					><p>{m.payment_expired()}</p>
+					<p>{m.payment_terminal_contact()}</p>
+					<a class="underline" href="https://facebook.com/hcmusec"
+						>{m.registration_contact_organizers()}</a
+					></Alert.Description
+				></Alert.Root
 			>
 		{:else if session.payment_state === 'PENDING'}<p role="status">{m.payment_pending_review()}</p>
 		{:else if session.payment_state === 'VERIFIED'}<p role="status">

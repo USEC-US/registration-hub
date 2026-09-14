@@ -17,10 +17,7 @@ import { clearSession, getAccessToken } from '$lib/auth/session';
 import { replaceInternalLocation } from '$lib/auth/navigation';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 
-const mockPage = vi.hoisted(() => ({
-	url: new URL('https://usec.test/tournaments/usec-summer-2026/games/10/register'),
-	params: { id: '33' }
-}));
+import { registrationRoutePage as mockPage } from '$lib/test/registration-route-state.svelte';
 const turnstileTokens = vi.hoisted(() => ({
 	'registration-submit': 'registration-submit-token',
 	'payment-proof-submit': 'payment-proof-submit-token'
@@ -32,7 +29,9 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn(), beforeNavigate: vi.fn() }));
 vi.mock('$lib/states/auth-state.svelte', () => ({
 	authState: { initialize: vi.fn().mockResolvedValue(null), currentUser: null }
 }));
-vi.mock('$app/state', () => ({ page: mockPage }));
+vi.mock('$app/state', async () => ({
+	page: (await import('$lib/test/registration-route-state.svelte')).registrationRoutePage
+}));
 vi.mock('$lib/api/registrations', () => ({
 	reservePaymentInstructions: vi.fn().mockResolvedValue({
 		token: 'payment-token',
@@ -403,4 +402,104 @@ it('expired payment has no actionable QR and copies still-valid schools into a f
 	expect(draft.fields.members[0].institution_id).toBe(12);
 	expect(draft.institutionLabels['1']).toBe('Current school');
 	expect(expired.saved_submission.members[0].institution_id).toBe(12);
+});
+
+function savedPayment(id: number, key: string) {
+	localStorage.setItem(
+		`usec-registration-access:v1:${key.repeat(32)}`,
+		JSON.stringify({
+			version: 1,
+			gameId: 10,
+			credential: key.repeat(32),
+			registrationId: id,
+			attemptState: 'submitted'
+		})
+	);
+}
+it('isolates private sessions while the same page navigates between saved registration IDs', async () => {
+	savedPayment(33, 'ab');
+	savedPayment(34, 'cd');
+	vi.mocked(getPaymentSession)
+		.mockReset()
+		.mockImplementation(async (id) => ({
+			...privateSession,
+			registration: { ...registration, id, team_name: `Team ${id}` }
+		}));
+	render(PaymentPage);
+	await expect.element(page.getByText(/Team 33/)).toBeVisible();
+	mockPage.params = { id: '34' };
+	mockPage.url = new URL('https://usec.test/registrations/34/payment');
+	await expect.element(page.getByText(/Team 34/)).toBeVisible();
+	await expect.element(page.getByText(/Team 33/)).not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Refresh status' }).click();
+	expect(vi.mocked(getPaymentSession).mock.lastCall).toEqual([34, { credential: 'cd'.repeat(32) }]);
+});
+it('clears the first record when the second route ID has no authority and ignores a late first response', async () => {
+	savedPayment(33, 'ab');
+	let finish!: (session: RegistrationPaymentSession) => void;
+	vi.mocked(getPaymentSession)
+		.mockReset()
+		.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				})
+		);
+	render(PaymentPage);
+	await vi.waitFor(() => expect(getPaymentSession).toHaveBeenCalledOnce());
+	mockPage.params = { id: '34' };
+	mockPage.url = new URL('https://usec.test/registrations/34/payment');
+	await expect.element(page.getByText(/No saved access is available/)).toBeVisible();
+	finish(privateSession);
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	await expect.element(page.getByText('001234', { exact: true })).not.toBeInTheDocument();
+	expect(getPaymentSession).toHaveBeenCalledOnce();
+});
+it('retains saved authority after a temporary load failure and offers retry', async () => {
+	savedPayment(33, 'ab');
+	vi.mocked(getPaymentSession)
+		.mockReset()
+		.mockRejectedValueOnce(new ApiRequestError(503, 'Unavailable'))
+		.mockResolvedValueOnce(privateSession);
+	render(PaymentPage);
+	await expect
+		.element(
+			page.getByText(
+				'Payment details could not be loaded. Your saved access is retained. Please try again.'
+			)
+		)
+		.toBeVisible();
+	await expect.element(page.getByText(/No saved access is available/)).not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Try loading again' }).click();
+	await expect.element(page.getByText('001234', { exact: true })).toBeVisible();
+	expect(vi.mocked(getPaymentSession).mock.lastCall).toEqual([33, { credential: 'ab'.repeat(32) }]);
+});
+it('directs terminal participants who already transferred to the organizers', async () => {
+	vi.mocked(getTournament).mockResolvedValue(tournament);
+	render(PaymentPanel, {
+		session: { ...privateSession, expired: true, instructions: null, can_upload_proof: false },
+		authority: { credential: 'ab'.repeat(32) },
+		onupdated: vi.fn()
+	});
+	await expect
+		.element(
+			page.getByText(
+				'If you already transferred money, contact the organizers with your registration reference and transfer proof before trying again.'
+			)
+		)
+		.toBeVisible();
+	await expect
+		.element(page.getByRole('link', { name: 'Contact organizers' }))
+		.toHaveAttribute('href', 'https://facebook.com/hcmusec');
+});
+it('removes an already displayed private session when navigating to a registration without saved authority', async () => {
+	savedPayment(33, 'ab');
+	vi.mocked(getPaymentSession).mockReset().mockResolvedValue(privateSession);
+	render(PaymentPage);
+	await expect.element(page.getByText('001234', { exact: true })).toBeVisible();
+	mockPage.params = { id: '34' };
+	mockPage.url = new URL('https://usec.test/registrations/34/payment');
+	await expect.element(page.getByText(/No saved access is available/)).toBeVisible();
+	await expect.element(page.getByText('001234', { exact: true })).not.toBeInTheDocument();
+	expect(getPaymentSession).toHaveBeenCalledOnce();
 });
