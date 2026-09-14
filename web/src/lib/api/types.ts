@@ -1,6 +1,7 @@
 export type RegistrationState = 'not_open' | 'open' | 'full' | 'closed';
-export type RegistrationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+export type RegistrationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 export type PaymentAttemptStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+export type PaymentState = 'NOT_REQUIRED' | 'UNPAID' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
 export interface TokenPair {
 	access: string;
@@ -51,6 +52,8 @@ export interface PublicTournamentGame {
 	fee_currency: string;
 	registration_state: RegistrationState;
 	is_registration_open: boolean;
+	payment_hold_minutes: number;
+	payment_available: boolean;
 }
 
 export interface PublicTournament {
@@ -119,6 +122,9 @@ export interface RegistrationRead {
 	submitted_at: string;
 	payment_required: boolean;
 	payment_reference: string;
+	payment_state: PaymentState;
+	payment_due_at: string | null;
+	expired: boolean;
 	members: RegistrationMemberRead[];
 	status_events: { to_status: RegistrationStatus; created_at: string }[];
 	payment_attempts: {
@@ -128,4 +134,32 @@ export interface RegistrationRead {
 		currency: string;
 		created_at: string;
 	}[];
+}
+
+export interface RegistrationPaymentInstructions {
+	bank_name: string;
+	bank_bin: string;
+	account_number: string;
+	account_holder: string;
+	amount: string;
+	currency: string;
+	transfer_content: string;
+	transfer_content_limit: number;
+	qr_payload: string | null;
+	qr_png_data_url: string | null;
+	qr_contains_transfer_content: boolean;
+}
+
+export interface RegistrationPaymentSession {
+	registration: RegistrationRead;
+	payment_state: PaymentState;
+	payment_due_at: string | null;
+	server_now: string;
+	expired: boolean;
+	can_upload_proof: boolean;
+	can_retry_registration: boolean;
+	replacement_note: string;
+	saved_submission: RegistrationSubmissionPayload;
+	institution_labels: Record<string, string>;
+	instructions: RegistrationPaymentInstructions | null;
 }

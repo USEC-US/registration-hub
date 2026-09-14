@@ -37,7 +37,9 @@ const tournament: PublicTournament = {
 			fee_amount: '50000.00',
 			fee_currency: 'VND',
 			registration_state: 'open',
-			is_registration_open: true
+			is_registration_open: true,
+			payment_hold_minutes: 60,
+			payment_available: true
 		}
 	]
 };

@@ -72,7 +72,9 @@ const game: PublicTournamentGame = {
 	fee_amount: '50000.00',
 	fee_currency: 'VND',
 	registration_state: 'open',
-	is_registration_open: true
+	is_registration_open: true,
+	payment_hold_minutes: 60,
+	payment_available: true
 };
 const tournament: PublicTournament = {
 	id: 1,
@@ -106,6 +108,9 @@ const registration: RegistrationRead = {
 	submitted_at: '2026-07-19T00:00:00Z',
 	payment_required: true,
 	payment_reference: 'USEC23456789AB',
+	payment_state: 'UNPAID',
+	payment_due_at: '2026-07-19T01:00:00Z',
+	expired: false,
 	members: [
 		{
 			gamer_tag_snapshot: 'captain',
