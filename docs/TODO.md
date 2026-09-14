@@ -72,6 +72,10 @@
 - [x] Accept payment proof with initial guest submission without an account; keep evidence private.
 - [x] Verify captain, manager, solo, guest, signed-in, payment upload, and organizer review against real Django/PostgreSQL. See [verification notes](testing/registration-journey.md).
 
+- [ ] NEW: divide the registration journey to seperate stage tabs/pages/whatever. 
+- [ ] NEW: set up auto QR-code generation.
+  - [ ] BLOCKER: admin must be able to have a way to add their bank account info. This applies site-wide, must should be configurable in the Admin Page, and, in the future, verified (to output the account holder's name automatically).
+  - 2/3 requirements can be satisfied, unfortunately, no API is public to be able to check valid bank account, and SePay must be set up (required authentication). Defer check valid bank account. 
 ## 4. Organizer registration operations
 
 - [ ] Show division and registration counts from tournament administration.
@@ -87,6 +91,8 @@
 - [ ] Support single elimination.
 - [ ] Support double elimination.
 - [ ] Explicitly defer groups, round robin, Swiss, and other pairing systems.
+  - It's now possible to de-defer this, and start working on it as part of a full core bracket system.
+  - This also means we should think of putting the TFT system here too. Complex (itself has a ton of rules) but TFT is popular these days in the Student community.
 - [ ] Let organizers select entrants from approved registrations.
 - [ ] Support manual seeding, randomization, byes, preview, and publication.
 - [ ] Track rounds, matches, sides, scores, winners, and advancement.
