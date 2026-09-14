@@ -185,7 +185,7 @@
 	"registration_corrections": "Đơn đăng ký sẽ được khóa sau khi gửi. Nếu cần chỉnh sửa, hãy liên hệ ban tổ chức và cung cấp mã đăng ký.",
 	"registration_contact_organizers": "Liên hệ ban tổ chức qua Facebook",
 	"registration_session_expired": "Phiên đăng nhập đã hết hạn. Thông tin đã nhập vẫn được giữ lại. Bạn có thể gửi với tư cách khách (cần minh chứng thanh toán nếu nội dung thi đấu có lệ phí) hoặc đăng nhập lại.",
-	"registration_loading": "Đang tải đăng ký…",
+	"registration_loading": "Đang tải đơn đăng ký...",
 	"tournament_detail_title": "Chi tiết giải đấu",
 	"roster_main_heading": "Đội hình chính thức · bắt buộc {count} thành viên",
 	"roster_substitutes_heading": "Dự bị · tối đa {count} thành viên",
