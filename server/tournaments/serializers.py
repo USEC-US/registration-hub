@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from registrations.models import Registration
+from registrations.reservations import active_registrations
 
 from .models import Tournament, TournamentGame
 
@@ -36,9 +36,11 @@ class PublicTournamentGameSerializer(serializers.ModelSerializer):
     def _active_count(self, obj: TournamentGame) -> int:
         if hasattr(obj, "active_registration_count"):
             return obj.active_registration_count
-        return obj.registrations.filter(
-            status__in=Registration.active_statuses()
-        ).count()
+        return (
+            active_registrations(now=self._availability_time())
+            .filter(tournament_game=obj)
+            .count()
+        )
 
     def get_capacity_remaining(self, obj: TournamentGame) -> int | None:
         if obj.registration_capacity is None:

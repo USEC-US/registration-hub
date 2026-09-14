@@ -65,11 +65,14 @@ class GuestSubmissionTests(APITestCase):
             )
         return self.client.post("/api/registrations/submit/", payload, format="json")
 
-    def test_paid_guest_requires_initial_proof(self):
+    def test_paid_guest_without_initial_proof_gets_timed_reservation(self):
         response = self.post()
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("proof_file", response.data)
-        self.assertEqual(Registration.objects.count(), 2)
+        self.assertEqual(response.status_code, 201, response.data)
+        registration = Registration.objects.get(pk=response.data["id"])
+        self.assertIsNotNone(registration.payment_due_at)
+        self.assertEqual(registration.payment_hold_minutes_snapshot, 60)
+        self.assertFalse(registration.payment_attempts.exists())
+        self.assertEqual(Registration.objects.count(), 3)
 
     def team_payload(self):
         self.tournament_game.main_roster_size = 2

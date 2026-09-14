@@ -1,3 +1,5 @@
+from .reservations import lock_registration, is_expired
+from django.utils import timezone
 import json
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -152,9 +154,16 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
     def payment_reference(self, request, pk=None):
         registration = self.get_object()
         with transaction.atomic():
-            registration = Registration.objects.select_for_update().get(
-                pk=registration.pk
-            )
+            registration = lock_registration(registration.pk)
+            if is_expired(registration, now=timezone.now()) or (
+                registration.payment_due_at is not None
+                and registration.status == Registration.Status.REJECTED
+            ):
+                raise _as_drf_validation_error(
+                    DjangoValidationError(
+                        "This payment reservation is no longer active."
+                    )
+                )
             try:
                 intent = registration.payment_intent
             except Registration.payment_intent.RelatedObjectDoesNotExist:
@@ -172,9 +181,16 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
     def payment_instructions(self, request, pk=None):
         registration = self.get_object()
         with transaction.atomic():
-            registration = Registration.objects.select_for_update().get(
-                pk=registration.pk
-            )
+            registration = lock_registration(registration.pk)
+            if is_expired(registration, now=timezone.now()) or (
+                registration.payment_due_at is not None
+                and registration.status == Registration.Status.REJECTED
+            ):
+                raise _as_drf_validation_error(
+                    DjangoValidationError(
+                        "This payment reservation is no longer active."
+                    )
+                )
             try:
                 intent = registration.payment_intent
             except Registration.payment_intent.RelatedObjectDoesNotExist:

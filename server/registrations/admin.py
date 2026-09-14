@@ -1,3 +1,6 @@
+from django import forms
+from django.template.response import TemplateResponse
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from unfold.admin import ModelAdmin, TabularInline
@@ -210,6 +213,12 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         )
 
 
+class PaymentRejectionForm(forms.Form):
+    reason = forms.CharField(
+        label="Rejection reason", widget=forms.Textarea, strip=True
+    )
+
+
 @admin.register(PaymentAttempt)
 class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_display = ("id", "registration", "amount", "currency", "status", "created_at")
@@ -225,7 +234,7 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_select_related = ("registration",)
     actions = ("verify_selected", "reject_selected")
 
-    def _review(self, request, queryset, target_status):
+    def _review(self, request, queryset, target_status, note=None):
         completed = 0
         for payment_attempt in queryset:
             try:
@@ -233,6 +242,7 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
                     actor=request.user,
                     payment_attempt_id=payment_attempt.pk,
                     status=target_status,
+                    **({"note": note} if note is not None else {}),
                 )
             except (PermissionDenied, ValidationError) as error:
                 self.message_user(
@@ -255,7 +265,29 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
 
     @admin.action(description="Reject selected payment attempts")
     def reject_selected(self, request, queryset):
-        self._review(request, queryset, PaymentAttempt.Status.REJECTED)
+        form = PaymentRejectionForm(
+            request.POST if request.POST.get("confirm_rejection") else None
+        )
+        if form.is_bound and form.is_valid():
+            self._review(
+                request,
+                queryset,
+                PaymentAttempt.Status.REJECTED,
+                note=form.cleaned_data["reason"],
+            )
+            return None
+        return TemplateResponse(
+            request,
+            "admin/registrations/reject_payment.html",
+            {
+                **self.admin_site.each_context(request),
+                "title": "Reject payment proof",
+                "form": form,
+                "queryset": queryset,
+                "opts": self.model._meta,
+                "action_checkbox_name": ACTION_CHECKBOX_NAME,
+            },
+        )
 
 
 @admin.register(PaymentIntent)

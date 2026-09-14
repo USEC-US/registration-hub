@@ -1,7 +1,7 @@
 import re
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Sequence
 
@@ -18,6 +18,14 @@ from accounts.services.institutions import (
 from tournaments.models import TournamentGame
 
 from .payments import create_payment_intent
+from .payment_settings import require_payment_settings
+from .reservations import (
+    active_registrations,
+    expire_due_registrations,
+    is_expired,
+    lock_registration,
+    payment_state,
+)
 from tournaments.payment_content import render_transfer_content
 from .images import prepare_payment_image
 from .models import (
@@ -98,9 +106,9 @@ def submit_registration(
                 < tournament_game.registration_closes_at
             ):
                 raise ValidationError("Registration is not open.")
-            active = Registration.objects.filter(
-                tournament_game=tournament_game,
-                status__in=Registration.active_statuses(),
+            expire_due_registrations(division_id=tournament_game.pk)
+            active = active_registrations(now=timezone.now()).filter(
+                tournament_game=tournament_game
             )
             if (
                 tournament_game.registration_capacity is not None
@@ -132,16 +140,14 @@ def submit_registration(
                 raise ValidationError(
                     {"proof_file": "This registration has no payment due."}
                 )
-            if (
-                submitted_by is None
-                and tournament_game.fee_amount > 0
-                and proof_file is None
-            ):
-                raise ValidationError(
-                    {
-                        "proof_file": "Guests must attach payment proof before submission."
-                    }
+            payment_settings = (
+                require_payment_settings(
+                    amount=tournament_game.fee_amount,
+                    currency=tournament_game.fee_currency,
                 )
+                if tournament_game.fee_amount > 0
+                else None
+            )
             payment_intent = None
             if payment_intent_token:
                 payment_intent = (
@@ -168,7 +174,11 @@ def submit_registration(
                             "payment_intent_token": "The fee has changed. Contact the organizers before making any further payment."
                         }
                     )
-            elif submitted_by is None and tournament_game.fee_amount > 0:
+            elif (
+                submitted_by is None
+                and proof_file is not None
+                and tournament_game.fee_amount > 0
+            ):
                 raise ValidationError(
                     {
                         "payment_intent_token": "Load the transfer instructions before transferring and submitting proof."
@@ -216,6 +226,9 @@ def submit_registration(
                         }
                     )
                 claims.append((tag, institution.pk, label))
+            submitted_at = timezone.now()
+            if submitted_at >= tournament_game.registration_closes_at:
+                raise ValidationError("Registration is not open.")
             registration = Registration.objects.create(
                 tournament_game=tournament_game,
                 submitted_by=submitted_by,
@@ -226,6 +239,16 @@ def submit_registration(
                 status=Registration.Status.SUBMITTED,
                 fee_amount_snapshot=tournament_game.fee_amount,
                 fee_currency_snapshot=tournament_game.fee_currency,
+                payment_hold_minutes_snapshot=payment_settings.payment_hold_minutes
+                if payment_settings
+                else None,
+                payment_due_at=min(
+                    submitted_at
+                    + timedelta(minutes=payment_settings.payment_hold_minutes),
+                    tournament_game.registration_closes_at,
+                )
+                if payment_settings
+                else None,
             )
             RegistrationMember.objects.bulk_create(
                 [
@@ -273,7 +296,9 @@ def submit_registration(
                 payment_intent.save(update_fields=["registration", "transfer_content"])
             elif tournament_game.fee_amount > 0:
                 create_payment_intent(
-                    tournament_game=tournament_game, registration=registration
+                    tournament_game=tournament_game,
+                    registration=registration,
+                    payment_settings=payment_settings,
                 )
             RegistrationStatusEvent.objects.create(
                 registration=registration,
@@ -282,6 +307,8 @@ def submit_registration(
                 actor=submitted_by,
             )
             if prepared is not None:
+                if is_expired(registration, now=timezone.now()):
+                    raise ValidationError("Payment reservation has expired.")
                 attempt = PaymentAttempt(
                     registration=registration,
                     method=PaymentAttempt.Method.MANUAL_PROOF,
@@ -414,7 +441,18 @@ def _transition_registration(
 ) -> Registration:
     _require_organizer(actor, "registrations.change_registration")
     with transaction.atomic():
-        registration = Registration.objects.select_for_update().get(pk=registration_id)
+        registration = lock_registration(registration_id)
+        expire_due_registrations(division_id=registration.tournament_game_id)
+        registration.refresh_from_db()
+        if is_expired(registration, now=timezone.now()):
+            raise ValidationError("Payment reservation has expired.")
+        if (
+            to_status == Registration.Status.APPROVED
+            and registration.payment_due_at is not None
+            and registration.fee_amount_snapshot > 0
+            and payment_state(registration) != "VERIFIED"
+        ):
+            raise ValidationError("Verified payment is required before approval.")
         if registration.status != expected_status:
             raise ValidationError(
                 f"Cannot move a {registration.status} registration to {to_status}."
@@ -473,34 +511,62 @@ def submit_payment_attempt(
     currency: str,
     proof_file=None,
     reference: str = "",
+    registration_access=None,
 ) -> PaymentAttempt:
-    with transaction.atomic():
-        registration = (
-            Registration.objects.select_related("tournament_game__tournament")
-            .select_for_update()
-            .get(pk=registration_id)
-        )
-        if not registration.tournament_game.tournament.is_published:
-            raise ValidationError("Tournament is not published.")
-        if registration.submitted_by_id != actor.pk:
-            raise PermissionDenied("Only the submitter can add a payment attempt.")
-        if registration.fee_amount_snapshot <= Decimal("0.00"):
-            raise ValidationError("This registration has no payment due.")
-        if amount != registration.fee_amount_snapshot:
-            raise ValidationError("Payment amount must match the registration fee.")
-        if currency.upper() != registration.fee_currency_snapshot:
-            raise ValidationError("Payment currency must match the registration fee.")
-        proof_file = prepare_payment_image(proof_file)
-
-        return PaymentAttempt.objects.create(
-            registration=registration,
-            method=PaymentAttempt.Method.MANUAL_PROOF,
-            status=PaymentAttempt.Status.PENDING,
-            amount=amount,
-            currency=currency.upper(),
-            proof_file=proof_file,
-            reference=reference.strip(),
-        )
+    attempt = None
+    try:
+        with transaction.atomic():
+            registration = lock_registration(registration_id)
+            if not registration.tournament_game.tournament.is_published:
+                raise ValidationError("Tournament is not published.")
+            # Task3 replaces this rejection with its validated RegistrationAccess adapter.
+            if registration_access is not None:
+                raise PermissionDenied(
+                    "Validated registration access is not available here."
+                )
+            if not (
+                actor is not None
+                and actor.is_authenticated
+                and actor.pk is not None
+                and registration.submitted_by_id == actor.pk
+            ):
+                raise PermissionDenied("Only the submitter can add a payment attempt.")
+            if registration.fee_amount_snapshot <= Decimal("0.00"):
+                raise ValidationError("This registration has no payment due.")
+            if amount != registration.fee_amount_snapshot:
+                raise ValidationError("Payment amount must match the registration fee.")
+            if currency.upper() != registration.fee_currency_snapshot:
+                raise ValidationError(
+                    "Payment currency must match the registration fee."
+                )
+            prepared = prepare_payment_image(proof_file)
+            # Sanitization may cross the deadline. The authoritative check is after it.
+            expire_due_registrations(division_id=registration.tournament_game_id)
+            registration.refresh_from_db()
+            if is_expired(registration, now=timezone.now()):
+                raise ValidationError("Payment reservation has expired.")
+            if registration.payment_due_at is not None and (
+                registration.status == Registration.Status.REJECTED
+                or payment_state(registration) in ("PENDING", "VERIFIED")
+            ):
+                raise ValidationError(
+                    "This registration cannot accept another payment proof."
+                )
+            attempt = PaymentAttempt(
+                registration=registration,
+                method=PaymentAttempt.Method.MANUAL_PROOF,
+                status=PaymentAttempt.Status.PENDING,
+                amount=amount,
+                currency=currency.upper(),
+                proof_file=prepared,
+                reference=reference.strip(),
+            )
+            attempt.save()
+        return attempt
+    except Exception:
+        if attempt is not None and attempt.proof_file and attempt.proof_file._committed:
+            attempt.proof_file.delete(save=False)
+        raise
 
 
 def review_payment_attempt(
@@ -514,7 +580,20 @@ def review_payment_attempt(
     if status not in {PaymentAttempt.Status.VERIFIED, PaymentAttempt.Status.REJECTED}:
         raise ValidationError("A payment attempt may only be verified or rejected.")
 
+    if status == PaymentAttempt.Status.REJECTED and not note.strip():
+        raise ValidationError("A rejection reason is required.")
     with transaction.atomic():
+        registration_id = PaymentAttempt.objects.values_list(
+            "registration_id", flat=True
+        ).get(pk=payment_attempt_id)
+        registration = lock_registration(registration_id)
+        expire_due_registrations(division_id=registration.tournament_game_id)
+        registration.refresh_from_db()
+        if registration.payment_due_at is not None and (
+            is_expired(registration, now=timezone.now())
+            or registration.status == Registration.Status.REJECTED
+        ):
+            raise ValidationError("This registration is no longer active.")
         payment_attempt = PaymentAttempt.objects.select_for_update().get(
             pk=payment_attempt_id
         )
@@ -527,4 +606,13 @@ def review_payment_attempt(
         payment_attempt.save(
             update_fields=("status", "reviewed_by", "reviewed_at", "review_note")
         )
+        if (
+            status == PaymentAttempt.Status.REJECTED
+            and registration.payment_due_at is not None
+            and payment_state(registration) not in ("PENDING", "VERIFIED")
+        ):
+            registration.payment_due_at = payment_attempt.reviewed_at + timedelta(
+                minutes=registration.payment_hold_minutes_snapshot
+            )
+            registration.save(update_fields=("payment_due_at", "updated_at"))
         return payment_attempt

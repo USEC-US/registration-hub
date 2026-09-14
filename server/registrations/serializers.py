@@ -10,6 +10,7 @@ from .models import (
     RegistrationStatusEvent,
 )
 from .services import RegistrationMemberInput
+from .reservations import payment_state, is_expired
 
 
 class TournamentGameSummarySerializer(serializers.ModelSerializer):
@@ -58,6 +59,8 @@ class RegistrationReadSerializer(serializers.ModelSerializer):
     members = RegistrationMemberReadSerializer(many=True, read_only=True)
     status_events = RegistrationStatusEventReadSerializer(many=True, read_only=True)
     payment_attempts = PaymentAttemptReadSerializer(many=True, read_only=True)
+    payment_state = serializers.SerializerMethodField()
+    expired = serializers.SerializerMethodField()
     payment_required = serializers.SerializerMethodField()
     payment_reference = serializers.SerializerMethodField()
 
@@ -72,12 +75,21 @@ class RegistrationReadSerializer(serializers.ModelSerializer):
             "fee_amount_snapshot",
             "fee_currency_snapshot",
             "payment_required",
+            "payment_state",
+            "payment_due_at",
+            "expired",
             "payment_reference",
             "submitted_at",
             "members",
             "status_events",
             "payment_attempts",
         )
+
+    def get_payment_state(self, obj):
+        return payment_state(obj)
+
+    def get_expired(self, obj):
+        return is_expired(obj, now=timezone.now())
 
     def get_payment_reference(self, obj):
         try:

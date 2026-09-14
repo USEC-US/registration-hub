@@ -99,6 +99,7 @@ class PaymentReferenceTests(APITestCase):
         from registrations.models import PaymentSettings
         from registrations.payments import create_payment_intent
 
+        PaymentSettings.objects.all().delete()
         settings = PaymentSettings.objects.create(
             enabled=True,
             bank_name="VietinBank",

@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<form method="post">{% csrf_token %}
+  <p>Explain what the participant must correct in their replacement proof.</p>
+  {{ form.as_p }}
+  {% for attempt in queryset %}
+  <input type="hidden" name="{{ action_checkbox_name }}" value="{{ attempt.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="reject_selected">
+  <input type="hidden" name="confirm_rejection" value="1">
+  <button type="submit">Reject proof</button>
+</form>
+{% endblock %}

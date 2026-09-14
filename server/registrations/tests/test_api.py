@@ -18,6 +18,9 @@ from .images import payment_image
 @override_settings(ROOT_URLCONF="config.urls", DEBUG=True, TURNSTILE_SECRET_KEY="")
 class RegistrationOwnershipApiTests(APITestCase):
     def setUp(self):
+        from .payment_settings import configure_test_payments
+
+        configure_test_payments()
         media = TemporaryDirectory()
         self.addCleanup(media.cleanup)
         media_settings = override_settings(MEDIA_ROOT=media.name)

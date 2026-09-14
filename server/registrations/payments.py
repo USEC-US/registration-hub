@@ -12,6 +12,12 @@ from tournaments.payment_content import (
     render_transfer_content,
 )
 from .models import PaymentIntent, Registration
+from .reservations import (
+    active_registrations,
+    lock_registration,
+    is_expired,
+    expire_due_registrations,
+)
 
 PAYMENT_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
@@ -20,7 +26,22 @@ class LegacyPaymentSessionError(ValidationError):
     """An old quote cannot be silently replaced after a possible bank transfer."""
 
 
+@transaction.atomic
 def create_payment_intent(*, tournament_game, registration=None, payment_settings=None):
+    if registration is not None:
+        registration = lock_registration(registration.pk)
+        if registration.tournament_game_id != tournament_game.pk:
+            raise ValidationError("Payment division does not match registration.")
+        if is_expired(registration, now=timezone.now()) or (
+            registration.payment_due_at is not None
+            and registration.status == Registration.Status.REJECTED
+        ):
+            raise ValidationError("This payment reservation is no longer active.")
+    tournament_game = (
+        TournamentGame.objects.select_for_update()
+        .select_related("tournament")
+        .get(pk=tournament_game.pk)
+    )
     amount = (
         registration.fee_amount_snapshot if registration else tournament_game.fee_amount
     )
@@ -90,9 +111,11 @@ def reserve_payment_reference(*, tournament_game_id, token=None):
     )
     if token:
         # Resume the same quote even if the registration window has since closed.
-        intent = PaymentIntent.objects.filter(
-            token=token, tournament_game=game, registration__isnull=True
-        ).first()
+        intent = (
+            PaymentIntent.objects.select_for_update()
+            .filter(token=token, tournament_game=game, registration__isnull=True)
+            .first()
+        )
         if not intent:
             raise ValidationError(
                 {
@@ -113,11 +136,12 @@ def reserve_payment_reference(*, tournament_game_id, token=None):
         < game.registration_closes_at
     ):
         raise ValidationError({"payment_reference": "Registration is not open."})
+    expire_due_registrations(division_id=game.pk)
     if (
         game.registration_capacity is not None
-        and Registration.objects.filter(
-            tournament_game=game, status__in=Registration.active_statuses()
-        ).count()
+        and active_registrations(now=timezone.now())
+        .filter(tournament_game=game)
+        .count()
         >= game.registration_capacity
     ):
         raise ValidationError(

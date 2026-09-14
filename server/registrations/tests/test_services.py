@@ -26,6 +26,9 @@ from .images import payment_image
 
 class RegistrationServiceTests(TestCase):
     def setUp(self):
+        from .payment_settings import configure_test_payments
+
+        configure_test_payments()
         media = TemporaryDirectory()
         self.addCleanup(media.cleanup)
         media_settings = override_settings(MEDIA_ROOT=media.name)
@@ -284,6 +287,9 @@ class RegistrationServiceTests(TestCase):
 
         organizer = self._organizer()
         registration = start_review(actor=organizer, registration_id=registration.pk)
+        PaymentAttempt.objects.create(
+            registration=registration, amount=50000, currency="VND", status="VERIFIED"
+        )
         registration = approve_registration(
             actor=organizer, registration_id=registration.pk
         )
@@ -433,3 +439,109 @@ class RegistrationServiceTests(TestCase):
                 payment_attempt_id=payment_attempt.pk,
                 status=PaymentAttempt.Status.REJECTED,
             )
+
+    def test_credential_free_paid_submission_snapshots_duration_and_close_cap(self):
+        from .payment_settings import configure_test_payments
+
+        settings = configure_test_payments()
+        settings.payment_hold_minutes = 120
+        settings.save()
+        closing = timezone.now() + timedelta(minutes=20)
+        self.tournament_game.registration_closes_at = closing
+        self.tournament_game.save()
+        registration = self._submit_solo()
+        self.assertEqual(registration.payment_due_at, closing)
+        self.assertEqual(registration.payment_hold_minutes_snapshot, 120)
+        self.assertEqual(
+            registration.payment_intent.account_number_snapshot, settings.account_number
+        )
+        settings.payment_hold_minutes = 15
+        settings.save()
+        registration.refresh_from_db()
+        self.assertEqual(registration.payment_due_at, closing)
+
+    def test_missing_settings_reject_paid_but_not_free_submission(self):
+        from registrations.models import PaymentSettings
+
+        PaymentSettings.objects.all().delete()
+        with self.assertRaises(ValidationError):
+            self._submit_solo()
+        self.assertFalse(Registration.objects.exists())
+        self.tournament_game.fee_amount = 0
+        self.tournament_game.save()
+        registration = self._submit_solo()
+        self.assertIsNone(registration.payment_due_at)
+        self.assertIsNone(registration.payment_hold_minutes_snapshot)
+
+    def test_expiry_releases_capacity_and_normalized_player_claim_together(self):
+        registration = self._submit_solo()
+        registration.payment_due_at = timezone.now()
+        registration.save()
+        replacement = self._submit_solo()
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "EXPIRED")
+        self.assertNotEqual(replacement.pk, registration.pk)
+        self.assertEqual(
+            replacement.members.get().gamer_tag_snapshot,
+            registration.members.get().gamer_tag_snapshot,
+        )
+
+    def test_initial_proof_sanitization_cannot_cross_registration_close(self):
+        from unittest.mock import patch
+        from registrations.images import prepare_payment_image
+
+        closing = timezone.now() + timedelta(minutes=1)
+        self.tournament_game.registration_closes_at = closing
+        self.tournament_game.save()
+
+        def prepare(file):
+            prepared = prepare_payment_image(file)
+            # The next authoritative read observes closing; no upload can extend it.
+            time_patch.start()
+            return prepared
+
+        time_patch = patch("registrations.services.timezone.now", return_value=closing)
+        self.addCleanup(time_patch.stop)
+        with patch("registrations.services.prepare_payment_image", side_effect=prepare):
+            with self.assertRaises(ValidationError):
+                submit_registration(
+                    submitted_by=self.captain,
+                    tournament_game_id=self.tournament_game.pk,
+                    team_name="",
+                    members=[self._member()],
+                    submitter_role="captain",
+                    contact_facebook_snapshot="fb/me",
+                    contact_phone_snapshot="0900000000",
+                    proof_file=payment_image(),
+                )
+        self.assertFalse(Registration.objects.exists())
+
+    def test_initial_proof_cannot_cross_deadline_during_intent_persistence(self):
+        from unittest.mock import patch
+        from registrations.models import PaymentIntent
+
+        closing = timezone.now() + timedelta(minutes=1)
+        self.tournament_game.registration_closes_at = closing
+        self.tournament_game.save()
+        original = PaymentIntent.save
+        time_patch = patch("registrations.services.timezone.now", return_value=closing)
+        self.addCleanup(time_patch.stop)
+
+        def save(intent, *args, **kwargs):
+            result = original(intent, *args, **kwargs)
+            time_patch.start()
+            return result
+
+        with patch.object(PaymentIntent, "save", save):
+            with self.assertRaises(ValidationError):
+                submit_registration(
+                    submitted_by=self.captain,
+                    tournament_game_id=self.tournament_game.pk,
+                    team_name="",
+                    members=[self._member()],
+                    submitter_role="captain",
+                    contact_facebook_snapshot="fb/me",
+                    contact_phone_snapshot="0900000000",
+                    proof_file=payment_image(),
+                )
+        self.assertFalse(Registration.objects.exists())
