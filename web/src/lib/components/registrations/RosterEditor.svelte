@@ -242,6 +242,17 @@
 				</div>
 				<Field.Group class="grid gap-5 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
 					<Field.Field>
+						<Field.Label for={`member-${index + 1}-last-name`}>{m.roster_last_name()}</Field.Label>
+						<Input
+							id={`member-${index + 1}-last-name`}
+							name={`member-${index + 1}-last-name`}
+							required
+							maxlength={150}
+							value={member.last_name_snapshot}
+							oninput={(event) => updateMember(index, 'last_name_snapshot', event)}
+						/>
+					</Field.Field>
+					<Field.Field>
 						<Field.Label for={`member-${index + 1}-first-name`}>{m.roster_first_name()}</Field.Label
 						>
 						<Input
@@ -251,17 +262,6 @@
 							maxlength={150}
 							value={member.first_name_snapshot}
 							oninput={(event) => updateMember(index, 'first_name_snapshot', event)}
-						/>
-					</Field.Field>
-					<Field.Field>
-						<Field.Label for={`member-${index + 1}-last-name`}>{m.roster_last_name()}</Field.Label>
-						<Input
-							id={`member-${index + 1}-last-name`}
-							name={`member-${index + 1}-last-name`}
-							required
-							maxlength={150}
-							value={member.last_name_snapshot}
-							oninput={(event) => updateMember(index, 'last_name_snapshot', event)}
 						/>
 					</Field.Field>
 					<Field.Field>
