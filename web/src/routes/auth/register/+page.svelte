@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { registerAccount, signIn } from '$lib/api/auth';
 	import type { InstitutionChoice } from '$lib/api/types';
 	import { saveSession } from '$lib/auth/session';
@@ -10,7 +11,7 @@
 	import InstitutionCombobox from '$lib/components/forms/InstitutionCombobox.svelte';
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
-	import { localizeInternalHref } from '$lib/navigation';
+	import { localizeInternalHref, sanitizeInternalRedirect } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -19,6 +20,11 @@
 
 	type RegistrationPhase = 'form' | 'signing-in' | 'recovery';
 
+	const returnTo = $derived(
+		sanitizeInternalRedirect(
+			page.url.searchParams.get('redirect') ?? localizeInternalHref('/account/profile')
+		)
+	);
 	let ready = $state(false);
 	onMount(() => {
 		ready = true;
@@ -49,7 +55,7 @@
 			signInTurnstileWidget?.reset();
 			const tokens = await request;
 			saveSession(tokens);
-			await goto(resolve(localizeInternalHref('/account/profile')));
+			await goto(resolve(returnTo));
 		} catch {
 			password = '';
 			phase = 'recovery';
@@ -139,7 +145,9 @@
 			</p>
 			<a
 				class="mt-6 inline-flex min-h-11 items-center border border-accent px-4 py-2 text-sm font-semibold text-accent"
-				href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.action_go_to_sign_in()}</a
+				href={resolve(
+					localizeInternalHref(`/auth/sign-in?redirect=${encodeURIComponent(returnTo)}`)
+				)}>{m.action_go_to_sign_in()}</a
 			>
 		</div>
 	</section>
@@ -225,7 +233,9 @@
 					{m.auth_have_account()}
 					<a
 						class="font-semibold text-primary"
-						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
+						href={resolve(
+							localizeInternalHref(`/auth/sign-in?redirect=${encodeURIComponent(returnTo)}`)
+						)}>{m.nav_sign_in()}</a
 					>
 				</p>
 				<Button class="min-h-11" type="submit" disabled={!ready || submitting}>

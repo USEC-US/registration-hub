@@ -25,6 +25,8 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import UserRound from '@lucide/svelte/icons/user-round';
+	import UserPlus from '@lucide/svelte/icons/user-plus';
+	import LogIn from '@lucide/svelte/icons/log-in';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import { onMount } from 'svelte';
@@ -52,6 +54,10 @@
 	let submitting = $state(false);
 	let fieldErrors = $state<Record<string, string[]>>({});
 	let formErrors = $state<string[]>([]);
+
+	const registrationReturnTo = $derived(
+		encodeURIComponent(`${page.url.pathname}${page.url.search}${page.url.hash}`)
+	);
 
 	function formatFee(): string {
 		return new Intl.NumberFormat(getLocale(), {
@@ -241,19 +247,45 @@
 			<div class="flex flex-col gap-6">
 				<ErrorSummary errors={formErrors} />
 				{#if !accessToken}
-					<Alert.Root class="rounded-lg">
-						<UserRound aria-hidden="true" />
-						<Alert.Description>
-							{m.registration_account_benefits()}
-							<a
-								class="font-medium underline underline-offset-4"
-								href={resolve(
-									localizeInternalHref(
-										`/auth/sign-in?redirect=${encodeURIComponent(`${page.url.pathname}${page.url.search}${page.url.hash}`)}`
-									)
-								)}>{m.nav_sign_in()}</a
+					<Alert.Root
+						role="note"
+						aria-labelledby="registration-account-heading"
+						aria-describedby="registration-account-description"
+						class="gap-4 rounded-xl p-5 sm:p-6"
+					>
+						<div class="flex items-center gap-3">
+							<span
+								class="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted"
+								aria-hidden="true"
 							>
+								<UserRound class="size-5" />
+							</span>
+							<Alert.Title id="registration-account-heading">
+								<h2 class="text-lg leading-snug">{m.registration_account_benefits_title()}</h2>
+							</Alert.Title>
+						</div>
+						<Alert.Description id="registration-account-description">
+							<p>{m.registration_account_benefits_description()}</p>
 						</Alert.Description>
+						<div class="flex flex-col gap-3 border-t pt-4 sm:flex-row">
+							<Button
+								size="lg"
+								class="min-h-11 sm:px-5"
+								href={`${resolve(localizeInternalHref('/auth/register'))}?redirect=${registrationReturnTo}`}
+							>
+								<UserPlus data-icon="inline-start" aria-hidden="true" />
+								{m.action_create_account()}
+							</Button>
+							<Button
+								variant="outline"
+								size="lg"
+								class="min-h-11 sm:px-5"
+								href={`${resolve(localizeInternalHref('/auth/sign-in'))}?redirect=${registrationReturnTo}`}
+							>
+								<LogIn data-icon="inline-start" aria-hidden="true" />
+								{m.nav_sign_in()}
+							</Button>
+						</div>
 					</Alert.Root>
 				{/if}
 				<Card.Root class="gap-6 rounded-xl py-6" aria-labelledby="registration-details-heading">

@@ -173,6 +173,27 @@ async function chooseInstitution(index: number, label = 'HCMUS') {
 }
 
 describe('participant registration pages', () => {
+	it('offers account creation and sign-in from the guest notice with the full return path', async () => {
+		vi.mocked(getAccessToken).mockReturnValue(null);
+		mockPage.url = new URL(
+			'https://usec.test/en/tournaments/summer/games/10/register?from=event#roster'
+		);
+		render(RegisterPage, {
+			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+			params: { slug: tournament.slug, gameId: String(game.id) }
+		});
+		const notice = page.getByRole('note');
+		const returnTo = encodeURIComponent(
+			mockPage.url.pathname + mockPage.url.search + mockPage.url.hash
+		);
+		await expect
+			.element(notice.getByRole('link', { name: 'Create account' }))
+			.toHaveAttribute('href', `/en/auth/register?redirect=${returnTo}`);
+		await expect
+			.element(notice.getByRole('link', { name: 'Sign in' }))
+			.toHaveAttribute('href', `/en/auth/sign-in?redirect=${returnTo}`);
+	});
+
 	it('requires guest payment proof and preserves fields after an invalid image', async () => {
 		vi.mocked(getAccessToken).mockReturnValue(null);
 		render(RegisterPage, {

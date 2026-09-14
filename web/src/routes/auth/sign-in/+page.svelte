@@ -85,7 +85,7 @@
 	</div>
 </header>
 
-<p class="mt-6 text-sm text-muted-foreground">{m.registration_account_benefits()}</p>
+<p class="mt-6 text-sm text-muted-foreground">{m.registration_account_benefits_description()}</p>
 
 <Card.Root class="mt-8 grid gap-0 lg:grid-cols-[minmax(13rem,0.42fr)_minmax(0,1fr)]">
 	<Card.Header class="bg-muted p-5 sm:p-6 lg:border-r">

@@ -327,7 +327,15 @@ describe('account creation page', () => {
 		expect(registerAccount).toHaveBeenCalledOnce();
 	});
 
-	it('uses normalized registration email for automatic sign-in and redirects in locale', async () => {
+	it.each([
+		[null, '/account/profile'],
+		[
+			'/vi/tournaments/summer/games/10/register?source=event#roster',
+			'/vi/tournaments/summer/games/10/register?source=event#roster'
+		],
+		['https://example.org', '/account/registrations']
+	])('signs in the new account and safely returns to %s', async (redirect, destination) => {
+		if (redirect) mockPage.url.searchParams.set('redirect', redirect);
 		overwriteGetLocale(() => 'vi');
 		vi.mocked(registerAccount).mockResolvedValue({ ...user, email: 'player@example.com' });
 		vi.mocked(signIn).mockResolvedValue(tokens);
@@ -344,13 +352,13 @@ describe('account creation page', () => {
 		expect(container.querySelector('input[name="institution"]')).not.toBeNull();
 		await page.getByLabelText('Email').fill('PLAYER@EXAMPLE.COM');
 		await page.getByLabelText('Mật khẩu').fill('strong-password');
-		await page.getByLabelText('Họ').fill('Minh');
-		await page.getByLabelText('Tên').fill('Nguyen');
+		await page.getByLabelText(m.field_first_name(), { exact: true }).fill('Minh');
+		await page.getByLabelText(m.field_last_name(), { exact: true }).fill('Nguyen');
 		await page.getByLabelText('Cơ sở đào tạo').fill('science');
 		await page.getByRole('option', { name: /University of Science/ }).click();
 		await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/account/profile'));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith(destination));
 		expect(registerAccount).toHaveBeenCalledWith(
 			{
 				email: 'PLAYER@EXAMPLE.COM',
