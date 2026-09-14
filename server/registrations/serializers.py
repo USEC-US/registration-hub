@@ -85,13 +85,13 @@ class RegistrationReadSerializer(serializers.ModelSerializer):
             "payment_attempts",
         )
 
-    def get_payment_state(self, obj):
+    def get_payment_state(self, obj: Registration) -> str:
         return payment_state(obj)
 
-    def get_expired(self, obj):
+    def get_expired(self, obj: Registration) -> bool:
         return is_expired(obj, now=timezone.now())
 
-    def get_payment_reference(self, obj):
+    def get_payment_reference(self, obj: Registration) -> str:
         try:
             return obj.payment_intent.reference
         except Registration.payment_intent.RelatedObjectDoesNotExist:
@@ -220,3 +220,41 @@ class PaymentCodeReadSerializer(serializers.Serializer):
 class PaymentInstructionsReadSerializer(serializers.Serializer):
     transfer_content = serializers.CharField()
     transfer_content_limit = serializers.IntegerField()
+
+
+class PrivatePaymentProofSerializer(StrictFieldsSerializer):
+    proof_file = serializers.FileField()
+    reference = serializers.CharField(max_length=128, allow_blank=True, required=False)
+    turnstile_token = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
+
+
+class PrivatePaymentInstructionsSerializer(serializers.Serializer):
+    bank_name = serializers.CharField()
+    bank_bin = serializers.CharField()
+    account_number = serializers.CharField()
+    account_holder = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField()
+    transfer_content = serializers.CharField()
+    transfer_content_limit = serializers.IntegerField()
+    qr_payload = serializers.CharField(allow_null=True)
+    qr_png_data_url = serializers.CharField(allow_null=True)
+    qr_contains_transfer_content = serializers.BooleanField()
+
+
+class RegistrationPaymentSessionSerializer(serializers.Serializer):
+    registration = RegistrationReadSerializer()
+    payment_state = serializers.ChoiceField(
+        choices=("NOT_REQUIRED", "UNPAID", "PENDING", "VERIFIED", "REJECTED")
+    )
+    payment_due_at = serializers.DateTimeField(allow_null=True)
+    server_now = serializers.DateTimeField()
+    expired = serializers.BooleanField()
+    can_upload_proof = serializers.BooleanField()
+    can_retry_registration = serializers.BooleanField()
+    replacement_note = serializers.CharField()
+    saved_submission = serializers.DictField()
+    institution_labels = serializers.DictField(child=serializers.CharField())
+    instructions = PrivatePaymentInstructionsSerializer(allow_null=True)

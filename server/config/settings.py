@@ -15,6 +15,7 @@ from pathlib import Path
 
 from django.templatetags.static import static
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 from config.env import env_bool, env_list, local_secret_key
 
@@ -107,6 +108,7 @@ CSRF_TRUSTED_ORIGINS = list(
     )
 )
 
+CORS_ALLOW_HEADERS = (*default_headers, "x-registration-access")
 CORS_ALLOW_CREDENTIALS = True
 
 MIDDLEWARE = [

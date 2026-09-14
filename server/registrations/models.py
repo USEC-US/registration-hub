@@ -238,3 +238,12 @@ class PaymentSettings(models.Model):
 
     def __str__(self) -> str:
         return "Receiving bank settings"
+
+
+class RegistrationAccess(models.Model):
+    registration = models.OneToOneField(
+        Registration, on_delete=models.CASCADE, related_name="saved_access"
+    )
+    credential_hash = models.CharField(max_length=64, unique=True, editable=False)
+    request_digest = models.CharField(max_length=64, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)

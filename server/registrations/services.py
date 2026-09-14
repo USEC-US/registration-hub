@@ -7,7 +7,7 @@ from typing import Sequence
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from accounts.models import Institution
@@ -34,6 +34,7 @@ from .models import (
     Registration,
     RegistrationMember,
     RegistrationStatusEvent,
+    RegistrationAccess,
 )
 
 
@@ -69,30 +70,56 @@ def submit_registration(
     proof_file=None,
     reference: str = "",
     payment_intent_token=None,
+    access_credential: str | None = None,
+    request_digest: str | None = None,
 ) -> Registration:
-    contacts = dict(
-        manager_name_snapshot=manager_name_snapshot.strip(),
-        contact_facebook_snapshot=contact_facebook_snapshot.strip(),
-        contact_phone_snapshot=contact_phone_snapshot.strip(),
-        contact_email_snapshot=contact_email_snapshot.strip(),
-        contact_discord_snapshot=contact_discord_snapshot.strip(),
+    from .access import hash_credential, lock_submission_credential, replay_registration
+
+    credential_hash = (
+        hash_credential(access_credential) if access_credential is not None else None
     )
-    if submitter_role not in Registration.SubmitterRole.values:
-        raise ValidationError({"submitter_role": "Choose captain or manager."})
-    for field in ("contact_facebook_snapshot", "contact_phone_snapshot"):
-        if not contacts[field]:
-            raise ValidationError({field: "This field is required."})
-    if submitter_role == "manager" and not contacts["manager_name_snapshot"]:
-        raise ValidationError({"manager_name_snapshot": "Enter the manager name."})
-    if submitter_role == "captain" and contacts["manager_name_snapshot"]:
+    if credential_hash and (
+        not isinstance(request_digest, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", request_digest)
+    ):
         raise ValidationError(
-            {"manager_name_snapshot": "Captain submissions have no manager."}
+            "A canonical request digest is required for saved access."
         )
-    if contacts["contact_email_snapshot"]:
-        validate_email(contacts["contact_email_snapshot"])
     attempt = None
     try:
         with transaction.atomic():
+            if credential_hash:
+                lock_submission_credential(credential_hash)
+                replay = replay_registration(
+                    credential_hash=credential_hash,
+                    request_digest=request_digest,
+                    submitted_by=submitted_by,
+                    tournament_game_id=tournament_game_id,
+                )
+                if replay is not None:
+                    return replay
+            contacts = dict(
+                manager_name_snapshot=manager_name_snapshot.strip(),
+                contact_facebook_snapshot=contact_facebook_snapshot.strip(),
+                contact_phone_snapshot=contact_phone_snapshot.strip(),
+                contact_email_snapshot=contact_email_snapshot.strip(),
+                contact_discord_snapshot=contact_discord_snapshot.strip(),
+            )
+            if submitter_role not in Registration.SubmitterRole.values:
+                raise ValidationError({"submitter_role": "Choose captain or manager."})
+            for field in ("contact_facebook_snapshot", "contact_phone_snapshot"):
+                if not contacts[field]:
+                    raise ValidationError({field: "This field is required."})
+            if submitter_role == "manager" and not contacts["manager_name_snapshot"]:
+                raise ValidationError(
+                    {"manager_name_snapshot": "Enter the manager name."}
+                )
+            if submitter_role == "captain" and contacts["manager_name_snapshot"]:
+                raise ValidationError(
+                    {"manager_name_snapshot": "Captain submissions have no manager."}
+                )
+            if contacts["contact_email_snapshot"]:
+                validate_email(contacts["contact_email_snapshot"])
             tournament_game = (
                 TournamentGame.objects.select_for_update()
                 .select_related("tournament")
@@ -306,6 +333,15 @@ def submit_registration(
                 to_status=Registration.Status.SUBMITTED,
                 actor=submitted_by,
             )
+            if credential_hash:
+                # Keep a savepoint around the durable unique constraint. No file has
+                # been persisted yet, and the surrounding transaction owns all rows.
+                with transaction.atomic():
+                    RegistrationAccess.objects.create(
+                        registration=registration,
+                        credential_hash=credential_hash,
+                        request_digest=request_digest,
+                    )
             if prepared is not None:
                 if is_expired(registration, now=timezone.now()):
                     raise ValidationError("Payment reservation has expired.")
@@ -320,6 +356,22 @@ def submit_registration(
                 )
                 attempt.save()
             return registration
+    except IntegrityError:
+        if attempt is not None and attempt.proof_file and attempt.proof_file._committed:
+            attempt.proof_file.delete(save=False)
+        # Recover only a collision with a committed credential after the losing
+        # transaction has rolled back all its rows. Other integrity errors remain
+        # visible. Normal callers are already serialized by the key mutex.
+        if credential_hash:
+            replay = replay_registration(
+                credential_hash=credential_hash,
+                request_digest=request_digest,
+                submitted_by=submitted_by,
+                tournament_game_id=tournament_game_id,
+            )
+            if replay is not None:
+                return replay
+        raise
     except Exception:
         if attempt is not None and attempt.proof_file and attempt.proof_file._committed:
             attempt.proof_file.delete(save=False)
@@ -519,17 +571,24 @@ def submit_payment_attempt(
             registration = lock_registration(registration_id)
             if not registration.tournament_game.tournament.is_published:
                 raise ValidationError("Tournament is not published.")
-            # Task3 replaces this rejection with its validated RegistrationAccess adapter.
             if registration_access is not None:
-                raise PermissionDenied(
-                    "Validated registration access is not available here."
+                authorized = (
+                    isinstance(registration_access, RegistrationAccess)
+                    and registration_access.pk is not None
+                    and RegistrationAccess.objects.filter(
+                        pk=registration_access.pk,
+                        registration_id=registration.pk,
+                        credential_hash=registration_access.credential_hash,
+                    ).exists()
                 )
-            if not (
-                actor is not None
-                and actor.is_authenticated
-                and actor.pk is not None
-                and registration.submitted_by_id == actor.pk
-            ):
+            else:
+                authorized = (
+                    actor is not None
+                    and actor.is_authenticated
+                    and actor.pk is not None
+                    and registration.submitted_by_id == actor.pk
+                )
+            if not authorized:
                 raise PermissionDenied("Only the submitter can add a payment attempt.")
             if registration.fee_amount_snapshot <= Decimal("0.00"):
                 raise ValidationError("This registration has no payment due.")
