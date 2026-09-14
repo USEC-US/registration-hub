@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ApiRequestError } from '$lib/api/client';
 	import { reservePaymentInstructions, getPaymentInstructions } from '$lib/api/registrations';
 	import * as m from '$lib/paraglide/messages';
 	import * as Field from '$lib/components/ui/field';
@@ -55,6 +56,8 @@
 	let error = $state('');
 	let copiedContent = $state('');
 	let copyError = $state('');
+	let legacySession = $state(false);
+	let startFresh = $state(false);
 
 	async function initialize() {
 		loading = true;
@@ -63,6 +66,7 @@
 		copiedContent = '';
 		copyError = '';
 		error = '';
+		legacySession = false;
 		try {
 			if (registrationId && accessToken) {
 				const instructions = await getPaymentInstructions(accessToken, registrationId);
@@ -71,7 +75,7 @@
 			} else if (gameId) {
 				let saved: string | null = null;
 				try {
-					saved = sessionStorage.getItem(`usec-payment-intent:${gameId}`);
+					saved = startFresh ? null : sessionStorage.getItem(`usec-payment-intent:${gameId}`);
 				} catch {
 					/* Storage may be disabled. */
 				}
@@ -83,6 +87,7 @@
 				} catch {
 					/* Keep the current payment session in memory. */
 				}
+				startFresh = false;
 				if (Number(intent.amount) !== Number(amount) || intent.currency !== currency) {
 					error = m.transfer_content_fee_changed();
 					return;
@@ -90,12 +95,24 @@
 				issuedToken = intent.token;
 			}
 			loaded = true;
-		} catch {
-			error = m.transfer_content_failed();
+		} catch (cause) {
+			legacySession =
+				!registrationId &&
+				cause instanceof ApiRequestError &&
+				cause.status === 400 &&
+				cause.fieldErrors.code?.includes('legacy_payment_session') === true;
+			error = legacySession ? m.transfer_content_outdated() : m.transfer_content_failed();
 		} finally {
 			loading = false;
 		}
 	}
+	function restartBeforePayment() {
+		if (loading || !legacySession) return;
+		// Preserve the old record and saved token until new instructions load successfully.
+		startFresh = true;
+		void initialize();
+	}
+
 	async function copy() {
 		try {
 			await navigator.clipboard.writeText(content);
@@ -141,8 +158,20 @@
 	{#if copyError}<Field.Error>{copyError}</Field.Error>{/if}
 	{#if error || (!needsParticipant && contentError) || errorMessage}
 		<Field.Error>{error || contentError || errorMessage}</Field.Error>
-		{#if error}<Button type="button" variant="outline" disabled={loading} onclick={initialize}
+		{#if legacySession}
+			<Button
+				type="button"
+				variant="outline"
+				class="h-auto min-h-11 whitespace-normal"
+				disabled={loading}
+				onclick={restartBeforePayment}
+			>
+				{m.transfer_content_start_unpaid()}
+			</Button>
+		{:else if error}
+			<Button type="button" variant="outline" disabled={loading} onclick={initialize}
 				>{m.transfer_content_retry()}</Button
-			>{/if}
+			>
+		{/if}
 	{/if}
 </Field.Field>

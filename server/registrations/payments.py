@@ -16,6 +16,10 @@ from .models import PaymentIntent, Registration
 PAYMENT_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 
+class LegacyPaymentSessionError(ValidationError):
+    """An old quote cannot be silently replaced after a possible bank transfer."""
+
+
 def create_payment_intent(*, tournament_game, registration=None):
     amount = (
         registration.fee_amount_snapshot if registration else tournament_game.fee_amount
@@ -87,7 +91,7 @@ def reserve_payment_reference(*, tournament_game_id, token=None):
                 }
             )
         if not intent.transfer_content_template:
-            raise ValidationError(
+            raise LegacyPaymentSessionError(
                 {
                     "transfer_content": "These older payment instructions cannot be resumed. Contact the organizers if you have already paid."
                 }

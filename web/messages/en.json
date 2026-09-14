@@ -240,5 +240,7 @@
 	"transfer_content_retry": "Retry",
 	"transfer_content_participant_required": "Enter the team tag or player’s in-game name to see the transfer content.",
 	"transfer_content_too_long": "Transfer content exceeds {limit} characters. Contact the organizers for shorter instructions.",
-	"transfer_content_legacy": "No saved transfer instructions are available. Contact the organizers if you still need to transfer the fee."
+	"transfer_content_legacy": "No saved transfer instructions are available. Contact the organizers if you still need to transfer the fee.",
+	"transfer_content_outdated": "These saved transfer instructions are out of date. If you have not paid, load new instructions below. If you have already paid, contact the organizers with your proof instead of making another transfer.",
+	"transfer_content_start_unpaid": "I haven’t paid — load new instructions"
 }

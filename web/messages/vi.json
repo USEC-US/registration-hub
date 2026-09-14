@@ -240,5 +240,7 @@
 	"transfer_content_retry": "Thử lại",
 	"transfer_content_participant_required": "Nhập tên viết tắt của đội hoặc tên trong game để xem nội dung chuyển khoản.",
 	"transfer_content_too_long": "Nội dung chuyển khoản vượt quá {limit} ký tự. Liên hệ ban tổ chức để nhận hướng dẫn ngắn hơn.",
-	"transfer_content_legacy": "Không có hướng dẫn chuyển khoản đã lưu. Liên hệ ban tổ chức nếu bạn vẫn cần chuyển lệ phí."
+	"transfer_content_legacy": "Không có hướng dẫn chuyển khoản đã lưu. Liên hệ ban tổ chức nếu bạn vẫn cần chuyển lệ phí.",
+	"transfer_content_outdated": "Hướng dẫn chuyển khoản đã lưu không còn sử dụng được. Nếu chưa thanh toán, hãy tải hướng dẫn mới bên dưới. Nếu đã thanh toán, hãy liên hệ ban tổ chức kèm minh chứng và không chuyển khoản thêm.",
+	"transfer_content_start_unpaid": "Tôi chưa thanh toán — tải hướng dẫn mới"
 }

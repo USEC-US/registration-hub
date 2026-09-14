@@ -17,7 +17,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from config.turnstile import require_turnstile
 
 from .models import PaymentAttempt, Registration
-from .payments import reserve_payment_reference, create_payment_intent
+from .payments import (
+    reserve_payment_reference,
+    create_payment_intent,
+    LegacyPaymentSessionError,
+)
 from django.db import transaction
 from .permissions import IsRegistrationSubmitter
 from .serializers import (
@@ -235,6 +239,12 @@ class PaymentReferenceView(APIView):
             intent = reserve_payment_reference(
                 tournament_game_id=serializer.validated_data["tournament_game"].pk,
                 token=serializer.validated_data.get("token"),
+            )
+        except LegacyPaymentSessionError as error:
+            return Response(
+                {**error.message_dict, "code": "legacy_payment_session"},
+                status=status.HTTP_400_BAD_REQUEST,
+                headers={"Cache-Control": "private, no-store"},
             )
         except DjangoValidationError as error:
             raise _as_drf_validation_error(error) from error
