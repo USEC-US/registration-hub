@@ -196,7 +196,14 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.assertNotIn("submitted_by", detail_response.data)
         self.assertIn("payment_attempts", detail_response.data)
         self.assertNotIn("proof_file", str(detail_response.data))
-        self.assertNotIn("reference", str(detail_response.data))
+        self.assertNotIn("reference", detail_response.data)
+        self.assertTrue(
+            all(
+                "reference" not in attempt
+                for attempt in detail_response.data["payment_attempts"]
+            )
+        )
+        self.assertEqual(detail_response.data["payment_reference"], "")
         self.assertNotIn("review_note", str(detail_response.data))
 
     def test_unpublished_tournament_registrations_are_hidden(self):

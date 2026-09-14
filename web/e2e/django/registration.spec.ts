@@ -13,6 +13,7 @@ const proof = {
 };
 
 interface Receipt {
+	payment_reference: string;
 	id: number;
 	status: string;
 	members: {
@@ -119,9 +120,11 @@ test('guest captain submits a team with catalogue snapshots and private contacts
 }) => {
 	await page.goto(await registrationUrl(request, 'team-free'));
 	await page.getByLabel('Team name', { exact: true }).fill('Guest Captains');
+	await page.getByLabel('Team tag', { exact: true }).fill('gcap');
 	await fillContacts(page);
 	await fillRoster(page, ['Captain#ONE', 'Teammate#ONE']);
 	const receipt = await submit(page);
+	expect(receipt).toHaveProperty('team_tag', 'GCAP');
 	expect(receipt.members.map((member) => member.is_captain)).toEqual([true, false]);
 	expect(receipt.members.map((member) => member.school_snapshot)).toEqual([
 		institution,
@@ -144,6 +147,7 @@ test('guest manager registers main players and a substitute representative', asy
 	await page.getByRole('radio', { name: 'Manager', exact: true }).click();
 	await page.getByLabel('Manager name', { exact: true }).fill('Journey Manager');
 	await page.getByLabel('Team name', { exact: true }).fill('Managed Team');
+	await page.getByLabel('Team tag', { exact: true }).fill('MGT');
 	await fillContacts(page);
 	await page.getByRole('button', { name: 'Add substitute', exact: true }).click();
 	await fillRoster(page, ['Managed#ONE', 'Managed#TWO', 'Managed#THREE']);
@@ -195,6 +199,13 @@ test('paid guest proof reaches organizer verification and registration approval'
 	request
 }) => {
 	await page.goto(await registrationUrl(request, 'solo-paid'));
+	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveValue(
+		/^USEC[A-Z0-9]{10}$/
+	);
+	const reference = await page.getByLabel('Payment reference', { exact: true }).inputValue();
+	await page.reload();
+	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveValue(reference);
+	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveAttribute('readonly');
 	await fillContacts(page);
 	await fillRoster(page, ['PaidGuest#ONE']);
 	await page.locator('[data-payment-proof-drop-zone]').evaluate((target, encoded) => {
@@ -207,9 +218,12 @@ test('paid guest proof reaches organizer verification and registration approval'
 	}, proof.buffer.toString('base64'));
 	await expect(page.getByAltText('Selected payment proof preview')).toBeVisible();
 	const receipt = await submit(page);
+	expect(receipt.payment_reference).toBe(reference);
 	expect(receipt.payment_attempts).toHaveLength(1);
 	expect(receipt.payment_attempts[0].status).toBe('PENDING');
 	await organizerLogin(page);
+	await page.goto(`${api}/admin/registrations/paymentintent/?q=${reference}`);
+	await expect(page.getByRole('link', { name: reference, exact: true })).toBeVisible();
 	await page.goto(`${api}/admin/registrations/registration/${receipt.id}/change/`);
 	const proofLink = page.locator('a[href*="/media/payment-proofs/"]').first();
 	await expect(proofLink).toBeVisible();

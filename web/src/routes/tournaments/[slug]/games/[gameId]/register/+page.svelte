@@ -11,6 +11,7 @@
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import RosterEditor from '$lib/components/registrations/RosterEditor.svelte';
 	import PaymentProofField from '$lib/components/registrations/PaymentProofField.svelte';
+	import PaymentReferenceField from '$lib/components/registrations/PaymentReferenceField.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
@@ -33,6 +34,7 @@
 	let accessToken = $state<string | null>(null);
 	let members = $state<RegistrationMemberInput[]>([]);
 	let teamName = $state('');
+	let teamTag = $state('');
 	let turnstileToken = $state('');
 	let turnstileWidget = $state<{ reset: () => void } | null>(null);
 	let loading = $state(true);
@@ -42,7 +44,7 @@
 	let phone = $state('');
 	let email = $state('');
 	let discord = $state('');
-	let reference = $state('');
+	let paymentIntentToken = $state('');
 	let proofFile = $state<File | undefined>();
 	let proofSelectionError = $state('');
 	let confirmation = $state<RegistrationRead | null>(null);
@@ -66,7 +68,14 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting || loading || confirmation || proofSelectionError) return;
+		if (
+			submitting ||
+			loading ||
+			confirmation ||
+			proofSelectionError ||
+			(paymentRequired && !paymentIntentToken)
+		)
+			return;
 		fieldErrors = {};
 		formErrors = [];
 		if (!facebook.trim())
@@ -103,7 +112,9 @@
 				accessToken,
 				{
 					tournament_game: data.game.id,
+					...(paymentRequired ? { payment_intent_token: paymentIntentToken } : {}),
 					team_name: data.game.main_roster_size + data.game.substitute_limit > 1 ? teamName : '',
+					team_tag: data.game.main_roster_size + data.game.substitute_limit > 1 ? teamTag : '',
 					submitter_role: submitterRole,
 					manager_name_snapshot: submitterRole === 'manager' ? managerName : '',
 					contact_facebook_snapshot: facebook,
@@ -113,11 +124,15 @@
 					members
 				},
 				turnstileToken,
-				proofFile,
-				reference
+				proofFile
 			);
 			turnstileWidget?.reset();
 			const registration = await request;
+			try {
+				sessionStorage.removeItem(`usec-payment-intent:${data.game.id}`);
+			} catch {
+				/* Optional browser storage. */
+			}
 			if (accessToken)
 				await goto(resolve(localizeInternalHref(`/account/registrations/${registration.id}`)));
 			else confirmation = registration;
@@ -135,6 +150,7 @@
 				...Object.entries(nextErrors.fieldErrors).flatMap(([field, errors]) =>
 					[
 						'team_name',
+						'team_tag',
 						'members',
 						'contact_facebook_snapshot',
 						'contact_phone_snapshot',
@@ -142,7 +158,7 @@
 						'contact_discord_snapshot',
 						'manager_name_snapshot',
 						'proof_file',
-						'reference'
+						'payment_intent_token'
 					].includes(field)
 						? []
 						: errors
@@ -203,11 +219,14 @@
 		<Card.Header>
 			<Card.Title role="heading" aria-level={2}>{m.registration_confirmed_heading()}</Card.Title>
 			<Card.Description>{m.registration_reference({ id: confirmation.id })}</Card.Description>
+			{#if confirmation.payment_reference}<p class="font-mono-data text-sm">
+					{m.field_payment_reference()}: {confirmation.payment_reference}
+				</p>{/if}
 		</Card.Header>
 		<Card.Content class="flex flex-col gap-3">
 			<p>
 				{data.tournament.name} · {data.game.game_name}{confirmation.team_name
-					? ` · ${confirmation.team_name}`
+					? ` · [${confirmation.team_tag}] ${confirmation.team_name}`
 					: ''}
 			</p>
 			<p>{m.registration_corrections()}</p>
@@ -305,7 +324,7 @@
 							</RadioGroup.Root>
 						</FormField.Set>
 						{#if data.game.main_roster_size + data.game.substitute_limit > 1}
-							<div class="border-t pt-6">
+							<FormField.Group class="border-t pt-6 sm:grid sm:grid-cols-[2fr_1fr]">
 								<Field
 									label={m.field_team_name()}
 									name="team_name"
@@ -314,7 +333,23 @@
 									error={fieldErrors.team_name?.[0]}
 									bind:value={teamName}
 								/>
-							</div>
+								<Field
+									label={m.field_team_tag()}
+									name="team_tag"
+									required
+									minlength={2}
+									maxlength={5}
+									pattern={'[A-Za-z0-9]{2,5}'}
+									hint={m.team_tag_hint()}
+									error={fieldErrors.team_tag?.[0]}
+									bind:value={
+										() => teamTag,
+										(value) => {
+											teamTag = value.replace(/[a-z]/g, (letter) => letter.toUpperCase());
+										}
+									}
+								/>
+							</FormField.Group>
 						{/if}
 						<FormField.Set class="border-t pt-6">
 							<FormField.Legend>{m.registration_contact_heading()}</FormField.Legend>
@@ -410,19 +445,19 @@
 										: m.registration_proof_guest()}</FormField.Description
 								>
 								<FormField.Group>
+									{#key data.game.id}<PaymentReferenceField
+											errorMessage={fieldErrors.payment_intent_token?.[0]}
+											gameId={data.game.id}
+											amount={data.game.fee_amount}
+											currency={data.game.fee_currency}
+											bind:token={paymentIntentToken}
+										/>{/key}
 									<PaymentProofField
 										required={!accessToken}
 										disabled={submitting}
 										error={fieldErrors.proof_file?.[0]}
 										bind:file={proofFile}
 										bind:selectionError={proofSelectionError}
-									/>
-									<Field
-										label={m.field_payment_reference()}
-										name="reference"
-										maxlength={128}
-										error={fieldErrors.reference?.[0]}
-										bind:value={reference}
 									/>
 								</FormField.Group>
 							</FormField.Set>
@@ -440,7 +475,11 @@
 							<p class="text-xs text-muted-foreground">{m.game_fee()}</p>
 							<p class="font-mono-data mt-1 text-lg font-semibold">{formatFee()}</p>
 						</div>
-						<Button class="min-h-11 w-full sm:w-auto" type="submit" disabled={submitting}>
+						<Button
+							class="min-h-11 w-full sm:w-auto"
+							type="submit"
+							disabled={submitting || (paymentRequired && !paymentIntentToken)}
+						>
 							{#if submitting}<Spinner aria-hidden="true" />{/if}
 							{submitting ? m.registration_submitting() : m.action_submit_registration()}
 						</Button>

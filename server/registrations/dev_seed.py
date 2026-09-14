@@ -17,7 +17,7 @@ from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
 from tournaments.models import Game, Tournament, TournamentGame
 
-from .models import PaymentAttempt, Registration, RegistrationStatusEvent
+from .models import PaymentAttempt, PaymentIntent, Registration, RegistrationStatusEvent
 from .services import (
     RegistrationMemberInput,
     approve_registration,
@@ -432,6 +432,7 @@ def _rebuild_registrations(
         )
         if attempt.proof_file
     ]
+    PaymentIntent.objects.filter(registration__in=previous_registrations).delete()
     previous_registrations.delete()
 
     def remove_replaced_proofs():
@@ -448,6 +449,7 @@ def _rebuild_registrations(
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["valorant"].pk,
         team_name="Blue Phoenix",
+        team_tag="BP",
         members=_member_inputs(
             (
                 ("Rookie", "HCMUS"),
@@ -494,6 +496,7 @@ def _rebuild_registrations(
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["counter-strike-2"].pk,
         team_name="Campus Five",
+        team_tag="C5",
         members=_member_inputs(
             (
                 ("Rookie", "HCMUS"),
@@ -541,6 +544,7 @@ def _rebuild_registrations(
         submitted_by=player,
         tournament_game_id=rocket_game.pk,
         team_name="Orbit Three",
+        team_tag="O3",
         members=_member_inputs(
             (
                 ("Rookie", "HCMUS"),

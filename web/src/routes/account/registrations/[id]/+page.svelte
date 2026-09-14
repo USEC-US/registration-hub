@@ -136,7 +136,10 @@
 					{registration.tournament_game.tournament_name}
 				</p>
 				<Card.Title class="mt-3"
-					><h1>{registration.team_name || registration.tournament_game.game_name}</h1></Card.Title
+					><h1>
+						{#if registration.team_tag}[{registration.team_tag}]
+						{/if}{registration.team_name || registration.tournament_game.game_name}
+					</h1></Card.Title
 				>
 				<Card.Description class="mt-4 text-base">
 					{registration.tournament_game.game_name} · {m.registration_detail_heading({
@@ -216,6 +219,7 @@
 		{#if registration.payment_required}
 			<div class="mt-8">
 				<PaymentAttemptForm
+					paymentReference={registration.payment_reference}
 					registrationId={registration.id}
 					{accessToken}
 					initialAmount={registration.fee_amount_snapshot}

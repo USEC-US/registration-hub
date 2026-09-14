@@ -87,8 +87,10 @@ export type RegistrationMemberInput = Omit<RegistrationMemberRead, 'school_snaps
 export type SubmitterRole = 'captain' | 'manager';
 
 export interface RegistrationSubmissionPayload {
+	payment_intent_token?: string;
 	tournament_game: number;
 	team_name: string;
+	team_tag: string;
 	submitter_role: SubmitterRole;
 	contact_facebook_snapshot: string;
 	contact_phone_snapshot: string;
@@ -110,11 +112,13 @@ export interface RegistrationRead {
 		fee_currency: string;
 	};
 	team_name: string;
+	team_tag: string;
 	status: RegistrationStatus;
 	fee_amount_snapshot: string;
 	fee_currency_snapshot: string;
 	submitted_at: string;
 	payment_required: boolean;
+	payment_reference: string;
 	members: RegistrationMemberRead[];
 	status_events: { to_status: RegistrationStatus; created_at: string }[];
 	payment_attempts: {

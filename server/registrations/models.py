@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -37,6 +39,7 @@ class Registration(models.Model):
     contact_email_snapshot = models.EmailField(blank=True)
     contact_discord_snapshot = models.CharField(max_length=100, blank=True)
     team_name = models.CharField(max_length=100, blank=True)
+    team_tag = models.CharField(max_length=5, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices)
     fee_amount_snapshot = models.DecimalField(max_digits=12, decimal_places=2)
     fee_currency_snapshot = models.CharField(max_length=3)
@@ -152,3 +155,22 @@ class RegistrationStatusEvent(models.Model):
 
     class Meta:
         ordering = ("created_at", "pk")
+
+
+class PaymentIntent(models.Model):
+    # Private claim token; the payment reference itself never grants access.
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    reference = models.CharField(max_length=14, unique=True, editable=False)
+    tournament_game = models.ForeignKey(
+        "tournaments.TournamentGame", on_delete=models.PROTECT
+    )
+    registration = models.OneToOneField(
+        Registration,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payment_intent",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3)
+    created_at = models.DateTimeField(auto_now_add=True)

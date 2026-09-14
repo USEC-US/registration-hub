@@ -166,7 +166,10 @@
 							><h2>{registration.tournament_game.tournament_name}</h2></Card.Title
 						>
 						{#if registration.team_name}
-							<Card.Description class="mt-2">{registration.team_name}</Card.Description>
+							<Card.Description class="mt-2"
+								>{#if registration.team_tag}[{registration.team_tag}]
+								{/if}{registration.team_name}</Card.Description
+							>
 						{/if}
 					</Card.Content>
 					<Card.Footer class="block p-0 lg:row-span-2 lg:border-l">

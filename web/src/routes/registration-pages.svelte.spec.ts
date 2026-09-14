@@ -34,6 +34,13 @@ vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({ page: mockPage }));
 vi.mock('$lib/api/registrations', () => ({
+	reservePaymentReference: vi.fn().mockResolvedValue({
+		token: 'payment-token',
+		reference: 'USEC23456789AB',
+		amount: '50000.00',
+		currency: 'VND'
+	}),
+	getPaymentReference: vi.fn().mockResolvedValue({ reference: 'USEC23456789AB' }),
 	getRegistration: vi.fn(),
 	listRegistrations: vi.fn(),
 	submitPaymentAttempt: vi.fn(),
@@ -88,11 +95,13 @@ const registration: RegistrationRead = {
 		fee_currency: game.fee_currency
 	},
 	team_name: 'Blue Team',
+	team_tag: 'BLUE',
 	status: 'SUBMITTED',
 	fee_amount_snapshot: '50000.00',
 	fee_currency_snapshot: 'VND',
 	submitted_at: '2026-07-19T00:00:00Z',
 	payment_required: true,
+	payment_reference: 'USEC23456789AB',
 	members: [
 		{
 			gamer_tag_snapshot: 'captain',
@@ -114,6 +123,7 @@ const registration: RegistrationRead = {
 };
 
 beforeEach(() => {
+	sessionStorage.clear();
 	overwriteGetLocale(() => 'en');
 	mockPage.url = new URL('https://usec.test/tournaments/usec-summer-2026/games/10/register');
 	mockPage.params = { id: '33' };
@@ -188,7 +198,7 @@ describe('participant registration pages', () => {
 		valid.items.add(new File(['image'], 'proof.png', { type: 'image/png' }));
 		input.files = valid.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		await page.getByLabelText('Payment reference').fill('bank-123');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 		await expect
 			.element(page.getByRole('heading', { name: 'Registration submitted' }))
@@ -199,7 +209,8 @@ describe('participant registration pages', () => {
 		expect(payload.team_name).toBe('');
 		expect(challenge).toBe('registration-submit-token');
 		expect(proof?.name).toBe('proof.png');
-		expect(reference).toBe('bank-123');
+		expect(reference).toBeUndefined();
+		expect(payload.payment_intent_token).toBe('payment-token');
 	});
 
 	it('blocks an invalid optional proof until a signed-in player removes it', async () => {
@@ -245,6 +256,7 @@ describe('participant registration pages', () => {
 		await page.getByRole('radio', { name: 'Manager', exact: true }).click();
 		await page.getByLabelText('Manager name').fill('Coach');
 		await page.getByLabelText('Team name').fill('Guest team');
+		await page.getByLabelText('Team tag', { exact: true }).fill('blue');
 		await page.getByLabelText('Facebook', { exact: true }).fill('facebook.com/coach');
 		await page.getByLabelText('Phone', { exact: true }).fill('0901234567');
 		await page.getByLabelText('Gamer tag').nth(0).fill('player1');
@@ -310,6 +322,7 @@ describe('participant registration pages', () => {
 		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
 		expect(container.querySelector('input[name="institution"]')).toHaveValue('');
 		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Team tag', { exact: true }).fill('blue');
 		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
 		await chooseInstitution(0);
 		await page.getByLabelText('Facebook', { exact: true }).fill('facebook.com/captain');
@@ -323,7 +336,9 @@ describe('participant registration pages', () => {
 				accessToken,
 				{
 					tournament_game: 10,
+					payment_intent_token: 'payment-token',
 					team_name: 'Blue Team',
+					team_tag: 'BLUE',
 					submitter_role: 'captain',
 					manager_name_snapshot: '',
 					contact_facebook_snapshot: 'facebook.com/captain',
@@ -356,8 +371,7 @@ describe('participant registration pages', () => {
 					]
 				},
 				'registration-submit-token',
-				undefined,
-				''
+				undefined
 			)
 		);
 		expect(goto).toHaveBeenCalledWith('/en/account/registrations/33');
@@ -374,6 +388,7 @@ describe('participant registration pages', () => {
 
 		await expect.element(page.getByLabelText('Team name')).toBeInTheDocument();
 		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Team tag', { exact: true }).fill('blue');
 		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
 		await chooseInstitution(0);
 		await page.getByLabelText('Facebook', { exact: true }).fill('facebook.com/captain');
@@ -393,6 +408,7 @@ describe('participant registration pages', () => {
 		});
 
 		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Team tag', { exact: true }).fill('blue');
 		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
 		await chooseInstitution(0);
 		await page.getByLabelText('Facebook', { exact: true }).fill('facebook.com/captain');
@@ -415,6 +431,7 @@ describe('participant registration pages', () => {
 		});
 
 		await page.getByLabelText('Team name').fill('Blue Team');
+		await page.getByLabelText('Team tag', { exact: true }).fill('blue');
 		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
 		await chooseInstitution(0);
 		await page.getByLabelText('Facebook', { exact: true }).fill('facebook.com/captain');
@@ -461,7 +478,7 @@ describe('participant registration pages', () => {
 		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
 		fileInput.files = transfer.files;
 		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-		await page.getByLabelText('Payment reference').fill('transfer-33');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(2));
@@ -487,7 +504,7 @@ describe('participant registration pages', () => {
 		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
 		fileInput.files = transfer.files;
 		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-		await page.getByLabelText('Payment reference').fill('transfer-33');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(clearSession).toHaveBeenCalledOnce());

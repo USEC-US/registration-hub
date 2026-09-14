@@ -12,6 +12,7 @@ PERMISSION_SPEC = {
         "registration": ("change", "view"),
         "registrationmember": ("view",),
         "paymentattempt": ("change", "view"),
+        "paymentintent": ("view",),
         "registrationstatusevent": ("view",),
     },
 }

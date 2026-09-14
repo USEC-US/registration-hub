@@ -11,13 +11,19 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from config.turnstile import require_turnstile
 
 from .models import PaymentAttempt, Registration
+from .payments import reserve_payment_reference, create_payment_intent
+from django.db import transaction
 from .permissions import IsRegistrationSubmitter
 from .serializers import (
+    PaymentCodeReadSerializer,
+    PaymentReferenceRequestSerializer,
+    PaymentReferenceReadSerializer,
     PaymentAttemptReceiptSerializer,
     PaymentAttemptSubmissionSerializer,
     RegistrationReadSerializer,
@@ -69,7 +75,9 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
                 submitted_by=self.request.user,
                 tournament_game__tournament__is_published=True,
             )
-            .select_related("tournament_game__tournament", "tournament_game__game")
+            .select_related(
+                "tournament_game__tournament", "tournament_game__game", "payment_intent"
+            )
             .prefetch_related("members", "status_events", "payment_attempts")
         )
 
@@ -134,6 +142,26 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(request=None, responses=PaymentCodeReadSerializer)
+    @action(detail=True, methods=["post"], url_path="payment-reference")
+    def payment_reference(self, request, pk=None):
+        registration = self.get_object()
+        with transaction.atomic():
+            registration = Registration.objects.select_for_update().get(
+                pk=registration.pk
+            )
+            try:
+                intent = registration.payment_intent
+            except Registration.payment_intent.RelatedObjectDoesNotExist:
+                try:
+                    intent = create_payment_intent(
+                        tournament_game=registration.tournament_game,
+                        registration=registration,
+                    )
+                except DjangoValidationError as error:
+                    raise _as_drf_validation_error(error) from error
+        return Response({"reference": intent.reference})
+
     @action(detail=True, methods=["post"], url_path="payment-attempts")
     def payment_attempts(self, request, pk=None):
         registration = self.get_object()
@@ -156,3 +184,37 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
             PaymentAttemptReceiptSerializer(payment_attempt).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class PaymentReferenceThrottle(SimpleRateThrottle):
+    rate = "30/hour"
+    scope = "payment-reference"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
+
+
+class PaymentReferenceView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [PaymentReferenceThrottle]
+
+    @extend_schema(
+        request=PaymentReferenceRequestSerializer,
+        responses=PaymentReferenceReadSerializer,
+    )
+    def post(self, request):
+        serializer = PaymentReferenceRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            intent = reserve_payment_reference(
+                tournament_game_id=serializer.validated_data["tournament_game"].pk,
+                token=serializer.validated_data.get("token"),
+            )
+        except DjangoValidationError as error:
+            raise _as_drf_validation_error(error) from error
+        response = Response(PaymentReferenceReadSerializer(intent).data)
+        response["Cache-Control"] = "private, no-store"
+        return response

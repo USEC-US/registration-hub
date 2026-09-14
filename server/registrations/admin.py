@@ -4,6 +4,7 @@ from unfold.admin import ModelAdmin, TabularInline
 
 from .models import (
     PaymentAttempt,
+    PaymentIntent,
     Registration,
     RegistrationMember,
     RegistrationStatusEvent,
@@ -105,12 +106,15 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         "tournament_game",
         "submitted_by",
         "team_name",
+        "team_tag",
         "status",
         "submitted_at",
     )
     list_filter = ("status", "tournament_game__tournament", "tournament_game__game")
     search_fields = (
         "team_name",
+        "team_tag",
+        "payment_intent__reference",
         "submitted_by__email",
         "members__gamer_tag_snapshot",
         "members__first_name_snapshot",
@@ -173,6 +177,8 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_filter = ("status", "currency")
     search_fields = (
         "registration__team_name",
+        "registration__team_tag",
+        "registration__payment_intent__reference",
         "registration__submitted_by__email",
         "reference",
     )
@@ -210,3 +216,17 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     @admin.action(description="Reject selected payment attempts")
     def reject_selected(self, request, queryset):
         self._review(request, queryset, PaymentAttempt.Status.REJECTED)
+
+
+@admin.register(PaymentIntent)
+class PaymentIntentAdmin(GuardedReadOnlyAdmin):
+    list_display = (
+        "reference",
+        "tournament_game",
+        "registration",
+        "amount",
+        "currency",
+        "created_at",
+    )
+    search_fields = ("reference", "registration__team_name", "registration__team_tag")
+    list_select_related = ("tournament_game", "registration")

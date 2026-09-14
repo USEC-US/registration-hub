@@ -18,6 +18,7 @@ class BootstrapOrganizersCommandTests(TestCase):
         "registrations.change_registration",
         "registrations.view_registrationmember",
         "registrations.view_paymentattempt",
+        "registrations.view_paymentintent",
         "registrations.change_paymentattempt",
         "registrations.view_registrationstatusevent",
     }

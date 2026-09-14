@@ -18,7 +18,11 @@ vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-
 
 vi.mock('$lib/api/institutions', () => ({ searchInstitutions: vi.fn().mockResolvedValue([]) }));
 
-vi.mock('$lib/api/registrations', () => ({ submitPaymentAttempt: vi.fn() }));
+vi.mock('$lib/api/registrations', () => ({
+	submitPaymentAttempt: vi.fn(),
+	reservePaymentReference: vi.fn(),
+	getPaymentReference: vi.fn().mockResolvedValue({ reference: 'USEC23456789AB' })
+}));
 
 beforeEach(() => {
 	overwriteGetLocale(() => 'en');
@@ -290,7 +294,7 @@ describe('PaymentAttemptForm', () => {
 		expect(registrationId).toBe(12);
 		expect(formData.get('amount')).toBe('50000.00');
 		expect(formData.get('currency')).toBe('VND');
-		expect(formData.get('reference')).toBe('');
+		expect(formData.get('reference')).toBeNull();
 		expect(formData.get('proof_file')).toBeInstanceOf(File);
 		expect(turnstileToken).toBe('payment-proof-submit-token');
 		expect(onSuccess).toHaveBeenCalledOnce();
@@ -319,7 +323,7 @@ describe('PaymentAttemptForm', () => {
 		});
 
 		attachProof();
-		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 		const button = page
 			.getByRole('button', { name: 'Upload payment proof' })
 			.elements()[0] as HTMLButtonElement;
@@ -339,7 +343,7 @@ describe('PaymentAttemptForm', () => {
 			initialCurrency: 'VND',
 			onSuccess: vi.fn()
 		});
-		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 		await expect.element(page.getByText(m.payment_evidence_required())).toBeVisible();
 		expect(submitPaymentAttempt).not.toHaveBeenCalled();
@@ -388,7 +392,7 @@ describe('PaymentAttemptForm', () => {
 		});
 
 		attachProof();
-		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
@@ -406,7 +410,7 @@ describe('PaymentAttemptForm', () => {
 		});
 
 		attachProof();
-		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
@@ -429,7 +433,7 @@ describe('PaymentAttemptForm', () => {
 			onSuccess: vi.fn()
 		});
 		attachProof();
-		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
@@ -450,7 +454,7 @@ describe('PaymentAttemptForm', () => {
 			onAuthenticationError
 		});
 		attachProof();
-		await page.getByLabelText('Payment reference').fill('bank-transfer-12');
+		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
 
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 

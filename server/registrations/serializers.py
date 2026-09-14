@@ -59,6 +59,7 @@ class RegistrationReadSerializer(serializers.ModelSerializer):
     status_events = RegistrationStatusEventReadSerializer(many=True, read_only=True)
     payment_attempts = PaymentAttemptReadSerializer(many=True, read_only=True)
     payment_required = serializers.SerializerMethodField()
+    payment_reference = serializers.SerializerMethodField()
 
     class Meta:
         model = Registration
@@ -66,15 +67,23 @@ class RegistrationReadSerializer(serializers.ModelSerializer):
             "id",
             "tournament_game",
             "team_name",
+            "team_tag",
             "status",
             "fee_amount_snapshot",
             "fee_currency_snapshot",
             "payment_required",
+            "payment_reference",
             "submitted_at",
             "members",
             "status_events",
             "payment_attempts",
         )
+
+    def get_payment_reference(self, obj):
+        try:
+            return obj.payment_intent.reference
+        except Registration.payment_intent.RelatedObjectDoesNotExist:
+            return ""
 
     def get_payment_required(self, obj: Registration) -> bool:
         return obj.fee_amount_snapshot > 0
@@ -145,6 +154,10 @@ class RegistrationSubmissionSerializer(StrictFieldsSerializer):
         queryset=TournamentGame.objects.all()
     )
     team_name = serializers.CharField(max_length=100, allow_blank=True)
+    team_tag = serializers.CharField(
+        max_length=5, allow_blank=True, required=False, default=""
+    )
+    payment_intent_token = serializers.UUIDField(required=False, allow_null=True)
     members = RegistrationMemberSubmissionSerializer(many=True)
     turnstile_token = serializers.CharField(
         write_only=True, required=False, allow_blank=True
@@ -171,3 +184,21 @@ class PaymentAttemptReceiptSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentAttempt
         fields = ("id", "status", "amount", "currency", "created_at")
+
+
+class PaymentReferenceRequestSerializer(StrictFieldsSerializer):
+    tournament_game = serializers.PrimaryKeyRelatedField(
+        queryset=TournamentGame.objects.all()
+    )
+    token = serializers.UUIDField(required=False, allow_null=True)
+
+
+class PaymentReferenceReadSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    reference = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField()
+
+
+class PaymentCodeReadSerializer(serializers.Serializer):
+    reference = serializers.CharField()

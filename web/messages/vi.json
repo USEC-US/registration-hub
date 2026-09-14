@@ -225,5 +225,15 @@
 	"date_previous_month": "Tháng trước",
 	"date_next_month": "Tháng sau",
 	"date_choose_month": "Chọn tháng",
-	"date_choose_year": "Chọn năm"
+	"date_choose_year": "Chọn năm",
+	"field_team_tag": "Tên viết tắt của đội",
+	"team_tag_hint": "Từ 2–5 chữ cái (A–Z) hoặc chữ số (0–9).",
+	"payment_reference_hint": "Dùng đúng mã này làm nội dung chuyển khoản. Giữ nguyên mã khi gửi lại minh chứng.",
+	"payment_reference_loading": "Đang tạo mã thanh toán…",
+	"payment_reference_failed": "Không thể tải mã thanh toán. Vui lòng thử lại hoặc liên hệ ban tổ chức nếu bạn đã thanh toán.",
+	"payment_reference_fee_changed": "Lệ phí đã thay đổi. Vui lòng liên hệ ban tổ chức trước khi chuyển thêm tiền.",
+	"payment_reference_copy": "Sao chép mã",
+	"payment_reference_copied": "Đã sao chép",
+	"payment_reference_copy_failed": "Không thể sao chép. Vui lòng chọn mã và sao chép thủ công.",
+	"payment_reference_retry": "Thử lại"
 }

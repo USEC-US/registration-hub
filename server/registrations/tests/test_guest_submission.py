@@ -45,6 +45,15 @@ class GuestSubmissionTests(APITestCase):
     def post(self, payload=None, proof=None):
         payload = self.payload() if payload is None else payload
         if proof:
+            if (
+                "payment_intent_token" not in payload
+                and self.tournament_game.fee_amount > 0
+            ):
+                from registrations.payments import create_payment_intent
+
+                payload["payment_intent_token"] = str(
+                    create_payment_intent(tournament_game=self.tournament_game).token
+                )
             return self.client.post(
                 "/api/registrations/submit/",
                 {
@@ -69,7 +78,10 @@ class GuestSubmissionTests(APITestCase):
         self.tournament_game.save()
         payload = self.payload()
         payload.update(
-            team_name="Team", submitter_role="manager", manager_name_snapshot="Manager"
+            team_name="Team",
+            team_tag="TEAM",
+            submitter_role="manager",
+            manager_name_snapshot="Manager",
         )
         payload["members"] = [
             {
@@ -82,6 +94,32 @@ class GuestSubmissionTests(APITestCase):
             for index in (1, 2, 3)
         ]
         return payload
+
+    def test_team_tags_are_required_ascii_uppercase_and_not_unique(self):
+        payload = self.team_payload()
+        for tag in ("", "A", "ABCDEF", "A-B", "ĐH", "A B", "ßa", "ＡB"):
+            with self.subTest(tag=tag):
+                payload["team_tag"] = tag
+                response = self.post(payload)
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn("team_tag", response.data)
+        for tag in ("ab", "ab", "a1234"):
+            payload["team_tag"] = tag
+            for member in payload["members"]:
+                member["gamer_tag_snapshot"] += "x"
+            response = self.post(payload)
+            self.assertEqual(response.status_code, 201, response.data)
+            self.assertEqual(response.data["team_tag"], tag.upper())
+            self.assertEqual(
+                Registration.objects.get(pk=response.data["id"]).team_tag, tag.upper()
+            )
+
+    def test_solo_registration_rejects_team_tag(self):
+        payload = self.payload()
+        payload["team_tag"] = "AB"
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("team_tag", response.data)
 
     def test_substitute_representative_saved_first_and_roles_survive_config_change(
         self,
@@ -284,6 +322,7 @@ class GuestSubmissionTests(APITestCase):
         self.tournament_game.save()
         payload = self.payload()
         payload["team_name"] = "Team"
+        payload["team_tag"] = "TEAM"
         payload["members"].append(
             {**payload["members"][0], "display_order": 2, "is_captain": False}
         )

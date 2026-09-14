@@ -1,3 +1,5 @@
+import re
+
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -15,9 +17,11 @@ from accounts.services.institutions import (
 )
 from tournaments.models import TournamentGame
 
+from .payments import create_payment_intent
 from .images import prepare_payment_image
 from .models import (
     PaymentAttempt,
+    PaymentIntent,
     Registration,
     RegistrationMember,
     RegistrationStatusEvent,
@@ -45,6 +49,7 @@ def submit_registration(
     submitted_by,
     tournament_game_id: int,
     team_name: str,
+    team_tag: str = "",
     members: Sequence[RegistrationMemberInput],
     submitter_role: str,
     contact_facebook_snapshot: str,
@@ -54,6 +59,7 @@ def submit_registration(
     contact_discord_snapshot: str = "",
     proof_file=None,
     reference: str = "",
+    payment_intent_token=None,
 ) -> Registration:
     contacts = dict(
         manager_name_snapshot=manager_name_snapshot.strip(),
@@ -103,6 +109,16 @@ def submit_registration(
             _validate_roster(
                 tournament_game=tournament_game, team_name=team_name, members=members
             )
+            normalized_team_tag = team_tag.strip()
+            if tournament_game.is_team:
+                if not re.fullmatch(r"[A-Za-z0-9]{2,5}", normalized_team_tag):
+                    raise ValidationError(
+                        {"team_tag": "Enter 2–5 letters (A–Z) or digits (0–9)."}
+                    )
+            elif normalized_team_tag:
+                raise ValidationError(
+                    {"team_tag": "Solo registrations have no team tag."}
+                )
             if submitter_role == "captain" and not any(
                 m.display_order == 1 and m.is_captain for m in members
             ):
@@ -123,6 +139,38 @@ def submit_registration(
                 raise ValidationError(
                     {
                         "proof_file": "Guests must attach payment proof before submission."
+                    }
+                )
+            payment_intent = None
+            if payment_intent_token:
+                payment_intent = (
+                    PaymentIntent.objects.select_for_update()
+                    .filter(
+                        token=payment_intent_token,
+                        tournament_game=tournament_game,
+                        registration__isnull=True,
+                    )
+                    .first()
+                )
+                if not payment_intent:
+                    raise ValidationError(
+                        {
+                            "payment_intent_token": "Invalid or already used payment reference."
+                        }
+                    )
+                if (
+                    payment_intent.amount != tournament_game.fee_amount
+                    or payment_intent.currency != tournament_game.fee_currency
+                ):
+                    raise ValidationError(
+                        {
+                            "payment_intent_token": "The fee has changed. Contact the organizers before making any further payment."
+                        }
+                    )
+            elif submitted_by is None and tournament_game.fee_amount > 0:
+                raise ValidationError(
+                    {
+                        "payment_intent_token": "Generate a payment reference before transferring and submitting proof."
                     }
                 )
             prepared = (
@@ -173,10 +221,18 @@ def submit_registration(
                 submitter_role=submitter_role,
                 **contacts,
                 team_name=team_name.strip(),
+                team_tag=normalized_team_tag.upper(),
                 status=Registration.Status.SUBMITTED,
                 fee_amount_snapshot=tournament_game.fee_amount,
                 fee_currency_snapshot=tournament_game.fee_currency,
             )
+            if payment_intent:
+                payment_intent.registration = registration
+                payment_intent.save(update_fields=["registration"])
+            elif tournament_game.fee_amount > 0:
+                create_payment_intent(
+                    tournament_game=tournament_game, registration=registration
+                )
             RegistrationMember.objects.bulk_create(
                 [
                     RegistrationMember(

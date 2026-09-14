@@ -225,5 +225,15 @@
 	"date_previous_month": "Previous month",
 	"date_next_month": "Next month",
 	"date_choose_month": "Choose month",
-	"date_choose_year": "Choose year"
+	"date_choose_year": "Choose year",
+	"field_team_tag": "Team tag",
+	"team_tag_hint": "2–5 letters (A–Z) or digits (0–9).",
+	"payment_reference_hint": "Use this exact code as the bank transfer description. Keep it unchanged when uploading proof again.",
+	"payment_reference_loading": "Generating your payment reference…",
+	"payment_reference_failed": "Unable to load your payment reference. Retry, or contact the organizers if you have already paid.",
+	"payment_reference_fee_changed": "The registration fee has changed. Contact the organizers before making any further payment.",
+	"payment_reference_copy": "Copy code",
+	"payment_reference_copied": "Copied",
+	"payment_reference_copy_failed": "Could not copy. Select the code and copy it manually.",
+	"payment_reference_retry": "Retry"
 }

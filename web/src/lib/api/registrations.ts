@@ -43,3 +43,22 @@ export function submitPaymentAttempt(
 		{ method: 'POST', accessToken, body: formData }
 	);
 }
+
+export interface PaymentReference {
+	token: string;
+	reference: string;
+	amount: string;
+	currency: string;
+}
+export function reservePaymentReference(gameId: number, token?: string) {
+	return requestJson<PaymentReference>('/payment-references/', {
+		method: 'POST',
+		body: { tournament_game: gameId, ...(token ? { token } : {}) }
+	});
+}
+export function getPaymentReference(accessToken: string, registrationId: number) {
+	return requestJson<{ reference: string }>(`/registrations/${registrationId}/payment-reference/`, {
+		method: 'POST',
+		accessToken
+	});
+}

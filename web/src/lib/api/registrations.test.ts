@@ -14,6 +14,7 @@ describe('registrations api', () => {
 		const payload: RegistrationSubmissionPayload = {
 			tournament_game: 1,
 			team_name: 'Team One',
+			team_tag: 'ONE',
 			submitter_role: 'captain',
 			contact_facebook_snapshot: 'fb',
 			contact_phone_snapshot: '123',
@@ -34,6 +35,7 @@ describe('registrations api', () => {
 		const payload = {
 			tournament_game: 1,
 			team_name: '',
+			team_tag: '',
 			submitter_role: 'captain' as const,
 			contact_facebook_snapshot: 'fb',
 			contact_phone_snapshot: '123',

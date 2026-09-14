@@ -15,6 +15,7 @@
 		required?: HTMLInputAttributes['required'];
 		minlength?: HTMLInputAttributes['minlength'];
 		maxlength?: HTMLInputAttributes['maxlength'];
+		pattern?: HTMLInputAttributes['pattern'];
 	}
 
 	let {
@@ -28,7 +29,8 @@
 		spellcheck,
 		required,
 		minlength,
-		maxlength
+		maxlength,
+		pattern
 	}: Props = $props();
 	const errorId = $derived(`${name}-error`);
 	const hintId = $derived(`${name}-hint`);
@@ -48,6 +50,7 @@
 		{required}
 		{minlength}
 		{maxlength}
+		{pattern}
 		bind:value
 		aria-describedby={describedBy}
 		aria-invalid={error ? 'true' : undefined}
