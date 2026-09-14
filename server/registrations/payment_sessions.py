@@ -106,6 +106,7 @@ def build_payment_session(registration: Registration) -> dict:
                 ).decode("ascii"),
             )
     return {
+        "tournament_slug": registration.tournament_game.tournament.slug,
         "registration": RegistrationReadSerializer(registration).data,
         "payment_state": state,
         "payment_due_at": registration.payment_due_at.isoformat()

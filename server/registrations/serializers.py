@@ -245,6 +245,7 @@ class PrivatePaymentInstructionsSerializer(serializers.Serializer):
 
 
 class RegistrationPaymentSessionSerializer(serializers.Serializer):
+    tournament_slug = serializers.CharField(read_only=True)
     registration = RegistrationReadSerializer()
     payment_state = serializers.ChoiceField(
         choices=("NOT_REQUIRED", "UNPAID", "PENDING", "VERIFIED", "REJECTED")

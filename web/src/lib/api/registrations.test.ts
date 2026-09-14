@@ -52,6 +52,7 @@ const registration: RegistrationRead = {
 	payment_attempts: []
 };
 const paymentSession: RegistrationPaymentSession = {
+	tournament_slug: 'summer',
 	registration,
 	payment_state: 'UNPAID',
 	payment_due_at: '2026-09-15T02:00:00Z',

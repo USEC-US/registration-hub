@@ -151,6 +151,7 @@ export interface RegistrationPaymentInstructions {
 }
 
 export interface RegistrationPaymentSession {
+	readonly tournament_slug: string;
 	registration: RegistrationRead;
 	payment_state: PaymentState;
 	payment_due_at: string | null;

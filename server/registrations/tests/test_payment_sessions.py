@@ -40,6 +40,13 @@ class PaymentSessionTests(APITestCase):
     def private_session(self, registration):
         return self.session(registration, HTTP_X_REGISTRATION_ACCESS=self.secret)
 
+    def test_private_session_has_current_tournament_slug_for_retry(self):
+        registration = self.create_saved()
+        self.assertEqual(
+            self.private_session(registration).data["tournament_slug"],
+            self.tournament_game.tournament.slug,
+        )
+
     def test_only_private_session_exposes_saved_identity(self):
         registration = self.create_saved()
         response = self.private_session(registration)

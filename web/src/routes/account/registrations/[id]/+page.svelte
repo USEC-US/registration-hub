@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { paymentStatusMessage } from '$lib/registrations/payment-status';
 	import { dateLocale, NUMERIC_DATE_OPTIONS } from '$lib/time/date-format';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -43,6 +44,8 @@
 
 	function statusLabel(status: RegistrationStatus): string {
 		switch (status) {
+			case 'EXPIRED':
+				return m.status_EXPIRED();
 			case 'SUBMITTED':
 				return m.status_SUBMITTED();
 			case 'UNDER_REVIEW':
@@ -221,7 +224,15 @@
 				{m.field_payment_reference()}: {registration.payment_reference}
 			</p>
 		{/if}
-		{#if registration.payment_required}
+		<p class="mt-4">
+			{paymentStatusMessage(registration.payment_state, registration.expired, registration.status)}
+		</p>
+		<a
+			class="mt-4 inline-block underline"
+			href={resolve(localizeInternalHref(`/registrations/${registration.id}/payment`))}
+			>{m.payment_page()}</a
+		>
+		{#if registration.payment_required && !registration.payment_due_at && !registration.expired && registration.status !== 'REJECTED' && ['UNPAID', 'REJECTED'].includes(registration.payment_state)}
 			<div class="mt-8">
 				<PaymentAttemptForm
 					registrationId={registration.id}

@@ -1,568 +1,520 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ApiRequestError } from '$lib/api/client';
-	import { submitRegistration } from '$lib/api/registrations';
-	import type { RegistrationMemberInput, RegistrationRead, SubmitterRole } from '$lib/api/types';
-	import { clearSession, getAccessToken } from '$lib/auth/session';
-	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
-	import Field from '$lib/components/forms/Field.svelte';
-	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
+	import { resolve } from '$app/paths';
+	import { onMount, tick, untrack } from 'svelte';
+	import type {
+		RegistrationRead,
+		RegistrationSubmissionPayload,
+		SubmitterRole,
+		RegistrationMemberInput
+	} from '$lib/api/types';
+	import { getAccessToken } from '$lib/auth/session';
+	import { authState } from '$lib/states/auth-state.svelte';
+	import {
+		getRegistrationStorage,
+		readDraft,
+		writeDraft,
+		clearDraft,
+		listAccess,
+		forgetAccess,
+		type DraftStage,
+		type RegistrationDraft,
+		type SavedRegistrationAccess,
+		type PendingSavedRegistrationAccess
+	} from '$lib/registrations/browser-storage';
+	import {
+		submitRegistrationAttempt,
+		recoverRegistrationAttempt,
+		type RegistrationSubmissionResult
+	} from '$lib/registrations/submission';
+	import RegistrationDetailsStep from '$lib/components/registrations/RegistrationDetailsStep.svelte';
+	import RegistrationReviewStep from '$lib/components/registrations/RegistrationReviewStep.svelte';
+	import RegistrationSteps from '$lib/components/registrations/RegistrationSteps.svelte';
+	import SavedRegistrationChoices from '$lib/components/registrations/SavedRegistrationChoices.svelte';
 	import RosterEditor from '$lib/components/registrations/RosterEditor.svelte';
-	import PaymentProofField from '$lib/components/registrations/PaymentProofField.svelte';
-	import TransferContentField from '$lib/components/registrations/TransferContentField.svelte';
+	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
+	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as Alert from '$lib/components/ui/alert';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
-	import Button from '$lib/components/ui/button/button.svelte';
-	import * as Card from '$lib/components/ui/card';
-	import * as FormField from '$lib/components/ui/field';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import * as Alert from '$lib/components/ui/alert';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Badge } from '$lib/components/ui/badge';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import UserRound from '@lucide/svelte/icons/user-round';
-	import UserPlus from '@lucide/svelte/icons/user-plus';
-	import LogIn from '@lucide/svelte/icons/log-in';
-	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
-	import ShieldCheck from '@lucide/svelte/icons/shield-check';
-	import { onMount } from 'svelte';
 	import type { PageProps } from './$types';
-
 	let { data }: PageProps = $props();
-	let accessToken = $state<string | null>(null);
+	let stage = $state<DraftStage>('details');
+	let teamName = $state(''),
+		teamTag = $state(''),
+		managerName = $state(''),
+		facebook = $state(''),
+		phone = $state(''),
+		email = $state(''),
+		discord = $state('');
+	let submitterRole = $state<SubmitterRole>('captain');
 	let members = $state<RegistrationMemberInput[]>([]);
-	let teamName = $state('');
-	let teamTag = $state('');
+	let institutionLabels = $state<Record<string, string>>({});
+	let loading = $state(true),
+		submitting = $state(false),
+		warning = $state(false),
+		saved = $state(false);
+	let accessToken = $state<string | null>(null);
+	let context: ReturnType<typeof getRegistrationStorage> | undefined;
+	let restore = $state<RegistrationDraft | null>(null);
+	let entries = $state<SavedRegistrationAccess[]>([]);
+	let pending = $state<PendingSavedRegistrationAccess | null>(null);
+	let confirmation = $state<RegistrationRead | null>(null);
 	let turnstileToken = $state('');
 	let turnstileWidget = $state<{ reset: () => void } | null>(null);
-	let loading = $state(true);
-	let submitterRole = $state<SubmitterRole>('captain');
-	let managerName = $state('');
-	let facebook = $state('');
-	let phone = $state('');
-	let email = $state('');
-	let discord = $state('');
-	let paymentIntentToken = $state('');
-	let proofFile = $state<File | undefined>();
-	let proofSelectionError = $state('');
-	let confirmation = $state<RegistrationRead | null>(null);
-	const paymentRequired = $derived(Number(data.game.fee_amount) > 0);
-	let submitting = $state(false);
-	let fieldErrors = $state<Record<string, string[]>>({});
-	let formErrors = $state<string[]>([]);
-
-	const registrationReturnTo = $derived(
+	let formErrors = $state<string[]>([]),
+		fieldErrors = $state<Record<string, string[]>>({});
+	let form = $state<HTMLFormElement>();
+	let focusRegion = $state<HTMLDivElement>();
+	let dirty = false,
+		finished = false,
+		savingEnabled = false;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const teamRequired = $derived(data.game.main_roster_size + data.game.substitute_limit > 1);
+	const payload = $derived<RegistrationSubmissionPayload>({
+		tournament_game: data.game.id,
+		team_name: teamRequired ? teamName : '',
+		team_tag: teamRequired ? teamTag : '',
+		submitter_role: submitterRole,
+		manager_name_snapshot: submitterRole === 'manager' ? managerName : '',
+		contact_facebook_snapshot: facebook,
+		contact_phone_snapshot: phone,
+		contact_email_snapshot: email,
+		contact_discord_snapshot: discord,
+		members
+	});
+	const allowed = $derived<DraftStage[]>(
+		detailsValid()
+			? rosterValid()
+				? ['details', 'roster', 'review']
+				: ['details', 'roster']
+			: ['details']
+	);
+	const available = $derived(
+		data.game.is_registration_open &&
+			(data.game.capacity_remaining === null || data.game.capacity_remaining > 0) &&
+			(Number(data.game.fee_amount) === 0 || data.game.payment_available)
+	);
+	const returnTo = $derived(
 		encodeURIComponent(`${page.url.pathname}${page.url.search}${page.url.hash}`)
 	);
-
-	function formatFee(): string {
-		return new Intl.NumberFormat(getLocale(), {
-			style: 'currency',
-			currency: data.game.fee_currency
-		}).format(Number(data.game.fee_amount));
+	function detailsValid() {
+		return Boolean(
+			facebook.trim() &&
+			phone.trim() &&
+			(!teamRequired || (teamName.trim() && /^[A-Za-z0-9]{2,5}$/.test(teamTag))) &&
+			(submitterRole !== 'manager' || managerName.trim()) &&
+			(!email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+		);
 	}
-
-	onMount(() => {
-		accessToken = getAccessToken();
-
-		loading = false;
+	function rosterValid() {
+		return (
+			members.filter((x) => x.roster_role === 'main').length === data.game.main_roster_size &&
+			members.filter((x) => x.roster_role === 'substitute').length <= data.game.substitute_limit &&
+			members.filter((x) => x.is_captain).length === 1 &&
+			(!members[0] || submitterRole === 'manager' || members[0].is_captain) &&
+			members.every(
+				(x) =>
+					x.gamer_tag_snapshot.trim() &&
+					x.first_name_snapshot.trim() &&
+					x.last_name_snapshot.trim() &&
+					/^\d{4}-\d{2}-\d{2}$/.test(x.date_of_birth_snapshot) &&
+					x.date_of_birth_snapshot <= new Date().toISOString().slice(0, 10) &&
+					(!data.tournament.students_only || x.student_id_snapshot.trim()) &&
+					(x.institution_id || x.institution_label?.trim())
+			)
+		);
+	}
+	function refreshStorage() {
+		if (context) {
+			entries = listAccess(context.storage, data.game.id);
+			warning = Boolean(context.persistenceWarning) || warning;
+		}
+	}
+	function flush() {
+		if (timer) clearTimeout(timer);
+		if (!context || !savingEnabled || !dirty || restore || finished || pending) return;
+		writeDraft(context.storage, {
+			version: 1,
+			gameId: data.game.id,
+			updatedAt: Date.now(),
+			stage,
+			fields: $state.snapshot(payload),
+			institutionLabels: $state.snapshot(institutionLabels)
+		});
+		dirty = false;
+		saved = true;
+		refreshStorage();
+	}
+	function edited() {
+		if (!savingEnabled || restore || finished) return;
+		dirty = true;
+		if (timer) clearTimeout(timer);
+		timer = setTimeout(flush, 300);
+	}
+	$effect(() => {
+		JSON.stringify(payload);
+		JSON.stringify(institutionLabels);
+		void stage;
+		untrack(edited);
 	});
-
-	async function handleSubmit(event: SubmitEvent): Promise<void> {
-		event.preventDefault();
-		if (
-			submitting ||
-			loading ||
-			confirmation ||
-			proofSelectionError ||
-			(paymentRequired && !paymentIntentToken)
-		)
-			return;
-		fieldErrors = {};
+	beforeNavigate(() => flush());
+	function restoreDraft() {
+		if (!restore) return;
+		const f = restore.fields;
+		teamName = f.team_name ?? '';
+		teamTag = f.team_tag ?? '';
+		submitterRole = f.submitter_role;
+		managerName = f.manager_name_snapshot ?? '';
+		facebook = f.contact_facebook_snapshot;
+		phone = f.contact_phone_snapshot;
+		email = f.contact_email_snapshot ?? '';
+		discord = f.contact_discord_snapshot ?? '';
+		members = f.members;
+		institutionLabels = restore.institutionLabels;
+		stage = restore.stage;
+		restore = null;
+		savingEnabled = true;
+		stage = allowed.includes(stage) ? stage : allowed.at(-1)!;
+		void navigate(stage, true);
+	}
+	function discard() {
+		if (context) clearDraft(context.storage, data.game.id);
+		restore = null;
+		savingEnabled = true;
+		saved = false;
+		dirty = false;
+		refreshStorage();
+	}
+	function clearProgress() {
+		if (timer) clearTimeout(timer);
+		if (context) clearDraft(context.storage, data.game.id);
+		dirty = false;
+		saved = false;
+		refreshStorage();
+	}
+	async function navigate(next: DraftStage, replace = false) {
+		if (!allowed.includes(next)) next = allowed.at(-1)!;
+		stage = next;
 		formErrors = [];
-		if (!facebook.trim())
-			fieldErrors.contact_facebook_snapshot = [m.registration_contact_required()];
-		if (!phone.trim()) fieldErrors.contact_phone_snapshot = [m.registration_contact_required()];
-		if (submitterRole === 'manager' && !managerName.trim())
-			fieldErrors.manager_name_snapshot = [m.registration_manager_required()];
-		if (members.some((member) => !member.institution_id && !member.institution_label?.trim()))
-			fieldErrors.members = [m.registration_institution_required()];
-		if (Object.keys(fieldErrors).length) return;
-		if (paymentRequired && !accessToken && !proofFile) {
-			fieldErrors.proof_file = [m.payment_evidence_required()];
+		const url = new URL(page.url);
+		url.searchParams.set('step', next);
+		await goto(resolve(localizeInternalHref(`${url.pathname}${url.search}${url.hash}`)), {
+			replaceState: replace,
+			keepFocus: true,
+			noScroll: true
+		});
+		await tick();
+		const heading = form?.querySelector<HTMLElement>('h2');
+		if (heading) {
+			heading.tabIndex = -1;
+			heading.focus();
+		}
+	}
+	let lastHandledUrl = '';
+	$effect(() => {
+		const href = page.url.href;
+		if (loading || href === lastHandledUrl) return;
+		lastHandledUrl = href;
+		const requested = page.url.searchParams.get('step');
+		if (!loading && !restore) {
+			untrack(() => {
+				const next = allowed.includes(requested as DraftStage)
+					? (requested as DraftStage)
+					: 'details';
+				if (stage !== next) stage = next;
+				if (requested && requested !== next) {
+					const url = new URL(page.url);
+					url.searchParams.set('step', next);
+					void goto(resolve(localizeInternalHref(`${url.pathname}${url.search}${url.hash}`)), {
+						replaceState: true,
+						keepFocus: true,
+						noScroll: true
+					});
+				}
+				void tick().then(() => {
+					const heading = form?.querySelector<HTMLElement>('h2');
+					if (heading) {
+						heading.tabIndex = -1;
+						heading.focus();
+					}
+				});
+			});
+		}
+	});
+	onMount(() => {
+		context = getRegistrationStorage();
+		restore = readDraft(context.storage, data.game.id, Date.now());
+		refreshStorage();
+		savingEnabled = !restore;
+		try {
+			accessToken = getAccessToken();
+		} catch {
+			warning = true;
+		}
+		void (async () => {
+			try {
+				if (accessToken) await authState.initialize();
+			} catch {
+				warning = true;
+			}
+			loading = false;
+		})();
+		const hide = () => flush();
+		window.addEventListener('pagehide', hide);
+		document.addEventListener('visibilitychange', hide);
+		return () => {
+			flush();
+			window.removeEventListener('pagehide', hide);
+			document.removeEventListener('visibilitychange', hide);
+			if (timer) clearTimeout(timer);
+		};
+	});
+	async function report(result: RegistrationSubmissionResult) {
+		refreshStorage();
+		if (result.status === 'submitted') {
+			finished = true;
+			dirty = false;
+			if (timer) clearTimeout(timer);
+			const registration = result.registration ?? result.session.registration;
+			pending = null;
+			if (registration.payment_required)
+				await goto(resolve(localizeInternalHref(`/registrations/${registration.id}/payment`)));
+			else confirmation = registration;
 			return;
 		}
-		if (
-			proofFile &&
-			(proofFile.size > 10 * 1024 * 1024 ||
-				!['image/jpeg', 'image/png', 'image/webp'].includes(proofFile.type))
-		) {
-			fieldErrors.proof_file = [m.payment_image_invalid()];
+		pending =
+			entries.find(
+				(entry): entry is PendingSavedRegistrationAccess =>
+					entry.credential === result.credential && entry.attemptState !== 'submitted'
+			) ?? null;
+		if (result.status === 'editable') {
+			const errors = formErrorsFrom(result.error, m.registration_submit_failed());
+			fieldErrors = errors.fieldErrors;
+			const target = Object.keys(fieldErrors).some((k) => k.startsWith('members'))
+				? 'roster'
+				: 'details';
+			await navigate(target);
+			formErrors = [...errors.formErrors, ...Object.values(fieldErrors).flat()];
+		} else
+			formErrors = [
+				result.status === 'challenge-required'
+					? m.turnstile_required()
+					: result.status === 'account-session-required' || result.status === 'actor-required'
+						? m.registration_session_expired()
+						: m.stages_uncertain()
+			];
+		await tick();
+		focusRegion?.focus();
+	}
+	async function recover(entry: SavedRegistrationAccess) {
+		if (entry.attemptState === 'submitted' || !context || submitting) return;
+		pending = entry;
+		submitting = true;
+		try {
+			try {
+				accessToken = getAccessToken();
+				if (accessToken) await authState.initialize();
+			} catch {
+				warning = true;
+				accessToken = null;
+			}
+			const request = recoverRegistrationAttempt({
+				storage: context.storage,
+				entry,
+				currentActorId: authState.currentUser?.id ?? null,
+				accessToken,
+				turnstileToken: turnstileToken || null
+			});
+			turnstileWidget?.reset();
+			await report(await request);
+		} finally {
+			submitting = false;
+		}
+	}
+	function forget(entry: SavedRegistrationAccess) {
+		if (context) forgetAccess(context.storage, entry.credential);
+		refreshStorage();
+	}
+	async function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		if (submitting || !context) return;
+		if (pending) {
+			await recover(pending);
+			return;
+		}
+		if (!form?.reportValidity()) return;
+		if (stage !== 'review') {
+			if ((stage === 'details' && !detailsValid()) || (stage === 'roster' && !rosterValid())) {
+				formErrors = [stage === 'details' ? m.stages_invalid() : m.stages_roster_invalid()];
+				await tick();
+				focusRegion?.focus();
+				return;
+			}
+			await navigate(stage === 'details' ? 'roster' : 'review');
+			return;
+		}
+		if (!detailsValid() || !rosterValid()) {
+			await navigate(!detailsValid() ? 'details' : 'roster');
 			return;
 		}
 		if (!turnstileToken) {
 			formErrors = [m.turnstile_required()];
 			return;
 		}
-
+		if (entries.some((e) => e.attemptState !== 'submitted')) {
+			formErrors = [m.stages_uncertain()];
+			return;
+		}
 		submitting = true;
-		fieldErrors = {};
-		formErrors = [];
-
 		try {
-			const request = submitRegistration(
-				accessToken,
-				{
-					tournament_game: data.game.id,
-					...(paymentRequired ? { payment_intent_token: paymentIntentToken } : {}),
-					team_name: data.game.main_roster_size + data.game.substitute_limit > 1 ? teamName : '',
-					team_tag: data.game.main_roster_size + data.game.substitute_limit > 1 ? teamTag : '',
-					submitter_role: submitterRole,
-					manager_name_snapshot: submitterRole === 'manager' ? managerName : '',
-					contact_facebook_snapshot: facebook,
-					contact_phone_snapshot: phone,
-					contact_email_snapshot: email,
-					contact_discord_snapshot: discord,
-					members
-				},
-				turnstileToken,
-				proofFile
-			);
-			turnstileWidget?.reset();
-			const registration = await request;
 			try {
-				sessionStorage.removeItem(`usec-payment-intent:${data.game.id}`);
+				accessToken = getAccessToken();
+				if (accessToken) await authState.initialize();
 			} catch {
-				/* Optional browser storage. */
-			}
-			if (accessToken)
-				await goto(resolve(localizeInternalHref(`/account/registrations/${registration.id}`)));
-			else confirmation = registration;
-		} catch (cause) {
-			if (cause instanceof ApiRequestError && cause.status === 401 && accessToken) {
-				clearSession();
+				warning = true;
 				accessToken = null;
-				formErrors = [m.registration_session_expired()];
-				return;
 			}
-			const nextErrors = formErrorsFrom(cause, m.registration_submit_failed());
-			fieldErrors = nextErrors.fieldErrors;
-			formErrors = [
-				...nextErrors.formErrors,
-				...Object.entries(nextErrors.fieldErrors).flatMap(([field, errors]) =>
-					[
-						'team_name',
-						'team_tag',
-						'members',
-						'contact_facebook_snapshot',
-						'contact_phone_snapshot',
-						'contact_email_snapshot',
-						'contact_discord_snapshot',
-						'manager_name_snapshot',
-						'proof_file',
-						'payment_intent_token'
-					].includes(field)
-						? []
-						: errors
-				)
-			];
+			const request = submitRegistrationAttempt({
+				storage: context.storage,
+				actorId: authState.currentUser?.id ?? null,
+				accessToken,
+				payload: $state.snapshot(payload),
+				turnstileToken
+			});
+			turnstileWidget?.reset();
+			await report(await request);
 		} finally {
 			submitting = false;
 		}
 	}
+	function formatFee() {
+		return new Intl.NumberFormat(getLocale(), {
+			style: 'currency',
+			currency: data.game.fee_currency
+		}).format(Number(data.game.fee_amount));
+	}
 </script>
 
-<svelte:head>
-	<title>{m.registration_form_heading({ game: data.game.game_name })} · {m.app_title()}</title>
-	<meta
-		name="description"
-		content={m.registration_form_intro({ tournament: data.tournament.name })}
-	/>
-</svelte:head>
-
-<header class="mb-8 flex flex-col gap-5">
-	<a
-		class="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-		href={resolve(localizeInternalHref(`/tournaments/${data.tournament.slug}`))}
+<svelte:head
+	><title>{m.registration_form_heading({ game: data.game.game_name })} · {m.app_title()}</title
+	></svelte:head
+>
+<header class="mb-8">
+	<a class="underline" href={resolve(localizeInternalHref(`/tournaments/${data.tournament.slug}`))}
+		>{m.registration_back_to_tournament()}</a
 	>
-		<ArrowLeft class="size-4" aria-hidden="true" />{m.registration_back_to_tournament()}
-	</a>
-	<div class="flex flex-wrap items-end justify-between gap-5">
-		<div>
-			<p class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-				{data.tournament.name}
-			</p>
-			<h1 class="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-				{m.registration_form_heading({ game: data.game.game_name })}
-			</h1>
-			<p class="mt-3 max-w-2xl text-base text-muted-foreground">
-				{m.registration_form_intro({ tournament: data.tournament.name })}
-			</p>
-		</div>
-		{#if data.tournament.students_only}<Badge variant="secondary"
-				>{m.tournament_students_only()}</Badge
-			>{/if}
-	</div>
-	<div class="flex flex-wrap gap-x-6 gap-y-2 border-y py-3 text-sm lg:hidden">
-		<span
-			>{m.game_roster_summary({
-				main: data.game.main_roster_size,
-				substitutes: data.game.substitute_limit
-			})}</span
-		>
-		<span class="font-medium">{m.game_fee()}: {formatFee()}</span>
-	</div>
+	<h1 class="mt-4 font-heading text-3xl font-semibold">
+		{m.registration_form_heading({ game: data.game.game_name })}
+	</h1>
+	<p class="mt-3">{m.registration_form_intro({ tournament: data.tournament.name })}</p>
 </header>
-
-{#if loading}
-	<p role="status" class="mt-8">{m.registration_loading()}</p>
-{:else if confirmation}
-	<Card.Root class="mt-8 rounded-xl py-6" data-registration-confirmation>
-		<Card.Header>
-			<Card.Title role="heading" aria-level={2}>{m.registration_confirmed_heading()}</Card.Title>
-			<Card.Description>{m.registration_reference({ id: confirmation.id })}</Card.Description>
-			{#if confirmation.payment_reference}<p class="font-mono-data text-sm">
-					{m.field_payment_reference()}: {confirmation.payment_reference}
-				</p>{/if}
-		</Card.Header>
-		<Card.Content class="flex flex-col gap-3">
-			<p>
-				{data.tournament.name} · {data.game.game_name}{confirmation.team_name
-					? ` · [${confirmation.team_tag}] ${confirmation.team_name}`
-					: ''}
-			</p>
-			<p>{m.registration_corrections()}</p>
-			<a class="underline" href="https://facebook.com/hcmusec"
-				>{m.registration_contact_organizers()}</a
+{#if loading}<p role="status">{m.registration_loading()}</p>{:else}
+	{#if warning}<Alert.Root class="mb-4"
+			><Alert.Description>{m.stages_storage()}</Alert.Description></Alert.Root
+		>{/if}
+	<SavedRegistrationChoices {entries} onrecover={recover} onforget={forget} />
+	{#if confirmation}<h2>{m.registration_confirmed_heading()}</h2>
+		<p>{m.registration_reference({ id: confirmation.id })}</p>
+		<p>{m.registration_corrections()}</p>
+	{:else if restore}<Alert.Root
+			><Alert.Title>{m.stages_restore()}</Alert.Title><Alert.Description
+				>{m.stages_saved()}</Alert.Description
 			>
-		</Card.Content>
-	</Card.Root>
-{:else}
-	<div class="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_17rem] xl:gap-10">
-		<form class="registration-form min-w-0" aria-busy={submitting} onsubmit={handleSubmit}>
-			<div class="flex flex-col gap-6">
-				<ErrorSummary errors={formErrors} />
-				{#if !accessToken}
-					<Alert.Root
-						role="note"
-						aria-labelledby="registration-account-heading"
-						aria-describedby="registration-account-description"
-						class="gap-4 rounded-xl p-5 sm:p-6"
+			<div class="flex flex-wrap gap-3">
+				<Button onclick={restoreDraft}>{m.stages_continue()}</Button><Button
+					variant="outline"
+					onclick={discard}>{m.stages_discard()}</Button
+				>
+			</div></Alert.Root
+		>
+	{:else if !available}<p role="status">{m.stages_closed()}</p>
+	{:else}
+		{#if !accessToken}<Alert.Root role="note" class="mb-6"
+				><Alert.Title>{m.registration_account_benefits_title()}</Alert.Title><Alert.Description
+					>{m.registration_account_benefits_description()}</Alert.Description
+				>
+				<div class="flex flex-wrap gap-3">
+					<Button href={`${resolve(localizeInternalHref('/auth/register'))}?redirect=${returnTo}`}
+						>{m.action_create_account()}</Button
+					><Button
+						variant="outline"
+						href={`${resolve(localizeInternalHref('/auth/sign-in'))}?redirect=${returnTo}`}
+						>{m.nav_sign_in()}</Button
 					>
-						<div class="flex items-center gap-3">
-							<span
-								class="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted"
-								aria-hidden="true"
-							>
-								<UserRound class="size-5" />
-							</span>
-							<Alert.Title id="registration-account-heading">
-								<h2 class="text-lg leading-snug">{m.registration_account_benefits_title()}</h2>
-							</Alert.Title>
-						</div>
-						<Alert.Description id="registration-account-description">
-							<p>{m.registration_account_benefits_description()}</p>
-						</Alert.Description>
-						<div class="flex flex-col gap-3 border-t pt-4 sm:flex-row">
-							<Button
-								size="lg"
-								class="min-h-11 sm:px-5"
-								href={`${resolve(localizeInternalHref('/auth/register'))}?redirect=${registrationReturnTo}`}
-							>
-								<UserPlus data-icon="inline-start" aria-hidden="true" />
-								<p class="text-secondary">
-								{m.action_create_account()}
-								</p>
-							</Button>
-							<Button
-								variant="outline"
-								size="lg"
-								class="min-h-11 sm:px-5"
-								href={`${resolve(localizeInternalHref('/auth/sign-in'))}?redirect=${registrationReturnTo}`}
-							>
-								<LogIn data-icon="inline-start" aria-hidden="true" />
-								{m.nav_sign_in()}
-							</Button>
-						</div>
-					</Alert.Root>
-				{/if}
-				<Card.Root class="gap-6 rounded-xl py-6" aria-labelledby="registration-details-heading">
-					<Card.Header>
-						<div class="flex items-start gap-3">
-							<span
-								class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono-data text-sm font-semibold text-primary"
-								aria-hidden="true">01</span
-							>
-							<div class="flex flex-col gap-1">
-								<Card.Title
-									><h2 id="registration-details-heading">
-										{m.registration_details_heading()}
-									</h2></Card.Title
-								>
-								<Card.Description>{m.registration_details_intro()}</Card.Description>
-							</div>
-						</div>
-					</Card.Header>
-					<Card.Content class="flex flex-col gap-6">
-						<FormField.Set>
-							<FormField.Legend>{m.registration_role_heading()}</FormField.Legend>
-							<RadioGroup.Root
-								bind:value={submitterRole}
-								aria-label={m.registration_role_heading()}
-								class="grid gap-3 sm:grid-cols-2"
-							>
-								<FormField.Label
-									class="w-full cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/50"
-								>
-									<RadioGroup.Item
-										value="captain"
-										aria-label={m.registration_role_captain()}
-										class="mt-1 shrink-0"
-									/>
-									<span class="flex flex-col gap-1.5">
-										<span class="flex items-center gap-2 font-semibold"
-											><UserRound
-												class="size-4"
-												aria-hidden="true"
-											/>{m.registration_role_captain()}</span
-										>
-										<span class="text-sm font-normal text-muted-foreground"
-											>{m.registration_captain_hint()}</span
-										>
-									</span>
-								</FormField.Label>
-								<FormField.Label
-									class="w-full cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/50"
-								>
-									<RadioGroup.Item
-										value="manager"
-										aria-label={m.registration_role_manager()}
-										class="mt-1 shrink-0"
-									/>
-									<span class="flex flex-col gap-1.5">
-										<span class="flex items-center gap-2 font-semibold"
-											><ClipboardList
-												class="size-4"
-												aria-hidden="true"
-											/>{m.registration_role_manager()}</span
-										>
-										<span class="text-sm font-normal text-muted-foreground"
-											>{m.registration_manager_hint()}</span
-										>
-									</span>
-								</FormField.Label>
-							</RadioGroup.Root>
-						</FormField.Set>
-						{#if data.game.main_roster_size + data.game.substitute_limit > 1}
-							<FormField.Group class="border-t pt-6 sm:grid sm:grid-cols-[2fr_1fr]">
-								<Field
-									label={m.field_team_name()}
-									name="team_name"
-									required
-									maxlength={100}
-									error={fieldErrors.team_name?.[0]}
-									bind:value={teamName}
-								/>
-								<Field
-									label={m.field_team_tag()}
-									name="team_tag"
-									required
-									minlength={2}
-									maxlength={5}
-									pattern={'[A-Za-z0-9]{2,5}'}
-									hint={m.team_tag_hint()}
-									error={fieldErrors.team_tag?.[0]}
-									bind:value={
-										() => teamTag,
-										(value) => {
-											teamTag = value.replace(/[a-z]/g, (letter) => letter.toUpperCase());
-										}
-									}
-								/>
-							</FormField.Group>
-						{/if}
-						<FormField.Set class="border-t pt-6">
-							<FormField.Legend>{m.registration_contact_heading()}</FormField.Legend>
-							<FormField.Description class="flex items-start gap-2"
-								><ShieldCheck
-									class="mt-0.5 size-4 shrink-0"
-									aria-hidden="true"
-								/>{m.registration_contact_private()}</FormField.Description
-							>
-							<FormField.Group class="sm:grid sm:grid-cols-2">
-								{#if submitterRole === 'manager'}<Field
-										label={m.registration_manager_name()}
-										name="manager_name_snapshot"
-										required
-										maxlength={100}
-										error={fieldErrors.manager_name_snapshot?.[0]}
-										bind:value={managerName}
-									/>{/if}
-								<Field
-									label={m.registration_facebook()}
-									name="contact_facebook_snapshot"
-									required
-									maxlength={255}
-									error={fieldErrors.contact_facebook_snapshot?.[0]}
-									bind:value={facebook}
-								/>
-								<Field
-									label={m.registration_phone()}
-									name="contact_phone_snapshot"
-									type="tel"
-									required
-									maxlength={32}
-									error={fieldErrors.contact_phone_snapshot?.[0]}
-									bind:value={phone}
-								/>
-								<Field
-									label={m.registration_email()}
-									name="contact_email_snapshot"
-									type="email"
-									maxlength={254}
-									error={fieldErrors.contact_email_snapshot?.[0]}
-									bind:value={email}
-								/>
-								<Field
-									label={m.registration_discord()}
-									name="contact_discord_snapshot"
-									maxlength={100}
-									error={fieldErrors.contact_discord_snapshot?.[0]}
-									bind:value={discord}
-								/>
-							</FormField.Group>
-						</FormField.Set>
-					</Card.Content>
-				</Card.Root>
-				<Card.Root class="gap-0 rounded-xl py-6">
-					<Card.Content>
-						<RosterEditor
-							mainRosterSize={data.game.main_roster_size}
-							substituteLimit={data.game.substitute_limit}
-							studentsOnly={data.tournament.students_only}
-							{submitterRole}
-							errors={fieldErrors.members}
-							bind:members
-						/></Card.Content
+				</div></Alert.Root
+			>{/if}
+		<RegistrationSteps {stage} completed={allowed} onnavigate={navigate} />
+		<div bind:this={focusRegion} tabindex="-1" aria-live="polite" class="outline-none">
+			<ErrorSummary errors={formErrors} />
+		</div>
+		<form
+			bind:this={form}
+			onsubmit={handleSubmit}
+			class="flex min-w-0 flex-col gap-6"
+			aria-busy={submitting}
+		>
+			{#if pending}<p>{m.stages_uncertain()}</p>
+				<TurnstileWidget
+					bind:this={turnstileWidget}
+					bind:token={turnstileToken}
+					action="registration-submit"
+				/><Button type="submit" disabled={submitting}>{m.stages_recover()}</Button>
+			{:else}
+				{#if stage === 'details'}<RegistrationDetailsStep
+						{teamRequired}
+						{fieldErrors}
+						bind:teamName
+						bind:teamTag
+						bind:submitterRole
+						bind:managerName
+						bind:facebook
+						bind:phone
+						bind:email
+						bind:discord
+					/>
+				{:else if stage === 'roster'}<RosterEditor
+						mainRosterSize={data.game.main_roster_size}
+						substituteLimit={data.game.substitute_limit}
+						studentsOnly={data.tournament.students_only}
+						{submitterRole}
+						errors={fieldErrors.members}
+						bind:members
+						bind:institutionLabels
+					/>
+				{:else}<RegistrationReviewStep
+						fields={payload}
+						{institutionLabels}
+						fee={formatFee()}
+						holdMinutes={data.game.payment_hold_minutes}
+					/><TurnstileWidget
+						bind:this={turnstileWidget}
+						bind:token={turnstileToken}
+						action="registration-submit"
+					/>{/if}
+				<div class="flex flex-wrap justify-between gap-3">
+					{#if stage !== 'details'}<Button
+							type="button"
+							variant="outline"
+							onclick={() => navigate(stage === 'review' ? 'roster' : 'details')}
+							>{m.stages_back()}</Button
+						>{/if}<Button type="submit" disabled={submitting}
+						>{submitting
+							? m.registration_submitting()
+							: stage === 'review'
+								? m.action_submit_registration()
+								: m.stages_continue()}</Button
 					>
-				</Card.Root>
-				<Card.Root class="gap-6 rounded-xl pt-6" aria-labelledby="registration-submit-heading">
-					<Card.Header>
-						<div class="flex items-start gap-3">
-							<span
-								class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono-data text-sm font-semibold text-primary"
-								aria-hidden="true">03</span
-							>
-							<div class="flex flex-col gap-1">
-								<Card.Title
-									><h2 id="registration-submit-heading">
-										{paymentRequired
-											? m.registration_payment_and_submit()
-											: m.registration_ready_to_submit()}
-									</h2></Card.Title
-								>
-								<Card.Description>{m.registration_corrections()}</Card.Description>
-							</div>
-						</div>
-					</Card.Header>
-					<Card.Content class="flex flex-col gap-6">
-						{#if paymentRequired}
-							<FormField.Set>
-								<FormField.Legend>{m.payment_attempt_heading()}</FormField.Legend>
-								<FormField.Description
-									>{accessToken
-										? m.registration_proof_account()
-										: m.registration_proof_guest()}</FormField.Description
-								>
-								<FormField.Group>
-									{#key data.game.id}<TransferContentField
-											errorMessage={fieldErrors.payment_intent_token?.[0]}
-											gameId={data.game.id}
-											amount={data.game.fee_amount}
-											currency={data.game.fee_currency}
-											bind:token={paymentIntentToken}
-											participant={data.game.main_roster_size + data.game.substitute_limit > 1
-												? teamTag
-												: (members[0]?.gamer_tag_snapshot ?? '')}
-										/>{/key}
-									<PaymentProofField
-										required={!accessToken}
-										disabled={submitting}
-										error={fieldErrors.proof_file?.[0]}
-										bind:file={proofFile}
-										bind:selectionError={proofSelectionError}
-									/>
-								</FormField.Group>
-							</FormField.Set>
-						{/if}
-						<TurnstileWidget
-							bind:this={turnstileWidget}
-							action="registration-submit"
-							bind:token={turnstileToken}
-						/>
-					</Card.Content>
-					<Card.Footer
-						class="flex-col items-stretch gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between"
-					>
-						<div>
-							<p class="text-xs text-muted-foreground">{m.game_fee()}</p>
-							<p class="font-mono-data mt-1 text-lg font-semibold">{formatFee()}</p>
-						</div>
-						<Button
-							class="min-h-11 w-full sm:w-auto"
-							type="submit"
-							disabled={submitting || (paymentRequired && !paymentIntentToken)}
-						>
-							{#if submitting}<Spinner aria-hidden="true" />{/if}
-							{submitting ? m.registration_submitting() : m.action_submit_registration()}
-						</Button>
-					</Card.Footer>
-				</Card.Root>
-			</div>
+				</div>
+			{/if}
 		</form>
-		<aside class="sticky top-6 hidden lg:block" aria-labelledby="registration-overview-heading">
-			<Card.Root class="gap-5 rounded-xl pt-6">
-				<Card.Header>
-					<Card.Title
-						><h2 id="registration-overview-heading">
-							{m.registration_overview_heading()}
-						</h2></Card.Title
-					>
-					<Card.Description>{data.tournament.name}</Card.Description>
-				</Card.Header>
-				<Card.Content>
-					<dl class="flex flex-col gap-4 text-sm">
-						<div class="flex items-start justify-between gap-4">
-							<dt class="text-muted-foreground">{m.registration_game_label()}</dt>
-							<dd class="text-right font-medium">{data.game.game_name}</dd>
-						</div>
-						<div class="flex items-start justify-between gap-4">
-							<dt class="text-muted-foreground">{m.registration_main_count_label()}</dt>
-							<dd class="font-mono-data font-medium">{data.game.main_roster_size}</dd>
-						</div>
-						<div class="flex items-start justify-between gap-4">
-							<dt class="text-muted-foreground">{m.registration_substitute_count_label()}</dt>
-							<dd class="font-mono-data font-medium">{data.game.substitute_limit}</dd>
-						</div>
-						<div class="flex items-start justify-between gap-4 border-t pt-4">
-							<dt class="text-muted-foreground">{m.game_fee()}</dt>
-							<dd class="font-mono-data font-semibold">{formatFee()}</dd>
-						</div>
-					</dl>
-				</Card.Content>
-				<Card.Footer class="border-t pt-5">
-					<p class="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-						<ShieldCheck
-							class="mt-0.5 size-4 shrink-0"
-							aria-hidden="true"
-						/>{m.roster_identity_private()}
-					</p>
-				</Card.Footer>
-			</Card.Root>
-		</aside>
-	</div>
-{/if}
+		{#if saved}<p role="status" class="mt-4 text-sm">{m.stages_saved()}</p>{/if}<Button
+			variant="ghost"
+			class="mt-3"
+			onclick={clearProgress}>{m.stages_clear()}</Button
+		>
+	{/if}{/if}

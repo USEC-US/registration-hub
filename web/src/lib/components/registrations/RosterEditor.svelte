@@ -23,6 +23,7 @@
 		substituteLimit: number;
 		studentsOnly?: boolean;
 		members?: RegistrationMemberInput[];
+		institutionLabels?: Record<string, string>;
 	}
 
 	let {
@@ -31,6 +32,7 @@
 		studentsOnly = false,
 		submitterRole = 'captain',
 		errors = [],
+		institutionLabels = $bindable({}),
 		members = $bindable([])
 	}: Props = $props();
 	let captainValue = $derived(
@@ -74,8 +76,11 @@
 		}
 	});
 
-	function addMember(): void {
-		if (members.filter((member) => member.roster_role === 'substitute').length >= substituteLimit)
+	function addMember(role: 'main' | 'substitute' = 'substitute'): void {
+		if (
+			role === 'substitute' &&
+			members.filter((member) => member.roster_role === 'substitute').length >= substituteLimit
+		)
 			return;
 		rowIds = [...rowIds, nextRowId++];
 		members = [
@@ -88,16 +93,29 @@
 				student_id_snapshot: '',
 				institution_label: '',
 				is_captain: false,
-				roster_role: 'substitute',
+				roster_role: role,
 				display_order: members.length + 1
 			}
 		];
 	}
 
 	function removeMember(index: number): void {
-		if (members[index].roster_role !== 'substitute' || (submitterRole === 'captain' && index === 0))
+		if (
+			(members[index].roster_role === 'main' &&
+				members.filter((m) => m.roster_role === 'main').length <= mainRosterSize) ||
+			(submitterRole === 'captain' && index === 0)
+		)
 			return;
 		rowIds = rowIds.filter((_, position) => position !== index);
+		const remainingLabels = members
+			.filter((_, position) => position !== index)
+			.map(
+				(member) =>
+					institutionLabels[String(member.display_order)] ?? member.institution_label ?? ''
+			);
+		institutionLabels = Object.fromEntries(
+			remainingLabels.map((label, index) => [String(index + 1), label])
+		);
 		const remaining = members.filter((_, position) => position !== index);
 		const captainRemoved = !remaining.some((member) => member.is_captain);
 		members = remaining.map((member, position) => ({
@@ -228,7 +246,7 @@
 							<span>{m.roster_captain()}</span>
 							<span class="sr-only">{m.roster_set_captain({ number: index + 1 })}</span>
 						</Field.Label>
-						{#if member.roster_role === 'substitute'}
+						{#if member.roster_role === 'substitute' || members.filter((m) => m.roster_role === 'main').length > mainRosterSize}
 							<Button
 								type="button"
 								variant="ghost"
@@ -313,12 +331,21 @@
 					<InstitutionCombobox
 						required
 						bind:choice={() => members[index], (choice) => updateInstitution(index, choice)}
-						initialLabel={member.institution_label ?? ''}
+						initialLabel={institutionLabels[String(member.display_order)] ??
+							member.institution_label ??
+							''}
+						onlabel={(label) =>
+							(institutionLabels = { ...institutionLabels, [String(member.display_order)]: label })}
 					/>
 				</Field.Group>
 			</Field.Set>
 		{/each}
 	</RadioGroup.Root>
+	{#if members.filter((m) => m.roster_role === 'main').length < mainRosterSize}<Button
+			type="button"
+			variant="outline"
+			onclick={() => addMember('main')}>{m.stages_add_main()}</Button
+		>{/if}
 	{#if substituteLimit > 0}
 		{#if !members.some((member) => member.roster_role === 'substitute')}
 			<h3 class="mt-4 font-semibold">{m.roster_substitutes_heading({ count: substituteLimit })}</h3>
@@ -330,7 +357,7 @@
 			class="mt-4 min-h-12 w-full rounded-lg border-dashed"
 			disabled={members.filter((member) => member.roster_role === 'substitute').length >=
 				substituteLimit}
-			onclick={addMember}
+			onclick={() => addMember()}
 			><UserPlus data-icon="inline-start" aria-hidden="true" />{m.roster_add_substitute()}</Button
 		>
 	{/if}
