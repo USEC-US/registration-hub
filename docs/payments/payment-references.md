@@ -1,43 +1,53 @@
-# Payment references and future SePay integration
+# Payment references and transfer content
 
-## Current behavior
+## Current manual-payment flow
 
-Team registrations require a Team Name and a separate Team Tag. Tags accept 2–5 ASCII letters or digits, are stored uppercase, and may repeat across registrations. Solo entries have neither field. Existing records keep a blank tag until corrected by a future organizer workflow; the migration does not invent historical tags.
+Team registrations require a Team Name and a separate Team Tag: 2–5 ASCII letters/digits, stored uppercase, with repeats allowed. Solo entrants use their in-game name for payment instructions.
 
-Paid registrations use a server-issued `PaymentIntent`. Its public reference is `USEC` followed by 10 cryptographically random uppercase letters/digits, excluding easily confused `0`, `1`, `I`, and `O`. A database uniqueness constraint and bounded collision retries protect uniqueness. The prefix is fixed for issued codes and is independent of team names, tags, player identities, and receiving bank accounts.
+**Transfer content** is the text participants copy into their bank transfer description. Staff configure `Transfer content template` and `Transfer content limit` on the tournament in Django admin. The default template is:
 
-`POST /api/payment-references/` takes `tournament_game` and optionally an existing private `token`. It returns the reference, private token, amount, and currency. New issuance checks publication, registration dates, fees, and current capacity, and is throttled per IP. Issuing a reference does **not** reserve a roster or capacity slot. Responses are not cacheable. The browser keeps the token in session storage, scoped to the division, so refreshing the same tab resumes the code. If storage is unavailable, the current page keeps it in memory.
+```text
+{participant} thanh toan le phi {tournament_name}
+```
 
-The private UUID token is a bearer claim handle, distinct from the public payment code. Submitting a registration attaches the intent atomically to exactly one registration, after checking the division and fee. A submitted code remains stable across proof uploads. A changed fee blocks submission with an organizer-contact message; it does not silently replace an already issued code. Lost tokens, payments followed by abandonment, closed/full divisions, and other payment exceptions require organizer reconciliation. Unattached intents remain available to organizers; codes are not recycled or automatically expired.
+`{participant}` becomes the team tag or solo player's in-game name; `{tournament_name}` becomes the tournament name. Staff can write a fixed event name or fixed text instead, for example:
 
-Guests still attach proof before submitting. Signed-in participants may submit first and upload proof later. Legacy paid registrations can obtain a code through the owner-only `POST /api/registrations/{id}/payment-reference/` endpoint. Historical `PaymentAttempt.reference` values are retained as private manual transaction notes. They are separate from the new generated reference, which is exposed as `payment_reference` in registration receipts/details. Historical transfers are not retroactively claimed to contain a newly generated code.
+```text
+{participant} thanh toan le phi cho giai dau USEC Championship XV
+```
 
-Generating a code or uploading proof never confirms payment. Organizer review remains authoritative. No SePay credentials, webhooks, gateway checkout, QR generation, or live bank connections are introduced by this change.
+Accents, including Vietnamese đ/Đ, are removed and whitespace is collapsed in the displayed/copied text and server snapshot. Original names remain unchanged. Literal braces can be escaped as `{{` and `}}`; unsupported placeholders, format specifications, and conversions are rejected. The character limit defaults to 100 and staff can set it from 1 to 150 for their receiving bank. The UI shows the count; both UI and server reject content over the limit instead of truncating it. A shorter staff template may be necessary for long event or player names.
 
-After applying the migrations, run `python manage.py bootstrap_organizers` to grant organizers read access to payment intents.
+**Payment reference** is an independent tracking identifier: `USEC` plus 10 cryptographically random uppercase letters/digits, excluding confusing `0`, `1`, `I`, and `O`. Database uniqueness and bounded collision retries protect it. It never determines or gets appended to transfer content. Participants see it only after successful registration submission, on the guest confirmation or signed-in registration detail. A displayed reference does not mean payment has been verified. Staff can search either reference or transfer content in the payment-intent admin.
 
-## SePay configuration and next integration
+Guests still attach proof before submitting. Signed-in participants may upload it afterward. Uploads remain pending until staff verify them; payment verification is separate from tournament eligibility approval. Gateway checkout is not displayed: no usable gateway connection has been configured in this implementation.
 
-The agreed first integration is direct bank transfers with webhooks. Personal receiving accounts will depend on the organizer linked to SePay; there is no fixed receiving bank in this implementation. A later hosted gateway can reference the same payment intent.
+## Payment sessions and snapshots
 
-For SePay payment-code extraction, configure:
+The existing `POST /api/payment-references/` URL is retained for compatibility, but it now returns only a private `token`, the partially resolved `transfer_content_template`, `transfer_content_limit`, amount, and currency. It does **not** return the internal reference. The browser substitutes the participant for its live preview. The server independently renders the final content from the submitted roster/tag and saves it on the intent when registration succeeds.
 
-- Prefix: `USEC`
-- Suffix minimum and maximum: `10`
-- Character type: letters and digits
+Issuance checks tournament publication, registration dates, fees, and capacity, but does not reserve a roster or capacity slot. Responses are not cacheable and issuance is throttled. The browser keeps the private UUID claim token in session storage, scoped to the division; refresh resumes the same quote and template snapshot. A later tournament edit does not rewrite instructions already issued. The token attaches an intent atomically to one registration. Fee changes block submission and require organizer assistance; rejected content does not consume the intent. Codes are not expired or recycled.
 
-SePay extracts this merchant code into webhook `code`. Its `referenceCode` is the **bank's** transaction reference; webhook `id` is the SePay transaction identifier. Store all three separately. References are identifiers, not authentication secrets.
+Signed-in owners get saved instructions through `POST /api/registrations/{id}/payment-instructions/`. The older owner-only `/payment-reference/` endpoint still returns the reference for an already submitted registration. Neither endpoint exposes another participant's records.
 
-Before enabling automatic verification, each intent must also snapshot the intended organizer/payment-account connection and receiving account/VA. Authenticate webhook delivery, match that destination and the expected amount/currency/incoming direction, and deduplicate deliveries using the provider connection/environment plus transaction ID. Persist receipt of money even when its intent has not yet been attached to a registration. Overpayments, underpayments, duplicate transfers, and unmatched codes need explicit reconciliation policies. Confirming payment must remain separate from approving tournament eligibility.
+Existing intents predate transfer snapshots. Their new content/template fields remain blank: the migration does not invent what participants were previously told. An old unattached session cannot be silently resumed with new instructions; the participant is directed to organizers. Existing submitted records with blank content can still upload proof, with a message to contact staff if they need transfer instructions. Historical `PaymentAttempt.reference` values remain private manual transaction notes. Legacy registrations without any intent can receive one through the owner endpoints.
 
-Build the full transfer description from the selected personal bank connection. Some connections require a virtual account, while VietinBank personal accounts require `SEVQR` in the description, and content-based VAs require `TKP` plus the VA code. The payment reference stays unchanged inside that description. Validate extraction in SePay test mode before configuring live accounts. The current UI asks for the code itself as the description for manual transfers; replace that guidance with the account-specific full description when SePay connections are introduced.
+Apply the new migrations before using the updated UI. No new organizer permissions are required.
 
-If deployed across multiple application workers, use shared cache storage for consistent API throttling. Design retention/cleanup for abandoned intents together with webhook reconciliation, so potentially paid references are not discarded.
+## Next payment-page task
 
-## Official documentation reviewed
+Move payment to a separate page after registration submission, covering manual bank transfers, proof upload, and staff confirmation. The user chose to keep that move out of this pass. Design private return access for guests and a clear unpaid/pending/verified lifecycle before replacing the current guest-proof-before-submission rule. Future submission editing is also separate work. Show a gateway option only when its connection is configured and usable.
 
-Reviewed 2026-09-12:
+## Future SePay integration
 
+Direct bank transfers with webhooks remain the first intended integration. Personal receiving accounts depend on the organizer connected to SePay; no receiving bank is fixed here. A hosted gateway can follow later.
+
+SePay's `content` is the bank transfer text. Its nullable `code` is extracted from that text using the merchant's configured payment-code pattern; `referenceCode` is the bank's transaction reference and `id` is the SePay transaction identifier. Store those separately from this application's internal reference. The old recommendation to extract `USEC` references from transfer descriptions is superseded by this design.
+
+Staff text and repeatable team tags are not unique payment identifiers. A webhook must not automatically approve a registration just because its text matches. Before automated verification, define account/destination snapshots and unambiguous reconciliation (or an account-specific payment identifier), verify incoming amount/currency/destination, authenticate delivery, and deduplicate by provider connection/environment plus transaction ID. Ambiguous, unmatched, duplicate, underpaid, and overpaid transfers require explicit handling. Bank-specific VA or description requirements belong to the configured bank connection, not to the internal tracking reference.
+
+Official documentation (webhook contract rechecked 2026-09-14):
+
+- [Webhook fields, extracted codes, and duplicate deliveries](https://developer.sepay.vn/vi/sepay-webhooks/tich-hop-webhook)
 - [Payment-code structure](https://developer.sepay.vn/vi/sepay-webhooks/cau-hinh-ma-thanh-toan)
-- [Webhook fields and duplicate deliveries](https://developer.sepay.vn/vi/sepay-webhooks/tich-hop-webhook)
 - [VietQR parameters and bank-specific rules](https://developer.sepay.vn/vi/tien-ich-khac/tao-qr-code)

@@ -199,15 +199,15 @@ test('paid guest proof reaches organizer verification and registration approval'
 	request
 }) => {
 	await page.goto(await registrationUrl(request, 'solo-paid'));
-	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveValue(
-		/^USEC[A-Z0-9]{10}$/
-	);
-	const reference = await page.getByLabel('Payment reference', { exact: true }).inputValue();
+	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveCount(0);
+	await expect(page.getByLabel('Transfer content', { exact: true })).toBeVisible();
 	await page.reload();
-	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveValue(reference);
-	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveAttribute('readonly');
+	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveCount(0);
 	await fillContacts(page);
 	await fillRoster(page, ['PaidGuest#ONE']);
+	await expect(page.getByLabel('Transfer content', { exact: true })).toContainText(
+		'PaidGuest#ONE thanh toan le phi'
+	);
 	await page.locator('[data-payment-proof-drop-zone]').evaluate((target, encoded) => {
 		const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
 		const transfer = new DataTransfer();
@@ -218,7 +218,9 @@ test('paid guest proof reaches organizer verification and registration approval'
 	}, proof.buffer.toString('base64'));
 	await expect(page.getByAltText('Selected payment proof preview')).toBeVisible();
 	const receipt = await submit(page);
-	expect(receipt.payment_reference).toBe(reference);
+	expect(receipt.payment_reference).toMatch(/^USEC[A-Z0-9]{10}$/);
+	const reference = receipt.payment_reference;
+	await expect(page.getByText(`Payment reference: ${reference}`, { exact: true })).toBeVisible();
 	expect(receipt.payment_attempts).toHaveLength(1);
 	expect(receipt.payment_attempts[0].status).toBe('PENDING');
 	await organizerLogin(page);

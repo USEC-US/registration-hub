@@ -22,6 +22,7 @@ from django.db import transaction
 from .permissions import IsRegistrationSubmitter
 from .serializers import (
     PaymentCodeReadSerializer,
+    PaymentInstructionsReadSerializer,
     PaymentReferenceRequestSerializer,
     PaymentReferenceReadSerializer,
     PaymentAttemptReceiptSerializer,
@@ -161,6 +162,28 @@ class RegistrationViewSet(viewsets.ReadOnlyModelViewSet):
                 except DjangoValidationError as error:
                     raise _as_drf_validation_error(error) from error
         return Response({"reference": intent.reference})
+
+    @extend_schema(request=None, responses=PaymentInstructionsReadSerializer)
+    @action(detail=True, methods=["post"], url_path="payment-instructions")
+    def payment_instructions(self, request, pk=None):
+        registration = self.get_object()
+        with transaction.atomic():
+            registration = Registration.objects.select_for_update().get(
+                pk=registration.pk
+            )
+            try:
+                intent = registration.payment_intent
+            except Registration.payment_intent.RelatedObjectDoesNotExist:
+                try:
+                    intent = create_payment_intent(
+                        tournament_game=registration.tournament_game,
+                        registration=registration,
+                    )
+                except DjangoValidationError as error:
+                    raise _as_drf_validation_error(error) from error
+        response = Response(PaymentInstructionsReadSerializer(intent).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
 
     @action(detail=True, methods=["post"], url_path="payment-attempts")
     def payment_attempts(self, request, pk=None):

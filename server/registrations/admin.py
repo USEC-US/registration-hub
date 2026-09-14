@@ -115,6 +115,7 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         "team_name",
         "team_tag",
         "payment_intent__reference",
+        "payment_intent__transfer_content",
         "submitted_by__email",
         "members__gamer_tag_snapshot",
         "members__first_name_snapshot",
@@ -179,6 +180,7 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
         "registration__team_name",
         "registration__team_tag",
         "registration__payment_intent__reference",
+        "registration__payment_intent__transfer_content",
         "registration__submitted_by__email",
         "reference",
     )
@@ -222,11 +224,17 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
 class PaymentIntentAdmin(GuardedReadOnlyAdmin):
     list_display = (
         "reference",
+        "transfer_content",
         "tournament_game",
         "registration",
         "amount",
         "currency",
         "created_at",
     )
-    search_fields = ("reference", "registration__team_name", "registration__team_tag")
+    search_fields = (
+        "reference",
+        "transfer_content",
+        "registration__team_name",
+        "registration__team_tag",
+    )
     list_select_related = ("tournament_game", "registration")

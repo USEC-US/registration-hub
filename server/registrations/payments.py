@@ -1,4 +1,4 @@
-"""Provider-independent payment codes for manual transfers and future webhooks."""
+"""Internal tracking references and separate, snapshotted transfer instructions."""
 
 import secrets
 
@@ -7,6 +7,10 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from tournaments.models import TournamentGame
+from tournaments.payment_content import (
+    snapshot_transfer_template,
+    render_transfer_content,
+)
 from .models import PaymentIntent, Registration
 
 PAYMENT_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
@@ -25,6 +29,21 @@ def create_payment_intent(*, tournament_game, registration=None):
         raise ValidationError(
             {"payment_reference": "This registration has no payment due."}
         )
+    template = snapshot_transfer_template(
+        tournament_game.tournament.transfer_content_template,
+        tournament_game.tournament.name,
+    )
+    limit = tournament_game.tournament.transfer_content_limit
+    content = ""
+    if registration:
+        member = registration.members.order_by("display_order").first()
+        participant = (
+            registration.team_tag
+            or registration.team_name
+            or (member.gamer_tag_snapshot if member else "")
+        )
+        if participant or "{participant}" not in template:
+            content = render_transfer_content(template, participant, limit)
     for _ in range(5):
         reference = "USEC" + "".join(
             secrets.choice(PAYMENT_ALPHABET) for _ in range(10)
@@ -33,6 +52,9 @@ def create_payment_intent(*, tournament_game, registration=None):
             with transaction.atomic():
                 return PaymentIntent.objects.create(
                     reference=reference,
+                    transfer_content_template=template,
+                    transfer_content_limit=limit,
+                    transfer_content=content,
                     tournament_game=tournament_game,
                     registration=registration,
                     amount=amount,
@@ -62,6 +84,12 @@ def reserve_payment_reference(*, tournament_game_id, token=None):
             raise ValidationError(
                 {
                     "payment_reference": "This payment reference is unavailable. Contact the organizers if you have already paid."
+                }
+            )
+        if not intent.transfer_content_template:
+            raise ValidationError(
+                {
+                    "transfer_content": "These older payment instructions cannot be resumed. Contact the organizers if you have already paid."
                 }
             )
         return intent

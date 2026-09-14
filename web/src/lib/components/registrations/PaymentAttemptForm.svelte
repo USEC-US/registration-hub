@@ -4,7 +4,7 @@
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import PaymentProofField from './PaymentProofField.svelte';
-	import PaymentReferenceField from './PaymentReferenceField.svelte';
+	import TransferContentField from './TransferContentField.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import * as m from '$lib/paraglide/messages';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -18,7 +18,6 @@
 		accessToken: string;
 		initialAmount: string;
 		initialCurrency: string;
-		paymentReference?: string;
 		onSuccess: () => void | Promise<void>;
 		onAuthenticationError?: () => void | Promise<void>;
 	}
@@ -28,13 +27,12 @@
 		accessToken,
 		initialAmount,
 		initialCurrency,
-		paymentReference = '',
 		onSuccess,
 		onAuthenticationError = () => {}
 	}: Props = $props();
 	let amount = $state('');
 	let currency = $state('');
-	let referenceReady = $state(false);
+	let instructionsReady = $state(false);
 	let proofFile = $state<File | undefined>();
 	let proofSelectionError = $state('');
 	let turnstileToken = $state('');
@@ -51,7 +49,7 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting || proofSelectionError || !referenceReady) return;
+		if (submitting || proofSelectionError || !instructionsReady) return;
 
 		const formData = new FormData(event.currentTarget as HTMLFormElement);
 		if (proofFile) formData.set('proof_file', proofFile);
@@ -119,11 +117,10 @@
 					bind:file={proofFile}
 					bind:selectionError={proofSelectionError}
 				/>
-				<PaymentReferenceField
-					bind:ready={referenceReady}
+				<TransferContentField
+					bind:ready={instructionsReady}
 					{registrationId}
 					{accessToken}
-					initialReference={paymentReference}
 					{amount}
 					{currency}
 				/>
@@ -135,7 +132,7 @@
 			</Field.Group>
 		</Card.Content>
 		<Card.Footer class="justify-end border-t">
-			<Button class="min-h-11" type="submit" disabled={submitting || !referenceReady}>
+			<Button class="min-h-11" type="submit" disabled={submitting || !instructionsReady}>
 				{#if submitting}<Spinner aria-hidden="true" />{/if}
 				{submitting ? m.payment_uploading() : m.action_upload_payment_proof()}
 			</Button>

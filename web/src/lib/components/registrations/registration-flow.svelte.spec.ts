@@ -20,8 +20,11 @@ vi.mock('$lib/api/institutions', () => ({ searchInstitutions: vi.fn().mockResolv
 
 vi.mock('$lib/api/registrations', () => ({
 	submitPaymentAttempt: vi.fn(),
-	reservePaymentReference: vi.fn(),
-	getPaymentReference: vi.fn().mockResolvedValue({ reference: 'USEC23456789AB' })
+	reservePaymentInstructions: vi.fn(),
+	getPaymentInstructions: vi.fn().mockResolvedValue({
+		transfer_content: 'PLAYER thanh toan le phi Summer',
+		transfer_content_limit: 100
+	})
 }));
 
 beforeEach(() => {
@@ -323,7 +326,9 @@ describe('PaymentAttemptForm', () => {
 		});
 
 		attachProof();
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		const button = page
 			.getByRole('button', { name: 'Upload payment proof' })
 			.elements()[0] as HTMLButtonElement;
@@ -343,7 +348,9 @@ describe('PaymentAttemptForm', () => {
 			initialCurrency: 'VND',
 			onSuccess: vi.fn()
 		});
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 		await expect.element(page.getByText(m.payment_evidence_required())).toBeVisible();
 		expect(submitPaymentAttempt).not.toHaveBeenCalled();
@@ -392,7 +399,9 @@ describe('PaymentAttemptForm', () => {
 		});
 
 		attachProof();
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await expect.element(page.getByText(m.turnstile_required())).toBeVisible();
@@ -410,7 +419,9 @@ describe('PaymentAttemptForm', () => {
 		});
 
 		attachProof();
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(submitPaymentAttempt).toHaveBeenCalledOnce());
@@ -433,7 +444,9 @@ describe('PaymentAttemptForm', () => {
 			onSuccess: vi.fn()
 		});
 		attachProof();
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
@@ -454,7 +467,9 @@ describe('PaymentAttemptForm', () => {
 			onAuthenticationError
 		});
 		attachProof();
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 

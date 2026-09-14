@@ -195,10 +195,16 @@ class PaymentReferenceRequestSerializer(StrictFieldsSerializer):
 
 class PaymentReferenceReadSerializer(serializers.Serializer):
     token = serializers.UUIDField()
-    reference = serializers.CharField()
+    transfer_content_template = serializers.CharField()
+    transfer_content_limit = serializers.IntegerField()
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     currency = serializers.CharField()
 
 
 class PaymentCodeReadSerializer(serializers.Serializer):
     reference = serializers.CharField()
+
+
+class PaymentInstructionsReadSerializer(serializers.Serializer):
+    transfer_content = serializers.CharField()
+    transfer_content_limit = serializers.IntegerField()

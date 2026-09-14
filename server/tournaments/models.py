@@ -1,6 +1,9 @@
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import F, Q
+
+
+from .payment_content import DEFAULT_TRANSFER_TEMPLATE, validate_transfer_template
 
 
 class Game(models.Model):
@@ -29,6 +32,18 @@ class Tournament(models.Model):
     students_only = models.BooleanField(
         default=False,
         help_text="Require a student ID for every player. Organizers review student eligibility.",
+    )
+
+    transfer_content_template = models.CharField(
+        max_length=300,
+        default=DEFAULT_TRANSFER_TEMPLATE,
+        validators=[validate_transfer_template],
+        help_text="Bank transfer text. Use {participant} for the team tag or solo in-game name, and {tournament_name} for the event name. Accents are removed automatically.",
+    )
+    transfer_content_limit = models.PositiveSmallIntegerField(
+        default=100,
+        validators=[MinValueValidator(1), MaxValueValidator(150)],
+        help_text="Maximum characters accepted by the receiving bank (default 100, up to 150). Content is never truncated.",
     )
 
     class Meta:

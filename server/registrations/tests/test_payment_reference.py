@@ -30,14 +30,15 @@ class PaymentReferenceTests(APITestCase):
         response = self.reserve()
         self.assertEqual(response.status_code, 200, response.data)
         intent = response.data
-        self.assertRegex(intent["reference"], r"^USEC[A-Z0-9]{10}$")
+        self.assertNotIn("reference", intent)
+        self.assertIn("transfer_content_template", intent)
         self.assertIn("no-store", response["Cache-Control"])
         self.assertEqual(self.reserve(token=intent["token"]).data, intent)
         payload = self.payload()
         payload["payment_intent_token"] = intent["token"]
         receipt = self.post(payload, payment_image())
         self.assertEqual(receipt.status_code, 201, receipt.data)
-        self.assertEqual(receipt.data["payment_reference"], intent["reference"])
+        self.assertRegex(receipt.data["payment_reference"], r"^USEC[A-Z0-9]{10}$")
         self.assertNotIn("payment_intent_token", receipt.data)
         payload["members"][0]["gamer_tag_snapshot"] = "second-player"
         self.assertEqual(self.post(payload, payment_image()).status_code, 400)
@@ -51,9 +52,7 @@ class PaymentReferenceTests(APITestCase):
         payload["payment_intent_token"] = intent["token"]
         self.tournament_game.fee_amount = 60000
         self.tournament_game.save()
-        self.assertEqual(
-            self.reserve(token=intent["token"]).data["reference"], intent["reference"]
-        )
+        self.assertEqual(self.reserve(token=intent["token"]).data, intent)
         response = self.post(payload, payment_image())
         self.assertEqual(response.status_code, 400)
         self.assertIn("payment_intent_token", response.data)
@@ -95,3 +94,122 @@ class PaymentReferenceTests(APITestCase):
         self.assertEqual(original.reference, "USEC" + "A" * 10)
         self.assertEqual(replacement.reference, "USEC" + "B" * 10)
         self.assertNotEqual(original.pk, replacement.pk)
+
+    def test_reference_visible_after_submission_even_while_payment_pending(self):
+        from registrations.models import Registration
+
+        self.client.force_authenticate(self.owner)
+        response = self.post(self.payload(), payment_image())
+        self.assertEqual(response.status_code, 201, response.data)
+        registration = Registration.objects.get(pk=response.data["id"])
+        self.assertEqual(
+            response.data["payment_reference"], registration.payment_intent.reference
+        )
+        self.assertEqual(response.data["payment_attempts"][0]["status"], "PENDING")
+        instructions = self.client.post(
+            f"/api/registrations/{registration.pk}/payment-instructions/"
+        )
+        self.assertEqual(instructions.status_code, 200, instructions.data)
+        self.assertNotIn("reference", instructions.data)
+        self.assertEqual(
+            instructions.data["transfer_content"],
+            registration.payment_intent.transfer_content,
+        )
+
+    def test_transfer_template_is_snapshotted_and_accents_removed(self):
+        from registrations.models import Registration
+
+        tournament = self.tournament_game.tournament
+        tournament.transfer_content_template = (
+            "{participant} thanh toán lệ phí cho giải đấu Đấu Trường XV"
+        )
+        tournament.save()
+        intent = self.reserve().data
+        tournament.transfer_content_template = "Changed {participant}"
+        tournament.save()
+        self.assertEqual(self.reserve(token=intent["token"]).data, intent)
+        payload = self.payload()
+        payload["members"][0]["gamer_tag_snapshot"] = "Đặng Thắng#VN"
+        payload["payment_intent_token"] = intent["token"]
+        response = self.post(payload, payment_image())
+        self.assertEqual(response.status_code, 201, response.data)
+        registration = Registration.objects.get(pk=response.data["id"])
+        self.assertEqual(
+            registration.payment_intent.transfer_content,
+            "Dang Thang#VN thanh toan le phi cho giai dau Dau Truong XV",
+        )
+        self.assertNotIn(
+            registration.payment_intent.reference,
+            registration.payment_intent.transfer_content,
+        )
+
+    def test_transfer_content_over_limit_is_rejected_without_claiming_intent(self):
+        from registrations.models import PaymentIntent
+
+        tournament = self.tournament_game.tournament
+        tournament.transfer_content_template = "{participant} paid"
+        tournament.transfer_content_limit = 10
+        tournament.save()
+        intent = self.reserve().data
+        payload = self.payload()
+        payload["payment_intent_token"] = intent["token"]
+        response = self.post(payload, payment_image())
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("transfer_content", response.data)
+        self.assertIsNone(
+            PaymentIntent.objects.get(token=intent["token"]).registration_id
+        )
+
+    def test_team_transfer_uses_normalized_tag_not_team_name(self):
+        from registrations.models import Registration
+
+        payload = test_guest_submission.GuestSubmissionTests.team_payload(self)
+        self.tournament_game.fee_amount = 50000
+        self.tournament_game.save()
+        payload["team_name"] = "Full Team Name"
+        payload["team_tag"] = "abc"
+        payload["payment_intent_token"] = self.reserve().data["token"]
+        response = self.post(payload, payment_image())
+        self.assertEqual(response.status_code, 201, response.data)
+        registration = Registration.objects.get(pk=response.data["id"])
+        self.assertEqual(
+            registration.payment_intent.transfer_content, "ABC thanh toan le phi Summer"
+        )
+
+    def test_transfer_instructions_require_ownership_and_do_not_rewrite_legacy_data(
+        self,
+    ):
+        from registrations.models import PaymentIntent
+
+        registration = self._create_registration(self.owner)
+        intent = PaymentIntent.objects.create(
+            registration=registration,
+            tournament_game=self.tournament_game,
+            amount=50000,
+            currency="VND",
+            reference="USECLEGACY1234",
+        )
+        url = f"/api/registrations/{registration.pk}/payment-instructions/"
+        self.assertIn(self.client.post(url).status_code, (401, 403))
+        self.client.force_authenticate(self.other_user)
+        self.assertEqual(self.client.post(url).status_code, 404)
+        self.client.force_authenticate(self.owner)
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["transfer_content"], "")
+        intent.refresh_from_db()
+        self.assertEqual(intent.transfer_content_template, "")
+
+    def test_legacy_unsubmitted_session_is_not_silently_replaced(self):
+        from registrations.models import PaymentIntent
+
+        intent = PaymentIntent.objects.create(
+            tournament_game=self.tournament_game,
+            amount=50000,
+            currency="VND",
+            reference="USECLEGACY1234",
+        )
+        response = self.reserve(token=str(intent.token))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("transfer_content", response.data)
+        self.assertEqual(PaymentIntent.objects.count(), 1)

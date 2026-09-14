@@ -34,13 +34,17 @@ vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({ page: mockPage }));
 vi.mock('$lib/api/registrations', () => ({
-	reservePaymentReference: vi.fn().mockResolvedValue({
+	reservePaymentInstructions: vi.fn().mockResolvedValue({
 		token: 'payment-token',
-		reference: 'USEC23456789AB',
+		transfer_content_template: '{participant} thanh toan le phi Summer',
+		transfer_content_limit: 100,
 		amount: '50000.00',
 		currency: 'VND'
 	}),
-	getPaymentReference: vi.fn().mockResolvedValue({ reference: 'USEC23456789AB' }),
+	getPaymentInstructions: vi.fn().mockResolvedValue({
+		transfer_content: 'PLAYER thanh toan le phi Summer',
+		transfer_content_limit: 100
+	}),
 	getRegistration: vi.fn(),
 	listRegistrations: vi.fn(),
 	submitPaymentAttempt: vi.fn(),
@@ -198,7 +202,9 @@ describe('participant registration pages', () => {
 		valid.items.add(new File(['image'], 'proof.png', { type: 'image/png' }));
 		input.files = valid.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Submit registration' }).click();
 		await expect
 			.element(page.getByRole('heading', { name: 'Registration submitted' }))
@@ -478,7 +484,9 @@ describe('participant registration pages', () => {
 		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
 		fileInput.files = transfer.files;
 		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(2));
@@ -498,13 +506,15 @@ describe('participant registration pages', () => {
 		);
 		render(RegistrationDetailPage);
 
-		await expect.element(page.getByLabelText('Payment reference')).toBeInTheDocument();
+		await expect.element(page.getByLabelText('Transfer content')).toBeInTheDocument();
 		const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]')!;
 		const transfer = new DataTransfer();
 		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
 		fileInput.files = transfer.files;
 		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-		await expect.element(page.getByLabelText('Payment reference')).toHaveAttribute('readonly');
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(clearSession).toHaveBeenCalledOnce());

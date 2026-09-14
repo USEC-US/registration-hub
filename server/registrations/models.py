@@ -158,6 +158,11 @@ class RegistrationStatusEvent(models.Model):
 
 
 class PaymentIntent(models.Model):
+    transfer_content_template = models.TextField(blank=True, editable=False)
+    transfer_content_limit = models.PositiveSmallIntegerField(
+        default=100, editable=False
+    )
+    transfer_content = models.CharField(max_length=150, blank=True, editable=False)
     # Private claim token; the payment reference itself never grants access.
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     reference = models.CharField(max_length=14, unique=True, editable=False)

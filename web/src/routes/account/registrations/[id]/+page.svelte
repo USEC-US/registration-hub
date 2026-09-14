@@ -216,10 +216,14 @@
 			</Card.Root>
 		</div>
 
+		{#if registration.payment_reference}
+			<p class="mt-8 font-mono-data text-sm">
+				{m.field_payment_reference()}: {registration.payment_reference}
+			</p>
+		{/if}
 		{#if registration.payment_required}
 			<div class="mt-8">
 				<PaymentAttemptForm
-					paymentReference={registration.payment_reference}
 					registrationId={registration.id}
 					{accessToken}
 					initialAmount={registration.fee_amount_snapshot}

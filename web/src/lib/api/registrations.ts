@@ -44,21 +44,25 @@ export function submitPaymentAttempt(
 	);
 }
 
-export interface PaymentReference {
+export interface PaymentInstructions {
 	token: string;
-	reference: string;
+	transfer_content_template: string;
+	transfer_content_limit: number;
 	amount: string;
 	currency: string;
 }
-export function reservePaymentReference(gameId: number, token?: string) {
-	return requestJson<PaymentReference>('/payment-references/', {
+export function reservePaymentInstructions(gameId: number, token?: string) {
+	return requestJson<PaymentInstructions>('/payment-references/', {
 		method: 'POST',
 		body: { tournament_game: gameId, ...(token ? { token } : {}) }
 	});
 }
-export function getPaymentReference(accessToken: string, registrationId: number) {
-	return requestJson<{ reference: string }>(`/registrations/${registrationId}/payment-reference/`, {
-		method: 'POST',
-		accessToken
-	});
+export function getPaymentInstructions(accessToken: string, registrationId: number) {
+	return requestJson<{ transfer_content: string; transfer_content_limit: number }>(
+		`/registrations/${registrationId}/payment-instructions/`,
+		{
+			method: 'POST',
+			accessToken
+		}
+	);
 }

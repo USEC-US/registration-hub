@@ -18,6 +18,7 @@ from accounts.services.institutions import (
 from tournaments.models import TournamentGame
 
 from .payments import create_payment_intent
+from tournaments.payment_content import render_transfer_content
 from .images import prepare_payment_image
 from .models import (
     PaymentAttempt,
@@ -155,7 +156,7 @@ def submit_registration(
                 if not payment_intent:
                     raise ValidationError(
                         {
-                            "payment_intent_token": "Invalid or already used payment reference."
+                            "payment_intent_token": "Invalid or already used payment session."
                         }
                     )
                 if (
@@ -170,7 +171,7 @@ def submit_registration(
             elif submitted_by is None and tournament_game.fee_amount > 0:
                 raise ValidationError(
                     {
-                        "payment_intent_token": "Generate a payment reference before transferring and submitting proof."
+                        "payment_intent_token": "Load the transfer instructions before transferring and submitting proof."
                     }
                 )
             prepared = (
@@ -226,13 +227,6 @@ def submit_registration(
                 fee_amount_snapshot=tournament_game.fee_amount,
                 fee_currency_snapshot=tournament_game.fee_currency,
             )
-            if payment_intent:
-                payment_intent.registration = registration
-                payment_intent.save(update_fields=["registration"])
-            elif tournament_game.fee_amount > 0:
-                create_payment_intent(
-                    tournament_game=tournament_game, registration=registration
-                )
             RegistrationMember.objects.bulk_create(
                 [
                     RegistrationMember(
@@ -263,6 +257,24 @@ def submit_registration(
                     )
                 ]
             )
+            if payment_intent:
+                participant = (
+                    registration.team_tag
+                    or registration.members.order_by("display_order")
+                    .first()
+                    .gamer_tag_snapshot
+                )
+                payment_intent.transfer_content = render_transfer_content(
+                    payment_intent.transfer_content_template,
+                    participant,
+                    payment_intent.transfer_content_limit,
+                )
+                payment_intent.registration = registration
+                payment_intent.save(update_fields=["registration", "transfer_content"])
+            elif tournament_game.fee_amount > 0:
+                create_payment_intent(
+                    tournament_game=tournament_game, registration=registration
+                )
             RegistrationStatusEvent.objects.create(
                 registration=registration,
                 from_status="",

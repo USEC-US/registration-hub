@@ -11,7 +11,7 @@
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import RosterEditor from '$lib/components/registrations/RosterEditor.svelte';
 	import PaymentProofField from '$lib/components/registrations/PaymentProofField.svelte';
-	import PaymentReferenceField from '$lib/components/registrations/PaymentReferenceField.svelte';
+	import TransferContentField from '$lib/components/registrations/TransferContentField.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
@@ -445,12 +445,15 @@
 										: m.registration_proof_guest()}</FormField.Description
 								>
 								<FormField.Group>
-									{#key data.game.id}<PaymentReferenceField
+									{#key data.game.id}<TransferContentField
 											errorMessage={fieldErrors.payment_intent_token?.[0]}
 											gameId={data.game.id}
 											amount={data.game.fee_amount}
 											currency={data.game.fee_currency}
 											bind:token={paymentIntentToken}
+											participant={data.game.main_roster_size + data.game.substitute_limit > 1
+												? teamTag
+												: (members[0]?.gamer_tag_snapshot ?? '')}
 										/>{/key}
 									<PaymentProofField
 										required={!accessToken}
