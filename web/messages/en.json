@@ -290,5 +290,12 @@
 	"payment_proof_rejected": "Payment proof rejected. Check the staff note and replacement deadline.",
 	"payment_load_temporary": "Payment details could not be loaded. Your saved access is retained. Please try again.",
 	"payment_load_retry": "Try loading again",
-	"payment_terminal_contact": "If you already transferred money, contact the organizers with your registration reference and transfer proof before trying again."
+	"payment_terminal_contact": "If you already transferred money, contact the organizers with your registration reference and transfer proof before trying again.",
+	"stages_legacy_title": "Earlier payment instructions saved",
+	"stages_legacy_guidance": "This tab has earlier payment instructions. If you already transferred, contact the organizers with your proof instead of paying again. If you have not paid, explicitly start a new registration below. Saved submissions can still be recovered.",
+	"stages_legacy_start_unpaid": "I haven’t paid — start a new registration",
+	"stages_not_open": "Registration for this division has not opened yet.",
+	"stages_registration_closed": "Registration for this division has closed.",
+	"stages_full": "This division is full.",
+	"stages_payment_unavailable": "Payment is not ready for this division. Please contact the organizers before registering."
 }

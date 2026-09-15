@@ -66,6 +66,12 @@
 		warning = $state(false),
 		saved = $state(false);
 	let accessToken = $state<string | null>(null);
+	const legacyKey = `usec-payment-intent:${divisionId}`;
+	let legacyToken = $state<string | null>(null);
+	let legacyUnpaid = $state(false);
+	const legacyBlocked = $derived(Boolean(legacyToken) && !legacyUnpaid);
+	// This association is intentionally not a persisted unpaid declaration.
+	let legacyFreshCredential: string | null = null;
 	let context: ReturnType<typeof getRegistrationStorage> | undefined;
 	let restore = $state<RegistrationDraft | null>(null);
 	let entries = $state<SavedRegistrationAccess[]>([]);
@@ -103,11 +109,21 @@
 				: ['details', 'roster']
 			: ['details']
 	);
-	const available = $derived(
-		instanceData.game.is_registration_open &&
-			(instanceData.game.capacity_remaining === null || instanceData.game.capacity_remaining > 0) &&
-			(Number(instanceData.game.fee_amount) === 0 || instanceData.game.payment_available)
-	);
+	const unavailableMessage = $derived.by(() => {
+		const game = instanceData.game;
+		if (game.registration_state === 'not_open') return m.stages_not_open();
+		if (game.registration_state === 'closed') return m.stages_registration_closed();
+		if (
+			game.registration_state === 'full' ||
+			(game.capacity_remaining !== null && game.capacity_remaining <= 0)
+		)
+			return m.stages_full();
+		if (!game.is_registration_open) return m.stages_closed();
+		if (Number(game.fee_amount) !== 0 && !game.payment_available)
+			return m.stages_payment_unavailable();
+		return '';
+	});
+	const available = $derived(!unavailableMessage);
 	const returnTo = $derived(
 		encodeURIComponent(`${page.url.pathname}${page.url.search}${page.url.hash}`)
 	);
@@ -261,6 +277,11 @@
 		}
 	});
 	onMount(() => {
+		try {
+			legacyToken = sessionStorage.getItem(legacyKey);
+		} catch {
+			warning = true;
+		}
 		context = getRegistrationStorage();
 		restore = readDraft(context.storage, divisionId, Date.now());
 		refreshStorage();
@@ -291,6 +312,19 @@
 		};
 	});
 	async function report(result: RegistrationSubmissionResult) {
+		// Even a late success belongs to its original division. Never erase a newer
+		// token or an old quote merely because an unrelated saved entry resumed.
+		if (
+			result.status === 'submitted' &&
+			legacyToken &&
+			result.credential === legacyFreshCredential
+		) {
+			try {
+				if (sessionStorage.getItem(legacyKey) === legacyToken) sessionStorage.removeItem(legacyKey);
+			} catch {
+				// Conservative retention is safe when browser storage becomes unavailable.
+			}
+		}
 		if (!active) return;
 		refreshStorage();
 		if (result.status === 'submitted') {
@@ -345,12 +379,18 @@
 			const request = recoverRegistrationAttempt({
 				storage: context.storage,
 				entry,
+				allowReplay: !legacyBlocked,
 				currentActorId: authState.currentUser?.id ?? null,
 				accessToken,
 				turnstileToken: turnstileToken || null
 			});
 			turnstileWidget?.reset();
-			await report(await request);
+			const result = await request;
+			// A receipt (rather than a resumed session) confirms an explicitly allowed replay.
+			if (legacyUnpaid && result.status === 'submitted' && result.registration) {
+				legacyFreshCredential = result.credential;
+			}
+			await report(result);
 		} finally {
 			if (active) submitting = false;
 		}
@@ -361,7 +401,7 @@
 	}
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (submitting || !context) return;
+		if (submitting || !context || legacyBlocked) return;
 		if (pending) {
 			await recover(pending);
 			return;
@@ -407,7 +447,9 @@
 				turnstileToken
 			});
 			turnstileWidget?.reset();
-			await report(await request);
+			const result = await request;
+			if (legacyUnpaid) legacyFreshCredential = result.credential;
+			await report(result);
 		} finally {
 			if (active) submitting = false;
 		}
@@ -444,6 +486,20 @@
 	{#if confirmation}<h2>{m.registration_confirmed_heading()}</h2>
 		<p>{m.registration_reference({ id: confirmation.id })}</p>
 		<p>{m.registration_corrections()}</p>
+	{:else if legacyBlocked}<Alert.Root class="mb-6"
+			><Alert.Title>{m.stages_legacy_title()}</Alert.Title><Alert.Description
+				>{m.stages_legacy_guidance()}</Alert.Description
+			>
+			<Button
+				type="button"
+				variant="outline"
+				class="h-auto min-h-11 whitespace-normal"
+				disabled={submitting}
+				onclick={() => {
+					legacyUnpaid = true;
+				}}>{m.stages_legacy_start_unpaid()}</Button
+			></Alert.Root
+		>
 	{:else if restore}<Alert.Root
 			><Alert.Title>{m.stages_restore()}</Alert.Title><Alert.Description
 				>{m.stages_saved()}</Alert.Description
@@ -455,7 +511,7 @@
 				>
 			</div></Alert.Root
 		>
-	{:else if !available}<p role="status">{m.stages_closed()}</p>
+	{:else if !available}<p role="status">{unavailableMessage}</p>
 	{:else}
 		{#if !accessToken}<Alert.Root role="note" class="mb-6"
 				><Alert.Title>{m.registration_account_benefits_title()}</Alert.Title><Alert.Description

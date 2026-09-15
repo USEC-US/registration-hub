@@ -400,9 +400,73 @@ test('duplicate player is blocked until organizer rejection permits resubmission
 	} finally {
 		await organizerContext.close();
 	}
+	// A server validation error may return to details or roster; choose review explicitly.
+	await page.getByRole('button', { name: '3. Review registration', exact: true }).click();
 	const replacement = await submit(page);
 	expect(replacement.id).not.toBe(receipt.id);
 	await expect(
 		page.getByRole('heading', { name: 'Registration submitted', exact: true })
 	).toBeVisible();
+});
+
+test('migrated payment quote requires an unpaid choice and survives a lost response until confirmed recovery', async ({
+	page,
+	request
+}) => {
+	const path = await registrationUrl(request, 'solo-paid');
+	const divisionId = Number(path.split('/games/')[1].split('/')[0]);
+	const quoteResponse = await request.post(`${api}/api/payment-references/`, {
+		data: { tournament_game: divisionId }
+	});
+	expect(quoteResponse.ok()).toBeTruthy();
+	const oldToken = (await quoteResponse.json()).token;
+	const oldKey = `usec-payment-intent:${divisionId}`;
+	await page.goto('/en/auth/sign-in');
+	await page.evaluate(({ oldKey, oldToken }) => sessionStorage.setItem(oldKey, oldToken), {
+		oldKey,
+		oldToken
+	});
+	let submissions = 0;
+	let persistedId = 0;
+	await page.route(`${api}/api/registrations/submit/`, async (route) => {
+		submissions++;
+		const payload = route.request().postDataJSON();
+		expect(payload).not.toHaveProperty('payment_intent_token');
+		expect(payload).not.toHaveProperty('proof_file');
+		const response = await route.fetch();
+		expect(response.status()).toBe(201);
+		persistedId = (await response.json()).id;
+		await route.abort('failed');
+	});
+	await page.goto(path);
+	await expect(page.getByText('Earlier payment instructions saved', { exact: true })).toBeVisible();
+	await expect(
+		page.getByText(/If you already transferred, contact the organizers with your proof/)
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Submit registration', exact: true })).toHaveCount(
+		0
+	);
+	expect(submissions).toBe(0);
+	await page
+		.getByRole('button', { name: 'I haven’t paid — start a new registration', exact: true })
+		.click();
+	await fillContacts(page);
+	await fillRoster(page, ['LegacyMigration#ONE']);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+	const recovery = page
+		.locator('form')
+		.getByRole('button', { name: 'Recover pending submission', exact: true });
+	await expect(recovery).toBeVisible();
+	expect(await page.evaluate((key) => sessionStorage.getItem(key), oldKey)).toBe(oldToken);
+	await recovery.click();
+	await expect(page).toHaveURL(new RegExp(`/en/registrations/${persistedId}/payment$`));
+	expect(submissions).toBe(1);
+	expect(await page.evaluate((key) => sessionStorage.getItem(key), oldKey)).toBeNull();
+	// The old server-side quote is retained, still independently addressable.
+	const oldQuote = await request.post(`${api}/api/payment-references/`, {
+		data: { tournament_game: divisionId, token: oldToken }
+	});
+	expect(oldQuote.ok()).toBeTruthy();
+	expect((await oldQuote.json()).token).toBe(oldToken);
 });

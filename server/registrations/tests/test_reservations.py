@@ -282,3 +282,86 @@ class ReservationTests(TestCase):
         self.tournament_game.save()
         intent = reserve_payment_reference(tournament_game_id=self.tournament_game.pk)
         self.assertIsNotNone(intent.pk)
+
+
+class ReceiptQueryTests(TestCase):
+    setUp = test_api.RegistrationOwnershipApiTests.setUp
+    _create_registration = test_api.RegistrationOwnershipApiTests._create_registration
+
+    def test_multi_entry_account_receipts_use_one_payment_prefetch(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from rest_framework.test import APIClient
+
+        for status in ("PENDING", "VERIFIED", "REJECTED"):
+            entry = self._create_registration(self.owner)
+            entry.payment_due_at = timezone.now() - timedelta(minutes=1)
+            entry.save()
+            PaymentAttempt.objects.create(
+                registration=entry, amount=50000, currency="VND", status=status
+            )
+        self.registration.payment_due_at = timezone.now() - timedelta(minutes=1)
+        self.registration.save()
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+        with CaptureQueriesContext(connection) as captured:
+            response = client.get("/api/registrations/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 4)
+        self.assertEqual(
+            {item["payment_state"] for item in response.data},
+            {"UNPAID", "PENDING", "VERIFIED", "REJECTED"},
+        )
+        self.assertEqual(sum(item["expired"] for item in response.data), 2)
+        payment_queries = [
+            query["sql"]
+            for query in captured
+            if 'FROM "registrations_paymentattempt"' in query["sql"]
+        ]
+        self.assertEqual(len(payment_queries), 1, payment_queries)
+        self.assertLessEqual(len(captured), 4)
+
+    def test_service_state_is_fresh_after_upload_reject_and_replacement(self):
+        from registrations.reservations import payment_state
+
+        self.registration.payment_due_at = timezone.now() + timedelta(minutes=10)
+        self.registration.payment_hold_minutes_snapshot = 60
+        self.registration.save()
+        # A read-prefetched instance must not leak stale state into service locks.
+        cached = Registration.objects.prefetch_related("payment_attempts").get(
+            pk=self.registration.pk
+        )
+        self.assertEqual(payment_state(cached), "UNPAID")
+        attempt = submit_payment_attempt(
+            actor=self.owner,
+            registration_id=cached.pk,
+            amount=cached.fee_amount_snapshot,
+            currency="VND",
+            proof_file=payment_image(),
+        )
+        self.assertEqual(payment_state(attempt.registration), "PENDING")
+        self.owner.is_superuser = True
+        reviewed = review_payment_attempt(
+            actor=self.owner,
+            payment_attempt_id=attempt.pk,
+            status="REJECTED",
+            note="Unreadable",
+        )
+        self.assertEqual(payment_state(reviewed.registration), "REJECTED")
+        self.assertGreater(
+            reviewed.registration.payment_due_at, timezone.now() + timedelta(minutes=59)
+        )
+        replacement = submit_payment_attempt(
+            actor=self.owner,
+            registration_id=cached.pk,
+            amount=cached.fee_amount_snapshot,
+            currency="VND",
+            proof_file=payment_image(),
+        )
+        self.assertEqual(payment_state(replacement.registration), "PENDING")
+        verified = review_payment_attempt(
+            actor=self.owner, payment_attempt_id=replacement.pk, status="VERIFIED"
+        )
+        self.assertEqual(payment_state(verified.registration), "VERIFIED")
+        cached.refresh_from_db()
+        self.assertEqual(payment_state(cached), "VERIFIED")

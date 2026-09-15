@@ -9,6 +9,21 @@ from PIL import Image, ImageChops
 from registrations.vietqr import build_vietqr, crc16, render_vietqr_png
 
 
+def decode_tlv(payload):
+    fields = {}
+    offset = 0
+    while offset < len(payload):
+        tag = payload[offset : offset + 2]
+        length = int(payload[offset + 2 : offset + 4])
+        start = offset + 4
+        end = start + length
+        if len(tag) != 2 or end > len(payload) or tag in fields:
+            raise AssertionError("Malformed or duplicate TLV field")
+        fields[tag] = payload[start:end]
+        offset = end
+    return fields
+
+
 class VietQrTests(SimpleTestCase):
     def test_crc_known_vector(self):
         # CRC-16/CCITT-FALSE standard check value, derived independently of VietQR.
@@ -34,21 +49,23 @@ class VietQrTests(SimpleTestCase):
         exact_content = "A" * 25
         exact_payload, exact_includes_content = build_vietqr(
             bank_bin="970415",
-            account_number="0011001932418",
-            amount=Decimal("1"),
+            account_number="0062001932418",
+            amount=Decimal("62"),
             transfer_content=exact_content,
         )
         long_payload, long_includes_content = build_vietqr(
             bank_bin="970415",
-            account_number="0011001932418",
-            amount=Decimal("1"),
+            account_number="0062001932418",
+            amount=Decimal("62"),
             transfer_content="B" * 26,
         )
 
         self.assertTrue(exact_includes_content)
-        self.assertIn("0825" + exact_content, exact_payload)
+        self.assertEqual(
+            decode_tlv(decode_tlv(exact_payload)["62"])["08"], exact_content
+        )
         self.assertFalse(long_includes_content)
-        self.assertNotIn("62", long_payload[:-8])
+        self.assertNotIn("62", decode_tlv(long_payload))
 
     def test_non_ascii_content_is_omitted_without_replacement(self):
         payload, includes_content = build_vietqr(

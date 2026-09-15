@@ -33,6 +33,8 @@ export interface RegistrationRecoveryAttemptInput {
 	currentActorId: number | null;
 	accessToken: string | null;
 	turnstileToken: string | null;
+	// A migrated browser may recover a committed entry before deciding to start unpaid.
+	allowReplay?: boolean;
 	resume?: ResumeClient;
 	submit?: SubmitClient;
 }
@@ -159,6 +161,8 @@ export async function recoverRegistrationAttempt(
 			return { status: 'resolution-required', credential, error };
 		}
 	}
+
+	if (input.allowReplay === false) return { status: 'resolution-required', credential };
 
 	if (entry.actorId !== input.currentActorId) {
 		return {

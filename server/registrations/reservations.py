@@ -25,7 +25,16 @@ def active_registrations(*, now: datetime) -> QuerySet[Registration]:
 def payment_state(registration: Registration) -> str:
     if registration.fee_amount_snapshot <= 0:
         return "NOT_REQUIRED"
-    statuses = set(registration.payment_attempts.values_list("status", flat=True))
+    # Receipt queries prefetch these objects. Unprefetched service locks still read
+    # current database state on every call, including immediately after mutations.
+    prefetched = getattr(registration, "_prefetched_objects_cache", {}).get(
+        "payment_attempts"
+    )
+    statuses = (
+        {attempt.status for attempt in prefetched}
+        if prefetched is not None
+        else set(registration.payment_attempts.values_list("status", flat=True))
+    )
     return next(
         (
             status

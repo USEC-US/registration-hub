@@ -1,6 +1,5 @@
 """Run Django for browser tests with a disposable PostgreSQL database and media."""
 
-import json
 import os
 import secrets
 from pathlib import Path
@@ -10,6 +9,8 @@ from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from e2e.fixtures import write_private_fixture
+
 os.environ["DJANGO_SETTINGS_MODULE"] = "config.settings"
 os.environ["DEBUG"] = "true"
 os.environ["TURNSTILE_SECRET_KEY"] = ""
@@ -130,18 +131,17 @@ def seed():
                 payment_due_at=timezone.now() - timedelta(seconds=1)
             )
             fixture_path = Path("/tmp/hcmusec-registration-journey-fixture.json")
-            fixture_path.write_text(
-                json.dumps(
-                    {
-                        "version": 1,
-                        "gameId": division.pk,
-                        "credential": credential,
-                        "attemptState": "submitted",
-                        "registrationId": registration_id,
-                    }
-                )
+            write_private_fixture(
+                fixture_path,
+                {
+                    "version": 1,
+                    "gameId": division.pk,
+                    "credential": credential,
+                    "attemptState": "submitted",
+                    "registrationId": registration_id,
+                },
             )
-            fixture_path.chmod(0o600)
+            return fixture_path
 
 
 def main():
@@ -157,6 +157,7 @@ def main():
     connection.settings_dict["TEST"]["NAME"] = database_name
     original_name = connection.settings_dict["NAME"]
     created = False
+    fixture_path = None
 
     def stop(_signal, _frame):
         raise SystemExit(0)
@@ -168,13 +169,12 @@ def main():
         try:
             connection.creation.create_test_db(verbosity=0, autoclobber=False)
             created = True
-            seed()
+            fixture_path = seed()
             print(f"Browser fixture database ready: {database_name}", flush=True)
             call_command("runserver", "127.0.0.1:8015", use_reloader=False)
         finally:
-            Path("/tmp/hcmusec-registration-journey-fixture.json").unlink(
-                missing_ok=True
-            )
+            if fixture_path is not None:
+                fixture_path.unlink(missing_ok=True)
             connections.close_all()
             if created or connection.settings_dict["NAME"] == database_name:
                 connection.creation.destroy_test_db(original_name, verbosity=0)

@@ -20,7 +20,12 @@ import {
 	submitSavedRegistration,
 	resumeRegistration
 } from '$lib/api/registrations';
-import type { PublicTournament, PublicTournamentGame, RegistrationRead } from '$lib/api/types';
+import type {
+	PublicTournament,
+	PublicTournamentGame,
+	RegistrationRead,
+	RegistrationPaymentSession
+} from '$lib/api/types';
 import { clearSession, getAccessToken } from '$lib/auth/session';
 import { replaceInternalLocation } from '$lib/auth/navigation';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
@@ -147,6 +152,7 @@ beforeEach(() => {
 	sessionStorage.clear();
 	localStorage.clear();
 	vi.mocked(submitSavedRegistration).mockReset().mockResolvedValue(registration);
+	vi.mocked(resumeRegistration).mockReset();
 	vi.mocked(getAccessToken).mockReturnValue(null);
 	overwriteGetLocale(() => 'en');
 	mockPage.url = new URL('https://usec.test/tournaments/usec-summer-2026/games/10/register');
@@ -225,6 +231,10 @@ describe('registration stages', () => {
 		await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/registrations/33/payment'));
 		expect(submitSavedRegistration).toHaveBeenCalledOnce();
+		expect(vi.mocked(submitSavedRegistration).mock.calls[0][1]).not.toHaveProperty(
+			'payment_intent_token'
+		);
+		expect(vi.mocked(submitSavedRegistration).mock.calls[0][1]).not.toHaveProperty('proof_file');
 		expect(localStorage.getItem('usec-registration-draft:v1:10')).toBeNull();
 	});
 });
@@ -531,4 +541,264 @@ it('flushes original instance rules even if incoming props change before wizard 
 	expect(oldDraft.fields.team_name).toBe('Unflushed team');
 	expect(oldDraft.fields.team_tag).toBe('KEEP');
 	expect(localStorage.getItem('usec-registration-draft:v1:11')).toBeNull();
+});
+
+const legacyKey = 'usec-payment-intent:10';
+const legacyToken = 'old-possibly-paid-token';
+const unpaidChoice = 'I haven’t paid — start a new registration';
+const legacyGuidance =
+	'This tab has earlier payment instructions. If you already transferred, contact the organizers with your proof instead of paying again. If you have not paid, explicitly start a new registration below. Saved submissions can still be recovered.';
+async function completeReview() {
+	await fillDetails();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	for (let index = 0; index < 2; index++) {
+		await page.getByLabelText('Gamer tag').nth(index).fill(`legacy-player${index}`);
+		await chooseInstitution(index);
+	}
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+}
+function recoveredSession(): RegistrationPaymentSession {
+	return { registration } as RegistrationPaymentSession;
+}
+
+it('guards the real route with organizer guidance before any fresh submission and retains failed legacy replacement', async () => {
+	sessionStorage.setItem(legacyKey, legacyToken);
+	vi.mocked(submitSavedRegistration).mockRejectedValue(
+		new ApiRequestError(400, 'Invalid', { members: ['Roster invalid.'] })
+	);
+	mountGame();
+	await expect.element(page.getByText(legacyGuidance)).toBeVisible();
+	await expect.element(page.getByLabelText('Team name')).not.toBeInTheDocument();
+	expect(submitSavedRegistration).not.toHaveBeenCalled();
+	await page.getByRole('button', { name: unpaidChoice }).click();
+	await completeReview();
+	await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+	await expect.element(page.getByText('Roster invalid.').first()).toBeVisible();
+	expect(sessionStorage.getItem(legacyKey)).toBe(legacyToken);
+});
+
+it('clears only the old division token after the explicit fresh flow succeeds without sending old proof or token', async () => {
+	sessionStorage.setItem(legacyKey, legacyToken);
+	sessionStorage.setItem('usec-payment-intent:11', 'other-token');
+	mountGame();
+	await page.getByRole('button', { name: unpaidChoice }).click();
+	await completeReview();
+	await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+	await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/registrations/33/payment'));
+	expect(sessionStorage.getItem(legacyKey)).toBeNull();
+	expect(sessionStorage.getItem('usec-payment-intent:11')).toBe('other-token');
+	const submitted = vi.mocked(submitSavedRegistration).mock.calls[0][1];
+	expect(submitted).not.toHaveProperty('payment_intent_token');
+	expect(submitted).not.toHaveProperty('proof_file');
+});
+
+it('does not carry an unpaid decision across reload or division navigation', async () => {
+	sessionStorage.setItem(legacyKey, legacyToken);
+	sessionStorage.setItem('usec-payment-intent:11', 'other-token');
+	const first = mountGame();
+	await page.getByRole('button', { name: unpaidChoice }).click();
+	await first.unmount();
+	const second = mountGame();
+	await expect.element(page.getByText(legacyGuidance)).toBeVisible();
+	await page.getByRole('button', { name: unpaidChoice }).click();
+	await second.rerender({
+		data: { tournament, game: { ...game, id: 11 }, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+		params: { slug: tournament.slug, gameId: '11' }
+	});
+	await expect.element(page.getByText(legacyGuidance)).toBeVisible();
+	await second.rerender({
+		data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+		params: { slug: tournament.slug, gameId: '10' }
+	});
+	await expect.element(page.getByText(legacyGuidance)).toBeVisible();
+	expect(sessionStorage.getItem(legacyKey)).toBe(legacyToken);
+	expect(submitSavedRegistration).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+	'retains an uncertain legacy flow until confirmed recovery, with reload=%s',
+	async (reload) => {
+		sessionStorage.setItem(legacyKey, legacyToken);
+		vi.mocked(submitSavedRegistration).mockRejectedValue(new Error('Lost response'));
+		vi.mocked(resumeRegistration).mockResolvedValue(recoveredSession());
+		const first = mountGame();
+		await page.getByRole('button', { name: unpaidChoice }).click();
+		await completeReview();
+		await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+		await expect
+			.element(page.getByRole('button', { name: 'Recover pending submission' }).first())
+			.toBeVisible();
+		expect(sessionStorage.getItem(legacyKey)).toBe(legacyToken);
+		if (reload) {
+			await first.unmount();
+			mountGame();
+			await expect.element(page.getByText(legacyGuidance)).toBeVisible();
+		}
+		await page.getByRole('button', { name: 'Recover pending submission' }).first().click();
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/registrations/33/payment'));
+		expect(submitSavedRegistration).toHaveBeenCalledOnce();
+		expect(sessionStorage.getItem(legacyKey)).toBe(reload ? legacyToken : null);
+	}
+);
+
+it.each([false, true])(
+	'allows read-only recovery but guards a missing submission replay after reload, lost replay=%s',
+	async (lostReplay) => {
+		sessionStorage.setItem(legacyKey, legacyToken);
+		vi.mocked(submitSavedRegistration).mockRejectedValue(new Error('Lost response'));
+		vi.mocked(resumeRegistration).mockRejectedValue(new ApiRequestError(404, 'Missing'));
+		const first = mountGame();
+		await page.getByRole('button', { name: unpaidChoice }).click();
+		await completeReview();
+		await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+		await expect
+			.element(page.getByRole('button', { name: 'Recover pending submission' }).first())
+			.toBeVisible();
+		await first.unmount();
+		localStorage.removeItem('usec-registration-draft:v1:10');
+		mountGame();
+		await page.getByRole('button', { name: 'Recover pending submission' }).first().click();
+		await vi.waitFor(() => expect(resumeRegistration).toHaveBeenCalledOnce());
+		expect(submitSavedRegistration).toHaveBeenCalledOnce();
+		expect(sessionStorage.getItem(legacyKey)).toBe(legacyToken);
+		await page.getByRole('button', { name: unpaidChoice }).click();
+		if (lostReplay)
+			vi.mocked(submitSavedRegistration).mockRejectedValue(new Error('Lost replay response'));
+		else vi.mocked(submitSavedRegistration).mockResolvedValue(registration);
+		await page.getByRole('button', { name: 'Recover pending submission' }).last().click();
+		await vi.waitFor(() => expect(submitSavedRegistration).toHaveBeenCalledTimes(2));
+		if (lostReplay) {
+			expect(sessionStorage.getItem(legacyKey)).toBe(legacyToken);
+			vi.mocked(resumeRegistration).mockResolvedValue(recoveredSession());
+			await page.getByRole('button', { name: 'Recover pending submission' }).last().click();
+		}
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/registrations/33/payment'));
+		expect(sessionStorage.getItem(legacyKey)).toBe(lostReplay ? legacyToken : null);
+	}
+);
+
+it('does not erase a changed legacy token when the explicitly chosen submission finishes', async () => {
+	sessionStorage.setItem(legacyKey, legacyToken);
+	vi.mocked(submitSavedRegistration).mockImplementation(async () => {
+		sessionStorage.setItem(legacyKey, 'newer-token');
+		return registration;
+	});
+	mountGame();
+	await page.getByRole('button', { name: unpaidChoice }).click();
+	await completeReview();
+	await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+	await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/registrations/33/payment'));
+	expect(sessionStorage.getItem(legacyKey)).toBe('newer-token');
+});
+
+it('retains an old quote when an unrelated saved entry resumes even after an unpaid choice', async () => {
+	sessionStorage.setItem(legacyKey, legacyToken);
+	const credential = 'ab'.repeat(32);
+	localStorage.setItem(
+		`usec-registration-access:v1:${credential}`,
+		JSON.stringify({
+			version: 1,
+			gameId: 10,
+			credential,
+			attemptState: 'uncertain',
+			registrationId: null,
+			actorId: null,
+			submittedPayload: {
+				tournament_game: 10,
+				team_name: 'Earlier team',
+				team_tag: 'OLD',
+				submitter_role: 'captain',
+				contact_facebook_snapshot: 'facebook.com/earlier',
+				contact_phone_snapshot: '0901234567',
+				members: []
+			}
+		})
+	);
+	vi.mocked(resumeRegistration).mockResolvedValue(recoveredSession());
+	mountGame();
+	await page.getByRole('button', { name: unpaidChoice }).click();
+	await page.getByRole('button', { name: 'Recover pending submission' }).first().click();
+	await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/en/registrations/33/payment'));
+	expect(submitSavedRegistration).not.toHaveBeenCalled();
+	expect(sessionStorage.getItem(legacyKey)).toBe(legacyToken);
+});
+
+it.each([
+	['not_open', false, null, 'Registration for this division has not opened yet.'],
+	['closed', false, null, 'Registration for this division has closed.'],
+	['full', true, null, 'This division is full.'],
+	['open', true, 0, 'This division is full.'],
+	[
+		'open',
+		true,
+		null,
+		'Payment is not ready for this division. Please contact the organizers before registering.'
+	]
+] as const)(
+	'explains availability for state=%s open=%s capacity=%s',
+	async (state, open, capacity, message) => {
+		mountGame({
+			registration_state: state,
+			is_registration_open: open,
+			capacity_remaining: capacity,
+			payment_available: false
+		});
+		await expect
+			.element(page.getByText(m.registration_loading(), { exact: true }))
+			.not.toBeInTheDocument();
+		expect(document.body.textContent).toContain(message);
+		await expect.element(page.getByLabelText('Team name')).not.toBeInTheDocument();
+		expect(submitSavedRegistration).not.toHaveBeenCalled();
+	}
+);
+
+it('explains payment availability in Vietnamese without claiming registration is closed', async () => {
+	overwriteGetLocale(() => 'vi');
+	mountGame({ payment_available: false });
+	await expect
+		.element(page.getByText(m.registration_loading(), { exact: true }))
+		.not.toBeInTheDocument();
+	expect(document.body.textContent).toContain(
+		'Thanh toán cho nội dung này chưa sẵn sàng. Vui lòng liên hệ ban tổ chức trước khi đăng ký.'
+	);
+});
+
+it('keeps free registration available when payment setup is unavailable', async () => {
+	mountGame({ fee_amount: '0.00', payment_available: false });
+	await expect.element(page.getByLabelText('Team name')).toBeVisible();
+	await fillDetails();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect.element(page.getByLabelText('Gamer tag').first()).toBeVisible();
+});
+
+it('keeps saved access and draft restoration ahead of the payment availability notice', async () => {
+	const first = mountGame();
+	await fillDetails();
+	await first.unmount();
+	localStorage.setItem(
+		`usec-registration-access:v1:${'ab'.repeat(32)}`,
+		JSON.stringify({
+			version: 1,
+			gameId: 10,
+			credential: 'ab'.repeat(32),
+			registrationId: 33,
+			attemptState: 'submitted'
+		})
+	);
+	const draft = localStorage.getItem('usec-registration-draft:v1:10');
+	mountGame({ payment_available: false });
+	await expect
+		.element(page.getByRole('link', { name: 'View registration 33 / payment' }))
+		.toBeVisible();
+	await expect.element(page.getByText('Continue your saved draft?')).toBeVisible();
+	expect(localStorage.getItem('usec-registration-draft:v1:10')).toBe(draft);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect
+		.element(
+			page.getByText(
+				'Payment is not ready for this division. Please contact the organizers before registering.',
+				{ exact: true }
+			)
+		)
+		.toBeVisible();
 });

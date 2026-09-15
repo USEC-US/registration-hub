@@ -290,5 +290,12 @@
 	"payment_proof_rejected": "Minh chứng thanh toán bị từ chối. Kiểm tra ghi chú và hạn nộp lại.",
 	"payment_load_temporary": "Không thể tải thông tin thanh toán. Quyền truy cập đã lưu vẫn được giữ. Vui lòng thử lại.",
 	"payment_load_retry": "Thử tải lại",
-	"payment_terminal_contact": "Nếu đã chuyển tiền, hãy liên hệ ban tổ chức kèm mã đăng ký và minh chứng chuyển khoản trước khi thử đăng ký lại."
+	"payment_terminal_contact": "Nếu đã chuyển tiền, hãy liên hệ ban tổ chức kèm mã đăng ký và minh chứng chuyển khoản trước khi thử đăng ký lại.",
+	"stages_legacy_title": "Có hướng dẫn chuyển khoản trước đó",
+	"stages_legacy_guidance": "Thẻ này có hướng dẫn chuyển khoản trước đó. Nếu đã chuyển tiền, hãy liên hệ ban tổ chức kèm minh chứng thay vì chuyển lại. Nếu chưa thanh toán, hãy chọn bắt đầu đăng ký mới bên dưới. Bạn vẫn có thể khôi phục các đăng ký đã lưu.",
+	"stages_legacy_start_unpaid": "Tôi chưa thanh toán — bắt đầu đăng ký mới",
+	"stages_not_open": "Nội dung này chưa đến thời gian mở đăng ký.",
+	"stages_registration_closed": "Nội dung này đã đóng đăng ký.",
+	"stages_full": "Nội dung này đã đủ số lượng đăng ký.",
+	"stages_payment_unavailable": "Thanh toán cho nội dung này chưa sẵn sàng. Vui lòng liên hệ ban tổ chức trước khi đăng ký."
 }
