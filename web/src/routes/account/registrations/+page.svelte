@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { paymentStatusMessage } from '$lib/registrations/payment-status';
 	import { dateLocale, NUMERIC_DATE_OPTIONS } from '$lib/time/date-format';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -40,6 +41,8 @@
 
 	function statusLabel(status: RegistrationStatus): string {
 		switch (status) {
+			case 'EXPIRED':
+				return m.status_EXPIRED();
 			case 'SUBMITTED':
 				return m.status_SUBMITTED();
 			case 'UNDER_REVIEW':
@@ -190,6 +193,18 @@
 					</Card.Footer>
 				</Card.Root>
 			</a>
+			<a
+				class="text-sm underline"
+				href={resolve(localizeInternalHref(`/registrations/${registration.id}/payment`))}
+				>{m.payment_page()}</a
+			>
+			<p class="text-sm">
+				{paymentStatusMessage(
+					registration.payment_state,
+					registration.expired,
+					registration.status
+				)}
+			</p>
 		{/each}
 	</section>
 {/if}

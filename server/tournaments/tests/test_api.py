@@ -114,6 +114,9 @@ class PublicTournamentApiTests(APITestCase):
         self.assertTrue(game_data["is_registration_open"])
 
     def test_detail_query_count_does_not_grow_with_tournament_games(self):
+        from registrations.tests.payment_settings import configure_test_payments
+
+        configure_test_payments()
         second_game = Game.objects.create(name="League of Legends", slug="lol")
         TournamentGame.objects.create(
             tournament=self.published,
@@ -127,7 +130,8 @@ class PublicTournamentApiTests(APITestCase):
             fee_currency="VND",
         )
 
-        with self.assertNumQueries(2):
+        # Tournament, all divisions, and one shared site-settings lookup.
+        with self.assertNumQueries(3):
             response = self.client.get("/api/tournaments/usec-summer-2026/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

@@ -1,7 +1,8 @@
 import uuid
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -19,6 +20,7 @@ class Registration(models.Model):
         UNDER_REVIEW = "UNDER_REVIEW", "Under review"
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
+        EXPIRED = "EXPIRED", "Expired"
 
     tournament_game = models.ForeignKey(
         TournamentGame, on_delete=models.PROTECT, related_name="registrations"
@@ -43,6 +45,12 @@ class Registration(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices)
     fee_amount_snapshot = models.DecimalField(max_digits=12, decimal_places=2)
     fee_currency_snapshot = models.CharField(max_length=3)
+    payment_due_at = models.DateTimeField(null=True, blank=True)
+    payment_hold_minutes_snapshot = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(15), MaxValueValidator(1440)],
+    )
     submitted_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -178,4 +186,64 @@ class PaymentIntent(models.Model):
     )
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=3)
+    bank_name_snapshot = models.CharField(max_length=100, blank=True, editable=False)
+    bank_bin_snapshot = models.CharField(max_length=6, blank=True, editable=False)
+    account_number_snapshot = models.CharField(
+        max_length=19, blank=True, editable=False
+    )
+    account_holder_snapshot = models.CharField(
+        max_length=160, blank=True, editable=False
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PaymentSettings(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    enabled = models.BooleanField(default=False)
+    bank_name = models.CharField(max_length=100, blank=True, default="")
+    bank_bin = models.CharField(max_length=6, blank=True, default="")
+    account_number = models.CharField(max_length=19, blank=True, default="")
+    account_holder = models.CharField(max_length=160, blank=True, default="")
+    payment_hold_minutes = models.PositiveSmallIntegerField(
+        default=60,
+        validators=[MinValueValidator(15), MaxValueValidator(1440)],
+    )
+
+    class Meta:
+        verbose_name_plural = "payment settings"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(id=1), name="payment_settings_singleton_identity"
+            ),
+            models.CheckConstraint(
+                condition=Q(payment_hold_minutes__range=(15, 1440)),
+                name="payment_settings_hold_minutes_range",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if not self.enabled:
+            return
+        from .payment_settings import payment_destination_errors
+
+        errors = payment_destination_errors(
+            bank_name=self.bank_name,
+            bank_bin=self.bank_bin,
+            account_number=self.account_number,
+            account_holder=self.account_holder,
+        )
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        return "Receiving bank settings"
+
+
+class RegistrationAccess(models.Model):
+    registration = models.OneToOneField(
+        Registration, on_delete=models.CASCADE, related_name="saved_access"
+    )
+    credential_hash = models.CharField(max_length=64, unique=True, editable=False)
+    request_digest = models.CharField(max_length=64, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)

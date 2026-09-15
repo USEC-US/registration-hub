@@ -1,6 +1,6 @@
 # Payment proof images
 
-New submissions require a still JPEG, PNG, or WebP image, at most 10 MiB and
+Payment proof uploads require a still JPEG, PNG, or WebP image, at most 10 MiB and
 20 megapixels. References are optional. The backend decodes and re-encodes
 accepted images, removes metadata and trailing bytes, and generates filenames.
 Existing payment records remain readable. Development seeds now include images
@@ -27,3 +27,7 @@ Set the upload request body limit above the file limit to allow multipart
 overhead, for example `client_max_body_size 11m`. The application enforces the
 10 MiB file limit; the proxy bounds total request size. Keep this rule on both
 the API host and any host proxying the Django admin.
+
+Both guests and signed-in participants submit registration before uploading proof on the saved payment page. The private `/api/registrations/{id}/payment-proof/` route accepts the entry-scoped access header or submitter JWT and a fresh Turnstile challenge. Legacy multipart initial proof remains compatible. Pending/verified proof protects the reservation; expiry and replacement guards are enforced on the backend. See [reservation operations](payment-reservations.md). Guest saved access does not make proof downloads public or grant a generic media credential.
+
+The development seed uses fictional destination snapshots only inside its command-owned fixtures and restores existing bank configuration atomically, including disabled state and hold duration. It does not leave fictional receiving settings enabled.

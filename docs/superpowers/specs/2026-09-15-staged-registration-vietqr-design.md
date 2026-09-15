@@ -2,9 +2,9 @@
 
 Date: 2026-09-15
 
-Status: Proposed design for final review. The staged flow, automatic browser
-saving, submission before payment, configurable 60-minute payment hold, and QR
-fallback for long transfer text are agreed.
+Status: Approved on 2026-09-15 and implemented on the feature branch. Final
+whole-branch review is pending; deployment activation, authorized bank-app scan,
+and deployed scheduler checks remain operational acceptance steps.
 
 ## Purpose and scope
 

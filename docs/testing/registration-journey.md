@@ -11,9 +11,9 @@ The suite starts Django on `127.0.0.1:8015` and Svelte on `127.0.0.1:4175`. Both
 
 The test fixture accounts use reserved `.test` email addresses and a fixed test password, and exist only in that disposable database. The organizer fixture has the actual `Organizers` permissions rather than superuser access.
 
-Application API requests are real: the suite does not intercept registration, catalogue, account, payment, or admin responses. It uses the existing development Turnstile bypass so it can run unattended; backend tests separately cover challenge rejection and side effects. It does not verify the live Cloudflare challenge service.
+Application API requests are real. The lost-response test alone forwards an actual registration submission to Django, then drops its browser response and recovers the same committed ID using the saved credential; it does not stub persistence or API payloads. It uses the existing development Turnstile bypass so it can run unattended; backend tests separately cover challenge rejection and side effects. It does not verify the live Cloudflare challenge service.
 
-The browser journeys cover guest captain and manager teams, solo registration, signed-in registration and later proof upload, initial paid guest proof and private downloads, organizer payment verification and registration approval, duplicate rejection, and organizer rejection followed by corrected resubmission. A JavaScript-disabled browser also verifies that credential forms use POST and keep submission disabled before hydration. Backend tests additionally cover concurrency, snapshot preservation after institution rename, required contacts, invalid proof, and rollback cleanup.
+The nine browser journeys cover free guest captain and manager teams with a substitute representative, solo registration, signed-in payment via the account page, paid guest return in a new tab, pending proof, staff rejection and replacement, private proof downloads, separate payment verification and eligibility approval, lost-response recovery, expired-entry retry, and duplicate rejection followed by organizer rejection and resubmission. A JavaScript-disabled browser also verifies that credential forms use POST and keep submission disabled before hydration. Backend tests additionally cover concurrency, snapshot preservation after institution rename, required contacts, invalid proof, and rollback cleanup.
 
 Run backend verification from `server/`:
 
@@ -27,16 +27,34 @@ The placeholder key satisfies the Django test runner's configuration check. Test
 
 Player duplicate detection uses the normalized submitted game identifier and institution within a division. This is a claim check, not verified game-account ownership. Riot ID variants and Steam profile URLs/IDs are not resolved to a shared platform identity.
 
-## Verified on 2026-09-12
+## Staged payment acceptance (2026-09-15)
 
-- Django: 136 tests passed, including concurrent duplicate submission against PostgreSQL.
-- Vitest: 206 tests passed across 32 files.
-- Real Django/PostgreSQL Playwright suite: seven tests passed.
-- Existing mocked public-navigation Playwright suite: three tests passed.
-- Production build, Svelte checks, changed-file ESLint/Prettier, Ruff, migration consistency, and Django system checks passed.
-- Disposable browser-test databases were confirmed removed after shutdown.
+The disposable database contains a clearly labeled fictional receiving destination. Never send money to it. An expired fixture is created through the real submission API, then only its database deadline is moved into the past. Its random credential is transferred through a mode-0600 temporary file removed on shutdown. No production endpoint or browser clock manipulation advances Django time.
 
-The full Vitest run emits a `wrapDynamicImport` diagnostic from Vitest's browser import transform reaching SvelteKit's Node test-server middleware. It predates the new auth SSR tests; all test assertions pass. The real Django browser suite and production build also pass. This test-tooling diagnostic is not counted as a failed application journey.
+Required commands, from `server/`:
+
+```sh
+TURNSTILE_SECRET_KEY=test-only-key .venv/bin/python manage.py test --keepdb --noinput
+TURNSTILE_SECRET_KEY=test-only-key .venv/bin/python manage.py makemigrations --check --dry-run
+TURNSTILE_SECRET_KEY=test-only-key .venv/bin/python manage.py check
+.venv/bin/ruff check .
+```
+
+From `web/`, run sequentially because these tools share generated SvelteKit/Paraglide artifacts:
+
+```sh
+pnpm check
+PLAYWRIGHT_BROWSERS_PATH=/tmp/hcmusec-playwright pnpm exec vitest run
+PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA PLAYWRIGHT_BROWSERS_PATH=/tmp/hcmusec-playwright pnpm exec playwright test
+PLAYWRIGHT_BROWSERS_PATH=/tmp/hcmusec-playwright pnpm exec playwright test --config playwright.django.config.ts
+PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA pnpm build
+```
+
+The browser-cache prefix above is the implementation environment's installed Chromium location; omit it when using a normal Playwright installation. The default Playwright suite builds the application and therefore also requires the test-only Turnstile key. Environment files remain unchanged. Missing browsers, restricted local sockets, or package-cache permissions are environment prerequisites, not product test failures.
+
+Verification: 248 Django tests, 292 Vitest tests across 40 files, nine real Django browser journeys, and three public-navigation Playwright tests pass. Production build, Svelte checks, migration consistency, Django system checks, Ruff, and changed-file ESLint/Prettier pass. The two baseline auth SSR failures were repaired by supplying SvelteKit page context in the test, preserving assertions on real SSR output. Development seed regressions verify existing configured/disabled bank settings and hold duration survive reruns and failed seeding. Full results and exact logs are in the Task 6 implementation report.
+
+Sequential Vitest still emits the known `wrapDynamicImport` diagnostic from generated SvelteKit hooks, while all assertions pass. Real Django journeys emit existing Paraglide sourcemap and terminal-color warnings. These diagnostics are distinguished from application acceptance. A real banking-app scan, authorized destination verification, and deployed expiry scheduler checks remain operational acceptance steps; no real transfer or scheduler activation was performed.
 
 ## Main roster and substitutes
 
@@ -58,4 +76,4 @@ The four identity fields are stored on `RegistrationMember` as snapshots, separa
 
 The additive migrations leave unknown historical names/Student IDs blank and birth dates null. They never infer player names from gamer tags or account profiles. Backend tests cover conditional requirements, malformed/future dates, leading zeroes, guest privacy, rollback, and historical migration. Browser tests cover both policy settings and retaining identity values after institution selection; the real Django suite submits student-only entries and checks their identity details in organizer admin.
 
-Verification after adding player identity: 154 Django tests, 209 Vitest tests, and seven real Django browser journeys passed. Svelte, lint, migration consistency, Django system checks, and the production build passed. The build used a Turnstile test site key; environment files were unchanged. Both new migrations have been applied to the local development database.
+Verification after adding player identity: 154 Django tests, 209 Vitest tests, and seven real Django browser journeys passed. Svelte, lint, migration consistency, Django system checks, and the production build passed. The build used a Turnstile test site key; environment files were unchanged. That historical verification predates this staged-payment change; this implementation applied migrations only to disposable/test databases.

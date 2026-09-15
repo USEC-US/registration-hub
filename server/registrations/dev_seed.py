@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from datetime import date
 import json
 from dataclasses import dataclass
@@ -17,7 +18,13 @@ from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
 from tournaments.models import Game, Tournament, TournamentGame
 
-from .models import PaymentAttempt, PaymentIntent, Registration, RegistrationStatusEvent
+from .models import (
+    PaymentAttempt,
+    PaymentIntent,
+    PaymentSettings,
+    Registration,
+    RegistrationStatusEvent,
+)
 from .services import (
     RegistrationMemberInput,
     approve_registration,
@@ -631,15 +638,47 @@ def _rebuild_registrations(
     return valorant, chess, counter_strike, rocket_league
 
 
+@contextmanager
+def _development_payment_destination():
+    """Use fictional snapshots only for this command's fixtures, never public settings.
+
+    The outer transaction and row lock keep temporary configuration invisible and
+    preserve concurrent operator edits. Errors roll back the entire fixture build.
+    """
+    with transaction.atomic():
+        destination, created = (
+            PaymentSettings.objects.select_for_update().get_or_create(pk=1)
+        )
+        original = {
+            field.attname: getattr(destination, field.attname)
+            for field in PaymentSettings._meta.concrete_fields
+            if not field.primary_key
+        }
+        PaymentSettings.objects.filter(pk=destination.pk).update(
+            enabled=True,
+            bank_name="DEVELOPMENT SAMPLE - NOT A RECEIVING BANK",
+            bank_bin="970436",
+            account_number="000000000000",
+            account_holder="DEVELOPMENT SAMPLE DO NOT PAY",
+            payment_hold_minutes=60,
+        )
+        yield
+        if created:
+            destination.delete()
+        else:
+            PaymentSettings.objects.filter(pk=destination.pk).update(**original)
+
+
 def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
     player, organizer, admin = _seed_accounts()
     catalog = _seed_catalog(now=now)
-    registrations = _rebuild_registrations(
-        now=now,
-        player=player,
-        organizer=organizer,
-        catalog=catalog,
-    )
+    with _development_payment_destination():
+        registrations = _rebuild_registrations(
+            now=now,
+            player=player,
+            organizer=organizer,
+            catalog=catalog,
+        )
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),

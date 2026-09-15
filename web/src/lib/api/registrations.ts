@@ -1,5 +1,9 @@
 import { requestJson } from './client';
-import type { RegistrationRead, RegistrationSubmissionPayload } from './types';
+import type {
+	RegistrationPaymentSession,
+	RegistrationRead,
+	RegistrationSubmissionPayload
+} from './types';
 
 export function listRegistrations(accessToken: string) {
 	return requestJson<RegistrationRead[]>('/registrations/', { accessToken });
@@ -28,6 +32,58 @@ export function submitRegistration(
 		method: 'POST',
 		accessToken,
 		body
+	});
+}
+
+export function submitSavedRegistration(
+	accessToken: string | null,
+	payload: RegistrationSubmissionPayload,
+	turnstileToken: string,
+	credential: string
+) {
+	return requestJson<RegistrationRead>('/registrations/submit/', {
+		method: 'POST',
+		accessToken,
+		headers: { 'X-Registration-Access': credential },
+		body: { ...payload, turnstile_token: turnstileToken }
+	});
+}
+
+export function resumeRegistration(credential: string) {
+	return requestJson<RegistrationPaymentSession>('/registrations/resume/', {
+		method: 'POST',
+		headers: { 'X-Registration-Access': credential },
+		body: {}
+	});
+}
+
+export type RegistrationAccessOptions =
+	{ accessToken: string; credential?: never } | { accessToken?: never; credential: string };
+
+function privateSessionOptions(options: RegistrationAccessOptions) {
+	return {
+		accessToken: options.accessToken,
+		headers: options.credential ? { 'X-Registration-Access': options.credential } : undefined
+	};
+}
+
+export function getPaymentSession(id: number, options: RegistrationAccessOptions) {
+	return requestJson<RegistrationPaymentSession>(`/registrations/${id}/payment-session/`, {
+		method: 'POST',
+		...privateSessionOptions(options),
+		body: {}
+	});
+}
+
+export function uploadPaymentProof(
+	id: number,
+	formData: FormData,
+	options: RegistrationAccessOptions
+) {
+	return requestJson<RegistrationPaymentSession>(`/registrations/${id}/payment-proof/`, {
+		method: 'POST',
+		...privateSessionOptions(options),
+		body: formData
 	});
 }
 

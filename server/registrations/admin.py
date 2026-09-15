@@ -1,3 +1,6 @@
+from django import forms
+from django.template.response import TemplateResponse
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from unfold.admin import ModelAdmin, TabularInline
@@ -5,6 +8,7 @@ from unfold.admin import ModelAdmin, TabularInline
 from .models import (
     PaymentAttempt,
     PaymentIntent,
+    PaymentSettings,
     Registration,
     RegistrationMember,
     RegistrationStatusEvent,
@@ -99,6 +103,43 @@ class GuardedReadOnlyAdmin(ModelAdmin):
         return tuple(field.name for field in self.model._meta.fields)
 
 
+@admin.register(PaymentSettings)
+class PaymentSettingsAdmin(ModelAdmin):
+    fields = (
+        "enabled",
+        "bank_name",
+        "bank_bin",
+        "account_number",
+        "account_holder",
+        "payment_hold_minutes",
+    )
+
+    def has_module_permission(self, request):
+        return _is_organizer_staff(request.user) and super().has_module_permission(
+            request
+        )
+
+    def has_view_permission(self, request, obj=None):
+        return _is_organizer_staff(request.user) and super().has_view_permission(
+            request, obj
+        )
+
+    def has_change_permission(self, request, obj=None):
+        return _is_organizer_staff(request.user) and super().has_change_permission(
+            request, obj
+        )
+
+    def has_add_permission(self, request):
+        return (
+            _is_organizer_staff(request.user)
+            and super().has_add_permission(request)
+            and not PaymentSettings.objects.exists()
+        )
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(Registration)
 class RegistrationAdmin(GuardedReadOnlyAdmin):
     list_display = (
@@ -172,6 +213,12 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         )
 
 
+class PaymentRejectionForm(forms.Form):
+    reason = forms.CharField(
+        label="Rejection reason", widget=forms.Textarea, strip=True
+    )
+
+
 @admin.register(PaymentAttempt)
 class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_display = ("id", "registration", "amount", "currency", "status", "created_at")
@@ -187,7 +234,7 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_select_related = ("registration",)
     actions = ("verify_selected", "reject_selected")
 
-    def _review(self, request, queryset, target_status):
+    def _review(self, request, queryset, target_status, note=None):
         completed = 0
         for payment_attempt in queryset:
             try:
@@ -195,6 +242,7 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
                     actor=request.user,
                     payment_attempt_id=payment_attempt.pk,
                     status=target_status,
+                    **({"note": note} if note is not None else {}),
                 )
             except (PermissionDenied, ValidationError) as error:
                 self.message_user(
@@ -217,7 +265,29 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
 
     @admin.action(description="Reject selected payment attempts")
     def reject_selected(self, request, queryset):
-        self._review(request, queryset, PaymentAttempt.Status.REJECTED)
+        form = PaymentRejectionForm(
+            request.POST if request.POST.get("confirm_rejection") else None
+        )
+        if form.is_bound and form.is_valid():
+            self._review(
+                request,
+                queryset,
+                PaymentAttempt.Status.REJECTED,
+                note=form.cleaned_data["reason"],
+            )
+            return None
+        return TemplateResponse(
+            request,
+            "admin/registrations/reject_payment.html",
+            {
+                **self.admin_site.each_context(request),
+                "title": "Reject payment proof",
+                "form": form,
+                "queryset": queryset,
+                "opts": self.model._meta,
+                "action_checkbox_name": ACTION_CHECKBOX_NAME,
+            },
+        )
 
 
 @admin.register(PaymentIntent)

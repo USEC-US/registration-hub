@@ -24,10 +24,12 @@ dependencies = [
     "psycopg>=3.3.4",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
+    "qrcode>=8.2",
     "uritemplate>=4.2.0",
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.15.21",
+    "zxing-cpp>=3.1.1",
 ]

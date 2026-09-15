@@ -2,8 +2,10 @@ import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import { render } from 'svelte/server';
 import SignInPage from './auth/sign-in/+page.svelte';
 import RegisterPage from './auth/register/+page.svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ssr } from './account/profile/+page';
+
+vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/en/auth/register') } }));
 
 it('keeps the localStorage-authenticated profile page client-only', () => {
 	expect(ssr).toBe(false);

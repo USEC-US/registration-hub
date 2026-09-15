@@ -1,6 +1,6 @@
 # Payment references and transfer content
 
-## Current manual-payment flow
+## Staged manual-payment flow
 
 Team registrations require a Team Name and a separate Team Tag: 2–5 ASCII letters/digits, stored uppercase, with repeats allowed. Solo entrants use their in-game name for payment instructions.
 
@@ -20,23 +20,29 @@ Accents, including Vietnamese đ/Đ, are removed and whitespace is collapsed in 
 
 **Payment reference** is an independent tracking identifier: `USEC` plus 10 cryptographically random uppercase letters/digits, excluding confusing `0`, `1`, `I`, and `O`. Database uniqueness and bounded collision retries protect it. It never determines or gets appended to transfer content. Participants see it only after successful registration submission, on the guest confirmation or signed-in registration detail. A displayed reference does not mean payment has been verified. Staff can search either reference or transfer content in the payment-intent admin.
 
-Guests still attach proof before submitting. Signed-in participants may upload it afterward. Uploads remain pending until staff verify them; payment verification is separate from tournament eligibility approval. Gateway checkout is not displayed: no usable gateway connection has been configured in this implementation.
+Both guests and signed-in participants submit first, then open the dedicated payment page. Free entries finish immediately. Drafts are automatically saved for seven days without an edit and hold no place. Submitted access is saved separately on the browser using a random 256-bit credential sent only in `X-Registration-Access`; it is never the internal reference or an intent token.
 
-## Payment sessions and snapshots
+New paid entries reserve a place for the saved deadline. Uploads remain pending until staff verify them; payment verification is separate from tournament eligibility approval. See [reservation operations](../deployment/payment-reservations.md) for activation, expiry, replacement windows, and recovery.
+
+## Legacy compatibility endpoints
 
 The existing `POST /api/payment-references/` URL is retained for compatibility, but it now returns only a private `token`, the partially resolved `transfer_content_template`, `transfer_content_limit`, amount, and currency. It does **not** return the internal reference. The browser substitutes the participant for its live preview. The server independently renders the final content from the submitted roster/tag and saves it on the intent when registration succeeds.
 
-Issuance checks tournament publication, registration dates, fees, and capacity, but does not reserve a roster or capacity slot. Responses are not cacheable and issuance is throttled. The browser keeps the private UUID claim token in session storage, scoped to the division; refresh resumes the same quote and template snapshot. A later tournament edit does not rewrite instructions already issued. The token attaches an intent atomically to one registration. Fee changes block submission and require organizer assistance; rejected content does not consume the intent. Codes are not expired or recycled.
+Issuance checks tournament publication, registration dates, fees, and capacity, but does not reserve a roster or capacity slot. Responses are not cacheable and issuance is throttled. Legacy clients may retain the private UUID claim token for quote/template compatibility. The staged browser no longer issues a pre-submission quote or stores this token. A later tournament edit does not rewrite instructions already issued. The token attaches an intent atomically to one registration. Fee changes block submission and require organizer assistance; rejected content does not consume the intent. Codes are not expired or recycled.
 
 Signed-in owners get saved instructions through `POST /api/registrations/{id}/payment-instructions/`. The older owner-only `/payment-reference/` endpoint still returns the reference for an already submitted registration. Neither endpoint exposes another participant's records.
 
 Existing intents predate transfer snapshots. Their new content/template fields remain blank: the migration does not invent what participants were previously told. An old unattached session cannot be silently resumed with new instructions. The API returns the `legacy_payment_session` error code and the form explains the situation. Participants who have not paid can explicitly load new instructions; their old record is retained, and the saved browser token is replaced only after a successful response. Participants who already paid are directed to organizers. Existing submitted records with blank content can still upload proof, with a message to contact staff if they need transfer instructions. Historical `PaymentAttempt.reference` values remain private manual transaction notes. Legacy registrations without any intent can receive one through the owner endpoints.
 
-Apply the new migrations before using the updated UI. No new organizer permissions are required.
+Apply the additive migrations and run `bootstrap_organizers` before using the updated UI, including the payment-settings permissions. Legacy multipart initial proof intake remains supported where valid; omitting the new credential does not create an untimed paid reservation.
 
-## Next payment-page task
+## Current private sessions and local QR
 
-Move payment to a separate page after registration submission, covering manual bank transfers, proof upload, and staff confirmation. The user chose to keep that move out of this pass. Design private return access for guests and a clear unpaid/pending/verified lifecycle before replacing the current guest-proof-before-submission rule. Future submission editing is also separate work. Show a gateway option only when its connection is configured and usable.
+`POST /api/registrations/resume/` locates a committed submission using its saved credential. `POST /api/registrations/{id}/payment-session/` and `/payment-proof/` accept that entry's credential or its submitting account's JWT. Private responses, including failures, use `Cache-Control: private, no-store`; identity and contact snapshots are confined to the private session. A supplied wrong credential never falls through to another authority.
+
+The backend generates QR images locally using VietQR `QRIBFTTA`, provider `A000000727`, country `VN`, and currency `704`. Amounts must be positive whole-dong values, without rounding. The QR transfer-content field supports at most 25 characters. Longer valid transfer text uses a bank-and-amount QR with explicit copy/paste instructions; downloaded images include the full text and warning. The tournament transfer-content limit remains independently configurable; no text is truncated.
+
+Site-wide bank settings and the duration are snapshotted at submission. Pending, verified, expired, and terminal rejected entries receive no actionable QR. A rejected proof within its replacement window can be replaced. Historical intents retain blank unknown destination fields and direct participants to organizers.
 
 ## Future SePay integration
 

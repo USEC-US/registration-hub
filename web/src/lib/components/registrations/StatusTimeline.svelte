@@ -13,6 +13,8 @@
 
 	function statusLabel(status: RegistrationStatus): string {
 		switch (status) {
+			case 'EXPIRED':
+				return m.status_EXPIRED();
 			case 'SUBMITTED':
 				return m.status_SUBMITTED();
 			case 'UNDER_REVIEW':

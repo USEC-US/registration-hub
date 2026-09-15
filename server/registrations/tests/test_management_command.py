@@ -21,6 +21,9 @@ class BootstrapOrganizersCommandTests(TestCase):
         "registrations.view_paymentintent",
         "registrations.change_paymentattempt",
         "registrations.view_registrationstatusevent",
+        "registrations.add_paymentsettings",
+        "registrations.change_paymentsettings",
+        "registrations.view_paymentsettings",
     }
 
     def test_command_sets_only_the_v1_organizer_permissions(self):

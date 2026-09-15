@@ -135,3 +135,34 @@ class GuardedAdminTests(TestCase):
         self.assertFalse(
             payment_admin.has_change_permission(outsider_request, self.payment_attempt)
         )
+
+    def test_reject_payment_requires_a_reason_form(self):
+        payment_admin = PaymentAttemptAdmin(PaymentAttempt, AdminSite())
+        response = payment_admin.reject_selected(
+            self.request, PaymentAttempt.objects.filter(pk=self.payment_attempt.pk)
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("reason", response.context_data["form"].fields)
+        self.payment_attempt.refresh_from_db()
+        self.assertEqual(self.payment_attempt.status, "PENDING")
+
+    def test_reject_payment_blank_reason_keeps_pending_then_reason_is_saved(self):
+        payment_admin = PaymentAttemptAdmin(PaymentAttempt, AdminSite())
+        self.actor.is_superuser = True
+        for reason in (" ", "Account number is unreadable"):
+            request = RequestFactory().post(
+                "/admin/", {"confirm_rejection": "1", "reason": reason}
+            )
+            request.user = self.actor
+            with patch.object(payment_admin, "message_user"):
+                response = payment_admin.reject_selected(
+                    request, PaymentAttempt.objects.filter(pk=self.payment_attempt.pk)
+                )
+            self.payment_attempt.refresh_from_db()
+            if not reason.strip():
+                self.assertIn("reason", response.context_data["form"].errors)
+                self.assertEqual(self.payment_attempt.status, "PENDING")
+            else:
+                self.assertIsNone(response)
+                self.assertEqual(self.payment_attempt.status, "REJECTED")
+                self.assertEqual(self.payment_attempt.review_note, reason)

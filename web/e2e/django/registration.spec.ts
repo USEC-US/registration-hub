@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 
 const api = 'http://127.0.0.1:8015';
@@ -37,6 +38,9 @@ async function registrationUrl(request: APIRequestContext, slug: string) {
 }
 
 async function fillRoster(page: Page, tags: string[]) {
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	if (tags.length === 3)
+		await page.getByRole('button', { name: 'Add substitute', exact: true }).click();
 	for (const [index, tag] of tags.entries()) {
 		const row = page.locator('[data-roster-row]').nth(index);
 		await row.getByLabel('First and Middle name', { exact: true }).fill(`Player ${index + 1}`);
@@ -56,6 +60,8 @@ async function fillContacts(page: Page) {
 }
 
 async function submit(page: Page, expectedStatus = 201): Promise<Receipt> {
+	if (await page.getByRole('button', { name: 'Continue', exact: true }).count())
+		await page.getByRole('button', { name: 'Continue', exact: true }).click();
 	const responsePromise = page.waitForResponse(
 		(response) =>
 			response.url() === `${api}/api/registrations/submit/` &&
@@ -134,7 +140,9 @@ test('guest captain submits a team with catalogue snapshots and private contacts
 	await expect(
 		page.getByRole('heading', { name: 'Registration submitted', exact: true })
 	).toBeVisible();
-	await expect(page.locator('[data-registration-confirmation]')).toContainText(String(receipt.id));
+	await expect(
+		page.getByText(`Registration reference: ${receipt.id}`, { exact: true })
+	).toBeVisible();
 	const detail = await request.get(`${api}/api/registrations/${receipt.id}/`);
 	expect([401, 403]).toContain(detail.status());
 });
@@ -149,7 +157,6 @@ test('guest manager registers main players and a substitute representative', asy
 	await page.getByLabel('Team name', { exact: true }).fill('Managed Team');
 	await page.getByLabel('Team tag', { exact: true }).fill('MGT');
 	await fillContacts(page);
-	await page.getByRole('button', { name: 'Add substitute', exact: true }).click();
 	await fillRoster(page, ['Managed#ONE', 'Managed#TWO', 'Managed#THREE']);
 	await page.getByRole('radio', { name: 'Set member 3 as captain', exact: true }).click();
 	const receipt = await submit(page);
@@ -177,7 +184,7 @@ test('guest manager registers main players and a substitute representative', asy
 test('guest solo uses one captain slot and no team name', async ({ page, request }) => {
 	await page.goto(await registrationUrl(request, 'solo-free'));
 	await expect(page.getByLabel('Team name', { exact: true })).toHaveCount(0);
-	await expect(page.locator('[data-roster-row]')).toHaveCount(1);
+
 	await fillContacts(page);
 	await fillRoster(page, ['Solo#ONE']);
 	await page.getByRole('button', { name: 'Open date picker' }).click();
@@ -194,86 +201,179 @@ test('guest solo uses one captain slot and no team name', async ({ page, request
 	expect(receipt.members[0].is_captain).toBe(true);
 });
 
-test('paid guest proof reaches organizer verification and registration approval', async ({
+async function uploadProof(page: Page, id: number) {
+	await page.locator('input[type=file]').setInputFiles(proof);
+	const response = page.waitForResponse(
+		(r) =>
+			r.url() === `${api}/api/registrations/${id}/payment-proof/` && r.request().method() === 'POST'
+	);
+	await page.getByRole('button', { name: 'Upload payment proof', exact: true }).click();
+	const result = await response;
+	expect(result.status(), await result.text()).toBe(200);
+	return result.json();
+}
+
+test('paid guest returns in a new tab, replaces rejected proof, and receives separate verification and approval', async ({
+	page,
+	request,
+	context,
+	browser
+}) => {
+	const path = await registrationUrl(request, 'solo-paid');
+	await page.goto(path);
+	await fillContacts(page);
+	await fillRoster(page, ['PaidGuest#ONE']);
+	const receipt = await submit(page);
+	expect(receipt.payment_attempts).toHaveLength(0);
+	await expect(page).toHaveURL(`/en/registrations/${receipt.id}/payment`);
+	await expect(page.getByAltText('VietQR payment code')).toBeVisible();
+	const returned = await context.newPage();
+	await returned.goto(path);
+	await returned
+		.getByRole('link', { name: `View registration ${receipt.id} / payment`, exact: true })
+		.click();
+	await expect(returned.getByAltText('VietQR payment code')).toBeVisible();
+	const pending = await uploadProof(returned, receipt.id);
+	expect(pending.payment_state).toBe('PENDING');
+	await expect(
+		returned.getByText(
+			'Payment proof is pending verification. Your reservation is protected during review.'
+		)
+	).toBeVisible();
+	await expect(returned.getByAltText('VietQR payment code')).toHaveCount(0);
+	const staffContext = await browser.newContext();
+	try {
+		const staff = await staffContext.newPage();
+		await organizerLogin(staff);
+		const attempt = pending.registration.payment_attempts[0].id;
+		await staff.goto(`${api}/admin/registrations/registration/${receipt.id}/change/`);
+		const proofLink = staff.locator('a[href*="/media/payment-proofs/"]').first();
+		const proofUrl = new URL((await proofLink.getAttribute('href'))!, api).href;
+		expect([401, 403]).toContain((await request.get(proofUrl)).status());
+		const privateProof = await staff.request.get(proofUrl);
+		expect(privateProof.status()).toBe(200);
+		expect(privateProof.headers()['cache-control']).toBe('private, no-store');
+		await staff.goto(`${api}/admin/registrations/paymentattempt/`);
+		await staff.locator(`input[name="_selected_action"][value="${attempt}"]`).check();
+		await staff.locator('select[name="action"]').first().selectOption('reject_selected');
+		await staff.locator('button[name="index"]').first().click();
+		await staff.getByLabel('Reason').fill('Test-only: upload a clearer image.');
+		await staff.getByRole('button', { name: 'Reject proof', exact: true }).click();
+		await returned.getByRole('button', { name: 'Refresh status', exact: true }).click();
+		await expect(
+			returned.getByText('Test-only: upload a clearer image.', { exact: true })
+		).toBeVisible();
+		const replacement = await uploadProof(returned, receipt.id);
+		const replacementAttempt = replacement.registration.payment_attempts.find(
+			(p: { id: number }) => p.id !== attempt
+		);
+		await adminAction(staff, 'paymentattempt', replacementAttempt.id, 'verify_selected');
+		await returned.getByRole('button', { name: 'Refresh status', exact: true }).click();
+		await expect(
+			returned.getByText('Payment verified. Eligibility approval is a separate organizer decision.')
+		).toBeVisible();
+		await adminAction(staff, 'registration', receipt.id, 'mark_under_review');
+		await adminAction(staff, 'registration', receipt.id, 'approve_selected');
+		await staff.goto(`${api}/admin/registrations/registration/${receipt.id}/change/`);
+		await expect(adminField(staff, 'Status')).toHaveText('Approved');
+	} finally {
+		await staffContext.close();
+	}
+});
+
+test('signed-in participant submits then accesses payment from the account page', async ({
+	page,
+	request
+}) => {
+	const path = await registrationUrl(request, 'solo-paid');
+	await page.goto(`/en/auth/sign-in?redirect=${encodeURIComponent(path)}`);
+	await page.getByLabel('Email', { exact: true }).fill('journey-player@example.test');
+	await page.getByLabel('Password', { exact: true }).fill(password);
+	await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+	await expect(page).toHaveURL(path);
+	await fillContacts(page);
+	await fillRoster(page, ['SignedPlayer#ONE']);
+	const receipt = await submit(page);
+	await expect(page).toHaveURL(`/en/registrations/${receipt.id}/payment`);
+	await page.goto(`/en/account/registrations/${receipt.id}`);
+	await page.getByRole('link', { name: 'Registration payment', exact: true }).click();
+	const pending = await uploadProof(page, receipt.id);
+	expect(pending.payment_state).toBe('PENDING');
+});
+
+test('lost real submission response recovers the same persisted registration', async ({
 	page,
 	request
 }) => {
 	await page.goto(await registrationUrl(request, 'solo-paid'));
-	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveCount(0);
-	await expect(page.getByLabel('Transfer content', { exact: true })).toBeVisible();
-	await page.reload();
-	await expect(page.getByLabel('Payment reference', { exact: true })).toHaveCount(0);
 	await fillContacts(page);
-	await fillRoster(page, ['PaidGuest#ONE']);
-	await expect(page.getByLabel('Transfer content', { exact: true })).toContainText(
-		'PaidGuest#ONE thanh toan le phi'
+	await fillRoster(page, ['LostResponse#ONE']);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	let persistedId = 0;
+	let submissions = 0;
+	await page.route(`${api}/api/registrations/submit/`, async (route) => {
+		submissions++;
+		const response = await route.fetch();
+		expect(response.status()).toBe(201);
+		persistedId = (await response.json()).id;
+		await route.abort('failed');
+	});
+	await page.getByRole('button', { name: 'Submit registration', exact: true }).click();
+	await expect(
+		page.locator('form').getByRole('button', { name: 'Recover pending submission', exact: true })
+	).toBeVisible();
+	await page
+		.locator('form')
+		.getByRole('button', { name: 'Recover pending submission', exact: true })
+		.click();
+	await expect(page).toHaveURL(new RegExp(`/en/registrations/${persistedId}/payment$`));
+	expect(submissions).toBe(1);
+	const saved = await page.evaluate(() =>
+		Object.entries(localStorage)
+			.filter(([key]) => key.startsWith('usec-registration-access:v1:'))
+			.map(([, value]) => JSON.parse(value))
 	);
-	await page.locator('[data-payment-proof-drop-zone]').evaluate((target, encoded) => {
-		const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-		const transfer = new DataTransfer();
-		transfer.items.add(new File([bytes], 'proof.png', { type: 'image/png' }));
-		target.dispatchEvent(
-			new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer })
-		);
-	}, proof.buffer.toString('base64'));
-	await expect(page.getByAltText('Selected payment proof preview')).toBeVisible();
-	const receipt = await submit(page);
-	expect(receipt.payment_reference).toMatch(/^USEC[A-Z0-9]{10}$/);
-	const reference = receipt.payment_reference;
-	await expect(page.getByText(`Payment reference: ${reference}`, { exact: true })).toBeVisible();
-	expect(receipt.payment_attempts).toHaveLength(1);
-	expect(receipt.payment_attempts[0].status).toBe('PENDING');
-	await organizerLogin(page);
-	await page.goto(`${api}/admin/registrations/paymentintent/?q=${reference}`);
-	await expect(page.getByRole('link', { name: reference, exact: true })).toBeVisible();
-	await page.goto(`${api}/admin/registrations/registration/${receipt.id}/change/`);
-	const proofLink = page.locator('a[href*="/media/payment-proofs/"]').first();
-	await expect(proofLink).toBeVisible();
-	const proofUrl = new URL((await proofLink.getAttribute('href'))!, api).href;
-	const anonymousProof = await request.get(proofUrl);
-	expect([401, 403]).toContain(anonymousProof.status());
-	const organizerProof = await page.request.get(proofUrl);
-	expect(organizerProof.status()).toBe(200);
-	expect(organizerProof.headers()['cache-control']).toBe('private, no-store');
-	await adminAction(page, 'paymentattempt', receipt.payment_attempts[0].id, 'verify_selected');
-	await adminAction(page, 'registration', receipt.id, 'mark_under_review');
-	await adminAction(page, 'registration', receipt.id, 'approve_selected');
-	await page.goto(`${api}/admin/registrations/registration/${receipt.id}/change/`);
-	await expect(adminField(page, 'Status')).toHaveText('Approved');
+	expect(saved).toHaveLength(1);
+	const resumed = await request.post(`${api}/api/registrations/resume/`, {
+		headers: { 'X-Registration-Access': saved[0].credential }
+	});
+	expect((await resumed.json()).registration.id).toBe(persistedId);
 });
 
-test('signed-in participant submits and uploads proof from the account page', async ({
-	page,
-	request
+test('expired entry remains visible and produces an editable retry with a new registration', async ({
+	page
 }) => {
-	const registrationPath = await registrationUrl(request, 'solo-paid');
-	await page.goto(`/en/auth/sign-in?redirect=${encodeURIComponent(registrationPath)}`);
-	await page.getByLabel('Email', { exact: true }).fill('journey-player@example.test');
-	await page.getByLabel('Password', { exact: true }).fill(password);
-	await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-	await expect(page).toHaveURL(registrationPath);
-	await fillContacts(page);
-	await fillRoster(page, ['SignedPlayer#ONE']);
+	const fixture = JSON.parse(
+		readFileSync('/tmp/hcmusec-registration-journey-fixture.json', 'utf8')
+	);
+	await page.goto('/en/auth/sign-in');
+	await page.evaluate(
+		(entry) =>
+			localStorage.setItem(
+				`usec-registration-access:v1:${entry.credential}`,
+				JSON.stringify(entry)
+			),
+		fixture
+	);
+	await page.goto(`/en/registrations/${fixture.registrationId}/payment`);
+	await expect(
+		page.getByText('This registration is expired or rejected. Do not transfer money for it.')
+	).toBeVisible();
+	await expect(page.getByAltText('VietQR payment code')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Upload payment proof', exact: true })).toHaveCount(
+		0
+	);
+	await page.getByRole('button', { name: 'Create a new editable draft', exact: true }).click();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect(page.getByLabel('Phone', { exact: true })).toHaveValue('+84901234567');
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect(page.getByLabel('Gamer tag', { exact: true })).toHaveValue('Expired#ONE');
 	const receipt = await submit(page);
-	await expect(page).toHaveURL(`/en/account/registrations/${receipt.id}`);
-	const chooserPromise = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Choose image', exact: true }).focus();
-	await page.keyboard.press('Enter');
-	await (await chooserPromise).setFiles(proof);
-	await expect(page.getByAltText('Selected payment proof preview')).toBeVisible();
-	const responsePromise = page.waitForResponse(
-		(response) => response.url() === `${api}/api/registrations/${receipt.id}/payment-attempts/`
-	);
-	const refreshedDetail = page.waitForResponse(
-		(response) =>
-			response.url() === `${api}/api/registrations/${receipt.id}/` &&
-			response.request().method() === 'GET'
-	);
-	await page.getByRole('button', { name: 'Upload payment proof', exact: true }).click();
-	expect((await responsePromise).status()).toBe(201);
-	const detail = await (await refreshedDetail).json();
-	expect(detail.payment_attempts).toHaveLength(1);
-	expect(detail.payment_attempts[0].status).toBe('PENDING');
+	expect(receipt.id).not.toBe(fixture.registrationId);
+	await page.goto(`/en/registrations/${fixture.registrationId}/payment`);
+	await expect(
+		page.getByText('This registration is expired or rejected. Do not transfer money for it.')
+	).toBeVisible();
 });
 
 test('duplicate player is blocked until organizer rejection permits resubmission', async ({

@@ -25,7 +25,9 @@ const tournament = {
 			fee_amount: '50000.00',
 			fee_currency: 'VND',
 			registration_state: 'open',
-			is_registration_open: true
+			is_registration_open: true,
+			payment_hold_minutes: 60,
+			payment_available: true
 		}
 	]
 };
@@ -89,6 +91,7 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 });
 
 test('client navigation keeps a guest on the shared registration form', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
 	const documentRequests: string[] = [];
 	page.on('request', (request) => {
 		if (request.resourceType() === 'document' && request.frame() === page.mainFrame())
@@ -110,6 +113,25 @@ test('client navigation keeps a guest on the shared registration form', async ({
 	await expect(page).toHaveURL('/tournaments/usec-summer-2026/games/9/register');
 	await expect(page.locator('button[type="submit"]')).toBeVisible();
 	await expect(page.locator('input[name="contact_facebook_snapshot"]')).toBeVisible();
+	await expect(page.locator('input[name="member-1-gamer-tag"]')).toHaveCount(0);
+	await page.locator('input[name="team_name"]').fill('Blue Team');
+	await page.locator('input[name="team_tag"]').fill('BLUE');
+	await page.locator('input[name="contact_facebook_snapshot"]').fill('facebook.com/player');
+	await page.locator('input[name="contact_phone_snapshot"]').fill('0901234567');
+	await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+	await expect(page).toHaveURL(/step=roster/);
+	await page.locator('input[name="member-1-gamer-tag"]').fill('Saved captain');
+	await page.goBack();
+	await expect(page.locator('input[name="team_name"]')).toHaveValue('Blue Team');
+	await page.goForward();
+	await expect(page.locator('input[name="member-1-gamer-tag"]')).toHaveValue('Saved captain');
+	await page.goBack();
+	await expect(page.locator('input[name="team_name"]')).toHaveValue('Blue Team');
+	await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+	await expect(page.locator('input[name="member-1-gamer-tag"]')).toHaveValue('Saved captain');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+		true
+	);
 	expect(documentRequests.map((requestUrl) => new URL(requestUrl).pathname)).toEqual([
 		'/auth/sign-in'
 	]);

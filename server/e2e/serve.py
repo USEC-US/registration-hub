@@ -1,6 +1,8 @@
 """Run Django for browser tests with a disposable PostgreSQL database and media."""
 
+import json
 import os
+import secrets
 from pathlib import Path
 import signal
 import sys
@@ -26,6 +28,20 @@ def seed():
 
     from accounts.models import Institution
     from tournaments.models import Game, Tournament, TournamentGame
+    from registrations.models import PaymentSettings, Registration
+    from rest_framework.test import APIClient
+
+    PaymentSettings.objects.update_or_create(
+        pk=1,
+        defaults={
+            "enabled": True,
+            "bank_name": "TEST ONLY - DO NOT TRANSFER",
+            "bank_bin": "970436",
+            "account_number": "000000000000",
+            "account_holder": "FICTIONAL BROWSER FIXTURE",
+            "payment_hold_minutes": 60,
+        },
+    )
 
     institution = Institution.objects.create(
         source="CATALOGUE",
@@ -63,7 +79,7 @@ def seed():
         ("solo-paid", 1, 1, "50000.00"),
     ):
         game = Game.objects.create(name=slug, slug=slug)
-        TournamentGame.objects.create(
+        division = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
             main_roster_size=minimum,
@@ -74,6 +90,58 @@ def seed():
             fee_amount=fee,
             fee_currency="VND",
         )
+
+        if slug == "solo-paid":
+            credential = secrets.token_hex(32)
+            response = APIClient().post(
+                "/api/registrations/submit/",
+                {
+                    "tournament_game": division.pk,
+                    "team_name": "",
+                    "team_tag": "",
+                    "submitter_role": "captain",
+                    "contact_facebook_snapshot": "https://facebook.com/journey-captain",
+                    "contact_phone_snapshot": "+84901234567",
+                    "turnstile_token": "test-only",
+                    "members": [
+                        {
+                            "first_name_snapshot": "Expired",
+                            "last_name_snapshot": "Fixture",
+                            "date_of_birth_snapshot": "2005-01-01",
+                            "student_id_snapshot": "EXPIRED001",
+                            "gamer_tag_snapshot": "Expired#ONE",
+                            "institution_id": institution.pk,
+                            "is_captain": True,
+                            "roster_role": "main",
+                            "display_order": 1,
+                        }
+                    ],
+                },
+                format="json",
+                HTTP_X_REGISTRATION_ACCESS=credential,
+            )
+            if response.status_code != 201:
+                raise RuntimeError(
+                    f"Expired fixture submission failed: {response.data}"
+                )
+            registration_id = response.data["id"]
+            # Only this disposable fixture changes Django's deadline; production API has no hook.
+            Registration.objects.filter(pk=registration_id).update(
+                payment_due_at=timezone.now() - timedelta(seconds=1)
+            )
+            fixture_path = Path("/tmp/hcmusec-registration-journey-fixture.json")
+            fixture_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "gameId": division.pk,
+                        "credential": credential,
+                        "attemptState": "submitted",
+                        "registrationId": registration_id,
+                    }
+                )
+            )
+            fixture_path.chmod(0o600)
 
 
 def main():
@@ -104,6 +172,9 @@ def main():
             print(f"Browser fixture database ready: {database_name}", flush=True)
             call_command("runserver", "127.0.0.1:8015", use_reloader=False)
         finally:
+            Path("/tmp/hcmusec-registration-journey-fixture.json").unlink(
+                missing_ok=True
+            )
             connections.close_all()
             if created or connection.settings_dict["NAME"] == database_name:
                 connection.creation.destroy_test_db(original_name, verbosity=0)
