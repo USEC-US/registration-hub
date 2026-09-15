@@ -14,12 +14,67 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import Institution
-from registrations.models import PaymentAttempt, Registration, RegistrationStatusEvent
+from registrations.models import (
+    PaymentAttempt,
+    PaymentIntent,
+    PaymentSettings,
+    Registration,
+    RegistrationStatusEvent,
+)
 from tournaments.models import Game, Tournament, TournamentGame
 
 
 @override_settings(DEBUG=True)
 class SeedDevDataCommandTests(TestCase):
+    def test_seed_preserves_existing_payment_configuration_on_reruns(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                PaymentSettings.objects.update_or_create(
+                    pk=1,
+                    defaults={
+                        "enabled": enabled,
+                        "bank_name": "Operator bank",
+                        "bank_bin": "970436",
+                        "account_number": "987654321",
+                        "account_holder": "OPERATOR HOLDER",
+                        "payment_hold_minutes": 125,
+                    },
+                )
+                before = PaymentSettings.objects.values().get(pk=1)
+                self.run_seed()
+                self.run_seed()
+                self.assertEqual(PaymentSettings.objects.values().get(pk=1), before)
+                self.assertTrue(
+                    all(
+                        intent.account_holder_snapshot
+                        == "DEVELOPMENT SAMPLE DO NOT PAY"
+                        for intent in PaymentIntent.objects.all()
+                    )
+                )
+
+    def test_seed_failure_rolls_back_temporary_payment_configuration(self):
+        PaymentSettings.objects.update_or_create(
+            pk=1,
+            defaults={
+                "enabled": False,
+                "bank_name": "Operator bank",
+                "payment_hold_minutes": 125,
+            },
+        )
+        before = PaymentSettings.objects.values().get(pk=1)
+        with patch(
+            "registrations.dev_seed._rebuild_registrations",
+            side_effect=ValidationError("fixture failure"),
+        ):
+            with self.assertRaisesMessage(CommandError, "fixture failure"):
+                self.run_seed()
+        self.assertEqual(PaymentSettings.objects.values().get(pk=1), before)
+
+    def test_seed_does_not_leave_fake_receiving_settings_enabled(self):
+        PaymentSettings.objects.all().delete()
+        self.run_seed()
+        self.assertFalse(PaymentSettings.objects.exists())
+
     def test_rerun_removes_replaced_sample_images_after_commit(self):
         self.run_seed()
         previous = [attempt.proof_file for attempt in PaymentAttempt.objects.all()]

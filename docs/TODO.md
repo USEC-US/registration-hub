@@ -72,10 +72,11 @@
 - [x] Accept payment proof with initial guest submission without an account; keep evidence private.
 - [x] Verify captain, manager, solo, guest, signed-in, payment upload, and organizer review against real Django/PostgreSQL. See [verification notes](testing/registration-journey.md).
 
-- [ ] NEW: divide the registration journey to seperate stage tabs/pages/whatever. 
-- [ ] NEW: set up auto QR-code generation.
-  - [ ] BLOCKER: admin must be able to have a way to add their bank account info. This applies site-wide, must should be configurable in the Admin Page, and, in the future, verified (to output the account holder's name automatically).
-  - 2/3 requirements can be satisfied, unfortunately, no API is public to be able to check valid bank account, and SePay must be set up (required authentication). Defer check valid bank account. 
+- [x] Divide registration into automatically saved contact/team, roster, review/submit, and post-submission payment stages, including saved guest return access and expired-entry retry.
+- [x] Generate VietQR locally with exact amounts, destination snapshots, and explicit long-transfer-text fallback.
+  - [x] Configure the site-wide receiving bank and payment hold in Django admin.
+  - [ ] Verify account-holder names automatically; account lookup and SePay remain deferred. Manually entered holder names are explicitly unverified.
+
 ## 4. Organizer registration operations
 
 - [ ] Show division and registration counts from tournament administration.
