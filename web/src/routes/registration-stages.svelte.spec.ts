@@ -472,3 +472,63 @@ it('keeps a late submission result scoped to its departing division without redi
 	expect(goto).not.toHaveBeenCalled();
 	await expect.element(page.getByLabelText('Team name')).toHaveValue('');
 });
+it('preserves dirty team identity when navigating to a solo division with its own saved draft', async () => {
+	const view = mountGame();
+	await fillDetails();
+	window.dispatchEvent(new Event('pagehide'));
+	const original = JSON.parse(localStorage.getItem('usec-registration-draft:v1:10')!);
+	const soloDraft = JSON.stringify({
+		...original,
+		gameId: 11,
+		fields: {
+			...original.fields,
+			tournament_game: 11,
+			team_name: '',
+			team_tag: '',
+			contact_facebook_snapshot: 'facebook.com/solo-player'
+		}
+	});
+	localStorage.setItem('usec-registration-draft:v1:11', soloDraft);
+	await page.getByLabelText('Team name').fill('Dirty departing team');
+	await page.getByLabelText('Team tag', { exact: true }).fill('LATE');
+	await view.rerender({
+		data: {
+			tournament,
+			game: { ...game, id: 11, main_roster_size: 1, substitute_limit: 0 },
+			displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE
+		},
+		params: { slug: tournament.slug, gameId: '11' }
+	});
+	await expect.element(page.getByText('Continue your saved draft?')).toBeVisible();
+	const savedTeam = JSON.parse(localStorage.getItem('usec-registration-draft:v1:10')!);
+	expect(savedTeam.fields.team_name).toBe('Dirty departing team');
+	expect(savedTeam.fields.team_tag).toBe('LATE');
+	expect(localStorage.getItem('usec-registration-draft:v1:11')).toBe(soloDraft);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect.element(page.getByLabelText('Team name')).not.toBeInTheDocument();
+	await expect
+		.element(page.getByLabelText('Facebook', { exact: true }))
+		.toHaveValue('facebook.com/solo-player');
+	await view.rerender({
+		data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
+		params: { slug: tournament.slug, gameId: '10' }
+	});
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect.element(page.getByLabelText('Team name')).toHaveValue('Dirty departing team');
+	await expect.element(page.getByLabelText('Team tag', { exact: true })).toHaveValue('LATE');
+});
+import RegistrationWizard from '$lib/components/registrations/RegistrationWizard.svelte';
+it('flushes original instance rules even if incoming props change before wizard teardown', async () => {
+	const view = render(RegistrationWizard, { data: { tournament, game } });
+	await fillDetails();
+	await page.getByLabelText('Team name').fill('Unflushed team');
+	await page.getByLabelText('Team tag', { exact: true }).fill('KEEP');
+	await view.rerender({
+		data: { tournament, game: { ...game, id: 11, main_roster_size: 1, substitute_limit: 0 } }
+	});
+	window.dispatchEvent(new Event('pagehide'));
+	const oldDraft = JSON.parse(localStorage.getItem('usec-registration-draft:v1:10')!);
+	expect(oldDraft.fields.team_name).toBe('Unflushed team');
+	expect(oldDraft.fields.team_tag).toBe('KEEP');
+	expect(localStorage.getItem('usec-registration-draft:v1:11')).toBeNull();
+});

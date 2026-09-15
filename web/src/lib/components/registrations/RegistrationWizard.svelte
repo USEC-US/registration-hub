@@ -43,7 +43,12 @@
 	import { getLocale } from '$lib/paraglide/runtime';
 	import type { PublicTournament, PublicTournamentGame } from '$lib/api/types';
 	let { data }: { data: { tournament: PublicTournament; game: PublicTournamentGame } } = $props();
-	const divisionId = untrack(() => data.game.id);
+	// The keyed instance owns these rules through its final departure flush, even if incoming props change first.
+	const instanceData = untrack(() => ({
+		tournament: structuredClone($state.snapshot(data.tournament)),
+		game: structuredClone($state.snapshot(data.game))
+	}));
+	const divisionId = instanceData.game.id;
 	let active = true;
 	let stage = $state<DraftStage>('details');
 	let teamName = $state(''),
@@ -76,7 +81,9 @@
 		finished = false,
 		savingEnabled = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	const teamRequired = $derived(data.game.main_roster_size + data.game.substitute_limit > 1);
+	const teamRequired = $derived(
+		instanceData.game.main_roster_size + instanceData.game.substitute_limit > 1
+	);
 	const payload = $derived<RegistrationSubmissionPayload>({
 		tournament_game: divisionId,
 		team_name: teamRequired ? teamName : '',
@@ -97,9 +104,9 @@
 			: ['details']
 	);
 	const available = $derived(
-		data.game.is_registration_open &&
-			(data.game.capacity_remaining === null || data.game.capacity_remaining > 0) &&
-			(Number(data.game.fee_amount) === 0 || data.game.payment_available)
+		instanceData.game.is_registration_open &&
+			(instanceData.game.capacity_remaining === null || instanceData.game.capacity_remaining > 0) &&
+			(Number(instanceData.game.fee_amount) === 0 || instanceData.game.payment_available)
 	);
 	const returnTo = $derived(
 		encodeURIComponent(`${page.url.pathname}${page.url.search}${page.url.hash}`)
@@ -115,8 +122,10 @@
 	}
 	function rosterValid() {
 		return (
-			members.filter((x) => x.roster_role === 'main').length === data.game.main_roster_size &&
-			members.filter((x) => x.roster_role === 'substitute').length <= data.game.substitute_limit &&
+			members.filter((x) => x.roster_role === 'main').length ===
+				instanceData.game.main_roster_size &&
+			members.filter((x) => x.roster_role === 'substitute').length <=
+				instanceData.game.substitute_limit &&
 			members.filter((x) => x.is_captain).length === 1 &&
 			(!members[0] || submitterRole === 'manager' || members[0].is_captain) &&
 			members.every(
@@ -126,7 +135,7 @@
 					x.last_name_snapshot.trim() &&
 					/^\d{4}-\d{2}-\d{2}$/.test(x.date_of_birth_snapshot) &&
 					x.date_of_birth_snapshot <= new Date().toISOString().slice(0, 10) &&
-					(!data.tournament.students_only || x.student_id_snapshot.trim()) &&
+					(!instanceData.tournament.students_only || x.student_id_snapshot.trim()) &&
 					(x.institution_id || x.institution_label?.trim())
 			)
 		);
@@ -406,23 +415,26 @@
 	function formatFee() {
 		return new Intl.NumberFormat(getLocale(), {
 			style: 'currency',
-			currency: data.game.fee_currency
-		}).format(Number(data.game.fee_amount));
+			currency: instanceData.game.fee_currency
+		}).format(Number(instanceData.game.fee_amount));
 	}
 </script>
 
 <svelte:head
-	><title>{m.registration_form_heading({ game: data.game.game_name })} · {m.app_title()}</title
+	><title
+		>{m.registration_form_heading({ game: instanceData.game.game_name })} · {m.app_title()}</title
 	></svelte:head
 >
 <header class="mb-8">
-	<a class="underline" href={resolve(localizeInternalHref(`/tournaments/${data.tournament.slug}`))}
+	<a
+		class="underline"
+		href={resolve(localizeInternalHref(`/tournaments/${instanceData.tournament.slug}`))}
 		>{m.registration_back_to_tournament()}</a
 	>
 	<h1 class="mt-4 font-heading text-3xl font-semibold">
-		{m.registration_form_heading({ game: data.game.game_name })}
+		{m.registration_form_heading({ game: instanceData.game.game_name })}
 	</h1>
-	<p class="mt-3">{m.registration_form_intro({ tournament: data.tournament.name })}</p>
+	<p class="mt-3">{m.registration_form_intro({ tournament: instanceData.tournament.name })}</p>
 </header>
 {#if loading}<p role="status">{m.registration_loading()}</p>{:else}
 	{#if warning}<Alert.Root class="mb-4"
@@ -489,9 +501,9 @@
 						bind:discord
 					/>
 				{:else if stage === 'roster'}<RosterEditor
-						mainRosterSize={data.game.main_roster_size}
-						substituteLimit={data.game.substitute_limit}
-						studentsOnly={data.tournament.students_only}
+						mainRosterSize={instanceData.game.main_roster_size}
+						substituteLimit={instanceData.game.substitute_limit}
+						studentsOnly={instanceData.tournament.students_only}
 						{submitterRole}
 						errors={fieldErrors.members}
 						bind:members
@@ -501,7 +513,7 @@
 						fields={payload}
 						{institutionLabels}
 						fee={formatFee()}
-						holdMinutes={data.game.payment_hold_minutes}
+						holdMinutes={instanceData.game.payment_hold_minutes}
 					/><TurnstileWidget
 						bind:this={turnstileWidget}
 						bind:token={turnstileToken}
