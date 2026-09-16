@@ -9,7 +9,7 @@ vi.mock('$lib/registrations/browser-storage', async (importOriginal) => {
 import * as m from '$lib/paraglide/messages';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { ApiRequestError } from '$lib/api/client';
 import {
@@ -199,6 +199,31 @@ async function chooseInstitution(index: number, label = 'HCMUS') {
 }
 
 describe('registration stages', () => {
+	it('keeps stepper keyboard navigation gated and updates the URL and active step together', async () => {
+		mountGame();
+		const details = page.getByRole('button', { name: '1. Team & contact', exact: true });
+		const roster = page.getByRole('button', { name: '2. Roster', exact: true });
+		const review = page.getByRole('button', { name: '3. Review registration', exact: true });
+		await expect.element(roster).toBeDisabled();
+		await expect.element(review).toBeDisabled();
+		await details.click();
+		await userEvent.keyboard('{ArrowRight}');
+		await expect.element(details).toHaveAttribute('aria-current', 'step');
+		await fillDetails();
+		await details.click();
+		await userEvent.keyboard('{ArrowRight}');
+		await expect.element(roster).toHaveAttribute('aria-current', 'step');
+		await expect.element(page.getByLabelText('Gamer tag').first()).toBeVisible();
+		expect(vi.mocked(goto).mock.calls.at(-1)?.[0]).toContain('step=roster');
+		await roster.click();
+		await userEvent.keyboard('{ArrowRight}');
+		await expect.element(roster).toHaveAttribute('aria-current', 'step');
+		await userEvent.keyboard('{ArrowLeft}');
+		await expect.element(details).toHaveAttribute('aria-current', 'step');
+		await expect.element(page.getByLabelText('Team name')).toHaveValue('Blue Team');
+		expect(vi.mocked(goto).mock.calls.at(-1)?.[0]).toContain('step=details');
+	});
+
 	it('validates details before showing roster and preserves both when navigating back', async () => {
 		render(RegisterPage, {
 			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },

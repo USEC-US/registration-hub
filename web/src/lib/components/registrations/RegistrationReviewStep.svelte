@@ -15,18 +15,26 @@
 	} = $props();
 </script>
 
-<Card.Root
-	><Card.Header
-		><Card.Title><h2>{m.stages_review()}</h2></Card.Title><Card.Description
-			>{m.registration_corrections()}</Card.Description
-		></Card.Header
+<Card.Root class="rounded-xl py-6"
+	><Card.Header>
+		<div class="flex items-start gap-3">
+			<span
+				class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono-data text-sm font-semibold text-primary"
+				aria-hidden="true">03</span
+			>
+			<div class="flex flex-col gap-1">
+				<Card.Title><h2>{m.stages_review()}</h2></Card.Title><Card.Description
+					>{m.registration_corrections()}</Card.Description
+				>
+			</div>
+		</div></Card.Header
 	>
 	<Card.Content class="flex flex-col gap-4 break-words">
-		<dl class="grid gap-3 sm:grid-cols-2">
+		<dl class="grid gap-5 rounded-lg bg-muted/30 p-4 sm:grid-cols-2">
 			{#each [[m.field_team_name(), fields.team_name], [m.field_team_tag(), fields.team_tag], [m.registration_role_heading(), fields.submitter_role === 'manager' ? m.registration_role_manager() : m.registration_role_captain()], [m.registration_manager_name(), fields.manager_name_snapshot], [m.registration_facebook(), fields.contact_facebook_snapshot], [m.registration_phone(), fields.contact_phone_snapshot], [m.registration_email(), fields.contact_email_snapshot], [m.registration_discord(), fields.contact_discord_snapshot]] as [label, value] (label)}
 				{#if value}<div>
 						<dt class="text-sm text-muted-foreground">{label}</dt>
-						<dd>{value}</dd>
+						<dd class="mt-1 font-medium">{value}</dd>
 					</div>{/if}{/each}
 		</dl>
 		<ol class="flex flex-col gap-3">
@@ -48,7 +56,7 @@
 					</p>
 				</li>{/each}
 		</ol>
-	</Card.Content><Card.Footer class="flex-col items-start gap-2"
+	</Card.Content><Card.Footer class="flex-col items-start gap-2 border-t"
 		><p>{m.game_fee()}: {fee}</p>
 		<p>{m.stages_hold({ minutes: holdMinutes })}</p></Card.Footer
 	></Card.Root

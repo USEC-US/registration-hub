@@ -314,5 +314,15 @@
 	"stages_not_open": "Nội dung này chưa đến thời gian mở đăng ký.",
 	"stages_registration_closed": "Nội dung này đã đóng đăng ký.",
 	"stages_full": "Nội dung này đã đủ số lượng đăng ký.",
-	"stages_payment_unavailable": "Thanh toán cho nội dung này chưa sẵn sàng. Vui lòng liên hệ ban tổ chức trước khi đăng ký."
+	"stages_payment_unavailable": "Thanh toán cho nội dung này chưa sẵn sàng. Vui lòng liên hệ ban tổ chức trước khi đăng ký.",
+	"registration_step_details_hint": "Vai trò & liên hệ",
+	"registration_step_roster_hint": "Thông tin tuyển thủ",
+	"registration_step_review_hint": "Kiểm tra & gửi",
+	"registration_step_progress": "Bước {current} / {total}",
+	"registration_summary_heading": "Thông tin đăng ký",
+	"registration_summary_intro": "Thông tin cần biết trước khi tham gia.",
+	"registration_summary_roster": "Quy mô đội hình",
+	"registration_summary_payment": "Hướng dẫn thanh toán sẽ xuất hiện sau khi bạn gửi đăng ký.",
+	"registration_summary_free": "Nội dung thi đấu này không yêu cầu lệ phí.",
+	"registration_summary_help": "Bạn cần hỗ trợ?"
 }

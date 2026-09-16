@@ -314,5 +314,15 @@
 	"stages_not_open": "Registration for this division has not opened yet.",
 	"stages_registration_closed": "Registration for this division has closed.",
 	"stages_full": "This division is full.",
-	"stages_payment_unavailable": "Payment is not ready for this division. Please contact the organizers before registering."
+	"stages_payment_unavailable": "Payment is not ready for this division. Please contact the organizers before registering.",
+	"registration_step_details_hint": "Your role & contact info",
+	"registration_step_roster_hint": "Players & eligibility",
+	"registration_step_review_hint": "Check & submit",
+	"registration_step_progress": "Step {current} of {total}",
+	"registration_summary_heading": "Your registration",
+	"registration_summary_intro": "The essentials before you join.",
+	"registration_summary_roster": "Team size",
+	"registration_summary_payment": "Payment instructions appear after you submit your registration.",
+	"registration_summary_free": "No payment is needed for this division.",
+	"registration_summary_help": "Need a hand?"
 }
