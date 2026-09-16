@@ -70,7 +70,7 @@
 <div class="min-h-screen bg-(--board) text-(--text)">
 	<header class="border-(--line)">
 		<nav
-			class="mx-auto max-w-7xl border-x border-b border-(--line) bg-white flex"
+			class="mx-auto flex max-w-7xl flex-col border-x border-b border-(--line) bg-white md:flex-row"
 			aria-label={m.nav_primary_label()}
 		>
 			<a

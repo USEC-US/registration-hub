@@ -60,7 +60,7 @@ test('browser navigation runs public universal loads without extra document requ
 
 	await expect(page).toHaveURL('/');
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'Cổng Đăng ký Giải đấu' })
+		page.getByRole('heading', { level: 1, name: 'Hết mình thi đấu. Hết lòng kết nối.' })
 	).toBeVisible();
 	await expect(page.getByRole('heading', { name: tournament.name })).toBeVisible();
 	await page.getByRole('link', { name: tournament.name }).first().click();

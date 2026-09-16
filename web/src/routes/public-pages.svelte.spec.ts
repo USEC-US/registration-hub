@@ -73,7 +73,12 @@ describe('public tournament pages', () => {
 		render(HomePage, { data: { tournaments: [tournament], displayTimeZone }, params: {} });
 
 		await expect
-			.element(page.getByRole('heading', { level: 1, name: 'Tournament Registration Portal' }))
+			.element(
+				page.getByRole('heading', {
+					level: 1,
+					name: `${m.home_welcome_title()} ${m.home_welcome_title_accent()}`
+				})
+			)
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('heading', { level: 3, name: tournament.name }))
@@ -81,20 +86,20 @@ describe('public tournament pages', () => {
 		expect(document.title).toBe('University of Science Esports Club');
 	});
 
-	it('renders a three-tournament home preview with a link to the full catalogue', async () => {
+	it('spotlights the featured tournament even when it is not first, with a link to the full catalogue', async () => {
 		const tournaments = [
-			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
 			makeTournament({ id: 2, name: 'Campus Clash', slug: 'campus-clash' }),
+			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
 			makeTournament({ id: 3, name: 'Spring Arena', slug: 'spring-arena' }),
 			makeTournament({ id: 4, name: 'Fourth Tournament', slug: 'fourth-tournament' })
 		];
 
 		const { container } = render(HomePage, { data: { tournaments, displayTimeZone }, params: {} });
 
-		expect(container.querySelectorAll('article')).toHaveLength(3);
+		expect(container.querySelectorAll('article')).toHaveLength(1);
 		await expect.element(page.getByRole('link', { name: 'Featured Cup' })).toBeVisible();
-		await expect.element(page.getByRole('link', { name: 'Campus Clash' })).toBeVisible();
-		await expect.element(page.getByRole('link', { name: 'Spring Arena' })).toBeVisible();
+		expect(page.getByRole('link', { name: 'Campus Clash' }).elements()).toHaveLength(0);
+		expect(page.getByRole('link', { name: 'Spring Arena' }).elements()).toHaveLength(0);
 		expect(page.getByRole('link', { name: 'Fourth Tournament' }).elements()).toHaveLength(0);
 		await expect
 			.element(page.getByRole('link', { name: 'See all tournaments' }))
