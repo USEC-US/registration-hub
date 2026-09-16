@@ -9,6 +9,7 @@ PERMISSION_SPEC = {
         "tournamentgame": ("add", "change", "view"),
     },
     "registrations": {
+        "bank": ("change", "view"),
         "registration": ("change", "view"),
         "registrationmember": ("view",),
         "paymentattempt": ("change", "view"),

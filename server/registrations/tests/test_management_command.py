@@ -5,6 +5,8 @@ from django.test import TestCase
 
 class BootstrapOrganizersCommandTests(TestCase):
     expected_permissions = {
+        "registrations.change_bank",
+        "registrations.view_bank",
         "tournaments.add_game",
         "tournaments.change_game",
         "tournaments.view_game",

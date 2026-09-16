@@ -7,6 +7,7 @@ Useful commands:
 ```powershell
 uv run python manage.py migrate
 uv run python manage.py bootstrap_organizers
+uv run python manage.py sync_banks
 uv run python manage.py makemigrations --check --dry-run
 uv run python manage.py import_institutions
 uv run python manage.py check
@@ -15,6 +16,10 @@ uv run ruff check .
 ```
 
 API documentation is mounted at `/api/docs/`. It is public while `DEBUG=True` and staff-only while `DEBUG=False`.
+
+The bank catalogue and receiving-bank selector are available in Django Admin.
+See [bank catalogue operations](../docs/payments/bank-catalogue.md) for initial
+setup, manual refresh, and daily scheduling.
 
 ## Development seed data
 

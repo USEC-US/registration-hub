@@ -2,7 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -195,6 +195,33 @@ class PaymentIntent(models.Model):
         max_length=160, blank=True, editable=False
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Bank(models.Model):
+    bin = models.CharField(
+        "BIN",
+        max_length=6,
+        unique=True,
+        validators=[RegexValidator(r"\A[0-9]{6}\Z", "Enter exactly six ASCII digits.")],
+    )
+    name = models.CharField(max_length=255)
+    short_name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50)
+    logo_url = models.URLField(max_length=500, blank=True)
+    swift_code = models.CharField(max_length=50, blank=True)
+    transfer_supported = models.BooleanField(
+        default=False,
+        help_text="The provider reports that this bank's app can scan VietQR.",
+    )
+    lookup_supported = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    last_synced_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ("short_name", "bin")
+
+    def __str__(self):
+        return f"{self.short_name} ({self.code}) — {self.bin}"
 
 
 class PaymentSettings(models.Model):

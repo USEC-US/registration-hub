@@ -48,6 +48,10 @@ The backend generates QR images locally using VietQR `QRIBFTTA`, provider `A0000
 
 Site-wide bank settings and the duration are snapshotted at submission. Pending, verified, expired, and terminal rejected entries receive no actionable QR. A rejected proof within its replacement window can be replaced. Historical intents retain blank unknown destination fields and direct participants to organizers.
 
+Staff select the receiving bank from the local searchable catalogue in Django admin.
+See [bank catalogue operations](bank-catalogue.md) for setup and refresh commands.
+Catalogue refreshes do not change receiving settings or saved payment instructions.
+
 ## Future SePay integration
 
 Direct bank transfers with webhooks remain the first intended integration. Personal receiving accounts depend on the organizer connected to SePay; no receiving bank is fixed here. A hosted gateway can follow later.

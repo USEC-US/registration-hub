@@ -3,9 +3,14 @@ from django.template.response import TemplateResponse
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.http import HttpResponseNotAllowed, HttpResponseRedirect
+from django.urls import path, reverse
 from unfold.admin import ModelAdmin, TabularInline
 
+from .admin_forms import PaymentSettingsForm
+from .bank_catalogue import BankCatalogueError, sync_bank_catalogue
 from .models import (
+    Bank,
     PaymentAttempt,
     PaymentIntent,
     PaymentSettings,
@@ -103,12 +108,67 @@ class GuardedReadOnlyAdmin(ModelAdmin):
         return tuple(field.name for field in self.model._meta.fields)
 
 
+@admin.register(Bank)
+class BankAdmin(GuardedReadOnlyAdmin):
+    list_display = ("short_name", "name", "code", "bin", "is_active", "last_synced_at")
+    list_filter = ("is_active",)
+    search_fields = ("name", "short_name", "code", "bin", "swift_code")
+    change_list_template = "admin/registrations/bank/change_list.html"
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_sync_permission(self, request):
+        return (
+            _is_organizer_staff(request.user)
+            and request.user.has_perm("registrations.change_bank")
+            and request.user.has_perm("registrations.view_bank")
+        )
+
+    def get_urls(self):
+        return [
+            path(
+                "sync/",
+                self.admin_site.admin_view(self.sync_view),
+                name="registrations_bank_sync",
+            ),
+        ] + super().get_urls()
+
+    def changelist_view(self, request, extra_context=None):
+        return super().changelist_view(
+            request,
+            extra_context={
+                **(extra_context or {}),
+                "can_sync_banks": self.has_sync_permission(request),
+            },
+        )
+
+    def sync_view(self, request):
+        if not self.has_sync_permission(request):
+            raise PermissionDenied
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        try:
+            result = sync_bank_catalogue()
+        except BankCatalogueError as error:
+            self.message_user(request, str(error), level=messages.ERROR)
+        else:
+            self.message_user(
+                request,
+                f"Bank catalogue refreshed: {result['created']} new, "
+                f"{result['updated']} refreshed, {result['deactivated']} inactive.",
+                level=messages.SUCCESS,
+            )
+        return HttpResponseRedirect(reverse("admin:registrations_bank_changelist"))
+
+
 @admin.register(PaymentSettings)
 class PaymentSettingsAdmin(ModelAdmin):
+    form = PaymentSettingsForm
     fields = (
         "enabled",
-        "bank_name",
         "bank_bin",
+        "bank_name",
         "account_number",
         "account_holder",
         "payment_hold_minutes",

@@ -6,7 +6,8 @@ Note: [`vietqr.net`](https://vietqr.net) is the actual site ran by NAPAS. Other 
 
 - The full specification is [here](./QR_Format_T&C_v1.5.2_EN_102022.pdf).
 - Available Bank Identification Numbers are published here: <https://sbv.gov.vn/vi/w/cnthwebap01162394697>
-- A public API for the BINs (is it updated?) is here: <https://sandbox.bankhub.dev/fi-services>. API Schema: <https://vietqr.io/danh-sach-api/api-danh-sach-ma-ngan-hang>
+- A public API for the BINs (is it updated?) is here: <https://api.vietqr.io/v2/banks>. API Schema: <https://vietqr.io/danh-sach-api/api-danh-sach-ma-ngan-hang>
+    - Confirmed: maintained.    
 - VietQR Code Generation example, detailed writeup, and other helpful utils (Go): <https://github.com/subiz/vietqr/blob/master/README.md>
 
 Since it's an open format, we can just make our own util function to generate the VietQR transfer code.
