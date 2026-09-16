@@ -2,9 +2,10 @@
 
 Date: 2026-09-15
 
-Status: Approved on 2026-09-15 and implemented on the feature branch. Final
-whole-branch review is pending; deployment activation, authorized bank-app scan,
-and deployed scheduler checks remain operational acceptance steps.
+Status: Approved on 2026-09-15; implementation and final review completed on
+2026-09-16. The user merged the feature and authorized final fixes on main.
+Deployment activation, authorized bank-app scan, and deployed scheduler checks
+remain operational acceptance steps.
 
 ## Purpose and scope
 

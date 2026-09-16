@@ -1,6 +1,6 @@
 # Staged Registration and VietQR Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **Implementation was authorized on 2026-09-15 and is complete pending final whole-branch review. Deployment activation remains separate.**
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **Implementation and final review completed on 2026-09-16. The user merged the feature and authorized the final fixes directly on main. Deployment activation remains separate.**
 
 **Goal:** Deliver automatically saved registration stages, browser-restored guest payment access, configurable unpaid reservation expiry, and locally generated VietQR using site-wide bank settings.
 
@@ -12,7 +12,7 @@
 
 ## Global constraints
 
-- Implementation is authorized on the isolated feature branch. No ordinary-database migration/seeding, production configuration, scheduler activation, merge, push, or real transfer is authorized.
+- Implementation began on an isolated feature branch. The user subsequently merged it and authorized continuation directly on main. No ordinary-database migration/seeding, production configuration, scheduler activation, push, or real transfer is authorized.
 - Stages: contact/team, roster, review/submit, then payment. Free entries finish after submission. No required account, email verification, or manually saved secret URL.
 - Automatically save drafts for seven days without an edit. Drafts hold no slot. Browser-saved submitted access is separate from the draft and its expiry.
 - Use a 256-bit random browser credential, hash it server-side, and send it only in a dedicated header. Never reuse payment-intent tokens or `USEC` references as credentials.
@@ -376,7 +376,7 @@ PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA pnpm build
 Run ESLint/Prettier against the changed frontend files and `git diff --check`. If a required browser or dependency is absent, install it as an implementation prerequisite rather than labelling the product broken. The real Django harness needs ports 8015/4175, PostgreSQL credentials with test-database creation permission, and Chromium. Confirm disposable databases and media are removed afterward. Executed results and environment diagnostics are recorded in the Task 6 report.
 
 - [x] **Document activation and recovery.** Production/staging activation requires additive migrations, `bootstrap_organizers`, authorized bank configuration, and an expiry scheduler every minute. Document `manage.py expire_unpaid_registrations` and a scheduler invoking the deployed virtualenv from the deployed `server/` directory with its normal environment. A missed schedule may delay persisted events, but effective availability still releases slots. Include missing/disabled settings, rotated destination snapshots, rejected proof, late transfers, lost browser access, and rollback: do not drop new access/snapshot fields or revert to older capacity-counting code while timed entries exist. Closing new paid intake is safer than silently reverting reservation semantics. Do not actually activate a scheduler or configure a real bank during implementation unless separately authorized.
-- [ ] **Perform final review and update evidence.** Review the combined diff for privacy, expiry and upload races, legacy compatibility, credential/idempotency behavior, and UI preservation. Resolve substantive findings and re-run only affected checks. Record exact commands/results and any remaining environment limits. Mark the two new registration TODO items complete only when their implemented acceptance cases pass. Keep account-holder verification/SePay deferred. Record that a real bank-app scan and deployment scheduler checks remain operational acceptance steps unless actually performed; never make a real transfer just to test QR.
+- [x] **Perform final review and update evidence.** Review the combined diff for privacy, expiry and upload races, legacy compatibility, credential/idempotency behavior, and UI preservation. Resolve substantive findings and re-run only affected checks. Record exact commands/results and any remaining environment limits. Mark the two new registration TODO items complete only when their implemented acceptance cases pass. Keep account-holder verification/SePay deferred. Record that a real bank-app scan and deployment scheduler checks remain operational acceptance steps unless actually performed; never make a real transfer just to test QR.
 
 ## Plan self-review and handoff
 
@@ -391,4 +391,4 @@ Run ESLint/Prettier against the changed frontend files and `git diff --check`. I
 | Private proof and separate eligibility approval | Tasks 2–3 and 5; permissions/review/real-browser coverage |
 | Deployment and documented validation | Task 6; migration, scheduler and operational acceptance notes |
 
-Tasks 1–5 passed scoped implementation reviews. Task 6 acceptance implementation is complete pending scoped review and final whole-branch review. The implementation report records verification and environment limitations. No merge, push, production bank configuration, expiry scheduler activation, or real transfer has been performed.
+All six tasks passed scoped implementation reviews. The whole-branch review and consolidated fix re-review are complete with no open substantive findings; the final reviewed implementation is `54e3535` on main. The user performed the merge and authorized subsequent main-branch work. [Verification evidence](../../testing/registration-journey.md) records full-suite and final affected-path checks, accepted tooling limitations, and the fixed availability message. Production bank configuration, expiry scheduler activation, bank-app scanning, and any real transfer remain separate operational work; nothing was pushed or deployed by this implementation.
