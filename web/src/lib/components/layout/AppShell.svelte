@@ -13,6 +13,7 @@
 	import Facebook from '$lib/components/icons/Facebook.svelte';
 	import Gmail from '$lib/components/icons/Gmail.svelte';
 	import RichText from '$lib/i18n/RichText.svelte';
+	import StagingBanner from '$lib/components/layout/StagingBanner.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
@@ -68,6 +69,7 @@
 </a>
 
 <div class="min-h-screen bg-(--board) text-(--text)">
+	<StagingBanner />
 	<header class="border-(--line)">
 		<nav
 			class="mx-auto flex max-w-7xl flex-col border-x border-b border-(--line) bg-white md:flex-row"

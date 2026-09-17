@@ -324,5 +324,11 @@
 	"registration_summary_roster": "Team size",
 	"registration_summary_payment": "Payment instructions appear after you submit your registration.",
 	"registration_summary_free": "No payment is needed for this division.",
-	"registration_summary_help": "Need a hand?"
+	"registration_summary_help": "Need a hand?",
+	"staging_banner_text": "🚧 THIS WEBSITE IS UNDER CONSTRUCTION - READ ME 🚧",
+	"staging_dialog_title": "Under Construction",
+	"staging_dialog_p1": "This website is under construction! We're doing as fast as we can to get this website online. Any data typed here will be wiped in the future!",
+	"staging_dialog_p2": "Don't worry, you can still follow our {#link}facebook page{/link} to be updated and register for future tournaments.",
+	"staging_dialog_p3": "Interested? Here's our {#link}repo{/link}.",
+	"staging_dialog_close": "Understood"
 }

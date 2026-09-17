@@ -324,5 +324,11 @@
 	"registration_summary_roster": "Quy mô đội hình",
 	"registration_summary_payment": "Hướng dẫn thanh toán sẽ xuất hiện sau khi bạn gửi đăng ký.",
 	"registration_summary_free": "Nội dung thi đấu này không yêu cầu lệ phí.",
-	"registration_summary_help": "Bạn cần hỗ trợ?"
+	"registration_summary_help": "Bạn cần hỗ trợ?",
+	"staging_banner_text": "🚧 WEBSITE ĐANG ĐƯỢC XÂY DỰNG - HÃY ĐỌC TÔI! 🚧",
+	"staging_dialog_title": "Website đang trong quá trình phát triển",
+	"staging_dialog_p1": "Trang web đăng ký này đang trong quá trình phát triển! Chúng mình đang hoàn thiện nhanh nhất có thể để đưa trang web vào hoạt động chính thức. Mọi dữ liệu nhập vào đây sẽ bị xóa trong tương lai!",
+	"staging_dialog_p2": "Đừng lo lắng, bạn vẫn có thể theo dõi {#link}trang Facebook của chúng mình{/link} để cập nhật thông tin và đăng ký các giải đấu sắp tới.",
+	"staging_dialog_p3": "Bạn quan tâm đến dự án? Đây là {#link}kho lưu trữ mã nguồn (repo){/link} của chúng mình.",
+	"staging_dialog_close": "Đã hiểu"
 }
