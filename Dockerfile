@@ -38,12 +38,12 @@ RUN curl --proto '=https' --proto-redir '=https' \
 
 WORKDIR /workspace
 
-# Keep tool installation in its own cached layer.
 COPY mise.toml ./
+COPY server/mise.toml ./server/mise.toml
+COPY web/mise.toml ./web/mise.toml
 
 RUN mise trust \
     && mise install
-
 
 # -----------------------------------------------------------------------------
 # Frontend build
