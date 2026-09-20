@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - staging
     tags:
       - "v*"
   workflow_dispatch:
@@ -34,8 +35,8 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            # Mutable staging image from default branch.
-            type=raw,value=staging,enable={{is_default_branch}}
+            # Mutable staging image from the staging branch only.
+            type=raw,value=staging,enable=${{ github.ref == 'refs/heads/staging' }}
 
             # Immutable rollback/debug reference.
             type=sha,prefix=sha-
