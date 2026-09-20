@@ -9,10 +9,7 @@ services:
     restart: unless-stopped
     init: true
 
-    working_dir: /app/web
-    command:
-      - node
-      - build/index.js
+    command: ["web"]
 
     environment:
       NODE_ENV: production
@@ -37,17 +34,7 @@ services:
     restart: unless-stopped
     init: true
 
-    working_dir: /app/server
-    command:
-      - uvicorn
-      - config.asgi:application
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --proxy-headers
-      - --forwarded-allow-ips
-      - "*"
+    command: ["api"]
 
     environment:
       TZ: Asia/Ho_Chi_Minh

@@ -56,7 +56,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Django REST Framework and related packages
     "rest_framework",
-    "rest_wind",
     "drf_spectacular",
     "django_filters",
     "guardian",

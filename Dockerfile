@@ -105,9 +105,13 @@ FROM toolchain AS server-build
 
 ENV UV_PROJECT_ENVIRONMENT=/app/server/.venv
 
+WORKDIR /app
+
+COPY mise.toml ./mise.toml
+RUN mise trust /app/mise.toml
+
 WORKDIR /app/server
 
-# Dependency metadata first for caching
 COPY server/pyproject.toml server/uv.lock ./
 
 RUN mise exec -- \
@@ -166,60 +170,8 @@ RUN cd /app/server \
 # -----------------------------------------------------------------------------
 # Runtime dispatcher
 # -----------------------------------------------------------------------------
-
-RUN <<'EOF'
-set -eu
-
-cat > /usr/local/bin/registration-hub <<'SCRIPT'
-#!/bin/sh
-set -eu
-
-case "${1:-web}" in
-    web)
-        shift || true
-        cd /app/web
-
-        : "${HOST:=0.0.0.0}"
-        : "${PORT:=3000}"
-
-        export HOST PORT
-
-        exec node build/index.js "$@"
-        ;;
-
-    api)
-        shift || true
-        cd /app/server
-
-        : "${HOST:=0.0.0.0}"
-        : "${PORT:=8000}"
-        : "${FORWARDED_ALLOW_IPS:=*}"
-
-        exec /app/server/.venv/bin/uvicorn \
-            config.asgi:application \
-            --host "${HOST}" \
-            --port "${PORT}" \
-            --proxy-headers \
-            --forwarded-allow-ips "${FORWARDED_ALLOW_IPS}" \
-            "$@"
-        ;;
-
-    manage)
-        shift
-        cd /app/server
-
-        exec /app/server/.venv/bin/python manage.py "$@"
-        ;;
-
-    *)
-        exec "$@"
-        ;;
-esac
-SCRIPT
-
-chmod 0755 /usr/local/bin/registration-hub
-EOF
-
+COPY docker-scripts/registration-hub.sh /usr/local/bin/registration-hub
+RUN chmod 0755 /usr/local/bin/registration-hub
 # -----------------------------------------------------------------------------
 # Non-root runtime
 # -----------------------------------------------------------------------------
@@ -227,6 +179,7 @@ EOF
 RUN groupadd --system --gid 10001 app \
     && useradd \
         --system \
+        --no-log-init \
         --uid 10001 \
         --gid app \
         --home-dir /app \

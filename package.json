@@ -6,12 +6,5 @@
   "author": "",
   "license": "GPL-2.0-only",
   "private": true,
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^12.3.4",
-      "onFail": "download"
-    }
-  },
   "type": "module"
 }
