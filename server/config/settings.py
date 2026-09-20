@@ -245,3 +245,8 @@ STORAGES = {
         "BACKEND": "servestatic.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
