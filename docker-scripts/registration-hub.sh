@@ -17,12 +17,14 @@ case "${1:-web}" in
         shift || true
         cd /app/server
 
-        exec /app/server/.venv/bin/python manage.py migrate --noinput
-
         : "${HOST:=0.0.0.0}"
         : "${PORT:=8000}"
         : "${FORWARDED_ALLOW_IPS:=*}"
 
+        echo "Running migrations..."
+        /app/server/.venv/bin/python manage.py migrate --noinput
+
+        echo "Starting API server..."
         exec /app/server/.venv/bin/uvicorn \
             config.asgi:application \
             --host "${HOST}" \
