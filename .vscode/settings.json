@@ -1,8 +1,9 @@
 {
     "cSpell.words": [
-        "corsheaders",
-        "paraglide",
-        "USEC"
+      "corsheaders",
+      "HCMUSEC",
+      "paraglide",
+      "USEC"
     ],
     "[python]": {
       "diffEditor.ignoreTrimWhitespace": false,
