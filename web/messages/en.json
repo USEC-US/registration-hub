@@ -327,8 +327,8 @@
 	"registration_summary_help": "Need a hand?",
 	"staging_banner_text": "🚧 THIS WEBSITE IS UNDER CONSTRUCTION - READ ME 🚧",
 	"staging_dialog_title": "Under Construction",
-	"staging_dialog_p1": "This website is under construction! We're doing as fast as we can to get this website online. Any data typed here will be wiped in the future!",
+	"staging_dialog_p1": "This website is under construction! While many features are available and good for testing, they may be incomplete and unstable and can change at any time. Please do not enter any sensitive information or make real payments here!",
 	"staging_dialog_p2": "Don't worry, you can still follow our {#link}facebook page{/link} to be updated and register for future tournaments.",
-	"staging_dialog_p3": "Interested? Here's our {#link}repo{/link}.",
+	"staging_dialog_p3": "Interested in our project, or found an issue? Check out our {#link}source code on GitHub{/link}.",
 	"staging_dialog_close": "Understood"
 }
