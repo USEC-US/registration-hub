@@ -126,4 +126,4 @@ CREATE DATABASE tnmt_reg_hub_staging WITH OWNER tnmt_reg_hub_staging;
 
 ## License
 
-This project is licensed under the **GNU General Public License v2.0 only (GPL-2.0-only)**.
+This project is licensed under the **Affero General Public License 3 (AGPL-3.0)**.
