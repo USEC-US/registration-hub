@@ -3,6 +3,8 @@
 	import { submitPaymentAttempt } from '$lib/api/registrations';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
+	import PaymentProofField from './PaymentProofField.svelte';
+	import TransferContentField from './TransferContentField.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
 	import * as m from '$lib/paraglide/messages';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -30,7 +32,9 @@
 	}: Props = $props();
 	let amount = $state('');
 	let currency = $state('');
-	let reference = $state('');
+	let instructionsReady = $state(false);
+	let proofFile = $state<File | undefined>();
+	let proofSelectionError = $state('');
 	let turnstileToken = $state('');
 	let turnstileWidget = $state<{ reset: () => void } | null>(null);
 	let submitting = $state(false);
@@ -45,14 +49,19 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting) return;
+		if (submitting || proofSelectionError || !instructionsReady) return;
 
 		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const proofFile = formData.get('proof_file');
-		const paymentReference = String(formData.get('reference') ?? '').trim();
-		const hasProofFile = proofFile instanceof File && proofFile.size > 0;
-		if (!hasProofFile && !paymentReference) {
+		if (proofFile) formData.set('proof_file', proofFile);
+		if (!proofFile || proofFile.size === 0) {
 			formErrors = [m.payment_evidence_required()];
+			return;
+		}
+		if (
+			proofFile.size > 10 * 1024 * 1024 ||
+			!['image/jpeg', 'image/png', 'image/webp'].includes(proofFile.type)
+		) {
+			formErrors = [m.payment_image_invalid()];
 			return;
 		}
 		if (!turnstileToken) {
@@ -69,7 +78,7 @@
 			await request;
 			await onSuccess();
 		} catch (cause) {
-			if (cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403)) {
+			if (cause instanceof ApiRequestError && cause.status === 401) {
 				await onAuthenticationError();
 				return;
 			}
@@ -102,14 +111,19 @@
 						<Input id="currency" name="currency" required maxlength={3} bind:value={currency} />
 					</Field.Field>
 				</Field.Group>
-				<Field.Field>
-					<Field.Label for="proof_file">{m.field_payment_proof()}</Field.Label>
-					<Input id="proof_file" type="file" name="proof_file" accept="image/*,.pdf" />
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="reference">{m.field_payment_reference()}</Field.Label>
-					<Input id="reference" name="reference" maxlength={128} bind:value={reference} />
-				</Field.Field>
+				<PaymentProofField
+					required
+					disabled={submitting}
+					bind:file={proofFile}
+					bind:selectionError={proofSelectionError}
+				/>
+				<TransferContentField
+					bind:ready={instructionsReady}
+					{registrationId}
+					{accessToken}
+					{amount}
+					{currency}
+				/>
 				<TurnstileWidget
 					bind:this={turnstileWidget}
 					action="payment-proof-submit"
@@ -118,7 +132,7 @@
 			</Field.Group>
 		</Card.Content>
 		<Card.Footer class="justify-end border-t">
-			<Button class="min-h-11" type="submit" disabled={submitting}>
+			<Button class="min-h-11" type="submit" disabled={submitting || !instructionsReady}>
 				{#if submitting}<Spinner aria-hidden="true" />{/if}
 				{submitting ? m.payment_uploading() : m.action_upload_payment_proof()}
 			</Button>

@@ -10,13 +10,14 @@ const tournament = {
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
 	is_featured: false,
+	students_only: false,
 	tournament_games: [
 		{
 			id: 9,
 			game_name: 'Valorant',
 			game_slug: 'valorant',
-			team_size_min: 5,
-			team_size_max: 5,
+			main_roster_size: 5,
+			substitute_limit: 0,
 			registration_opens_at: '2026-07-20T01:00:00Z',
 			registration_closes_at: '2026-08-10T10:00:00Z',
 			registration_capacity: 32,
@@ -24,7 +25,9 @@ const tournament = {
 			fee_amount: '50000.00',
 			fee_currency: 'VND',
 			registration_state: 'open',
-			is_registration_open: true
+			is_registration_open: true,
+			payment_hold_minutes: 60,
+			payment_available: true
 		}
 	]
 };
@@ -36,7 +39,9 @@ test('browser navigation runs public universal loads without extra document requ
 	const documentRequests: string[] = [];
 
 	page.on('request', (request) => {
-		if (request.resourceType() === 'document') documentRequests.push(request.url());
+		if (request.resourceType() === 'document' && request.frame() === page.mainFrame()) {
+			documentRequests.push(request.url());
+		}
 	});
 
 	await page.route('**/api/tournaments/', async (route) => {
@@ -55,13 +60,13 @@ test('browser navigation runs public universal loads without extra document requ
 
 	await expect(page).toHaveURL('/');
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'Cổng Đăng ký Giải đấu' })
+		page.getByRole('heading', { level: 1, name: 'Hết mình thi đấu. Hết lòng kết nối.' })
 	).toBeVisible();
 	await expect(page.getByRole('heading', { name: tournament.name })).toBeVisible();
 	await page.getByRole('link', { name: tournament.name }).first().click();
 
 	await expect(page).toHaveURL('/tournaments/usec-summer-2026');
-	await expect(page.getByRole('heading', { level: 1, name: tournament.name })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 3, name: tournament.name })).toBeVisible();
 	await expect(page.getByRole('heading', { level: 3, name: 'Valorant' })).toBeVisible();
 	await expect(
 		page.locator('a[href="/tournaments/usec-summer-2026/games/9/register"]')
@@ -85,12 +90,12 @@ test('profile redirects an unauthenticated visitor to sign in with the localized
 	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
 });
 
-test('client navigation to register redirects an unauthenticated visitor to sign in', async ({
-	page
-}) => {
+test('client navigation keeps a guest on the shared registration form', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
 	const documentRequests: string[] = [];
 	page.on('request', (request) => {
-		if (request.resourceType() === 'document') documentRequests.push(request.url());
+		if (request.resourceType() === 'document' && request.frame() === page.mainFrame())
+			documentRequests.push(request.url());
 	});
 
 	await page.route('**/api/tournaments/', async (route) => {
@@ -105,15 +110,29 @@ test('client navigation to register redirects an unauthenticated visitor to sign
 	await page.getByRole('link', { name: tournament.name }).first().click();
 	await page.locator('a[href="/tournaments/usec-summer-2026/games/9/register"]').click();
 
-	await expect(page).toHaveURL(
-		'/auth/sign-in?redirect=%2Ftournaments%2Fusec-summer-2026%2Fgames%2F9%2Fregister'
+	await expect(page).toHaveURL('/tournaments/usec-summer-2026/games/9/register');
+	await expect(page.locator('button[type="submit"]')).toBeVisible();
+	await expect(page.locator('input[name="contact_facebook_snapshot"]')).toBeVisible();
+	await expect(page.locator('input[name="member-1-gamer-tag"]')).toHaveCount(0);
+	await page.locator('input[name="team_name"]').fill('Blue Team');
+	await page.locator('input[name="team_tag"]').fill('BLUE');
+	await page.locator('input[name="contact_facebook_snapshot"]').fill('facebook.com/player');
+	await page.locator('input[name="contact_phone_snapshot"]').fill('0901234567');
+	await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+	await expect(page).toHaveURL(/step=roster/);
+	await page.locator('input[name="member-1-gamer-tag"]').fill('Saved captain');
+	await page.goBack();
+	await expect(page.locator('input[name="team_name"]')).toHaveValue('Blue Team');
+	await page.goForward();
+	await expect(page.locator('input[name="member-1-gamer-tag"]')).toHaveValue('Saved captain');
+	await page.goBack();
+	await expect(page.locator('input[name="team_name"]')).toHaveValue('Blue Team');
+	await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+	await expect(page.locator('input[name="member-1-gamer-tag"]')).toHaveValue('Saved captain');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+		true
 	);
-	await expect(page.getByRole('heading', { level: 1, name: 'Đăng nhập tài khoản' })).toBeVisible();
 	expect(documentRequests.map((requestUrl) => new URL(requestUrl).pathname)).toEqual([
-		'/auth/sign-in',
 		'/auth/sign-in'
 	]);
-	expect(
-		documentRequests.some((requestUrl) => new URL(requestUrl).pathname.endsWith('/register'))
-	).toBe(false);
 });

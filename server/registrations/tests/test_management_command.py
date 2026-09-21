@@ -5,6 +5,8 @@ from django.test import TestCase
 
 class BootstrapOrganizersCommandTests(TestCase):
     expected_permissions = {
+        "registrations.change_bank",
+        "registrations.view_bank",
         "tournaments.add_game",
         "tournaments.change_game",
         "tournaments.view_game",
@@ -18,8 +20,12 @@ class BootstrapOrganizersCommandTests(TestCase):
         "registrations.change_registration",
         "registrations.view_registrationmember",
         "registrations.view_paymentattempt",
+        "registrations.view_paymentintent",
         "registrations.change_paymentattempt",
         "registrations.view_registrationstatusevent",
+        "registrations.add_paymentsettings",
+        "registrations.change_paymentsettings",
+        "registrations.view_paymentsettings",
     }
 
     def test_command_sets_only_the_v1_organizer_permissions(self):

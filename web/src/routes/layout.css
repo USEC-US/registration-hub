@@ -1,5 +1,10 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/ibm-plex-sans';
+@import '@fontsource/fira-sans/400.css';
+@import '@fontsource/fira-sans/500.css';
+@import '@fontsource/fira-sans/600.css';
+@import '@fontsource/fira-sans/700.css';
+@import '@fontsource/fira-sans/400-italic.css';
+@import '@fontsource/fira-sans/700-italic.css';
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/jetbrains-mono';
 @import 'tw-animate-css';
@@ -10,7 +15,7 @@
 @plugin '@tailwindcss/forms';
 
 :root {
-	font-family: 'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif;
+	font-family: 'Fira Sans', system-ui, sans-serif;
 	color: var(--foreground);
 	background: var(--background);
 	--surface: var(--background);
@@ -57,7 +62,7 @@
 }
 
 @theme inline {
-	--font-sans: 'IBM Plex Sans Variable', sans-serif;
+	--font-sans: 'Fira Sans', system-ui, sans-serif;
 	--font-heading: 'Manrope Variable', sans-serif;
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
@@ -128,7 +133,7 @@ h1,
 h2,
 h3,
 .font-heading {
-	font-family: 'Manrope Variable', Manrope, 'IBM Plex Sans Variable', system-ui, sans-serif;
+	font-family: 'Manrope Variable', Manrope, 'Fira Sans', system-ui, sans-serif;
 	letter-spacing: -0.03em;
 }
 
@@ -174,7 +179,7 @@ a:hover {
 	width: 0.5rem;
 	height: 0.5rem;
 	flex: none;
-	background: var(--accent);
+	background: var(--secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

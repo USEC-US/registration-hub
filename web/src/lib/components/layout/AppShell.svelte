@@ -13,6 +13,7 @@
 	import Facebook from '$lib/components/icons/Facebook.svelte';
 	import Gmail from '$lib/components/icons/Gmail.svelte';
 	import RichText from '$lib/i18n/RichText.svelte';
+	import StagingBanner from '$lib/components/layout/StagingBanner.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
@@ -68,9 +69,10 @@
 </a>
 
 <div class="min-h-screen bg-(--board) text-(--text)">
+	<StagingBanner />
 	<header class="border-(--line)">
 		<nav
-			class="mx-auto max-w-7xl border-x border-b border-(--line) bg-white flex"
+			class="mx-auto flex max-w-7xl flex-col border-x border-b border-(--line) bg-white md:flex-row"
 			aria-label={m.nav_primary_label()}
 		>
 			<a
@@ -230,7 +232,7 @@
 				</div>
 			</div>
 			<div id="contact" class="flex flex-col">
-				<div class="flex flex-wrap gap-3 flex-1">
+				<div class="flex flex-wrap gap-3 flex-1 mb-6">
 					{#each Object.entries(socials) as [key, social] (key)}
 						{@const Icon = social.icon}
 						<a

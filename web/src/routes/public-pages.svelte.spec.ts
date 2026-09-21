@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { PublicTournament } from '$lib/api/types';
+import * as m from '$lib/paraglide/messages';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
 import { resolveDisplayTimeZone } from '$lib/time/tournament-time';
 import HomePage from './+page.svelte';
 import TournamentListPage from './tournaments/+page.svelte';
 import TournamentDetailPage from './tournaments/[slug]/+page.svelte';
+import './layout.css';
 
 const tournament: PublicTournament = {
 	id: 1,
@@ -18,13 +20,14 @@ const tournament: PublicTournament = {
 	ends_at: '2026-08-17T10:00:00Z',
 	location: 'HCMUS',
 	is_featured: false,
+	students_only: false,
 	tournament_games: [
 		{
 			id: 9,
 			game_name: 'Valorant',
 			game_slug: 'valorant',
-			team_size_min: 5,
-			team_size_max: 5,
+			main_roster_size: 5,
+			substitute_limit: 0,
 			registration_opens_at: '2026-07-20T01:00:00Z',
 			registration_closes_at: '2026-08-10T10:00:00Z',
 			registration_capacity: 32,
@@ -32,7 +35,9 @@ const tournament: PublicTournament = {
 			fee_amount: '50000.00',
 			fee_currency: 'VND',
 			registration_state: 'open',
-			is_registration_open: true
+			is_registration_open: true,
+			payment_hold_minutes: 60,
+			payment_available: true
 		}
 	]
 };
@@ -68,7 +73,12 @@ describe('public tournament pages', () => {
 		render(HomePage, { data: { tournaments: [tournament], displayTimeZone }, params: {} });
 
 		await expect
-			.element(page.getByRole('heading', { level: 1, name: 'Tournament Registration Portal' }))
+			.element(
+				page.getByRole('heading', {
+					level: 1,
+					name: `${m.home_welcome_title()} ${m.home_welcome_title_accent()}`
+				})
+			)
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('heading', { level: 3, name: tournament.name }))
@@ -76,20 +86,20 @@ describe('public tournament pages', () => {
 		expect(document.title).toBe('University of Science Esports Club');
 	});
 
-	it('renders a three-tournament home preview with a link to the full catalogue', async () => {
+	it('spotlights the featured tournament even when it is not first, with a link to the full catalogue', async () => {
 		const tournaments = [
-			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
 			makeTournament({ id: 2, name: 'Campus Clash', slug: 'campus-clash' }),
+			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
 			makeTournament({ id: 3, name: 'Spring Arena', slug: 'spring-arena' }),
 			makeTournament({ id: 4, name: 'Fourth Tournament', slug: 'fourth-tournament' })
 		];
 
 		const { container } = render(HomePage, { data: { tournaments, displayTimeZone }, params: {} });
 
-		expect(container.querySelectorAll('article')).toHaveLength(3);
+		expect(container.querySelectorAll('article')).toHaveLength(1);
 		await expect.element(page.getByRole('link', { name: 'Featured Cup' })).toBeVisible();
-		await expect.element(page.getByRole('link', { name: 'Campus Clash' })).toBeVisible();
-		await expect.element(page.getByRole('link', { name: 'Spring Arena' })).toBeVisible();
+		expect(page.getByRole('link', { name: 'Campus Clash' }).elements()).toHaveLength(0);
+		expect(page.getByRole('link', { name: 'Spring Arena' }).elements()).toHaveLength(0);
 		expect(page.getByRole('link', { name: 'Fourth Tournament' }).elements()).toHaveLength(0);
 		await expect
 			.element(page.getByRole('link', { name: 'See all tournaments' }))
@@ -196,7 +206,7 @@ describe('public tournament pages', () => {
 			params: { slug: tournament.slug }
 		});
 
-		expect(page.getByText('Địa điểm sẽ được cập nhật').elements()).toHaveLength(2);
+		expect(page.getByText('Đang cập nhật...', { exact: true }).elements()).toHaveLength(2);
 		expect(page.getByText('Trực tuyến').elements()).toHaveLength(0);
 	});
 	it('renders the tournament cover image on the detail page when present', async () => {
@@ -213,7 +223,10 @@ describe('public tournament pages', () => {
 			.element(page.getByRole('img', { name: `Cover image for ${coveredTournament.name}` }))
 			.toBeVisible();
 		expect(image).toHaveAttribute('src', coveredTournament.cover_image);
-		expect(image?.parentElement).toHaveClass('aspect-video', 'max-h-[26rem]', 'overflow-hidden');
+		container.style.width = '1024px';
+		const frame = image!.parentElement!.getBoundingClientRect();
+		expect(frame.width).toBeGreaterThan(0);
+		expect(frame.height).toBeCloseTo((frame.width * 9) / 16, 1);
 	});
 	it('keeps UTC values in semantic times and formats them in the merged display zone', () => {
 		const boundaryTournament = {
@@ -239,7 +252,7 @@ describe('public tournament pages', () => {
 			boundaryTournament.starts_at,
 			boundaryTournament.ends_at
 		]);
-		expect(cardTimes[0]).toHaveTextContent('Aug 14, 2026');
+		expect(cardTimes[0]).toHaveTextContent('08/14/2026');
 
 		const detail = render(TournamentDetailPage, {
 			data: { tournament: boundaryTournament, displayTimeZone: viewerTimeZone },
@@ -252,8 +265,8 @@ describe('public tournament pages', () => {
 			boundaryTournament.tournament_games[0].registration_opens_at,
 			boundaryTournament.tournament_games[0].registration_closes_at
 		]);
-		expect(detailTimes[0]).toHaveTextContent('Aug 14, 2026, 9:00 PM EDT');
-		expect(detailTimes[2]).toHaveTextContent('Aug 14, 2026, 11:00 PM EDT');
+		expect(detailTimes[0]).toHaveTextContent('08/14/2026, 9:00 PM EDT');
+		expect(detailTimes[2]).toHaveTextContent('08/14/2026, 11:00 PM EDT');
 	});
 	it('renders tournament metadata, configured games, and an open registration action', async () => {
 		const { container } = render(TournamentDetailPage, {
@@ -262,11 +275,11 @@ describe('public tournament pages', () => {
 		});
 
 		await expect
-			.element(page.getByRole('heading', { level: 1, name: tournament.name }))
+			.element(page.getByRole('heading', { level: 3, name: tournament.name }))
 			.toBeInTheDocument();
 		await expect.element(page.getByText(tournament.description)).toBeInTheDocument();
 		await expect
-			.element(page.getByRole('heading', { level: 2, name: 'Configured games' }))
+			.element(page.getByRole('heading', { level: 2, name: m.configured_games_heading() }))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('heading', { level: 3, name: 'Valorant' }))

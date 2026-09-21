@@ -1,8 +1,23 @@
+from django import forms
+from django.template.response import TemplateResponse
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from unfold.admin import TabularInline, ModelAdmin
+from django.http import HttpResponseNotAllowed, HttpResponseRedirect
+from django.urls import path, reverse
+from unfold.admin import ModelAdmin, TabularInline
 
-from .models import PaymentAttempt, Registration, RegistrationMember, RegistrationStatusEvent
+from .admin_forms import PaymentSettingsForm
+from .bank_catalogue import BankCatalogueError, sync_bank_catalogue
+from .models import (
+    Bank,
+    PaymentAttempt,
+    PaymentIntent,
+    PaymentSettings,
+    Registration,
+    RegistrationMember,
+    RegistrationStatusEvent,
+)
 from .services import (
     approve_registration,
     reject_registration,
@@ -25,11 +40,17 @@ class ImmutableInline(TabularInline):
 class RegistrationMemberInline(ImmutableInline):
     model = RegistrationMember
     readonly_fields = (
+        "display_order",
+        "is_captain",
+        "roster_role",
+        "first_name_snapshot",
+        "last_name_snapshot",
+        "date_of_birth_snapshot",
+        "student_id_snapshot",
         "user",
         "gamer_tag_snapshot",
         "school_snapshot",
-        "is_captain",
-        "display_order",
+        "institution",
     )
 
 
@@ -87,6 +108,98 @@ class GuardedReadOnlyAdmin(ModelAdmin):
         return tuple(field.name for field in self.model._meta.fields)
 
 
+@admin.register(Bank)
+class BankAdmin(GuardedReadOnlyAdmin):
+    list_display = ("short_name", "name", "code", "bin", "is_active", "last_synced_at")
+    list_filter = ("is_active",)
+    search_fields = ("name", "short_name", "code", "bin", "swift_code")
+    change_list_template = "admin/registrations/bank/change_list.html"
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_sync_permission(self, request):
+        return (
+            _is_organizer_staff(request.user)
+            and request.user.has_perm("registrations.change_bank")
+            and request.user.has_perm("registrations.view_bank")
+        )
+
+    def get_urls(self):
+        return [
+            path(
+                "sync/",
+                self.admin_site.admin_view(self.sync_view),
+                name="registrations_bank_sync",
+            ),
+        ] + super().get_urls()
+
+    def changelist_view(self, request, extra_context=None):
+        return super().changelist_view(
+            request,
+            extra_context={
+                **(extra_context or {}),
+                "can_sync_banks": self.has_sync_permission(request),
+            },
+        )
+
+    def sync_view(self, request):
+        if not self.has_sync_permission(request):
+            raise PermissionDenied
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        try:
+            result = sync_bank_catalogue()
+        except BankCatalogueError as error:
+            self.message_user(request, str(error), level=messages.ERROR)
+        else:
+            self.message_user(
+                request,
+                f"Bank catalogue refreshed: {result['created']} new, "
+                f"{result['updated']} refreshed, {result['deactivated']} inactive.",
+                level=messages.SUCCESS,
+            )
+        return HttpResponseRedirect(reverse("admin:registrations_bank_changelist"))
+
+
+@admin.register(PaymentSettings)
+class PaymentSettingsAdmin(ModelAdmin):
+    form = PaymentSettingsForm
+    fields = (
+        "enabled",
+        "bank_bin",
+        "bank_name",
+        "account_number",
+        "account_holder",
+        "payment_hold_minutes",
+    )
+
+    def has_module_permission(self, request):
+        return _is_organizer_staff(request.user) and super().has_module_permission(
+            request
+        )
+
+    def has_view_permission(self, request, obj=None):
+        return _is_organizer_staff(request.user) and super().has_view_permission(
+            request, obj
+        )
+
+    def has_change_permission(self, request, obj=None):
+        return _is_organizer_staff(request.user) and super().has_change_permission(
+            request, obj
+        )
+
+    def has_add_permission(self, request):
+        return (
+            _is_organizer_staff(request.user)
+            and super().has_add_permission(request)
+            and not PaymentSettings.objects.exists()
+        )
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(Registration)
 class RegistrationAdmin(GuardedReadOnlyAdmin):
     list_display = (
@@ -94,13 +207,29 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         "tournament_game",
         "submitted_by",
         "team_name",
+        "team_tag",
         "status",
         "submitted_at",
     )
     list_filter = ("status", "tournament_game__tournament", "tournament_game__game")
-    search_fields = ("team_name", "submitted_by__email", "members__gamer_tag_snapshot")
+    search_fields = (
+        "team_name",
+        "team_tag",
+        "payment_intent__reference",
+        "payment_intent__transfer_content",
+        "submitted_by__email",
+        "members__gamer_tag_snapshot",
+        "members__first_name_snapshot",
+        "members__last_name_snapshot",
+        "members__student_id_snapshot",
+        "members__school_snapshot",
+    )
     list_select_related = ("tournament_game", "submitted_by")
-    inlines = (RegistrationMemberInline, PaymentAttemptInline, RegistrationStatusEventInline)
+    inlines = (
+        RegistrationMemberInline,
+        PaymentAttemptInline,
+        RegistrationStatusEventInline,
+    )
     actions = ("mark_under_review", "approve_selected", "reject_selected")
 
     def _run_transition(self, request, queryset, command):
@@ -144,15 +273,28 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         )
 
 
+class PaymentRejectionForm(forms.Form):
+    reason = forms.CharField(
+        label="Rejection reason", widget=forms.Textarea, strip=True
+    )
+
+
 @admin.register(PaymentAttempt)
 class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_display = ("id", "registration", "amount", "currency", "status", "created_at")
     list_filter = ("status", "currency")
-    search_fields = ("registration__team_name", "registration__submitted_by__email", "reference")
+    search_fields = (
+        "registration__team_name",
+        "registration__team_tag",
+        "registration__payment_intent__reference",
+        "registration__payment_intent__transfer_content",
+        "registration__submitted_by__email",
+        "reference",
+    )
     list_select_related = ("registration",)
     actions = ("verify_selected", "reject_selected")
 
-    def _review(self, request, queryset, target_status):
+    def _review(self, request, queryset, target_status, note=None):
         completed = 0
         for payment_attempt in queryset:
             try:
@@ -160,6 +302,7 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
                     actor=request.user,
                     payment_attempt_id=payment_attempt.pk,
                     status=target_status,
+                    **({"note": note} if note is not None else {}),
                 )
             except (PermissionDenied, ValidationError) as error:
                 self.message_user(
@@ -182,4 +325,46 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
 
     @admin.action(description="Reject selected payment attempts")
     def reject_selected(self, request, queryset):
-        self._review(request, queryset, PaymentAttempt.Status.REJECTED)
+        form = PaymentRejectionForm(
+            request.POST if request.POST.get("confirm_rejection") else None
+        )
+        if form.is_bound and form.is_valid():
+            self._review(
+                request,
+                queryset,
+                PaymentAttempt.Status.REJECTED,
+                note=form.cleaned_data["reason"],
+            )
+            return None
+        return TemplateResponse(
+            request,
+            "admin/registrations/reject_payment.html",
+            {
+                **self.admin_site.each_context(request),
+                "title": "Reject payment proof",
+                "form": form,
+                "queryset": queryset,
+                "opts": self.model._meta,
+                "action_checkbox_name": ACTION_CHECKBOX_NAME,
+            },
+        )
+
+
+@admin.register(PaymentIntent)
+class PaymentIntentAdmin(GuardedReadOnlyAdmin):
+    list_display = (
+        "reference",
+        "transfer_content",
+        "tournament_game",
+        "registration",
+        "amount",
+        "currency",
+        "created_at",
+    )
+    search_fields = (
+        "reference",
+        "transfer_content",
+        "registration__team_name",
+        "registration__team_tag",
+    )
+    list_select_related = ("tournament_game", "registration")

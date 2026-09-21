@@ -2,7 +2,6 @@ from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Q
 
-
 PERMISSION_SPEC = {
     "tournaments": {
         "game": ("add", "change", "view"),
@@ -10,9 +9,12 @@ PERMISSION_SPEC = {
         "tournamentgame": ("add", "change", "view"),
     },
     "registrations": {
+        "bank": ("change", "view"),
         "registration": ("change", "view"),
         "registrationmember": ("view",),
         "paymentattempt": ("change", "view"),
+        "paymentintent": ("view",),
+        "paymentsettings": ("add", "change", "view"),
         "registrationstatusevent": ("view",),
     },
 }

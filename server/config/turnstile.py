@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from django.conf import settings
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
-
 logger = logging.getLogger(__name__)
 _debug_bypass_warning_emitted = False
 
@@ -43,7 +42,9 @@ def verify_turnstile_token(
                 bypassed=True,
                 error_codes=("missing-secret-debug-bypass",),
             )
-        return TurnstileVerificationResult(success=False, error_codes=("missing-secret",))
+        return TurnstileVerificationResult(
+            success=False, error_codes=("missing-secret",)
+        )
 
     if not token:
         return TurnstileVerificationResult(

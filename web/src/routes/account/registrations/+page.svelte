@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { paymentStatusMessage } from '$lib/registrations/payment-status';
+	import { dateLocale, NUMERIC_DATE_OPTIONS } from '$lib/time/date-format';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ApiRequestError } from '$lib/api/client';
@@ -34,11 +36,13 @@
 	}
 
 	function isAuthenticationError(cause: unknown): boolean {
-		return cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403);
+		return cause instanceof ApiRequestError && cause.status === 401;
 	}
 
 	function statusLabel(status: RegistrationStatus): string {
 		switch (status) {
+			case 'EXPIRED':
+				return m.status_EXPIRED();
 			case 'SUBMITTED':
 				return m.status_SUBMITTED();
 			case 'UNDER_REVIEW':
@@ -51,7 +55,9 @@
 	}
 
 	function formatDate(value: string): string {
-		return new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium' }).format(new Date(value));
+		return new Intl.DateTimeFormat(dateLocale(getLocale()), { ...NUMERIC_DATE_OPTIONS }).format(
+			new Date(value)
+		);
 	}
 
 	function formatFee(registration: RegistrationRead): string {
@@ -163,7 +169,10 @@
 							><h2>{registration.tournament_game.tournament_name}</h2></Card.Title
 						>
 						{#if registration.team_name}
-							<Card.Description class="mt-2">{registration.team_name}</Card.Description>
+							<Card.Description class="mt-2"
+								>{#if registration.team_tag}[{registration.team_tag}]
+								{/if}{registration.team_name}</Card.Description
+							>
 						{/if}
 					</Card.Content>
 					<Card.Footer class="block p-0 lg:row-span-2 lg:border-l">
@@ -184,6 +193,18 @@
 					</Card.Footer>
 				</Card.Root>
 			</a>
+			<a
+				class="text-sm underline"
+				href={resolve(localizeInternalHref(`/registrations/${registration.id}/payment`))}
+				>{m.payment_page()}</a
+			>
+			<p class="text-sm">
+				{paymentStatusMessage(
+					registration.payment_state,
+					registration.expired,
+					registration.status
+				)}
+			</p>
 		{/each}
 	</section>
 {/if}

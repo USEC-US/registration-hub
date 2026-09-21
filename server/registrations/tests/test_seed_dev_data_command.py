@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -13,12 +14,88 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import Institution
-from registrations.models import PaymentAttempt, Registration, RegistrationStatusEvent
+from registrations.models import (
+    PaymentAttempt,
+    PaymentIntent,
+    PaymentSettings,
+    Registration,
+    RegistrationStatusEvent,
+)
 from tournaments.models import Game, Tournament, TournamentGame
 
 
 @override_settings(DEBUG=True)
 class SeedDevDataCommandTests(TestCase):
+    def test_seed_preserves_existing_payment_configuration_on_reruns(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                PaymentSettings.objects.update_or_create(
+                    pk=1,
+                    defaults={
+                        "enabled": enabled,
+                        "bank_name": "Operator bank",
+                        "bank_bin": "970436",
+                        "account_number": "987654321",
+                        "account_holder": "OPERATOR HOLDER",
+                        "payment_hold_minutes": 125,
+                    },
+                )
+                before = PaymentSettings.objects.values().get(pk=1)
+                self.run_seed()
+                self.run_seed()
+                self.assertEqual(PaymentSettings.objects.values().get(pk=1), before)
+                self.assertTrue(
+                    all(
+                        intent.account_holder_snapshot
+                        == "DEVELOPMENT SAMPLE DO NOT PAY"
+                        for intent in PaymentIntent.objects.all()
+                    )
+                )
+
+    def test_seed_failure_rolls_back_temporary_payment_configuration(self):
+        PaymentSettings.objects.update_or_create(
+            pk=1,
+            defaults={
+                "enabled": False,
+                "bank_name": "Operator bank",
+                "payment_hold_minutes": 125,
+            },
+        )
+        before = PaymentSettings.objects.values().get(pk=1)
+        with patch(
+            "registrations.dev_seed._rebuild_registrations",
+            side_effect=ValidationError("fixture failure"),
+        ):
+            with self.assertRaisesMessage(CommandError, "fixture failure"):
+                self.run_seed()
+        self.assertEqual(PaymentSettings.objects.values().get(pk=1), before)
+
+    def test_seed_does_not_leave_fake_receiving_settings_enabled(self):
+        PaymentSettings.objects.all().delete()
+        self.run_seed()
+        self.assertFalse(PaymentSettings.objects.exists())
+
+    def test_rerun_removes_replaced_sample_images_after_commit(self):
+        self.run_seed()
+        previous = [attempt.proof_file for attempt in PaymentAttempt.objects.all()]
+        self.assertTrue(all(proof.storage.exists(proof.name) for proof in previous))
+        with self.captureOnCommitCallbacks(execute=True):
+            self.run_seed()
+        self.assertTrue(all(not proof.storage.exists(proof.name) for proof in previous))
+        self.assertTrue(
+            all(
+                attempt.proof_file.storage.exists(attempt.proof_file.name)
+                for attempt in PaymentAttempt.objects.all()
+            )
+        )
+
+    def setUp(self):
+        media = TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=media.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
+
     def run_seed(self, **options) -> str:
         output = StringIO()
         call_command("seed_dev_data", stdout=output, **options)
@@ -55,7 +132,7 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(player.last_name, "Player")
         self.assertEqual(
             player.institution.label,
-            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+            "TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)",
         )
         self.assertEqual(player.institution.short_name, "HCMUS")
         self.assertEqual(player.institution.english_name, "University of Science - VNU")
@@ -202,8 +279,8 @@ class SeedDevDataCommandTests(TestCase):
             rocket_payments[1].created_at,
         )
         self.assertLess(rocket_payments[1].created_at, rejection_event.created_at)
-        self.assertFalse(
-            any(
+        self.assertTrue(
+            all(
                 attempt.proof_file.name
                 for attempt in PaymentAttempt.objects.filter(
                     registration__submitted_by=player
@@ -309,8 +386,8 @@ class SeedDevDataCommandTests(TestCase):
         outsider_tournament_game = TournamentGame.objects.create(
             tournament=outsider_tournament,
             game=outsider_game,
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(days=1),
             registration_closes_at=timezone.now() + timedelta(days=1),
             registration_capacity=None,
@@ -334,7 +411,7 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(player.last_name, "Player")
         self.assertEqual(
             player.institution.label,
-            "Đại Học Khoa Học Tự Nhiên – Đại Học Quốc Gia TPHCM",
+            "TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN (ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH)",
         )
         self.assertEqual(player.institution.short_name, "HCMUS")
         self.assertEqual(player.institution.english_name, "University of Science - VNU")

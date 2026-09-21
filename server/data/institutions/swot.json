@@ -1,0 +1,2565 @@
+{
+  "source": "https://github.com/JetBrains/swot",
+  "revision": "344e71ac76fcbd6dd4b42a78bb794ed4b14c8faa",
+  "retrieved_at": "2026-09-12",
+  "data": [
+    {
+      "domain": "fpt.aptech.ac.vn",
+      "names": [
+        "FPT Aptech",
+        "FPT Aptech"
+      ]
+    },
+    {
+      "domain": "st.vju.ac.vn",
+      "names": [
+        "Trường Đại học Việt Nhật",
+        "Vietnam Japan University"
+      ]
+    },
+    {
+      "domain": "apcs.vn",
+      "names": [
+        "Advanced Program in Computer Science - University of Science HCMC"
+      ]
+    },
+    {
+      "domain": "aptech.vn",
+      "names": [
+        "Hanoi-Aptech Computer Education"
+      ]
+    },
+    {
+      "domain": "datapot.vn",
+      "names": [
+        "Datapot is an educational institute that provides data science courses for Universities and Companies in Vietnam."
+      ]
+    },
+    {
+      "domain": "actvn.edu.vn",
+      "names": [
+        "Academy of cryptography techniques of VietNam"
+      ]
+    },
+    {
+      "domain": "agu.edu.vn",
+      "names": [
+        "An Giang University"
+      ]
+    },
+    {
+      "domain": "ahc.edu.vn",
+      "names": [
+        "Trường Cao đẳng y tế An Giang",
+        "An Giang Medical College"
+      ]
+    },
+    {
+      "domain": "ajc.edu.vn",
+      "names": [
+        "Học viện Báo chí và Tuyên truyền",
+        "Academy of journalism and communication Vietnam"
+      ]
+    },
+    {
+      "domain": "apd.edu.vn",
+      "names": [
+        "Academy of Policy and Development"
+      ]
+    },
+    {
+      "domain": "aptechlearning.edu.vn",
+      "names": [
+        "Aprotrain-Aptech",
+        "Aprotrain-Aptech"
+      ]
+    },
+    {
+      "domain": "apu.edu.vn",
+      "names": [
+        "APU AMERICAN INTERNATIONAL SCHOOL"
+      ]
+    },
+    {
+      "domain": "arena.edu.vn",
+      "names": [
+        "FPT Arena Multimedia Education"
+      ]
+    },
+    {
+      "domain": "aschool.edu.vn",
+      "names": [
+        "Trường THCS Archimedes Academy",
+        "Archimedes Academy"
+      ]
+    },
+    {
+      "domain": "bacgiang.edu.vn",
+      "names": [
+        "BacGiang Specialized Upper Secondary School"
+      ]
+    },
+    {
+      "domain": "bacninh.edu.vn",
+      "names": [
+        "Bac Ninh Specialized High School"
+      ]
+    },
+    {
+      "domain": "bafu.edu.vn",
+      "names": [
+        "TRƯỜNG ĐẠI HỌC NÔNG - LÂM BẮC GIANG",
+        "BAC GIANG AGRICULTURE AND FORESTRY UNIVERSITY"
+      ]
+    },
+    {
+      "domain": "banmaischool.edu.vn",
+      "names": [
+        "BAN MAI SCHOOL",
+        "BAN MAI SCHOOL"
+      ]
+    },
+    {
+      "domain": "bav.edu.vn",
+      "names": [
+        "Học viện Ngân Hàng",
+        "Banking Academy of Vietnam"
+      ]
+    },
+    {
+      "domain": "bctech.edu.vn",
+      "names": [
+        "Trường Cao đẳng Kỹ thuật Công nghệ Bà Rịa - Vũng Tàu",
+        "BCTECH"
+      ]
+    },
+    {
+      "domain": "bdu.edu.vn",
+      "names": [
+        "Binh Duong University"
+      ]
+    },
+    {
+      "domain": "binhnamphong.edu.vn",
+      "names": [
+        "Trường Trung Học Cơ Sở Nam Phong",
+        "Nam Phong junior high school"
+      ]
+    },
+    {
+      "domain": "bkc.edu.vn",
+      "names": [
+        "CAO DANG BACH KHOA SAI GON (BKC)",
+        "BACH KHOA SAI GON COLLEGE"
+      ]
+    },
+    {
+      "domain": "ms.blu.edu.vn",
+      "names": [
+        "Trường Đại Học Bạc Liêu",
+        "Bac Lieu University"
+      ]
+    },
+    {
+      "domain": "buh.edu.vn",
+      "names": [
+        "Trường Đại Học Ngân Hàng TPHCM",
+        "Banking University TPHCM"
+      ]
+    },
+    {
+      "domain": "st.buv.edu.vn",
+      "names": [
+        "British University Vietnam"
+      ]
+    },
+    {
+      "domain": "buv.edu.vn",
+      "names": [
+        "British University Vietnam",
+        "British University Vietnam"
+      ]
+    },
+    {
+      "domain": "bvu.edu.vn",
+      "names": [
+        "Ba Ria - Vung Tau University"
+      ]
+    },
+    {
+      "domain": "c3longthanh.edu.vn",
+      "names": [
+        "Trường THPT Long Thành"
+      ]
+    },
+    {
+      "domain": "c3lqdon-khanhhoa.edu.vn",
+      "names": [
+        "Trung Học Phổ Thông Lê Quý Đôn Khánh Hoà",
+        "Le Quy Don High School for gitfted"
+      ]
+    },
+    {
+      "domain": "cantho.edu.vn",
+      "names": [
+        "Sở GD&ĐT Cần Thơ",
+        "Department of Education and Training of Can Tho City"
+      ]
+    },
+    {
+      "domain": "caodangquoctehanoi.edu.vn",
+      "names": [
+        "TRƯỜNG CAO ĐẲNG QUỐC TẾ HÀ NỘI",
+        "HANOI INTERNATIONAL COLLEGE – VIET NAM"
+      ]
+    },
+    {
+      "domain": "caodangvietmy.edu.vn",
+      "names": [
+        "Cao đẳng Việt Mỹ",
+        "American Polytechnic College-APC"
+      ]
+    },
+    {
+      "domain": "caothang.edu.vn",
+      "names": [
+        "Cao Đẳng Kĩ Thuật Cao Thắng"
+      ]
+    },
+    {
+      "domain": "caugiay.edu.vn",
+      "names": [
+        "THCS Trương Công Giai"
+      ]
+    },
+    {
+      "domain": "cdntphcm.edu.vn",
+      "names": [
+        "Trường Cao đẳng Nghề Thành phố Hồ Chí Minh",
+        "Ho Chi Minh City College of Vocation"
+      ]
+    },
+    {
+      "domain": "cdsonla.edu.vn",
+      "names": [
+        "Son La Community College"
+      ]
+    },
+    {
+      "domain": "cdythadong.edu.vn",
+      "names": [
+        "Cao đẳng Y tế Hà Đông",
+        "HA DONG MEDICAL COLLEGE"
+      ]
+    },
+    {
+      "domain": "chauvanliem.edu.vn",
+      "names": [
+        "THPT Châu Văn Liêm",
+        "Chau Van Liem High School"
+      ]
+    },
+    {
+      "domain": "chuyenthaibinh.edu.vn",
+      "names": [
+        "Trung học phổ thông Chuyên Thái Bình",
+        "Thai Binh Gifted High School"
+      ]
+    },
+    {
+      "domain": "cis.edu.vn",
+      "names": [
+        "Canadian International School Viet Nam"
+      ]
+    },
+    {
+      "domain": "st.cmc-u.edu.vn",
+      "names": [
+        "Trường đại học CMC",
+        "CMC university"
+      ]
+    },
+    {
+      "domain": "cmc.edu.vn",
+      "names": [
+        "Đại Học CMC",
+        "CMC University"
+      ]
+    },
+    {
+      "domain": "codienxaydungbacninh.edu.vn",
+      "names": [
+        "Trường Cao đẳng Cơ điện và Xây Dựng Bắc Ninh",
+        "Bac Ninh Vocationnal college of Electromechanics and Construction"
+      ]
+    },
+    {
+      "domain": "cofer.edu.vn",
+      "names": [
+        "Cao đẳng Kinh Tế Đối Ngoại",
+        "College of Foreign Economy and Relations"
+      ]
+    },
+    {
+      "domain": "ctd.edu.vn",
+      "names": [
+        "Cao Đẳng Kinh Tế Kỹ Thuật Thủ Đức",
+        "Thu Duc Economic and Technical College"
+      ]
+    },
+    {
+      "domain": "ctech.edu.vn",
+      "names": [
+        "Cao Đẳng Kỹ Thuật Công Nghệ Bách Khoa"
+      ]
+    },
+    {
+      "domain": "cth.edu.vn",
+      "names": [
+        "Con Tu Hoc",
+        "CTH Edu"
+      ]
+    },
+    {
+      "domain": "ctim.edu.vn",
+      "names": [
+        "Cao đẳng CTIM",
+        "College of Technology and Industrial Management"
+      ]
+    },
+    {
+      "domain": "ctu.edu.vn",
+      "names": [
+        "Can-Tho University"
+      ]
+    },
+    {
+      "domain": "student.ctuet.edu.vn",
+      "names": [
+        "Trường Đại học Kỹ thuật - Công nghệ Cần Thơ",
+        "Can Tho University of Technology"
+      ]
+    },
+    {
+      "domain": "ctuet.edu.vn",
+      "names": [
+        "Trường Đại học Kỹ thuật - Công nghệ Cần Thơ",
+        "Can Tho University of Technology"
+      ]
+    },
+    {
+      "domain": "student.ctump.edu.vn",
+      "names": [
+        "Can Tho University of Medicine and Pharmacy"
+      ]
+    },
+    {
+      "domain": "dainam.edu.vn",
+      "names": [
+        "Đại Học Đại Nam",
+        "\bDai Nam University"
+      ]
+    },
+    {
+      "domain": "daivietsaigon.edu.vn",
+      "names": [
+        "Trường Cao đẳng Đại Việt Sài Gòn"
+      ]
+    },
+    {
+      "domain": "danavtc.edu.vn",
+      "names": [
+        "Danang Vocational Training College"
+      ]
+    },
+    {
+      "domain": "datapot.edu.vn",
+      "names": [
+        "Datapot is an educational institute that provides data science courses for Universities and Companies in Vietnam."
+      ]
+    },
+    {
+      "domain": "dau.edu.vn",
+      "names": [
+        "Đại học kiến trúc Đà Nẵng",
+        "DANANG ARCHITECTURE UNIVERSITY"
+      ]
+    },
+    {
+      "domain": "devcamp.edu.vn",
+      "names": [
+        "OnSchool",
+        "OnSchool"
+      ]
+    },
+    {
+      "domain": "dhcd.edu.vn",
+      "names": [
+        "Trường Đại học Công Đoàn",
+        "Trade union university from Viet Nam"
+      ]
+    },
+    {
+      "domain": "dhcnhn.edu.vn",
+      "names": [
+        "Đại học Công Nghiệp Hà Nội",
+        "Hanoi University of Industry"
+      ]
+    },
+    {
+      "domain": "dhcntt.edu.vn",
+      "names": [
+        "Đại Học Công Nghệ Thông Tin Sài Gòn",
+        "University of Information Technology Saigon"
+      ]
+    },
+    {
+      "domain": "dhhp.edu.vn",
+      "names": [
+        "Đại học Hải Phòng",
+        "Hai Phong University"
+      ]
+    },
+    {
+      "domain": "dhktyduocdn.edu.vn",
+      "names": [
+        "Đại học kỹ thuật y dược Đà Nẵng",
+        "DA NANG UNIVERSITY OF MEDICAL TECHNOLOGY AND PHARMACY"
+      ]
+    },
+    {
+      "domain": "dhpd.edu.vn",
+      "names": [
+        "Đại Học Phương Đông",
+        "Phuong Dong University"
+      ]
+    },
+    {
+      "domain": "dhsphue.edu.vn",
+      "names": [
+        "Đại học Sư Phạm Huế",
+        "Hue University of Education"
+      ]
+    },
+    {
+      "domain": "dhtm.edu.vn",
+      "names": [
+        "Trường Đại học Thương mại",
+        "Thuongmai University"
+      ]
+    },
+    {
+      "domain": "dhv.edu.vn",
+      "names": [
+        "Trường Đại học Hùng Vương Thành Phố Hồ Chí Minh",
+        "Hung Vuong University of Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "dis.edu.vn",
+      "names": [
+        "Trường quốc tế ước mơ",
+        "Dream International School"
+      ]
+    },
+    {
+      "domain": "discite.edu.vn",
+      "names": [
+        "Nguyen Dinh Cung"
+      ]
+    },
+    {
+      "domain": "sv.dla.edu.vn",
+      "names": [
+        "Đại học Kinh tế Công nghiệp Long An",
+        "Long An University of Economics and Industry"
+      ]
+    },
+    {
+      "domain": "dlu.edu.vn",
+      "names": [
+        "University of Da Lat"
+      ]
+    },
+    {
+      "domain": "dmail.edu.vn",
+      "names": [
+        "Truong Trung cap nghe Cu Chi",
+        "Cu Chi Vocational School"
+      ]
+    },
+    {
+      "domain": "dntu.edu.vn",
+      "names": [
+        "ĐẠI HỌC CÔNG NGHỆ ĐỒNG NAI",
+        "DONG NAI UNIVERSITY OF TECHNOLOGY"
+      ]
+    },
+    {
+      "domain": "dnu.edu.vn",
+      "names": [
+        "TRƯỜNG ĐẠI HỌC ĐẠI NAM",
+        "DAI NAM UNIVERSITY"
+      ]
+    },
+    {
+      "domain": "donga.edu.vn",
+      "names": [
+        "﻿Đại Học Đông Á",
+        "Dong A University"
+      ]
+    },
+    {
+      "domain": "dsu.edu.vn",
+      "names": [
+        "Đại học thể dục thể thao Đà Nẵng",
+        "DANANG SPORT UNIVERSITY"
+      ]
+    },
+    {
+      "domain": "dtdl.edu.vn",
+      "names": [
+        "Trường Cao Đẳng Điện Tử - Điện Lạnh Hà Nội",
+        "HaNoi College of Electronic and Electro - Refrigeratory Technics"
+      ]
+    },
+    {
+      "domain": "dthu.edu.vn",
+      "names": [
+        "Đại Học Đồng Tháp",
+        "Dong Thap University"
+      ]
+    },
+    {
+      "domain": "due.edu.vn",
+      "names": [
+        "Đại học kinh tế Đà Nẵng",
+        "Da Nang University of Economics"
+      ]
+    },
+    {
+      "domain": "dut.edu.vn",
+      "names": [
+        "Da Nang University of Technology and Science"
+      ]
+    },
+    {
+      "domain": "duytan.edu.vn",
+      "names": [
+        "Trường Đại học Duy Tân",
+        "Duy Tan university"
+      ]
+    },
+    {
+      "domain": "eaut.edu.vn",
+      "names": [
+        "Trường Đại Học Công Nghệ Đông Á, Hà Nội, Việt Nam",
+        "East Asia University of Technology, Hanoi, VietNam"
+      ]
+    },
+    {
+      "domain": "edisonschools.edu.vn",
+      "names": [
+        "Edison Schools Ecopark",
+        "Edison Schools Ecopark"
+      ]
+    },
+    {
+      "domain": "ehou.edu.vn",
+      "names": [
+        "Trường đại học mở Hà Nội",
+        "Hanoi Open University"
+      ]
+    },
+    {
+      "domain": "eiu.edu.vn",
+      "names": [
+        "Eastern International University",
+        "Eastern International University"
+      ]
+    },
+    {
+      "domain": "fbu.edu.vn",
+      "names": [
+        "Đại học Tài chính - Ngân hàng Hà Nội",
+        "Hanoi Financial and Banking University"
+      ]
+    },
+    {
+      "domain": "fe.edu.vn",
+      "names": [
+        "FPT University"
+      ]
+    },
+    {
+      "domain": "fit-haui.edu.vn",
+      "names": [
+        "Đại học Công Nghiệp Hà Nội",
+        "Hanoi University Of Industry"
+      ]
+    },
+    {
+      "domain": "apcs.fitus.edu.vn",
+      "names": [
+        "VNUHCM - University of Science"
+      ]
+    },
+    {
+      "domain": "clc.fitus.edu.vn",
+      "names": [
+        "VNUHCM - University of Science"
+      ]
+    },
+    {
+      "domain": "vp.fitus.edu.vn",
+      "names": [
+        "Đại học Khoa học Tự Nhiên",
+        "University of Science"
+      ]
+    },
+    {
+      "domain": "flss.edu.vn",
+      "names": [
+        "Trường Trung Học Phổ Thông Chuyên Ngoại Ngữ",
+        "Foreign language special school"
+      ]
+    },
+    {
+      "domain": "fpt.edu.vn",
+      "names": [
+        "FPT University"
+      ]
+    },
+    {
+      "domain": "fsb.edu.vn",
+      "names": [
+        "FSB School Of Business And Technology"
+      ]
+    },
+    {
+      "domain": "fst.edu.vn",
+      "names": [
+        "Trường Đại học Công Thương Thành phố Hồ Chí Minh",
+        "Ho Chi Minh City University of Industry and Trade"
+      ]
+    },
+    {
+      "domain": "fucantho.edu.vn",
+      "names": [
+        "Trường Đại Học FPT Cần Thơ",
+        "FPT University Can Tho"
+      ]
+    },
+    {
+      "domain": "student.fulbright.edu.vn",
+      "names": [
+        "Fulbright University Vietnam"
+      ]
+    },
+    {
+      "domain": "fulbright.edu.vn",
+      "names": [
+        "Fulbright University Vietnam"
+      ]
+    },
+    {
+      "domain": "funix.edu.vn",
+      "names": [
+        "FUNiX Online University"
+      ]
+    },
+    {
+      "domain": "student.giadinh.edu.vn",
+      "names": [
+        "Gia Dinh University"
+      ]
+    },
+    {
+      "domain": "giadinh.edu.vn",
+      "names": [
+        "Gia Dinh University",
+        "Gia Dinh University"
+      ]
+    },
+    {
+      "domain": "hactech.edu.vn",
+      "names": [
+        "HANOI VOCATIONAL COLLEGE OF TECHNOLOGY"
+      ]
+    },
+    {
+      "domain": "haha.edu.vn",
+      "names": [
+        "Trường Tiểu học Haha",
+        "Haha Primary School"
+      ]
+    },
+    {
+      "domain": "hanu.edu.vn",
+      "names": [
+        "Ha Noi University"
+      ]
+    },
+    {
+      "domain": "hatinh.edu.vn",
+      "names": [
+        "Ha Tinh Department of Education and Training",
+        "Sở Giáo Dục & Đào Tạo Hà Tĩnh",
+        ".group"
+      ]
+    },
+    {
+      "domain": "hau.edu.vn",
+      "names": [
+        "Hanoi University of Architecture"
+      ]
+    },
+    {
+      "domain": "haugiang.edu.vn",
+      "names": [
+        "Department of Education and Training of Hau Giang Province"
+      ]
+    },
+    {
+      "domain": "haui.edu.vn",
+      "names": [
+        "Đại học Công Nghiệp Hà Nội",
+        "Hanoi University of Industry"
+      ]
+    },
+    {
+      "domain": "giadinh.hcm.edu.vn",
+      "names": [
+        "Trường Trung Học Phổ Thông Gia Định",
+        "Gia Dinh High School"
+      ]
+    },
+    {
+      "domain": "hocmon.hcm.edu.vn",
+      "names": [
+        "Trường Trung Học Phổ Thông Hóc Môn",
+        "Hoc Mon High School"
+      ]
+    },
+    {
+      "domain": "hcm.edu.vn",
+      "names": [
+        "hocmon"
+      ]
+    },
+    {
+      "domain": "st.hcmca.edu.vn",
+      "names": [
+        "Ho Chi Minh City Cadre Academy",
+        "Ho Chi Minh City Cadre Academy"
+      ]
+    },
+    {
+      "domain": "hcmier.edu.vn",
+      "names": [
+        "Viện Môi Trường và Tài Nguyên",
+        "Institute for Environment and Resource"
+      ]
+    },
+    {
+      "domain": "hcmuaf.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Agriculture and Forestry"
+      ]
+    },
+    {
+      "domain": "hcmuarc.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Architecture"
+      ]
+    },
+    {
+      "domain": "hcmue.edu.vn",
+      "names": [
+        "Trường Đại học Sư Phạm TP.HCM",
+        "Ho Chi Minh City University of Education"
+      ]
+    },
+    {
+      "domain": "hcmulaw.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Law"
+      ]
+    },
+    {
+      "domain": "sv.hcmunre.edu.vn",
+      "names": [
+        "Dai Hoc Tai Nguyen va Moi Truong TPHCM"
+      ]
+    },
+    {
+      "domain": "hcmuns.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Natural Sciences"
+      ]
+    },
+    {
+      "domain": "student.hcmup.edu.vn",
+      "names": [
+        "Đại Học Sư Phạm Thành Phố Hồ Chí Minh",
+        "Ho Chi Minh City University of Pedagogy"
+      ]
+    },
+    {
+      "domain": "hcmupeda.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Pedagogics"
+      ]
+    },
+    {
+      "domain": "hcmus.edu.vn",
+      "names": [
+        "Ho Chi Minh University of Science",
+        "University of Science, VNU-HCM"
+      ]
+    },
+    {
+      "domain": "hcmussh.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Social Sciences and Humanities"
+      ]
+    },
+    {
+      "domain": "hcmut.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Technology"
+      ]
+    },
+    {
+      "domain": "hcmute.edu.vn",
+      "names": [
+        "University of Technical Education Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "hcmutrans.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Transport"
+      ]
+    },
+    {
+      "domain": "hdu.edu.vn",
+      "names": [
+        "Hong Duc University"
+      ]
+    },
+    {
+      "domain": "hluv.edu.vn",
+      "names": [
+        "Hoa Lu University"
+      ]
+    },
+    {
+      "domain": "hmu.edu.vn",
+      "names": [
+        "Hanoi Medical University"
+      ]
+    },
+    {
+      "domain": "hnue.edu.vn",
+      "names": [
+        "Hanoi National University of Education"
+      ]
+    },
+    {
+      "domain": "hoasen.edu.vn",
+      "names": [
+        "Hoa Sen University"
+      ]
+    },
+    {
+      "domain": "hou.edu.vn",
+      "names": [
+        "Hanoi Open University"
+      ]
+    },
+    {
+      "domain": "hpmu.edu.vn",
+      "names": [
+        "Đại học Y Dược Hải Phòng",
+        "Hai Phong University of Medicine and Pharmacy"
+      ]
+    },
+    {
+      "domain": "hpu2.edu.vn",
+      "names": [
+        "Dai Hoc Su Pham Ha Noi",
+        "Hanoi Pedagogical University 2"
+      ]
+    },
+    {
+      "domain": "hsb.edu.vn",
+      "names": [
+        "Trường Quản trị và Kinh doanh",
+        "Hanoi School of Business and Management"
+      ]
+    },
+    {
+      "domain": "htt.edu.vn",
+      "names": [
+        "Trường Cao Đẳng Công nghệ và Thương Mại Hà Nội",
+        "Hanoi College of Technology and Trading"
+      ]
+    },
+    {
+      "domain": "hu.edu.vn",
+      "names": [
+        "Ha Tinh University",
+        "Ha Tinh University"
+      ]
+    },
+    {
+      "domain": "hua.edu.vn",
+      "names": [
+        "Hanoi University of Agriculture"
+      ]
+    },
+    {
+      "domain": "huas.edu.vn",
+      "names": [
+        "Nguyễn Xuân Nhật Trường"
+      ]
+    },
+    {
+      "domain": "hub.edu.vn",
+      "names": [
+        "Trường Đại học Ngân hàng Thành phố Hồ Chí Minh (HUB)",
+        "Ho Chi Minh University of Banking (HUB)"
+      ]
+    },
+    {
+      "domain": "hubt.edu.vn",
+      "names": [
+        "Hanoi University of Business and Technology"
+      ]
+    },
+    {
+      "domain": "huc.edu.vn",
+      "names": [
+        "Hanoi University of Culture"
+      ]
+    },
+    {
+      "domain": "st.huce.edu.vn",
+      "names": [
+        "Hanoi University of Civil Engineering"
+      ]
+    },
+    {
+      "domain": "hue.edu.vn",
+      "names": [
+        "Sở GD&ĐT Thừa Thiên Huế",
+        "Sở GD&ĐT Thừa Thiên Huế"
+      ]
+    },
+    {
+      "domain": "students.hueic.edu.vn",
+      "names": [
+        "TRƯỜNG CAO ĐẲNG CÔNG NGHIỆP HUẾ",
+        "HUE INDUSTRIAL COLLEGE"
+      ]
+    },
+    {
+      "domain": "huemed-univ.edu.vn",
+      "names": [
+        "Hue University of Medicine and Pharmacy"
+      ]
+    },
+    {
+      "domain": "hueuni.edu.vn",
+      "names": [
+        "Hue University"
+      ]
+    },
+    {
+      "domain": "huflis.edu.vn",
+      "names": [
+        "Trường Đại Học Ngoại Ngữ Huế",
+        "University of Foreign Languages and International Studies, Hue University"
+      ]
+    },
+    {
+      "domain": "stu.hui.edu.vn",
+      "names": [
+        "Trường Đại học Công Thương"
+      ]
+    },
+    {
+      "domain": "huit.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Industry and Trade"
+      ]
+    },
+    {
+      "domain": "humg.edu.vn",
+      "names": [
+        "Hanoi University of Mining and Geology"
+      ]
+    },
+    {
+      "domain": "hunre.edu.vn",
+      "names": [
+        "Đại học Tài nguyên và Môi trường Hà Nội",
+        "Hanoi University of Natural Resources and Environment"
+      ]
+    },
+    {
+      "domain": "huph.edu.vn",
+      "names": [
+        "TRƯỜNG ĐẠI HỌC Y TẾ CÔNG CỘNG",
+        "HANOI UNIVERSITY OF PUBLIC HEALTH"
+      ]
+    },
+    {
+      "domain": "hus.edu.vn",
+      "names": [
+        "Hanoi University of Science"
+      ]
+    },
+    {
+      "domain": "husc.edu.vn",
+      "names": [
+        "Trường Đại học Khoa học Huế",
+        "Hue University Of Sciences"
+      ]
+    },
+    {
+      "domain": "students.hust.edu.vn",
+      "names": [
+        "Đại Học Bách Khoa Hà Nội",
+        "Hanoi University of Science and Technology"
+      ]
+    },
+    {
+      "domain": "hust.edu.vn",
+      "names": [
+        "Đại học Bách khoa Hà Nội",
+        "Hanoi University of Science and Technology"
+      ]
+    },
+    {
+      "domain": "hut.edu.vn",
+      "names": [
+        "Hanoi University of Technology"
+      ]
+    },
+    {
+      "domain": "hutech.edu.vn",
+      "names": [
+        "University of Technology"
+      ]
+    },
+    {
+      "domain": "hvnh.edu.vn",
+      "names": [
+        "Học Viện Ngân Hàng",
+        "Banking Academy"
+      ]
+    },
+    {
+      "domain": "hvtc.edu.vn",
+      "names": [
+        "Học Viện Tài Chính",
+        "Academy Of Finance"
+      ]
+    },
+    {
+      "domain": "hvu.edu.vn",
+      "names": [
+        "﻿Trường đại học Hùng Vương",
+        "Hung Vuong University"
+      ]
+    },
+    {
+      "domain": "hwru.edu.vn",
+      "names": [
+        "Water Resources University"
+      ]
+    },
+    {
+      "domain": "ibm.edu.vn",
+      "names": [
+        "Viện quản lý kinh doanh quốc tế",
+        "International Business Management Institute"
+      ]
+    },
+    {
+      "domain": "ich.edu.vn",
+      "names": [
+        "Trường Cao Đẳng Quốc Tế TP. HCM",
+        "International College of Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "iei.edu.vn",
+      "names": [
+        "VIET NAM INTERNATIONAL UNIVERSITY HOCHIMINH CITY - INTERNATIONAL EDUCATION INSTITUTE"
+      ]
+    },
+    {
+      "domain": "ikids.edu.vn",
+      "names": [
+        "International Kids"
+      ]
+    },
+    {
+      "domain": "ipmph.edu.vn",
+      "names": [
+        "VIỆN ĐÀO TẠO Y HỌC DỰ PHÒNG VÀ Y TẾ CÔNG CỘNG",
+        "SCHOOL OF PREVENTIVE MEDICINE AND PUBLIC HEALTH"
+      ]
+    },
+    {
+      "domain": "student.ischool.edu.vn",
+      "names": [
+        "THPT ISCHOOL LONG XUYÊN"
+      ]
+    },
+    {
+      "domain": "ishcmc.edu.vn",
+      "names": [
+        "International School Ho Chi Minh City",
+        "International School Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "ispace.edu.vn",
+      "names": [
+        "Trường Cao đẳng An ninh mạng iSPACE",
+        "iSPACE vocational training college"
+      ]
+    },
+    {
+      "domain": "iuh.edu.vn",
+      "names": [
+        "Đại học Công nghiệp Thành phố Hồ Chí Minh"
+      ]
+    },
+    {
+      "domain": "ict.jvn.edu.vn",
+      "names": [
+        "John Von Neumann Institute"
+      ]
+    },
+    {
+      "domain": "jvn.edu.vn",
+      "names": [
+        "JVN Institute - Vietnam National University HCMC",
+        "JVN Institute - Vietnam National University HCMC"
+      ]
+    },
+    {
+      "domain": "kgc.edu.vn",
+      "names": [
+        "Trường Cao đẳng Kiên Giang",
+        "Kien Giang College"
+      ]
+    },
+    {
+      "domain": "kgmc.edu.vn",
+      "names": [
+        "Trường Cao đẳng Y tế Kiên Giang",
+        "Kien Giang Medical College"
+      ]
+    },
+    {
+      "domain": "khanhhoa.edu.vn",
+      "names": [
+        "Trường THPT Nguyễn Văn Trỗi",
+        "Nguyen Van Troi High School"
+      ]
+    },
+    {
+      "domain": "khdt.edu.vn",
+      "names": [
+        "Đại học Khoa học Dữ liệu",
+        "University of Data Science"
+      ]
+    },
+    {
+      "domain": "ktkt-haiduong.edu.vn",
+      "names": [
+        "Hai Duong University of  Economics and Technology"
+      ]
+    },
+    {
+      "domain": "ldxh.edu.vn",
+      "names": [
+        "Đại học Lao động - Xã hội cơ sở 2",
+        "University of Labour Social Affairs 2"
+      ]
+    },
+    {
+      "domain": "lhu.edu.vn",
+      "names": [
+        "Đại học Lạc Hồng",
+        "Lac Hong University"
+      ]
+    },
+    {
+      "domain": "lomonoxop.edu.vn",
+      "names": [
+        "Trường THCS và THPT M.V.Lômônôxốp",
+        "M.V Lomonosov secondary and high school"
+      ]
+    },
+    {
+      "domain": "lqd.edu.vn",
+      "names": [
+        "Trường THPT Chuyên Lê Quý Đôn",
+        "Le Quy Don High School For The Gifted Students"
+      ]
+    },
+    {
+      "domain": "lqdtu.edu.vn",
+      "names": [
+        "Le Quy Don Technical University",
+        "Le Quy Don Technical University"
+      ]
+    },
+    {
+      "domain": "lsts.edu.vn",
+      "names": [
+        "Trường Đinh Thiện Lý",
+        "Lawrence S.Ting School"
+      ]
+    },
+    {
+      "domain": "lumina.edu.vn",
+      "names": [
+        "Lumina Academy",
+        "Lumina Academy"
+      ]
+    },
+    {
+      "domain": "mayaschool.edu.vn",
+      "names": [
+        "TRUÖNG PHÖ THÔNG LIÊN CÃP SONG NGÜ MAYA",
+        "MAYA SCHOOL",
+        "Maya Education for Peace"
+      ]
+    },
+    {
+      "domain": "mindx.edu.vn",
+      "names": [
+        "MindX Technology School"
+      ]
+    },
+    {
+      "domain": "mku.edu.vn",
+      "names": [
+        "Đại học Cửu Long",
+        "Mekong University"
+      ]
+    },
+    {
+      "domain": "muce.edu.vn",
+      "names": [
+        "Trường Đại học Xây dựng Miền Trung",
+        "Mien Trung University of Civil Engineering"
+      ]
+    },
+    {
+      "domain": "naem.edu.vn",
+      "names": [
+        "HỌC VIỆN QUẢN LÝ GIÁO DỤC"
+      ]
+    },
+    {
+      "domain": "naue.edu.vn",
+      "names": [
+        "TRƯỜNG ĐẠI HỌC KINH TẾ NGHỆ AN",
+        "NGHE AN UNIVERSITY OF ECONOMICS"
+      ]
+    },
+    {
+      "domain": "student.nctu.edu.vn",
+      "names": [
+        "Đại học Nam Cần Thơ",
+        "Nam Can Tho University"
+      ]
+    },
+    {
+      "domain": "nctu.edu.vn",
+      "names": [
+        "Đại học Nam Cần Thơ",
+        "Nam Can Tho University"
+      ]
+    },
+    {
+      "domain": "ndun.edu.vn",
+      "names": [
+        "Trường Đại học Điều dưỡng Nam Định",
+        "Nam Dinh University of Nursing"
+      ]
+    },
+    {
+      "domain": "neu.edu.vn",
+      "names": [
+        "Hanoi National Economics University"
+      ]
+    },
+    {
+      "domain": "nghean.edu.vn",
+      "names": [
+        "Department of Education and Training in Nghe An",
+        "Sở giáo dục và đào tạo Nghệ An",
+        "THPT Thanh Chương 1 | Thanh Chuong 1 High School",
+        ".group"
+      ]
+    },
+    {
+      "domain": "ngoquyenhighschool.edu.vn",
+      "names": [
+        "Trường Trung học Phổ thông Ngô Quyền - Đảo Phú Quý - Bình Thuận",
+        "Ngo Quyen highschool"
+      ]
+    },
+    {
+      "domain": "ngs.edu.vn",
+      "names": [
+        "Hệ thống trường liên cấp Newton",
+        "NEWTON GRAMMAR SCHOOL"
+      ]
+    },
+    {
+      "domain": "nguyensieu.edu.vn",
+      "names": [
+        "NGUYEN SIEU SCHOOL",
+        "NGUYEN SIEU SCHOOL"
+      ]
+    },
+    {
+      "domain": "nguyentraibh.edu.vn",
+      "names": [
+        "Trường THPT Nguyễn Trãi"
+      ]
+    },
+    {
+      "domain": "nkh.edu.vn",
+      "names": [
+        "Trường trung học phổ thông Nguyễn Khuyến Tây Ninh",
+        "Nguyen Khuyen Tay Ninh High School"
+      ]
+    },
+    {
+      "domain": "ntt.edu.vn",
+      "names": [
+        "Nguyen Tat Thanh University",
+        "Nguyen Tat Thanh University"
+      ]
+    },
+    {
+      "domain": "ntu-hn.edu.vn",
+      "names": [
+        "Đại học Nguyễn Trãi",
+        "Nguyen Trai University"
+      ]
+    },
+    {
+      "domain": "ntu.edu.vn",
+      "names": [
+        "Trường Đại học Nha Trang",
+        "Nha Trang University"
+      ]
+    },
+    {
+      "domain": "nuce.edu.vn",
+      "names": [
+        "National University of Civil Engineering"
+      ]
+    },
+    {
+      "domain": "nute.edu.vn",
+      "names": [
+        "Trường đại học sư phạm kỹ thuật Nam Định",
+        "NAM DINH UNIVERSITY OF TECHNOLOGY EDUCATION"
+      ]
+    },
+    {
+      "domain": "onbav.edu.vn",
+      "names": [
+        "Học viện Ngân hàng - Trường Đào tạo, Bồi dưỡng cán bộ",
+        "Banking Academy of Vietnam - School of Training and Retraining"
+      ]
+    },
+    {
+      "domain": "ou.edu.vn",
+      "names": [
+        "Ho Chi Minh City Open University"
+      ]
+    },
+    {
+      "domain": "oude.edu.vn",
+      "names": [
+        "Trường Đại Học Mở thành phố Hồ Chí Minh"
+      ]
+    },
+    {
+      "domain": "pace.edu.vn",
+      "names": [
+        "PACE Institute of Management"
+      ]
+    },
+    {
+      "domain": "pdu.edu.vn",
+      "names": [
+        "Trường Đại học Phạm Văn Đồng",
+        "Pham Van Dong University"
+      ]
+    },
+    {
+      "domain": "penphy.edu.vn",
+      "names": [
+        "Trường THCS Thuận Hưng"
+      ]
+    },
+    {
+      "domain": "pgd-hoangmai.edu.vn",
+      "names": [
+        "Trung học cơ sở Linh Đàm"
+      ]
+    },
+    {
+      "domain": "pgdanlao.edu.vn",
+      "names": [
+        "Phòng GD&ĐT Huyện An Lão",
+        "pgdanlao.edu.vn"
+      ]
+    },
+    {
+      "domain": "phanboichau.edu.vn",
+      "names": [
+        "THPT Phan Boi Chau - Hoai Nhon",
+        "Phan Boi Chau High Shool"
+      ]
+    },
+    {
+      "domain": "phenikaa-uni.edu.vn",
+      "names": [
+        "Phenikaa university",
+        "Phenikaa university"
+      ]
+    },
+    {
+      "domain": "phs.edu.vn",
+      "names": [
+        "PACIFIC PRIMARY AND HIGH SCHOOL"
+      ]
+    },
+    {
+      "domain": "pitagon.edu.vn",
+      "names": [
+        "Pitagon Education Technology Institute"
+      ]
+    },
+    {
+      "domain": "pnt.edu.vn",
+      "names": [
+        "Trường Đại học Y khoa Phạm Ngọc Thạch",
+        "Pham Ngoc Thach University of Medicine (PNTU)"
+      ]
+    },
+    {
+      "domain": "poly.edu.vn",
+      "names": [
+        "Cao Đẳng FPT Polytechnic",
+        "FPT Polytechnic"
+      ]
+    },
+    {
+      "domain": "pso.edu.vn",
+      "names": [
+        "Western Sydney University Vietnam"
+      ]
+    },
+    {
+      "domain": "ptit.edu.vn",
+      "names": [
+        "Posts & Telecommunications Institude of Technology"
+      ]
+    },
+    {
+      "domain": "ptithcm.edu.vn",
+      "names": [
+        "Học viện Công nghệ Bưu chính viễn thông",
+        "Posts and Telecommunications Institute of Technology"
+      ]
+    },
+    {
+      "domain": "ptnk.edu.vn",
+      "names": [
+        "VNU-HCM High School for the Gifted",
+        "Trường Phổ Thông Năng Khiếu, ĐHQG-HCM"
+      ]
+    },
+    {
+      "domain": "pvu.edu.vn",
+      "names": [
+        "Trường Đại Học Dầu Khí Việt Nam",
+        "Petrovietnam University"
+      ]
+    },
+    {
+      "domain": "pyu.edu.vn",
+      "names": [
+        "Trường Đại học Phú Yên",
+        "Phu Yen University"
+      ]
+    },
+    {
+      "domain": "st.qnu.edu.vn",
+      "names": [
+        "Quy Nhon University"
+      ]
+    },
+    {
+      "domain": "qnu.edu.vn",
+      "names": [
+        "Đại học Quy Nhơn",
+        "Quy Nhon University"
+      ]
+    },
+    {
+      "domain": "qui.edu.vn",
+      "names": [
+        "Quang Ninh University of Industry"
+      ]
+    },
+    {
+      "domain": "quochocquynhon.edu.vn",
+      "names": [
+        "Quoc Hoc Quy Nhon"
+      ]
+    },
+    {
+      "domain": "rdi.edu.vn",
+      "names": [
+        "Viện Phát triển Nguồn lực - Đại học Trà Vinh",
+        "Resource Development Institute - Tra Vinh University"
+      ]
+    },
+    {
+      "domain": "ric.edu.vn",
+      "names": [
+        "Trường Cao Đẳng Công Nghiệp Cao Su",
+        "Rubber Industrial College"
+      ]
+    },
+    {
+      "domain": "rmit.edu.vn",
+      "names": [
+        "RMIT International University Vietnam"
+      ]
+    },
+    {
+      "domain": "royal.edu.vn",
+      "names": [
+        "ROYAL SCHOOL",
+        "ROYAL SCHOOL"
+      ]
+    },
+    {
+      "domain": "saidiait.edu.vn",
+      "names": [
+        "Trường Đại học Saidia Vietnam",
+        "Saidia University of Vietnam"
+      ]
+    },
+    {
+      "domain": "saigontech.edu.vn",
+      "names": [
+        "Saigontech"
+      ]
+    },
+    {
+      "domain": "saodo.edu.vn",
+      "names": [
+        "Trường Đại học Sao Đỏ",
+        "Sao Do University"
+      ]
+    },
+    {
+      "domain": "sapp.edu.vn",
+      "names": [
+        "SAPP Academy",
+        "SAPP Academy"
+      ]
+    },
+    {
+      "domain": "sic.edu.vn",
+      "names": [
+        "SaiGon International College ",
+        "SaiGon International College"
+      ]
+    },
+    {
+      "domain": "gamudagardens.sis.edu.vn",
+      "names": [
+        "Trường Quốc Tế Singapore tại Gamuda Gardens (Hà Nội)"
+      ]
+    },
+    {
+      "domain": "saigonsouth.sis.edu.vn",
+      "names": [
+        "Trường Quốc tế Singapore (SIS) tại Nam Sài Gòn"
+      ]
+    },
+    {
+      "domain": "sis.edu.vn",
+      "names": [
+        "Đại học Bách khoa Hà Nội",
+        "Hanoi University of Science and Technology"
+      ]
+    },
+    {
+      "domain": "sitc.edu.vn",
+      "names": [
+        "Trung cấp Công nghệ Thông tin Sài Gòn",
+        "Saigon Information Technology College"
+      ]
+    },
+    {
+      "domain": "siu.edu.vn",
+      "names": [
+        "Đại học Quốc tế Sài Gòn",
+        "Saigon International University"
+      ]
+    },
+    {
+      "domain": "sjjs.edu.vn",
+      "names": [
+        "Saint Joseph Jesuit Scholasticate",
+        "Học Viện Thánh Giuse Dòng Tên"
+      ]
+    },
+    {
+      "domain": "skylineschool.edu.vn",
+      "names": [
+        "Skylineschool"
+      ]
+    },
+    {
+      "domain": "sna.edu.vn",
+      "names": [
+        "International Schools of North America"
+      ]
+    },
+    {
+      "domain": "spkt.edu.vn",
+      "names": [
+        "Trường Đại học Sư phạm Kỹ thuật Hưng Yên",
+        "Hung Yen University of Technology and Education"
+      ]
+    },
+    {
+      "domain": "ssis.edu.vn",
+      "names": [
+        "SAIGON SOUTH INTERNATIONAL SCHOOL"
+      ]
+    },
+    {
+      "domain": "student.stu.edu.vn",
+      "names": [
+        "Đại học công nghệ Sài Gòn",
+        "Saigon Technology University"
+      ]
+    },
+    {
+      "domain": "student-topica.edu.vn",
+      "names": [
+        "Tổ hợp giáo dục Topica",
+        "Topica Edtech Group"
+      ]
+    },
+    {
+      "domain": "studenthuph.edu.vn",
+      "names": [
+        "Đại học Y tế công cộng",
+        "HANOI UNIVERSITY OF PUBLIC HEALTH"
+      ]
+    },
+    {
+      "domain": "hs.taquangbuu-bk.edu.vn",
+      "names": [
+        "Trường Trung học cơ sở và Trung học phổ thông Tạ Quang Bửu",
+        "Ta Quang Buu Secondary and High School"
+      ]
+    },
+    {
+      "domain": "taynguyenuni.edu.vn",
+      "names": [
+        "Tay Nguyen University"
+      ]
+    },
+    {
+      "domain": "tbd.edu.vn",
+      "names": [
+        "Đại học Thái Bình Dương",
+        "Thai Binh Duong University"
+      ]
+    },
+    {
+      "domain": "tckt.edu.vn",
+      "names": [
+        "Dai Hoc Tai Chinh Ke Toan",
+        "University Of Finance and Accountancy"
+      ]
+    },
+    {
+      "domain": "tcu.edu.vn",
+      "names": [
+        "Đại Học Thông tin Liên Lạc",
+        "University Communications"
+      ]
+    },
+    {
+      "domain": "tdc.edu.vn",
+      "names": [
+        "Thu Duc College of Technology"
+      ]
+    },
+    {
+      "domain": "tdmu.edu.vn",
+      "names": [
+        "Thu Dau Mot University"
+      ]
+    },
+    {
+      "domain": "tdt.edu.vn",
+      "names": [
+        "Ton Duc Thang University"
+      ]
+    },
+    {
+      "domain": "student.tdtu.edu.vn",
+      "names": [
+        "Đại Học Tôn Đức Thắng",
+        "Ton Duc Thang University"
+      ]
+    },
+    {
+      "domain": "tdtu.edu.vn",
+      "names": [
+        "Ton Duc Thang University"
+      ]
+    },
+    {
+      "domain": "tdu.edu.vn",
+      "names": [
+        "Tay Do University"
+      ]
+    },
+    {
+      "domain": "teky.edu.vn",
+      "names": [
+        "Teky Holdings Young Technology Education JSc",
+        "Teky Holdings Young Technology Education JSc"
+      ]
+    },
+    {
+      "domain": "tgu.edu.vn",
+      "names": [
+        "Tien Giang University",
+        "Tien Giang University"
+      ]
+    },
+    {
+      "domain": "th-thcs-thpt-quangdong.edu.vn",
+      "names": [
+        "Trường tiểu học - trung học cơ sở và trung học phổ thông Quảng Đông",
+        "Guangdong Primary, Middle and High School"
+      ]
+    },
+    {
+      "domain": "thanglong.edu.vn",
+      "names": [
+        "Thang Long University"
+      ]
+    },
+    {
+      "domain": "thcs-doanthidiem.edu.vn",
+      "names": [
+        "Trung học cơ sở Đoàn Thị Điểm",
+        "Doan Thi Diem Secondary School"
+      ]
+    },
+    {
+      "domain": "thcs-nguyentrai.edu.vn",
+      "names": [
+        "THCS Nguyễn Trãi"
+      ]
+    },
+    {
+      "domain": "thcsthuanhung.edu.vn",
+      "names": [
+        "Trường THCS Thuận Hưng"
+      ]
+    },
+    {
+      "domain": "thedeweyschools.edu.vn",
+      "names": [
+        "The Dewey Schools",
+        "The Dewey Schools"
+      ]
+    },
+    {
+      "domain": "mail.thitcholuoc.edu.vn",
+      "names": [
+        "Trường Trung học Cơ sở Phúc Diễn",
+        "Phuc Dien Secondary School"
+      ]
+    },
+    {
+      "domain": "thmkhai-nuithanh.edu.vn",
+      "names": [
+        "Truong TH Nguyen Thi Minh Khai",
+        "Nguyen Thi Minh Khai School"
+      ]
+    },
+    {
+      "domain": "thpt-lehongphong-tphcm.edu.vn",
+      "names": [
+        "Trường THPT Chuyên Lê Hồng Phong - Tp. Hồ Chí Minh",
+        "Le Hong Phong High School for The Gifted - Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "thpt-minhkhai-hatinh.edu.vn",
+      "names": [
+        "Trường THPT Nguyễn Thị Minh Khai - Hà Tĩnh",
+        "Minh Khai Senior High School - Ha Tinh"
+      ]
+    },
+    {
+      "domain": "thptchuyenthainguyen.edu.vn",
+      "names": [
+        "Trung học phổ thông chuyên Thái Nguyên",
+        "Thai Nguyen gifted high school"
+      ]
+    },
+    {
+      "domain": "thpthahuytaphatinh.edu.vn",
+      "names": [
+        "Truong THPT Ha Huy Tap",
+        "Ha Huy Tap High School"
+      ]
+    },
+    {
+      "domain": "thptkhuongdinh.edu.vn",
+      "names": [
+        "THPT Khương Đình",
+        "Khuong Dinh Highschool"
+      ]
+    },
+    {
+      "domain": "thptkrongana.edu.vn",
+      "names": [
+        "THPT Krong Ana",
+        "Krong Ana High School"
+      ]
+    },
+    {
+      "domain": "thptlythaito.edu.vn",
+      "names": [
+        "THPT Ly Thai To",
+        "Ly Thai To High School"
+      ]
+    },
+    {
+      "domain": "thptnguyenhuuhuan.edu.vn",
+      "names": [
+        "Trường THPT Nguyễn Hữu Huân",
+        "Nguyen Huu Huan High School"
+      ]
+    },
+    {
+      "domain": "thptnxo.edu.vn",
+      "names": [
+        "Trường phổ thông trung học Nguyễn Xuân Ôn",
+        "Nguyen Xuan On High School"
+      ]
+    },
+    {
+      "domain": "thptphuoclonghcm.edu.vn",
+      "names": [
+        "TRƯỜNG THPT PHƯỚC LONG",
+        "PHUOC LONG HIGH SCHOOL"
+      ]
+    },
+    {
+      "domain": "thptsontra.edu.vn",
+      "names": [
+        "THPT Sơn Trà",
+        "Son Tra High School"
+      ]
+    },
+    {
+      "domain": "thptyenvien.edu.vn",
+      "names": [
+        "Trung học phổ thông Yên Viên",
+        "Yen Vien High School"
+      ]
+    },
+    {
+      "domain": "thpt-aldong.thuathienhue.edu.vn",
+      "names": [
+        "An Luong Dong High School"
+      ]
+    },
+    {
+      "domain": "thuathienhue.edu.vn",
+      "names": [
+        "Hoang Thi Tram",
+        "Vinh Loc High School"
+      ]
+    },
+    {
+      "domain": "thucnghiem.edu.vn",
+      "names": [
+        "Trường TH, THCS, THPT Thực Nghiệm Khoa học Giáo dục"
+      ]
+    },
+    {
+      "domain": "tieuhocbunho.edu.vn",
+      "names": [
+        "Tieu hoc Bu Nho",
+        "Bu Nho elementary"
+      ]
+    },
+    {
+      "domain": "tieuhocnghiahiep.edu.vn",
+      "names": [
+        "Truong Tieu hoc Nghia Hiep"
+      ]
+    },
+    {
+      "domain": "tkh.edu.vn",
+      "names": [
+        "Trường trung học phổ thông Thanh Khê, Đà Nẵng City, VietNam"
+      ]
+    },
+    {
+      "domain": "tlu.edu.vn",
+      "names": [
+        "Đại học thủy lợi Hà Nội",
+        "Water Resources University"
+      ]
+    },
+    {
+      "domain": "tnmc.edu.vn",
+      "names": [
+        "TRƯỜNG ĐẠI HỌC Y DƯỢC - ĐẠI HỌC THÁI NGUYÊN",
+        "Tamilnadu Medical Council University"
+      ]
+    },
+    {
+      "domain": "tnu.edu.vn",
+      "names": [
+        "Đại học Thái Nguyên",
+        "Thai Nguyen University"
+      ]
+    },
+    {
+      "domain": "tnue.edu.vn",
+      "names": [
+        "trường đại học sư phạm Thái Nguyên",
+        "Thai Nguyen University of education"
+      ]
+    },
+    {
+      "domain": "tnus.edu.vn",
+      "names": [
+        "Đại Học Khoa Học Thái Nguyên",
+        "Thai Nguyen University of Science"
+      ]
+    },
+    {
+      "domain": "tnut.edu.vn",
+      "names": [
+        "Đại Học Kỹ Thuật Công Nghiệp Thái Nguyên",
+        "Thai Nguyen University of technology"
+      ]
+    },
+    {
+      "domain": "topica.edu.vn",
+      "names": [
+        "Tổ hợp Công nghệ giáo dục Topica"
+      ]
+    },
+    {
+      "domain": "tqu.edu.vn",
+      "names": [
+        "Trường Đại học Tân Trào",
+        "Tan Trao University"
+      ]
+    },
+    {
+      "domain": "tranbien.edu.vn",
+      "names": [
+        "Trường Trung học Phổ thông Trấn Biên",
+        "Trường THPT Trấn Biên",
+        "Tran Bien High School"
+      ]
+    },
+    {
+      "domain": "tranvanbayst.edu.vn",
+      "names": [
+        "Trần Văn Bảy"
+      ]
+    },
+    {
+      "domain": "trungvuongdanang.edu.vn",
+      "names": [
+        "Trường THCS Trưng Vương Đà Nẵng",
+        "Trung Vuong Da Nang Middle School"
+      ]
+    },
+    {
+      "domain": "ttn.edu.vn",
+      "names": [
+        "Đại học Tây Nguyên",
+        "Tay Nguyen University"
+      ]
+    },
+    {
+      "domain": "std.ttu.edu.vn",
+      "names": [
+        "Tan Tao University",
+        "Tan Tao University"
+      ]
+    },
+    {
+      "domain": "tuaf.edu.vn",
+      "names": [
+        "Thainguyen University of Agriculture and Forestry"
+      ]
+    },
+    {
+      "domain": "tuyenquang.edu.vn",
+      "names": [
+        "Trường"
+      ]
+    },
+    {
+      "domain": "tvu-onschool.edu.vn",
+      "names": [
+        "Trường Đại Học Trà Vinh",
+        "Tra Vinh University"
+      ]
+    },
+    {
+      "domain": "tvu.edu.vn",
+      "names": [
+        "Đại học Trà Vinh",
+        "Tra Vinh University"
+      ]
+    },
+    {
+      "domain": "uah.edu.vn",
+      "names": [
+        "Đại Học Kiến Trúc Ho Chi Minh City",
+        "University of Architecture Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "ud.edu.vn",
+      "names": [
+        "University of Da Nang"
+      ]
+    },
+    {
+      "domain": "ueb.edu.vn",
+      "names": [
+        "Trường Đại học Kinh tế - Đại học Quốc gia Hà Nội",
+        "University of Economics and Business - Vietnam National University"
+      ]
+    },
+    {
+      "domain": "uef.edu.vn",
+      "names": [
+        "Trường Đại học Kinh tế - Tài chính thành phố Hồ Chí Minh",
+        "Ho Chi Minh City University of Economics and Finance - UEF"
+      ]
+    },
+    {
+      "domain": "ueh.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Economics"
+      ]
+    },
+    {
+      "domain": "st.uel.edu.vn",
+      "names": [
+        "Trường Đại học Kinh tế - Luật",
+        "University of Economics and Law"
+      ]
+    },
+    {
+      "domain": "uel.edu.vn",
+      "names": [
+        "Trường Đại học Kinh tế – Luật, Đại học Quốc gia Thành phố Hồ Chí Minh",
+        "University of Economics and Law – UEL"
+      ]
+    },
+    {
+      "domain": "uet.edu.vn",
+      "names": [
+        "Trường Đại học Công nghệ - Đại học Quốc gia Hà Nội",
+        "VNU University of Engineering and Technology"
+      ]
+    },
+    {
+      "domain": "sv.ufm.edu.vn",
+      "names": [
+        "University of finance - marketing"
+      ]
+    },
+    {
+      "domain": "ufm.edu.vn",
+      "names": [
+        "University of Finance - Marketing",
+        "University of Finance - Marketing"
+      ]
+    },
+    {
+      "domain": "uit.edu.vn",
+      "names": [
+        "University of Information Technology Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "ulsa.edu.vn",
+      "names": [
+        "University of Labour and Social Affairs"
+      ]
+    },
+    {
+      "domain": "st.umt.edu.vn",
+      "names": [
+        "Trường Đại học Quản lý và Công nghệ TP.HCM",
+        "University of Management and Technology Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "umt.edu.vn",
+      "names": [
+        "University of management and technology Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "uneti.edu.vn",
+      "names": [
+        "Kinh tế kỹ thuật công nghiệp Hà Nội",
+        "Uneti University"
+      ]
+    },
+    {
+      "domain": "uphcm.edu.vn",
+      "names": [
+        "Khoa Dược - Đại học Y Dược TP.Hồ Chí Minh",
+        "Faculty of Pharmacy - University of Medicine and Pharmacy, Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "upt.edu.vn",
+      "names": [
+        "Đại học Phan Thiết",
+        "University of Phan Thiet"
+      ]
+    },
+    {
+      "domain": "uschool.edu.vn",
+      "names": [
+        "Trường Trung Cấp Công Nghệ Tân Tiến"
+      ]
+    },
+    {
+      "domain": "ussh.edu.vn",
+      "names": [
+        "Trường Đại học Khoa học Xã hội và Nhân văn - Đại học Quốc gia Hà Nội",
+        "University of Social Sciences and Humanities"
+      ]
+    },
+    {
+      "domain": "st.usth.edu.vn",
+      "names": [
+        "University of Science and Technology of Hanoi"
+      ]
+    },
+    {
+      "domain": "usth.edu.vn",
+      "names": [
+        "University of Science and Technology of Hanoi"
+      ]
+    },
+    {
+      "domain": "ut.edu.vn",
+      "names": [
+        "﻿Trường đại học Giao thông vận tải thành phố Hồ Chí Minh",
+        "Ho Chi Minh City University of Transport"
+      ]
+    },
+    {
+      "domain": "utb.edu.vn",
+      "names": [
+        "Tay Bac University",
+        "Tay Bac University"
+      ]
+    },
+    {
+      "domain": "st.utc.edu.vn",
+      "names": [
+        "University of Transport and Communication",
+        "www.utc.edu.vn"
+      ]
+    },
+    {
+      "domain": "utc.edu.vn",
+      "names": [
+        "University of Transport and Communications"
+      ]
+    },
+    {
+      "domain": "st.utc2.edu.vn",
+      "names": [
+        "University of Transport and Communications – Campus in Ho Chi Minh City",
+        "www.utc2.edu.vn"
+      ]
+    },
+    {
+      "domain": "utehy.edu.vn",
+      "names": [
+        "Trường Đại học Sư phạm Kĩ thuật Hưng Yên",
+        "Hung Yen University of Technology and Education"
+      ]
+    },
+    {
+      "domain": "utm.edu.vn",
+      "names": [
+        "Trường Đại học Công nghệ và Quản lý Hữu Nghị",
+        "Hanoi University Of Technology and Management"
+      ]
+    },
+    {
+      "domain": "utschool.edu.vn",
+      "names": [
+        "US Vietnam Talent International School"
+      ]
+    },
+    {
+      "domain": "utt.edu.vn",
+      "names": [
+        "University Of Transport Technology"
+      ]
+    },
+    {
+      "domain": "vcam.edu.vn",
+      "names": [
+        "Trường cao đẳng cơ khí nông nghiệp",
+        "Vocational college of agricultural mecanics"
+      ]
+    },
+    {
+      "domain": "student.vgu.edu.vn",
+      "names": [
+        "Đại học Việt Đức",
+        "Vietnamese German University"
+      ]
+    },
+    {
+      "domain": "vhu.edu.vn",
+      "names": [
+        "Đại Học Văn Hiến",
+        "Van Hien University"
+      ]
+    },
+    {
+      "domain": "victoriaschool.edu.vn",
+      "names": [
+        "Victoria Saigon South School",
+        "Hệ Thống Giáo Dục Victoria School"
+      ]
+    },
+    {
+      "domain": "victoryschool.edu.vn",
+      "names": [
+        "HỆ THỐNG GIÁO DỤC THỰC NGHIỆM VICTORY"
+      ]
+    },
+    {
+      "domain": "viendong.edu.vn",
+      "names": [
+        "Cao Đẳng Viễn Đông",
+        "VienDong College",
+        "Email Domain: viendong.edu.vn"
+      ]
+    },
+    {
+      "domain": "vietbac.edu.vn",
+      "names": [
+        "Trường Đại học Kinh tế - Công nghệ Thái Nguyên",
+        "Tuetech University"
+      ]
+    },
+    {
+      "domain": "vimaru.edu.vn",
+      "names": [
+        "Vietnam Maritime University"
+      ]
+    },
+    {
+      "domain": "vinhphuc.edu.vn",
+      "names": [
+        "Huong Canh A Primary School",
+        "Huong Canh A Primary School"
+      ]
+    },
+    {
+      "domain": "vinschool.edu.vn",
+      "names": [
+        "VINGROUP school"
+      ]
+    },
+    {
+      "domain": "vinuni.edu.vn",
+      "names": [
+        "VinUniversity",
+        "VinUniversity"
+      ]
+    },
+    {
+      "domain": "vjis.edu.vn",
+      "names": [
+        "Truong Lien Cap Viet Nhat"
+      ]
+    },
+    {
+      "domain": "vku.edu.vn",
+      "names": [
+        "Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn"
+      ]
+    },
+    {
+      "domain": "vlu.edu.vn",
+      "names": [
+        "Dai Hoc Van Lang",
+        "Van Lang University"
+      ]
+    },
+    {
+      "domain": "vlute.edu.vn",
+      "names": [
+        "Đại học Sư Phạm Kỹ Thuật Vĩnh Long",
+        "Vinh Long University of Technology and Education"
+      ]
+    },
+    {
+      "domain": "vmmu.edu.vn",
+      "names": [
+        "Vietnam Military Medical University"
+      ]
+    },
+    {
+      "domain": "vnkgu.edu.vn",
+      "names": [
+        "Truong Dai Hoc Kien Giang",
+        "Kien Giang University"
+      ]
+    },
+    {
+      "domain": "vnp.edu.vn",
+      "names": [
+        "Vietnam The Nerhetlands Progamme",
+        "Vietnam The Nerhetlands Progamme"
+      ]
+    },
+    {
+      "domain": "vnua.edu.vn",
+      "names": [
+        "Học viện Nông nghiệp Việt Nam",
+        "Vietnam National University of Agriculture"
+      ]
+    },
+    {
+      "domain": "vnuhcm.edu.vn",
+      "names": [
+        "Vietnam National University Ho Chi Minh City"
+      ]
+    },
+    {
+      "domain": "vnuhn.edu.vn",
+      "names": [
+        "Vietnam National University",
+        "Nguyễn Vũ Linh"
+      ]
+    },
+    {
+      "domain": "vnuis.edu.vn",
+      "names": [
+        "Trường Quốc tế - Đại học Quốc gia Hà Nội",
+        "International School, Vietnam National University, Hanoi"
+      ]
+    },
+    {
+      "domain": "vnuk.edu.vn",
+      "names": [
+        "Viện Nghiên cứu và Đào tạo Việt Anh",
+        "The VNUK Institute for Research and Executive Education"
+      ]
+    },
+    {
+      "domain": "vtc.edu.vn",
+      "names": [
+        "VTC INFORMATION TECHNOLOGY AND DESIGN ACADEMY",
+        "VTC ACADEMY"
+      ]
+    },
+    {
+      "domain": "vtec.edu.vn",
+      "names": [
+        "Trường Cao đẳng Kinh tế - Kỹ thuật Vĩnh Phúc",
+        "Vinh Phuc Technology - Economic College"
+      ]
+    },
+    {
+      "domain": "stu.vttu.edu.vn",
+      "names": [
+        "Trường Đại học Võ Trường Toản",
+        "Can Tho University of Medicine and Pharmacy"
+      ]
+    },
+    {
+      "domain": "vtvc.edu.vn",
+      "names": [
+        "Trường Cao đẳng Du lịch Vũng Tàu",
+        "VTVC"
+      ]
+    },
+    {
+      "domain": "wass.edu.vn",
+      "names": [
+        "Trường TiH - THCS - THPT Tây Úc (WASS)",
+        "Western Australian International School System"
+      ]
+    },
+    {
+      "domain": "wellspring.edu.vn",
+      "names": [
+        "trường Phổ thông Song Ngữ Liên cấp Wellspring",
+        "Wellspring International Bilingual School"
+      ]
+    },
+    {
+      "domain": "wellspringsaigon.edu.vn",
+      "names": [
+        "Trường Phổ thông Liên cấp Song Ngữ Quốc tế Wellspring Saigon",
+        "Wellspring Saigon International Bilingual School"
+      ]
+    },
+    {
+      "domain": "yds.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Medicine and Pharmacy"
+      ]
+    },
+    {
+      "domain": "yersin.edu.vn",
+      "names": [
+        "YERSIN UNIVERSITY DALAT",
+        "YERSIN UNIVERSITY DALAT"
+      ]
+    },
+    {
+      "domain": "ytebacninh.edu.vn",
+      "names": [
+        "Trường Cao đẳng Y tế Bắc Ninh"
+      ]
+    },
+    {
+      "domain": "hiu.vn",
+      "names": [
+        "Hong Bang International University",
+        "Hong Bang International University"
+      ]
+    },
+    {
+      "domain": "itrithuc.vn",
+      "names": [
+        "Digital Vietnamese Knowledge System Project of the Ministry of Science and Technology of Vietnam"
+      ]
+    },
+    {
+      "domain": "mit.vn",
+      "names": [
+        "student.mit.vn"
+      ]
+    },
+    {
+      "domain": "tmudaihoctuxa.vn",
+      "names": [
+        "TRUONG DAI HOC THUONG MAI",
+        "Thuongmai University"
+      ]
+    },
+    {
+      "domain": "sv1.dut.udn.vn",
+      "names": [
+        "Trường Đại học Bách khoa - Đại học Đà Nẵng",
+        "University of Science and Technology - The University of Da Nang"
+      ]
+    },
+    {
+      "domain": "daotao.sict.udn.vn",
+      "names": [
+        "Khoa Công nghệ thông tin và truyền thông - Đại học Đà Nẵng",
+        "School of Information and Communication Technology - The University of Danang"
+      ]
+    },
+    {
+      "domain": "vku.udn.vn",
+      "names": [
+        "Trường Đại học Công nghệ Thông tin và Truyền thông Việt – Hàn",
+        "Vietnam - Korea University of Information and Communication Technology"
+      ]
+    },
+    {
+      "domain": "student.utt.vn",
+      "names": [
+        "Trường Đại học Công Nghệ Giao Thông Vận Tải",
+        "University Of Transport Technology"
+      ]
+    },
+    {
+      "domain": "vanlanguni.vn",
+      "names": [
+        "Văn Lang University"
+      ]
+    },
+    {
+      "domain": "vnn.vn",
+      "names": [
+        "Ho Chi Minh City University of Foreign Languages and Information Technology"
+      ]
+    },
+    {
+      "domain": "coltech.vnu.vn",
+      "names": [
+        "Vietnam National University Hanoi"
+      ]
+    },
+    {
+      "domain": "vnu.vn",
+      "names": [
+        "Đại học Quốc gia Hà Nội",
+        "Vietnam National University, Hanoi"
+      ]
+    }
+  ],
+  "projection": "Domain and name lines only; contact and URL lines omitted."
+}

@@ -1,9 +1,9 @@
 import importlib
 import os
+from unittest.mock import patch
 
 from django.core.checks import Error
-from django.test import SimpleTestCase
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 
 from config.checks import check_turnstile_settings
 from config.env import env_bool, env_list, local_secret_key
@@ -75,7 +75,9 @@ class EnvHelperTests(SimpleTestCase):
         os.environ["CORS_ORIGINS"] = "http://example.test,http://localhost:5173"
 
         try:
-            settings_module = importlib.reload(settings_module)
+            # Test environment defaults independently of the developer's .env.
+            with patch("dotenv.load_dotenv"):
+                settings_module = importlib.reload(settings_module)
             self.assertIn("http://localhost:5173", settings_module.CSRF_TRUSTED_ORIGINS)
             self.assertIn("http://example.test", settings_module.CSRF_TRUSTED_ORIGINS)
         finally:

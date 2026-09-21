@@ -1,5 +1,7 @@
 from django.contrib import admin
+from django.db import models
 from unfold.admin import ModelAdmin, StackedInline
+from unfold.contrib.forms.widgets import WysiwygWidget
 
 from .models import Game, Tournament, TournamentGame
 
@@ -27,16 +29,14 @@ class OrganizerStaffAdmin(ModelAdmin):
             request, obj
         )
 
-
     def has_add_permission(self, request):
-        return _is_organizer_staff(request.user) and super().has_add_permission(
-            request
-        )
+        return _is_organizer_staff(request.user) and super().has_add_permission(request)
 
     def has_delete_permission(self, request, obj=None):
         return _is_organizer_staff(request.user) and super().has_delete_permission(
             request, obj
         )
+
 
 @admin.register(Game)
 class GameAdmin(OrganizerStaffAdmin):
@@ -45,29 +45,41 @@ class GameAdmin(OrganizerStaffAdmin):
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
 
+
 class TournamentGameInline(StackedInline):
     model = TournamentGame
     extra = 1
     min_num = 0
     show_change_link = True
     fields = (
-      'game',
-      'team_size_min',
-      'team_size_max',
-      'registration_opens_at',
-      'registration_closes_at',
-      'registration_capacity',
-      'fee_amount',
-      'fee_currency',
+        "game",
+        "main_roster_size",
+        "substitute_limit",
+        "registration_opens_at",
+        "registration_closes_at",
+        "registration_capacity",
+        "fee_amount",
+        "fee_currency",
     )
+
 
 @admin.register(Tournament)
 class TournamentAdmin(OrganizerStaffAdmin):
     inlines = [TournamentGameInline]
-    list_display = ("name", "slug", "starts_at", "ends_at", "is_published", "is_featured", "cover_image")
-    list_filter = ("is_published",)
+    list_display = (
+        "name",
+        "slug",
+        "starts_at",
+        "ends_at",
+        "is_published",
+        "is_featured",
+        "students_only",
+        "cover_image",
+    )
+    list_filter = ("is_published", "students_only")
     search_fields = ("name", "slug", "location")
     prepopulated_fields = {"slug": ("name",)}
+    formfield_overrides = {models.TextField: {"widget": WysiwygWidget}}
 
 
 @admin.register(TournamentGame)
@@ -75,8 +87,8 @@ class TournamentGameAdmin(OrganizerStaffAdmin):
     list_display = (
         "tournament",
         "game",
-        "team_size_min",
-        "team_size_max",
+        "main_roster_size",
+        "substitute_limit",
         "registration_opens_at",
         "registration_closes_at",
         "registration_capacity",

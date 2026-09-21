@@ -4,6 +4,7 @@ from rest_framework.test import APITestCase
 
 from accounts.tests.factories import create_account
 
+
 @override_settings(ROOT_URLCONF="config.urls")
 class SchemaDocsAccessTests(APITestCase):
     @override_settings(DEBUG=True)
@@ -23,7 +24,9 @@ class SchemaDocsAccessTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         schema = response.json()
-        detail_parameters = schema["paths"]["/api/registrations/{id}/"]["get"]["parameters"]
+        detail_parameters = schema["paths"]["/api/registrations/{id}/"]["get"][
+            "parameters"
+        ]
         identifier_parameter = next(
             parameter for parameter in detail_parameters if parameter["name"] == "id"
         )

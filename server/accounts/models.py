@@ -24,6 +24,9 @@ class Institution(models.Model):
     english_name = models.CharField(max_length=255, blank=True)
     type = models.CharField(max_length=255, blank=True)
     location = models.CharField(max_length=255, blank=True)
+    aliases = models.JSONField(default=list, blank=True)
+    domains = models.JSONField(default=list, blank=True)
+    provenance = models.JSONField(default=list, blank=True)
     source = models.CharField(max_length=16, choices=Source, default=Source.CUSTOM)
     review_status = models.CharField(
         max_length=16,

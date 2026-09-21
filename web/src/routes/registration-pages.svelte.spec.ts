@@ -10,18 +10,12 @@ import {
 	submitPaymentAttempt,
 	submitRegistration
 } from '$lib/api/registrations';
-import type {
-	PublicTournament,
-	PublicTournamentGame,
-	RegistrationRead
-} from '$lib/api/types';
+import type { PublicTournament, PublicTournamentGame, RegistrationRead } from '$lib/api/types';
 import { clearSession, getAccessToken } from '$lib/auth/session';
 import { replaceInternalLocation } from '$lib/auth/navigation';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
-import { DEFAULT_DISPLAY_TIME_ZONE } from '$lib/time/tournament-time';
 import RegistrationsPage from './account/registrations/+page.svelte';
 import RegistrationDetailPage from './account/registrations/[id]/+page.svelte';
-import RegisterPage from './tournaments/[slug]/games/[gameId]/register/+page.svelte';
 
 const mockPage = vi.hoisted(() => ({
 	url: new URL('https://usec.test/tournaments/usec-summer-2026/games/10/register'),
@@ -37,12 +31,28 @@ vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_TURNSTILE_SITE_KEY: 'site-
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({ page: mockPage }));
 vi.mock('$lib/api/registrations', () => ({
+	reservePaymentInstructions: vi.fn().mockResolvedValue({
+		token: 'payment-token',
+		transfer_content_template: '{participant} thanh toan le phi Summer',
+		transfer_content_limit: 100,
+		amount: '50000.00',
+		currency: 'VND'
+	}),
+	getPaymentInstructions: vi.fn().mockResolvedValue({
+		transfer_content: 'PLAYER thanh toan le phi Summer',
+		transfer_content_limit: 100
+	}),
 	getRegistration: vi.fn(),
 	listRegistrations: vi.fn(),
 	submitPaymentAttempt: vi.fn(),
 	submitRegistration: vi.fn()
 }));
-vi.mock('$lib/auth/session', () => ({ getAccessToken: vi.fn(), clearSession: vi.fn() }));
+vi.mock('$lib/auth/session', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/auth/session')>()),
+	getAccessToken: vi.fn(),
+	clearSession: vi.fn()
+}));
+vi.mock('$lib/api/institutions', () => ({ searchInstitutions: vi.fn().mockResolvedValue([]) }));
 vi.mock('$lib/auth/navigation', () => ({ replaceInternalLocation: vi.fn() }));
 
 const accessToken = 'access-token';
@@ -50,8 +60,8 @@ const game: PublicTournamentGame = {
 	id: 10,
 	game_name: 'Valorant',
 	game_slug: 'valorant',
-	team_size_min: 2,
-	team_size_max: 2,
+	main_roster_size: 2,
+	substitute_limit: 0,
 	registration_opens_at: '2026-07-01T00:00:00Z',
 	registration_closes_at: '2026-07-31T00:00:00Z',
 	registration_capacity: 16,
@@ -59,7 +69,9 @@ const game: PublicTournamentGame = {
 	fee_amount: '50000.00',
 	fee_currency: 'VND',
 	registration_state: 'open',
-	is_registration_open: true
+	is_registration_open: true,
+	payment_hold_minutes: 60,
+	payment_available: true
 };
 const tournament: PublicTournament = {
 	id: 1,
@@ -71,6 +83,7 @@ const tournament: PublicTournament = {
 	ends_at: null,
 	location: 'HCMUS',
 	is_featured: false,
+	students_only: false,
 	tournament_games: [game]
 };
 const registration: RegistrationRead = {
@@ -79,27 +92,34 @@ const registration: RegistrationRead = {
 		id: game.id,
 		tournament_name: tournament.name,
 		game_name: game.game_name,
-		team_size_min: game.team_size_min,
-		team_size_max: game.team_size_max,
+		main_roster_size: game.main_roster_size,
+		substitute_limit: game.substitute_limit,
 		fee_amount: game.fee_amount,
 		fee_currency: game.fee_currency
 	},
 	team_name: 'Blue Team',
+	team_tag: 'BLUE',
 	status: 'SUBMITTED',
 	fee_amount_snapshot: '50000.00',
 	fee_currency_snapshot: 'VND',
 	submitted_at: '2026-07-19T00:00:00Z',
 	payment_required: true,
+	payment_reference: 'USEC23456789AB',
+	payment_state: 'UNPAID',
+	payment_due_at: null,
+	expired: false,
 	members: [
 		{
 			gamer_tag_snapshot: 'captain',
 			school_snapshot: 'HCMUS',
+			roster_role: 'main',
 			is_captain: true,
 			display_order: 1
 		},
 		{
 			gamer_tag_snapshot: 'teammate',
 			school_snapshot: 'HCMUS',
+			roster_role: 'main',
 			is_captain: false,
 			display_order: 2
 		}
@@ -109,6 +129,7 @@ const registration: RegistrationRead = {
 };
 
 beforeEach(() => {
+	sessionStorage.clear();
 	overwriteGetLocale(() => 'en');
 	mockPage.url = new URL('https://usec.test/tournaments/usec-summer-2026/games/10/register');
 	mockPage.params = { id: '33' };
@@ -142,109 +163,7 @@ beforeEach(() => {
 	};
 });
 
-describe('participant registration pages', () => {
-	it('starts with an empty roster and submits the bound team roster', async () => {
-		const { container } = render(RegisterPage, {
-			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
-			params: { slug: tournament.slug, gameId: String(game.id) }
-		});
-
-		await vi.waitFor(() =>
-			expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('')
-		);
-		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
-		expect(container.querySelector('button[type="submit"]')).toHaveAttribute('data-slot', 'button');
-		expect(container.querySelector('input[name="member-1-school"]')).toHaveValue('');
-		await page.getByLabelText('Team name').fill('Blue Team');
-		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
-		await page.getByLabelText('School').nth(0).fill('HCMUS');
-		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
-		await page.getByLabelText('School').nth(1).fill('HCMUS');
-		await page.getByRole('button', { name: 'Submit registration' }).click();
-
-		await vi.waitFor(() =>
-			expect(submitRegistration).toHaveBeenCalledWith(accessToken, {
-				tournament_game: 10,
-				team_name: 'Blue Team',
-				members: [
-					{
-						gamer_tag_snapshot: 'captain',
-						school_snapshot: 'HCMUS',
-						is_captain: true,
-						display_order: 1
-					},
-					{
-						gamer_tag_snapshot: 'teammate',
-						school_snapshot: 'HCMUS',
-						is_captain: false,
-						display_order: 2
-					}
-				]
-			}, 'registration-submit-token')
-		);
-		expect(goto).toHaveBeenCalledWith('/en/account/registrations/33');
-	});
-
-	it('shows roster validation errors returned by the registration API', async () => {
-		vi.mocked(submitRegistration).mockRejectedValue(
-			new ApiRequestError(400, 'Request failed.', { members: ['Roster invalid.'] })
-		);
-		render(RegisterPage, {
-			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
-			params: { slug: tournament.slug, gameId: String(game.id) }
-		});
-
-		await expect.element(page.getByLabelText('Team name')).toBeInTheDocument();
-		await page.getByLabelText('Team name').fill('Blue Team');
-		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
-		await page.getByLabelText('School').nth(0).fill('HCMUS');
-		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
-		await page.getByLabelText('School').nth(1).fill('HCMUS');
-		await page.getByRole('button', { name: 'Submit registration' }).click();
-
-		await expect.element(page.getByText('Roster invalid.')).toBeInTheDocument();
-	});
-
-	it('requires Turnstile before submitting tournament registration', async () => {
-		turnstileTokens['registration-submit'] = '';
-		render(RegisterPage, {
-			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
-			params: { slug: tournament.slug, gameId: String(game.id) }
-		});
-
-		await page.getByLabelText('Team name').fill('Blue Team');
-		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
-		await page.getByLabelText('School').nth(0).fill('HCMUS');
-		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
-		await page.getByLabelText('School').nth(1).fill('HCMUS');
-		await page.getByRole('button', { name: 'Submit registration' }).click();
-
-		await expect.element(page.getByText('Complete the security check before submitting.')).toBeVisible();
-		expect(submitRegistration).not.toHaveBeenCalled();
-	});
-
-	it('requires a fresh Turnstile callback before retrying tournament registration', async () => {
-		vi.mocked(submitRegistration).mockRejectedValue(new Error('Request failed.'));
-		render(RegisterPage, {
-			data: { tournament, game, displayTimeZone: DEFAULT_DISPLAY_TIME_ZONE },
-			params: { slug: tournament.slug, gameId: String(game.id) }
-		});
-
-		await page.getByLabelText('Team name').fill('Blue Team');
-		await page.getByLabelText('Gamer tag').nth(0).fill('captain');
-		await page.getByLabelText('School').nth(0).fill('HCMUS');
-		await page.getByLabelText('Gamer tag').nth(1).fill('teammate');
-		await page.getByLabelText('School').nth(1).fill('HCMUS');
-		await page.getByRole('button', { name: 'Submit registration' }).click();
-
-		await vi.waitFor(() => expect(submitRegistration).toHaveBeenCalledOnce());
-		expect(turnstileDependencies.reset).toHaveBeenCalledWith('widget-id');
-		await page.getByRole('button', { name: 'Submit registration' }).click();
-
-		await expect.element(page.getByText('Complete the security check before submitting.')).toBeVisible();
-		expect(submitRegistration).toHaveBeenCalledOnce();
-	});
-
+describe('account registration pages', () => {
 	it('lists registration snapshots with links to their details', async () => {
 		mockPage.url = new URL('https://usec.test/account/registrations');
 		const { container } = render(RegistrationsPage);
@@ -255,6 +174,7 @@ describe('participant registration pages', () => {
 		expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
 		expect(container.querySelector('[data-slot="badge"]')).not.toBeNull();
 		expect(container.querySelector('a[href="/en/account/registrations/33"]')).not.toBeNull();
+		expect(container.textContent).toContain('Payment not received');
 		await expect.element(page.getByText(/50,000/)).toBeInTheDocument();
 	});
 
@@ -268,7 +188,14 @@ describe('participant registration pages', () => {
 		await expect
 			.element(page.getByRole('list', { name: 'Registration status timeline' }))
 			.toBeInTheDocument();
-		await page.getByLabelText('Payment reference').fill('transfer-33');
+		const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+		const transfer = new DataTransfer();
+		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
+		fileInput.files = transfer.files;
+		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(2));
@@ -288,8 +215,15 @@ describe('participant registration pages', () => {
 		);
 		render(RegistrationDetailPage);
 
-		await expect.element(page.getByLabelText('Payment reference')).toBeInTheDocument();
-		await page.getByLabelText('Payment reference').fill('transfer-33');
+		await expect.element(page.getByLabelText('Transfer content')).toBeInTheDocument();
+		const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+		const transfer = new DataTransfer();
+		transfer.items.add(new File(['proof'], 'proof.png', { type: 'image/png' }));
+		fileInput.files = transfer.files;
+		fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+		await expect
+			.element(page.getByLabelText('Transfer content'))
+			.toHaveProperty('tagName', 'OUTPUT');
 		await page.getByRole('button', { name: 'Upload payment proof' }).click();
 
 		await vi.waitFor(() => expect(clearSession).toHaveBeenCalledOnce());

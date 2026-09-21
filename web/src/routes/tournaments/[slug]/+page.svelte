@@ -17,12 +17,13 @@
 	/>
 </svelte:head>
 
+<h1 class="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight sm:text-5xl mb-6">{m.tournament_detail_title()}</h1>
 <article>
 	<header class="overflow-hidden border border-(--line)">
 		{#if data.tournament.cover_image}
-			<figure class="aspect-video max-h-[26rem] overflow-hidden bg-(--surface-muted)">
+			<figure class="relative aspect-video w-full overflow-hidden bg-(--surface-muted)">
 				<img
-					class="h-full w-full object-cover"
+					class="absolute inset-0 h-full w-full object-cover"
 					src={data.tournament.cover_image}
 					alt={m.tournament_cover_alt({ name: data.tournament.name })}
 					loading="eager"
@@ -34,12 +35,12 @@
 				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
 					{m.tournament_label()}
 				</p>
-				<h1 class="font-heading mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
+				<h3 class="font-heading mt-3 text-2xl font-semibold leading-tight sm:text-5xl">
 					{data.tournament.name}
-				</h1>
+				</h3>
 				{#if data.tournament.description}
 					<p class="mt-5 max-w-3xl text-base leading-7 text-(--text-muted)">
-						{data.tournament.description}
+						{@html data.tournament.description}
 					</p>
 				{/if}
 			</div>

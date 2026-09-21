@@ -43,9 +43,9 @@
 	}
 
 	function teamSize(): string {
-		return game.team_size_min === game.team_size_max
-			? String(game.team_size_min)
-			: `${game.team_size_min}–${game.team_size_max}`;
+		return game.substitute_limit === 0
+			? m.game_main_roster_only({ main: game.main_roster_size })
+			: m.game_roster_summary({ main: game.main_roster_size, substitutes: game.substitute_limit });
 	}
 
 	function fee(): string {
@@ -70,6 +70,9 @@
 				<h3 id={`game-${game.id}-title`}>{game.game_name}</h3>
 			</Card.Title>
 			<Card.Description class="font-mono-data text-xs">{game.game_slug}</Card.Description>
+			{#if tournament.students_only}<Badge variant="secondary" class="w-fit"
+					>{m.tournament_students_only()}</Badge
+				>{/if}
 			<Card.Action>
 				<Badge
 					variant={game.registration_state === 'closed' ? 'destructive' : 'outline'}

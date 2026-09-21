@@ -1,4 +1,5 @@
-from django.db.models import Q
+from django.db.models import Q, TextField
+from django.db.models.functions import Cast
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -20,13 +21,19 @@ class InstitutionSearchView(generics.ListAPIView):
     def get_queryset(self):
         query = self.request.query_params.get("q", "").strip()
         return (
-            Institution.objects.filter(source=Institution.Source.CATALOGUE)
+            Institution.objects.filter(review_status=Institution.ReviewStatus.VERIFIED)
+            .alias(
+                alias_text=Cast("aliases", TextField()),
+                domain_text=Cast("domains", TextField()),
+            )
             .filter(
                 Q(label__icontains=query)
                 | Q(code__icontains=query)
                 | Q(short_name__icontains=query)
                 | Q(english_name__icontains=query)
                 | Q(location__icontains=query)
+                | Q(alias_text__icontains=query)
+                | Q(domain_text__icontains=query)
             )
             .order_by("label")[:20]
         )

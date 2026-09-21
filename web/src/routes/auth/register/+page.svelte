@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { registerAccount, signIn } from '$lib/api/auth';
 	import type { InstitutionChoice } from '$lib/api/types';
 	import { saveSession } from '$lib/auth/session';
@@ -9,7 +11,7 @@
 	import InstitutionCombobox from '$lib/components/forms/InstitutionCombobox.svelte';
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import { formErrorsFrom } from '$lib/forms/api-errors';
-	import { localizeInternalHref } from '$lib/navigation';
+	import { localizeInternalHref, sanitizeInternalRedirect } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Card from '$lib/components/ui/card';
@@ -17,6 +19,16 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	type RegistrationPhase = 'form' | 'signing-in' | 'recovery';
+
+	const returnTo = $derived(
+		sanitizeInternalRedirect(
+			page.url.searchParams.get('redirect') ?? localizeInternalHref('/account/profile')
+		)
+	);
+	let ready = $state(false);
+	onMount(() => {
+		ready = true;
+	});
 
 	let email = $state('');
 	let password = $state('');
@@ -43,7 +55,7 @@
 			signInTurnstileWidget?.reset();
 			const tokens = await request;
 			saveSession(tokens);
-			await goto(resolve(localizeInternalHref('/account/profile')));
+			await goto(resolve(returnTo));
 		} catch {
 			password = '';
 			phase = 'recovery';
@@ -59,7 +71,7 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (submitting || phase !== 'form') return;
+		if (!ready || submitting || phase !== 'form') return;
 		if (!turnstileToken) {
 			formErrors = [m.turnstile_required()];
 			return;
@@ -133,12 +145,17 @@
 			</p>
 			<a
 				class="mt-6 inline-flex min-h-11 items-center border border-accent px-4 py-2 text-sm font-semibold text-accent"
-				href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.action_go_to_sign_in()}</a
+				href={resolve(
+					localizeInternalHref(`/auth/sign-in?redirect=${encodeURIComponent(returnTo)}`)
+				)}>{m.action_go_to_sign_in()}</a
 			>
 		</div>
 	</section>
 {:else if phase === 'signing-in'}
-	<section class="mt-8 grid gap-4 border border-(--line) bg-(--surface-muted) p-6 text-sm" role="status">
+	<section
+		class="mt-8 grid gap-4 border border-(--line) bg-(--surface-muted) p-6 text-sm"
+		role="status"
+	>
 		<p>{m.auth_account_created_signing_in()}</p>
 		<TurnstileWidget
 			bind:this={signInTurnstileWidget}
@@ -153,7 +170,7 @@
 			<Card.Description class="mt-3 leading-6">{m.auth_identity_intro()}</Card.Description>
 		</Card.Header>
 
-		<form aria-busy={submitting} onsubmit={handleSubmit}>
+		<form method="post" aria-busy={submitting} onsubmit={handleSubmit}>
 			<Card.Content class="grid gap-5 p-5 sm:p-6">
 				<ErrorSummary errors={formErrors} />
 				<FormField.Group class="gap-5 md:grid md:grid-cols-2">
@@ -199,11 +216,9 @@
 						bind:value={password}
 					/>
 					<InstitutionCombobox
-							error={
-								fieldErrors.institution?.[0] ??
-								fieldErrors.institution_id?.[0] ??
-								fieldErrors.institution_label?.[0]
-							}
+						error={fieldErrors.institution?.[0] ??
+							fieldErrors.institution_id?.[0] ??
+							fieldErrors.institution_label?.[0]}
 						bind:choice={institutionChoice}
 					/>
 					<TurnstileWidget
@@ -218,10 +233,12 @@
 					{m.auth_have_account()}
 					<a
 						class="font-semibold text-primary"
-						href={resolve(localizeInternalHref('/auth/sign-in'))}>{m.nav_sign_in()}</a
+						href={resolve(
+							localizeInternalHref(`/auth/sign-in?redirect=${encodeURIComponent(returnTo)}`)
+						)}>{m.nav_sign_in()}</a
 					>
 				</p>
-				<Button class="min-h-11" type="submit" disabled={submitting}>
+				<Button class="min-h-11" type="submit" disabled={!ready || submitting}>
 					{#if submitting}<Spinner aria-hidden="true" />{/if}
 					{submitting ? m.auth_creating_account() : m.action_create_account()}
 				</Button>

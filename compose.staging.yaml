@@ -1,0 +1,107 @@
+name: registration-hub-staging
+
+x-app-image: &app-image
+  ${REGISTRATION_IMAGE:-ghcr.io/usec-us/registration-hub:staging}
+
+services:
+  web:
+    image: *app-image
+    restart: unless-stopped
+    init: true
+
+    command: ["web"]
+
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+
+      # Simplest/most deterministic adapter-node setup behind SWAG.
+      ORIGIN: https://staging.giaidau.hcmusec.com
+
+      PUBLIC_API_BASE_URL: https://staging.giaidau.hcmusec.com/api
+      PUBLIC_TURNSTILE_SITE_KEY: ${PUBLIC_TURNSTILE_SITE_KEY}
+
+    expose:
+      - "3000"
+
+    networks:
+      - swag
+
+
+  api:
+    image: *app-image
+    restart: unless-stopped
+    init: true
+
+    command: ["api"]
+
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+
+      DJANGO_ALLOWED_HOSTS: staging.giaidau.hcmusec.com
+      CORS_ALLOWED_ORIGINS: https://staging.giaidau.hcmusec.com
+      CSRF_ALLOWED_ORIGINS: https://staging.giaidau.hcmusec.com
+      REDIRECT_ROOT: https://staging.giaidau.hcmusec.com
+
+      DB_NAME: registration
+      DB_USER: registration
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 5432
+
+    expose:
+      - "8000"
+
+    volumes:
+      - registration-media:/app/server/media
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - backend
+      - swag
+
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: registration
+      POSTGRES_USER: registration
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U registration -d registration
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    volumes:
+      - registration-db:/var/lib/postgresql
+
+    networks:
+      - backend
+
+
+volumes:
+  registration-db:
+  registration-media:
+
+
+networks:
+  backend:
+    internal: true
+
+  swag:
+    external: true
+    name: ${SWAG_NETWORK:-swag}

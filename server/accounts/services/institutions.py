@@ -18,19 +18,22 @@ def resolve_institution(
     if has_institution_id:
         return Institution.objects.get(
             pk=institution_id,
-            source=Institution.Source.CATALOGUE,
+            review_status=Institution.ReviewStatus.VERIFIED,
         )
 
     label = " ".join(institution_label.split())
     normalized_label = normalize_institution_label(label)
-    return Institution.objects.filter(
-        source=Institution.Source.CATALOGUE,
-        normalized_label=normalized_label,
-    ).first() or Institution.objects.get_or_create(
-        source=Institution.Source.CUSTOM,
-        normalized_label=normalized_label,
-        defaults={
-            "label": label,
-            "review_status": Institution.ReviewStatus.PENDING,
-        },
-    )[0]
+    return (
+        Institution.objects.filter(
+            review_status=Institution.ReviewStatus.VERIFIED,
+            normalized_label=normalized_label,
+        ).first()
+        or Institution.objects.get_or_create(
+            source=Institution.Source.CUSTOM,
+            normalized_label=normalized_label,
+            defaults={
+                "label": label,
+                "review_status": Institution.ReviewStatus.PENDING,
+            },
+        )[0]
+    )

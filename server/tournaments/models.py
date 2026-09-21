@@ -1,5 +1,9 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import F, Q
+
+
+from .payment_content import DEFAULT_TRANSFER_TEMPLATE, validate_transfer_template
 
 
 class Game(models.Model):
@@ -20,11 +24,27 @@ class Tournament(models.Model):
     location = models.CharField(max_length=255, blank=True)
     is_published = models.BooleanField(default=False)
     cover_image = models.ImageField(
-      upload_to="tournaments/covers/",
-      null=True,
-      blank=True,
+        upload_to="tournaments/covers/",
+        null=True,
+        blank=True,
     )
     is_featured = models.BooleanField(default=False)
+    students_only = models.BooleanField(
+        default=False,
+        help_text="Require a student ID for every player. Organizers review student eligibility.",
+    )
+
+    transfer_content_template = models.CharField(
+        max_length=300,
+        default=DEFAULT_TRANSFER_TEMPLATE,
+        validators=[validate_transfer_template],
+        help_text="Bank transfer text. Use {participant} for the team tag or solo in-game name, and {tournament_name} for the event name. Accents are removed automatically.",
+    )
+    transfer_content_limit = models.PositiveSmallIntegerField(
+        default=100,
+        validators=[MinValueValidator(1), MaxValueValidator(150)],
+        help_text="Maximum characters accepted by the receiving bank (default 100, up to 150). Content is never truncated.",
+    )
 
     class Meta:
         constraints = [
@@ -49,8 +69,16 @@ class TournamentGame(models.Model):
     game = models.ForeignKey(
         Game, on_delete=models.PROTECT, related_name="tournament_games"
     )
-    team_size_min = models.PositiveSmallIntegerField()
-    team_size_max = models.PositiveSmallIntegerField()
+    main_roster_size = models.PositiveSmallIntegerField(
+        "main roster size",
+        validators=[MinValueValidator(1)],
+        help_text="Required number of main players per registration.",
+    )
+    substitute_limit = models.PositiveSmallIntegerField(
+        "maximum substitutes",
+        default=0,
+        help_text="Optional substitute places; zero means no substitutes.",
+    )
     registration_opens_at = models.DateTimeField()
     registration_closes_at = models.DateTimeField()
     registration_capacity = models.PositiveIntegerField(null=True, blank=True)
@@ -64,12 +92,12 @@ class TournamentGame(models.Model):
                 name="unique_tournament_game",
             ),
             models.CheckConstraint(
-                condition=Q(team_size_min__gte=1),
-                name="tournament_game_min_team_size_positive",
+                condition=Q(main_roster_size__gte=1),
+                name="tournament_game_main_roster_positive",
             ),
             models.CheckConstraint(
-                condition=Q(team_size_max__gte=F("team_size_min")),
-                name="tournament_game_max_team_size_at_least_min",
+                condition=Q(substitute_limit__gte=0),
+                name="tournament_game_substitute_limit_non_negative",
             ),
             models.CheckConstraint(
                 condition=Q(registration_opens_at__lt=F("registration_closes_at")),
@@ -88,11 +116,11 @@ class TournamentGame(models.Model):
 
     @property
     def is_individual(self) -> bool:
-        return self.team_size_min == self.team_size_max == 1
+        return self.main_roster_size == 1 and self.substitute_limit == 0
 
     @property
     def is_team(self) -> bool:
-        return self.team_size_max > 1
+        return not self.is_individual
 
     def __str__(self) -> str:
         return f"{self.tournament} / {self.game}"

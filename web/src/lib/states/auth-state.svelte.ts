@@ -1,5 +1,11 @@
 import type { CurrentUser } from '$lib/api/types';
-import { getAccessToken, getRefreshToken, saveSession, clearSession } from '$lib/auth/session';
+import {
+	getAccessToken,
+	getRefreshToken,
+	saveSession,
+	clearSession,
+	isSessionAccessToken
+} from '$lib/auth/session';
 import { getCurrentUser, refreshAccessToken, signIn as requestSignIn } from '$lib/api/auth';
 import { browser } from '$app/environment';
 import { localizeInternalHref } from '$lib/navigation';
@@ -73,7 +79,11 @@ export class AuthState {
 		return promise;
 	}
 
-	async signIn(email: string, password: string, turnstileToken: string): Promise<CurrentUser | null> {
+	async signIn(
+		email: string,
+		password: string,
+		turnstileToken: string
+	): Promise<CurrentUser | null> {
 		if (!browser) return null;
 
 		const generation = this.beginTokenOperation();
@@ -154,7 +164,7 @@ export class AuthState {
 
 	isSessionSnapshotCurrent(snapshot: AuthSessionSnapshot): boolean {
 		return (
-			this.#sessionGeneration === snapshot.generation && getAccessToken() === snapshot.accessToken
+			this.#sessionGeneration === snapshot.generation && isSessionAccessToken(snapshot.accessToken)
 		);
 	}
 
@@ -175,7 +185,7 @@ export class AuthState {
 	}
 
 	private isAuthenticationError(error: unknown): boolean {
-		return error instanceof ApiRequestError && (error.status === 401 || error.status === 403);
+		return error instanceof ApiRequestError && error.status === 401;
 	}
 
 	private isActiveInitialization(
@@ -188,7 +198,7 @@ export class AuthState {
 			initialization?.accessToken === accessToken &&
 			this.#sessionGeneration === generation &&
 			this.#operationGeneration === operationGeneration &&
-			getAccessToken() === accessToken
+			isSessionAccessToken(accessToken)
 		);
 	}
 

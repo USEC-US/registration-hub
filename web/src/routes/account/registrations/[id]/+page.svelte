@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { paymentStatusMessage } from '$lib/registrations/payment-status';
+	import { dateLocale, NUMERIC_DATE_OPTIONS } from '$lib/time/date-format';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ApiRequestError } from '$lib/api/client';
@@ -37,11 +39,13 @@
 	}
 
 	function isAuthenticationError(cause: unknown): boolean {
-		return cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403);
+		return cause instanceof ApiRequestError && cause.status === 401;
 	}
 
 	function statusLabel(status: RegistrationStatus): string {
 		switch (status) {
+			case 'EXPIRED':
+				return m.status_EXPIRED();
 			case 'SUBMITTED':
 				return m.status_SUBMITTED();
 			case 'UNDER_REVIEW':
@@ -54,9 +58,10 @@
 	}
 
 	function formatDate(value: string): string {
-		return new Intl.DateTimeFormat(getLocale(), {
-			dateStyle: 'medium',
-			timeStyle: 'short'
+		return new Intl.DateTimeFormat(dateLocale(getLocale()), {
+			...NUMERIC_DATE_OPTIONS,
+			hour: 'numeric',
+			minute: '2-digit'
 		}).format(new Date(value));
 	}
 
@@ -134,7 +139,10 @@
 					{registration.tournament_game.tournament_name}
 				</p>
 				<Card.Title class="mt-3"
-					><h1>{registration.team_name || registration.tournament_game.game_name}</h1></Card.Title
+					><h1>
+						{#if registration.team_tag}[{registration.team_tag}]
+						{/if}{registration.team_name || registration.tournament_game.game_name}
+					</h1></Card.Title
 				>
 				<Card.Description class="mt-4 text-base">
 					{registration.tournament_game.game_name} · {m.registration_detail_heading({
@@ -185,9 +193,14 @@
 								>
 								<span class="font-semibold">{member.gamer_tag_snapshot}</span>
 								<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
-								{#if member.is_captain}
-									<Badge variant="outline">{m.roster_captain()}</Badge>
-								{/if}
+								<div class="flex flex-wrap gap-2">
+									<Badge variant="secondary"
+										>{member.roster_role === 'substitute'
+											? m.roster_substitute()
+											: m.roster_main_player()}</Badge
+									>
+									{#if member.is_captain}<Badge variant="outline">{m.roster_captain()}</Badge>{/if}
+								</div>
 							</li>
 						{/each}
 					</ol>
@@ -206,7 +219,20 @@
 			</Card.Root>
 		</div>
 
-		{#if registration.payment_required}
+		{#if registration.payment_reference}
+			<p class="mt-8 font-mono-data text-sm">
+				{m.field_payment_reference()}: {registration.payment_reference}
+			</p>
+		{/if}
+		<p class="mt-4">
+			{paymentStatusMessage(registration.payment_state, registration.expired, registration.status)}
+		</p>
+		<a
+			class="mt-4 inline-block underline"
+			href={resolve(localizeInternalHref(`/registrations/${registration.id}/payment`))}
+			>{m.payment_page()}</a
+		>
+		{#if registration.payment_required && !registration.payment_due_at && !registration.expired && registration.status !== 'REJECTED' && ['UNPAID', 'REJECTED'].includes(registration.payment_state)}
 			<div class="mt-8">
 				<PaymentAttemptForm
 					registrationId={registration.id}

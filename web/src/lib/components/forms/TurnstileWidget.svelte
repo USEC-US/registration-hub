@@ -11,6 +11,8 @@
 		token: string;
 	}
 
+	// The parent reads the token through this binding.
+	// eslint-disable-next-line no-useless-assignment
 	let { action, token = $bindable('') }: Props = $props();
 	let container: HTMLDivElement | null = $state(null);
 	let siteKey = $state('');
@@ -38,25 +40,26 @@
 
 		const renderWidget = () => {
 			try {
-				widgetId = window.turnstile?.render(target, {
-					sitekey: siteKey,
-					action,
-					callback: (value: string) => {
-						token = value;
-						error = '';
-					},
-					'expired-callback': () => {
-						token = '';
-					},
-					'error-callback': () => {
-						token = '';
-						error = m.turnstile_challenge_error();
-					},
-					'unsupported-callback': () => {
-						token = '';
-						error = m.turnstile_unsupported();
-					}
-				}) ?? null;
+				widgetId =
+					window.turnstile?.render(target, {
+						sitekey: siteKey,
+						action,
+						callback: (value: string) => {
+							token = value;
+							error = '';
+						},
+						'expired-callback': () => {
+							token = '';
+						},
+						'error-callback': () => {
+							token = '';
+							error = m.turnstile_challenge_error();
+						},
+						'unsupported-callback': () => {
+							token = '';
+							error = m.turnstile_unsupported();
+						}
+					}) ?? null;
 			} catch {
 				token = '';
 				error = m.turnstile_challenge_error();

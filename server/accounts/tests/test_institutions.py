@@ -55,6 +55,7 @@ class InstitutionResolutionTests(TestCase):
             value="227",
             label="University of Science",
             source=Institution.Source.CATALOGUE,
+            review_status=Institution.ReviewStatus.VERIFIED,
         )
 
         resolved = resolve_institution(
@@ -77,7 +78,7 @@ class InstitutionCatalogueMigrationTests(TransactionTestCase):
 
     def tearDown(self):
         self.executor = MigrationExecutor(connection=transaction.get_connection())
-        self.executor.migrate(self.migrate_to)
+        self.executor.migrate(self.executor.loader.graph.leaf_nodes())
         super().tearDown()
 
     def test_migration_skips_whitespace_only_school_labels(self):
@@ -96,7 +97,9 @@ class InstitutionCatalogueMigrationTests(TransactionTestCase):
         MigratedUser = new_apps.get_model("accounts", "User")
 
         self.assertFalse(Institution.objects.exists())
-        self.assertIsNone(MigratedUser.objects.get(email="legacy@example.com").institution)
+        self.assertIsNone(
+            MigratedUser.objects.get(email="legacy@example.com").institution
+        )
 
 
 class InstitutionImportCommandTests(TestCase):

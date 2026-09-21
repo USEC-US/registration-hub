@@ -8,7 +8,6 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.tests.factories import create_account
-
 from registrations.models import Registration
 from tournaments.models import Game, Tournament, TournamentGame
 
@@ -32,8 +31,8 @@ class PublicTournamentApiTests(APITestCase):
         self.tournament_game = TournamentGame.objects.create(
             tournament=self.published,
             game=self.game,
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(hours=1),
             registration_closes_at=timezone.now() + timedelta(days=2),
             registration_capacity=1,
@@ -83,7 +82,7 @@ class PublicTournamentApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["slug"], "usec-summer-2026")
         self.assertEqual(response.data["tournament_games"][0]["game_name"], "Valorant")
-        self.assertEqual(response.data["tournament_games"][0]["team_size_min"], 5)
+        self.assertEqual(response.data["tournament_games"][0]["main_roster_size"], 5)
         self.assertEqual(response.data["tournament_games"][0]["fee_currency"], "VND")
         self.assertEqual(
             response.data["tournament_games"][0]["registration_state"], "open"
@@ -115,12 +114,15 @@ class PublicTournamentApiTests(APITestCase):
         self.assertTrue(game_data["is_registration_open"])
 
     def test_detail_query_count_does_not_grow_with_tournament_games(self):
+        from registrations.tests.payment_settings import configure_test_payments
+
+        configure_test_payments()
         second_game = Game.objects.create(name="League of Legends", slug="lol")
         TournamentGame.objects.create(
             tournament=self.published,
             game=second_game,
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=timezone.now() - timedelta(hours=1),
             registration_closes_at=timezone.now() + timedelta(days=2),
             registration_capacity=1,
@@ -128,7 +130,8 @@ class PublicTournamentApiTests(APITestCase):
             fee_currency="VND",
         )
 
-        with self.assertNumQueries(2):
+        # Tournament, all divisions, and one shared site-settings lookup.
+        with self.assertNumQueries(3):
             response = self.client.get("/api/tournaments/usec-summer-2026/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

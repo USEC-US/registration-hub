@@ -5,9 +5,9 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.tests.factories import create_account
-
 from registrations.models import Registration, RegistrationMember
 from tournaments.models import Game, Tournament, TournamentGame
+
 
 class RegistrationMemberModelTests(TestCase):
     def setUp(self):
@@ -22,8 +22,8 @@ class RegistrationMemberModelTests(TestCase):
         self.tournament_game = TournamentGame.objects.create(
             tournament=tournament,
             game=game,
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=timezone.now(),
             registration_closes_at=timezone.now() + timedelta(days=1),
             fee_amount="0.00",

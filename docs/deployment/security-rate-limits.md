@@ -12,7 +12,11 @@ protections for those direct requests.
 - `POST /api/auth/token/`
 - `POST /api/auth/register/`
 - `POST /api/registrations/submit/`
-- `POST /api/registrations/*/payment-attempts/`
+- `POST /api/registrations/*/payment-attempts/` (legacy)
+- `POST /api/registrations/resume/`
+- `POST /api/registrations/*/payment-session/`
+- `POST /api/registrations/*/payment-proof/`
+- `POST /api/payment-references/` (legacy issuance)
 
 ## Cloudflare Plan
 
@@ -28,7 +32,8 @@ Trust `CF-Connecting-IP` only from published Cloudflare source ranges. Return
 `429` for rate-limited requests and keep payment-proof upload body limits
 explicit.
 
-## Deferred App Limits
+## Application limits and remaining deployment work
 
-Redis-backed Django rate limits are deferred until Redis exists for Channels or
-another production runtime need.
+Private resume/payment-session reads have a 120/hour per-client-IP Django throttle; private proof uploads have a separate 30/hour throttle. Legacy reference issuance is also throttled at 30/hour. These use the configured Django cache, so deployment must not assume process-local counters provide a shared multi-worker limit. Redis-backed shared counters remain deferred until a production cache is provisioned. Keep the edge/origin limits above; application throttles do not replace them.
+
+Do not log `X-Registration-Access`, authorization headers, or private session bodies. Preserve `private, no-store` on success and error responses. Forward the dedicated access header to Django without placing it in a URL.

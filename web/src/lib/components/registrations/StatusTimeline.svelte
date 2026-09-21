@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dateLocale, NUMERIC_DATE_OPTIONS } from '$lib/time/date-format';
 	import type { RegistrationRead, RegistrationStatus } from '$lib/api/types';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
@@ -12,6 +13,8 @@
 
 	function statusLabel(status: RegistrationStatus): string {
 		switch (status) {
+			case 'EXPIRED':
+				return m.status_EXPIRED();
 			case 'SUBMITTED':
 				return m.status_SUBMITTED();
 			case 'UNDER_REVIEW':
@@ -24,9 +27,10 @@
 	}
 
 	function formatDate(value: string): string {
-		return new Intl.DateTimeFormat(getLocale(), {
-			dateStyle: 'medium',
-			timeStyle: 'short'
+		return new Intl.DateTimeFormat(dateLocale(getLocale()), {
+			...NUMERIC_DATE_OPTIONS,
+			hour: 'numeric',
+			minute: '2-digit'
 		}).format(new Date(value));
 	}
 

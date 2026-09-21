@@ -1,5 +1,52 @@
-import { dev } from '$app/environment';
+import { browser, dev } from '$app/environment';
 import { env } from '$env/dynamic/public';
+import {
+	getAccessToken,
+	getRefreshToken,
+	getSessionRevision,
+	isSessionAccessToken,
+	rotateSession
+} from '$lib/auth/session';
+
+const refreshes = new Map<string, Promise<string | null>>();
+
+async function renewAccessToken(baseUrl: string, fetcher: typeof fetch): Promise<string | null> {
+	const refresh = getRefreshToken();
+	if (!refresh) return null;
+	const revision = getSessionRevision();
+	const key = JSON.stringify([baseUrl, revision, refresh]);
+	let pending = refreshes.get(key);
+	if (!pending) {
+		pending = (async () => {
+			const response = await fetcher(`${baseUrl}/auth/token/refresh/`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ refresh })
+			});
+			const payload = await response.json().catch(() => null);
+			if (!response.ok) throw normalizeErrors(response.status, payload);
+			if (
+				!payload ||
+				typeof payload.access !== 'string' ||
+				!payload.access ||
+				(payload.refresh !== undefined && typeof payload.refresh !== 'string')
+			) {
+				throw new ApiRequestError(502, 'Invalid token refresh response.');
+			}
+			return rotateSession(
+				{ access: payload.access, refresh: payload.refresh ?? refresh },
+				revision,
+				refresh
+			)
+				? payload.access
+				: null;
+		})().finally(() => {
+			refreshes.delete(key);
+		});
+		refreshes.set(key, pending);
+	}
+	return pending;
+}
 
 function getDefaultApiBaseUrl(): string {
 	if (env.PUBLIC_API_BASE_URL) {
@@ -104,6 +151,20 @@ export async function requestJson<T>(path: string, options: ApiRequestOptions = 
 		headers,
 		...init
 	} = options;
+	const sessionRevision = browser ? getSessionRevision() : null;
+	const sessionRequest = browser && !!accessToken && isSessionAccessToken(accessToken);
+	if (browser && accessToken && !sessionRequest) {
+		throw new ApiRequestError(409, 'Your session changed. Please try again.');
+	}
+	const requestToken = sessionRequest ? getAccessToken() : accessToken;
+	const assertSameSession = () => {
+		if (
+			sessionRequest &&
+			(sessionRevision !== getSessionRevision() || !isSessionAccessToken(accessToken!))
+		) {
+			throw new ApiRequestError(409, 'Your session changed. Please try again.');
+		}
+	};
 	const requestHeaders = new Headers(headers);
 
 	let requestBody: BodyInit | undefined;
@@ -116,17 +177,49 @@ export async function requestJson<T>(path: string, options: ApiRequestOptions = 
 		requestBody = JSON.stringify(body);
 	}
 
-	if (accessToken) requestHeaders.set('authorization', `Bearer ${accessToken}`);
+	if (requestToken) requestHeaders.set('authorization', `Bearer ${requestToken}`);
 
-	const response = await fetcher(`${baseUrl}${path}`, {
-		...init,
-		body: requestBody,
-		headers: requestHeaders
-	});
+	const send = () =>
+		fetcher(`${baseUrl}${path}`, {
+			...init,
+			body: requestBody,
+			headers: requestHeaders
+		});
+	let response = await send();
+	assertSameSession();
+	if (
+		response.status === 401 &&
+		sessionRequest &&
+		sessionRevision === getSessionRevision() &&
+		accessToken &&
+		isSessionAccessToken(accessToken) &&
+		!init.signal?.aborted
+	) {
+		const current = getAccessToken();
+		const refreshed =
+			current !== requestToken
+				? current
+				: await renewAccessToken(baseUrl, fetcher).catch((error) => {
+						assertSameSession();
+						throw error;
+					});
+		assertSameSession();
+		if (
+			refreshed &&
+			sessionRevision === getSessionRevision() &&
+			isSessionAccessToken(accessToken) &&
+			!init.signal?.aborted
+		) {
+			requestHeaders.set('authorization', `Bearer ${refreshed}`);
+			response = await send();
+		}
+	}
+	assertSameSession();
 
 	if (response.status === 204) return undefined as T;
 
 	const payload = await response.json().catch(() => null);
+	assertSameSession();
 	if (!response.ok) throw normalizeErrors(response.status, payload);
 	return payload as T;
 }

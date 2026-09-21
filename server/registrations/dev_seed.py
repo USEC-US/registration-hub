@@ -1,18 +1,30 @@
+from contextlib import contextmanager
+from datetime import date
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-import json
+from io import BytesIO
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.db import transaction
+from PIL import Image, ImageDraw
 
 from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
 from tournaments.models import Game, Tournament, TournamentGame
 
-from .models import PaymentAttempt, Registration, RegistrationStatusEvent
+from .models import (
+    PaymentAttempt,
+    PaymentIntent,
+    PaymentSettings,
+    Registration,
+    RegistrationStatusEvent,
+)
 from .services import (
     RegistrationMemberInput,
     approve_registration,
@@ -22,6 +34,17 @@ from .services import (
     submit_payment_attempt,
     submit_registration,
 )
+
+
+def _sample_payment_image():
+    image = Image.new("RGB", (360, 100), "white")
+    ImageDraw.Draw(image).text(
+        (20, 40), "DEVELOPMENT SAMPLE - NOT A PAYMENT", fill="black"
+    )
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return ContentFile(output.getvalue(), name="development-sample.png")
+
 
 PLAYER_EMAIL = "player@email.com"
 ORGANIZER_EMAIL = "organizer@email.com"
@@ -107,16 +130,23 @@ def _set_account(
 
 def _load_player_institution_defaults() -> dict[str, str]:
     try:
-        payload = json.loads((settings.BASE_DIR / "university.json").read_text(encoding="utf-8"))
+        payload = json.loads(
+            (settings.BASE_DIR / "university.json").read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError) as error:
-        raise ValidationError(f"Unable to load institution catalogue: {error}") from error
+        raise ValidationError(
+            f"Unable to load institution catalogue: {error}"
+        ) from error
 
     records = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(records, list):
         raise ValidationError("Institution catalogue payload must contain a data list.")
 
     for record in records:
-        if not isinstance(record, dict) or str(record.get("value")) != HCMUS_INSTITUTION_VALUE:
+        if (
+            not isinstance(record, dict)
+            or str(record.get("value")) != HCMUS_INSTITUTION_VALUE
+        ):
             continue
         label = record["label"].strip()
         return {
@@ -193,8 +223,8 @@ def _upsert_tournament_game(
     *,
     tournament: Tournament,
     game: Game,
-    team_size_min: int,
-    team_size_max: int,
+    main_roster_size: int,
+    substitute_limit: int,
     registration_opens_at: datetime,
     registration_closes_at: datetime,
     registration_capacity: int | None,
@@ -204,8 +234,8 @@ def _upsert_tournament_game(
         tournament=tournament,
         game=game,
         defaults={
-            "team_size_min": team_size_min,
-            "team_size_max": team_size_max,
+            "main_roster_size": main_roster_size,
+            "substitute_limit": substitute_limit,
             "registration_opens_at": registration_opens_at,
             "registration_closes_at": registration_closes_at,
             "registration_capacity": registration_capacity,
@@ -268,8 +298,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "valorant": _upsert_tournament_game(
             tournament=current,
             game=games["valorant"],
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=7),
             registration_closes_at=now + timedelta(days=7),
             registration_capacity=16,
@@ -278,8 +308,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "chess": _upsert_tournament_game(
             tournament=current,
             game=games["chess"],
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=7),
             registration_closes_at=now + timedelta(days=7),
             registration_capacity=None,
@@ -288,8 +318,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "counter-strike-2": _upsert_tournament_game(
             tournament=current,
             game=games["counter-strike-2"],
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=7),
             registration_closes_at=now + timedelta(days=7),
             registration_capacity=1,
@@ -298,8 +328,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "league-of-legends": _upsert_tournament_game(
             tournament=current,
             game=games["league-of-legends"],
-            team_size_min=5,
-            team_size_max=5,
+            main_roster_size=5,
+            substitute_limit=0,
             registration_opens_at=now + timedelta(days=2),
             registration_closes_at=now + timedelta(days=10),
             registration_capacity=8,
@@ -308,8 +338,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "rocket-league": _upsert_tournament_game(
             tournament=archive,
             game=games["rocket-league"],
-            team_size_min=3,
-            team_size_max=3,
+            main_roster_size=3,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=75),
             registration_closes_at=now - timedelta(days=61),
             registration_capacity=8,
@@ -318,8 +348,8 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         "ea-sports-fc": _upsert_tournament_game(
             tournament=draft,
             game=games["ea-sports-fc"],
-            team_size_min=1,
-            team_size_max=1,
+            main_roster_size=1,
+            substitute_limit=0,
             registration_opens_at=now - timedelta(days=1),
             registration_closes_at=now + timedelta(days=14),
             registration_capacity=32,
@@ -341,6 +371,10 @@ def _member_inputs(
 ) -> tuple[RegistrationMemberInput, ...]:
     return tuple(
         RegistrationMemberInput(
+            first_name_snapshot="Player",
+            last_name_snapshot="Example",
+            date_of_birth_snapshot=date(2005, 1, 1),
+            student_id_snapshot="0012345",
             gamer_tag_snapshot=gamer_tag,
             school_snapshot=school,
             is_captain=index == 1,
@@ -394,15 +428,35 @@ def _rebuild_registrations(
     organizer,
     catalog: SeedCatalog,
 ) -> tuple[Registration, ...]:
-    Registration.objects.filter(
+    previous_registrations = Registration.objects.filter(
         submitted_by=player,
         tournament_game__tournament__slug__in=SEED_TOURNAMENT_SLUGS,
-    ).delete()
+    )
+    previous_proofs = [
+        attempt.proof_file
+        for attempt in PaymentAttempt.objects.filter(
+            registration__in=previous_registrations
+        )
+        if attempt.proof_file
+    ]
+    PaymentIntent.objects.filter(registration__in=previous_registrations).delete()
+    previous_registrations.delete()
+
+    def remove_replaced_proofs():
+        for proof in previous_proofs:
+            if not PaymentAttempt.objects.filter(proof_file=proof.name).exists():
+                proof.storage.delete(proof.name)
+
+    transaction.on_commit(remove_replaced_proofs)
 
     valorant = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["valorant"].pk,
         team_name="Blue Phoenix",
+        team_tag="BP",
         members=_member_inputs(
             (
                 ("Rookie", "HCMUS"),
@@ -414,6 +468,7 @@ def _rebuild_registrations(
         ),
     )
     submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=valorant.pk,
         amount=Decimal("50000.00"),
@@ -422,6 +477,9 @@ def _rebuild_registrations(
     )
 
     chess = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["chess"].pk,
         team_name="",
@@ -439,9 +497,13 @@ def _rebuild_registrations(
     )
 
     counter_strike = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=catalog.tournament_games["counter-strike-2"].pk,
         team_name="Campus Five",
+        team_tag="C5",
         members=_member_inputs(
             (
                 ("Rookie", "HCMUS"),
@@ -453,6 +515,7 @@ def _rebuild_registrations(
         ),
     )
     counter_strike_payment = submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=counter_strike.pk,
         amount=Decimal("75000.00"),
@@ -482,9 +545,13 @@ def _rebuild_registrations(
         fields=("registration_opens_at", "registration_closes_at")
     )
     rocket_league = submit_registration(
+        submitter_role="captain",
+        contact_facebook_snapshot="https://facebook.com/example",
+        contact_phone_snapshot="0900000000",
         submitted_by=player,
         tournament_game_id=rocket_game.pk,
         team_name="Orbit Three",
+        team_tag="O3",
         members=_member_inputs(
             (
                 ("Rookie", "HCMUS"),
@@ -494,6 +561,7 @@ def _rebuild_registrations(
         ),
     )
     rejected_payment = submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=rocket_league.pk,
         amount=Decimal("60000.00"),
@@ -507,6 +575,7 @@ def _rebuild_registrations(
         note="Reference could not be verified.",
     )
     submit_payment_attempt(
+        proof_file=_sample_payment_image(),
         actor=player,
         registration_id=rocket_league.pk,
         amount=Decimal("60000.00"),
@@ -569,15 +638,47 @@ def _rebuild_registrations(
     return valorant, chess, counter_strike, rocket_league
 
 
+@contextmanager
+def _development_payment_destination():
+    """Use fictional snapshots only for this command's fixtures, never public settings.
+
+    The outer transaction and row lock keep temporary configuration invisible and
+    preserve concurrent operator edits. Errors roll back the entire fixture build.
+    """
+    with transaction.atomic():
+        destination, created = (
+            PaymentSettings.objects.select_for_update().get_or_create(pk=1)
+        )
+        original = {
+            field.attname: getattr(destination, field.attname)
+            for field in PaymentSettings._meta.concrete_fields
+            if not field.primary_key
+        }
+        PaymentSettings.objects.filter(pk=destination.pk).update(
+            enabled=True,
+            bank_name="DEVELOPMENT SAMPLE - NOT A RECEIVING BANK",
+            bank_bin="970436",
+            account_number="000000000000",
+            account_holder="DEVELOPMENT SAMPLE DO NOT PAY",
+            payment_hold_minutes=60,
+        )
+        yield
+        if created:
+            destination.delete()
+        else:
+            PaymentSettings.objects.filter(pk=destination.pk).update(**original)
+
+
 def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
     player, organizer, admin = _seed_accounts()
     catalog = _seed_catalog(now=now)
-    registrations = _rebuild_registrations(
-        now=now,
-        player=player,
-        organizer=organizer,
-        catalog=catalog,
-    )
+    with _development_payment_destination():
+        registrations = _rebuild_registrations(
+            now=now,
+            player=player,
+            organizer=organizer,
+            catalog=catalog,
+        )
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),

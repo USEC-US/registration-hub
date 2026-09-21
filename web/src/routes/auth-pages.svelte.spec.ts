@@ -51,7 +51,8 @@ vi.mock('$lib/api/auth', () => ({
 	updateCurrentUser: vi.fn()
 }));
 vi.mock('$lib/api/institutions', () => ({ searchInstitutions: vi.fn() }));
-vi.mock('$lib/auth/session', () => ({
+vi.mock('$lib/auth/session', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/auth/session')>()),
 	saveSession: vi.fn()
 }));
 vi.mock('$lib/states/auth-state.svelte', () => ({ authState: authStateMock }));
@@ -133,6 +134,17 @@ beforeEach(() => {
 
 afterEach(() => {
 	overwriteGetLocale(() => 'en');
+});
+
+describe.each([
+	['sign-in', SignInPage, 'Sign in'],
+	['account registration', RegisterPage, 'Create account']
+] as const)('%s after hydration', (_name, Component, buttonName) => {
+	it('enables its submit action with a POST fallback once the client is ready', async () => {
+		const { container } = render(Component);
+		await expect.element(page.getByRole('button', { name: buttonName, exact: true })).toBeEnabled();
+		expect(container.querySelector('form')?.method).toBe('post');
+	});
 });
 
 describe('sign-in page', () => {
@@ -289,9 +301,7 @@ describe('logout page', () => {
 		authStateMock.signOutAndRedirect.mockClear();
 		render(LogoutPage);
 
-		await vi.waitFor(() =>
-			expect(authStateMock.signOutAndRedirect).toHaveBeenCalledWith('/en/')
-		);
+		await vi.waitFor(() => expect(authStateMock.signOutAndRedirect).toHaveBeenCalledWith('/en/'));
 		await expect.element(page.getByText(m.auth_signed_out_redirecting())).toBeVisible();
 	});
 });
@@ -317,7 +327,15 @@ describe('account creation page', () => {
 		expect(registerAccount).toHaveBeenCalledOnce();
 	});
 
-	it('uses normalized registration email for automatic sign-in and redirects in locale', async () => {
+	it.each([
+		[null, '/account/profile'],
+		[
+			'/vi/tournaments/summer/games/10/register?source=event#roster',
+			'/vi/tournaments/summer/games/10/register?source=event#roster'
+		],
+		['https://example.org', '/account/registrations']
+	])('signs in the new account and safely returns to %s', async (redirect, destination) => {
+		if (redirect) mockPage.url.searchParams.set('redirect', redirect);
 		overwriteGetLocale(() => 'vi');
 		vi.mocked(registerAccount).mockResolvedValue({ ...user, email: 'player@example.com' });
 		vi.mocked(signIn).mockResolvedValue(tokens);
@@ -334,20 +352,23 @@ describe('account creation page', () => {
 		expect(container.querySelector('input[name="institution"]')).not.toBeNull();
 		await page.getByLabelText('Email').fill('PLAYER@EXAMPLE.COM');
 		await page.getByLabelText('Mật khẩu').fill('strong-password');
-		await page.getByLabelText('Họ').fill('Minh');
-		await page.getByLabelText('Tên').fill('Nguyen');
+		await page.getByLabelText(m.field_first_name(), { exact: true }).fill('Minh');
+		await page.getByLabelText(m.field_last_name(), { exact: true }).fill('Nguyen');
 		await page.getByLabelText('Cơ sở đào tạo').fill('science');
 		await page.getByRole('option', { name: /University of Science/ }).click();
 		await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/account/profile'));
-		expect(registerAccount).toHaveBeenCalledWith({
-			email: 'PLAYER@EXAMPLE.COM',
-			password: 'strong-password',
-			first_name: 'Minh',
-			last_name: 'Nguyen',
-			institution_id: 7
-		}, 'account-register-token');
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith(destination));
+		expect(registerAccount).toHaveBeenCalledWith(
+			{
+				email: 'PLAYER@EXAMPLE.COM',
+				password: 'strong-password',
+				first_name: 'Minh',
+				last_name: 'Nguyen',
+				institution_id: 7
+			},
+			'account-register-token'
+		);
 		expect(signIn).toHaveBeenCalledWith('player@example.com', 'strong-password', 'sign-in-token');
 		expect(saveSession).toHaveBeenCalledWith(tokens);
 	});
@@ -371,13 +392,16 @@ describe('account creation page', () => {
 		await page.getByRole('button', { name: 'Create account' }).click();
 
 		await vi.waitFor(() => {
-			expect(registerAccount).toHaveBeenCalledWith({
-				email: user.email,
-				password: 'strong-password',
-				first_name: user.first_name,
-				last_name: user.last_name,
-				institution_label: 'New Academy'
-			}, 'account-register-token');
+			expect(registerAccount).toHaveBeenCalledWith(
+				{
+					email: user.email,
+					password: 'strong-password',
+					first_name: user.first_name,
+					last_name: user.last_name,
+					institution_label: 'New Academy'
+				},
+				'account-register-token'
+			);
 		});
 	});
 

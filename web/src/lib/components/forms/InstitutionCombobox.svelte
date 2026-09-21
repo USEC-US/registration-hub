@@ -13,9 +13,19 @@
 		choice?: InstitutionChoice;
 		error?: string;
 		initialLabel?: string;
+		required?: boolean;
+		onlabel?: (label: string) => void;
 	}
 
-	let { choice = $bindable(), error, initialLabel = '' }: Props = $props();
+	// This binding publishes selections to the parent; it is intentionally write-only here.
+	let {
+		// eslint-disable-next-line no-useless-assignment
+		choice = $bindable(),
+		error,
+		initialLabel = '',
+		required = false,
+		onlabel
+	}: Props = $props();
 
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let inputValue = $state('');
@@ -68,6 +78,7 @@
 
 	function chooseInstitution(institution: Institution): void {
 		choice = { institution_id: institution.id };
+		onlabel?.(institution.label);
 		inputValue = institution.label;
 		resetSearchState();
 		suppressed = true;
@@ -78,6 +89,7 @@
 		const label = inputValue.trim();
 		if (!label) return;
 		choice = { institution_label: label };
+		onlabel?.(label);
 		resetSearchState();
 		suppressed = true;
 		if (inputEl) focusNextField(inputEl);
@@ -163,6 +175,8 @@
 		bind:ref={inputEl}
 		id={inputId}
 		name="institution"
+		{required}
+		maxlength={255}
 		autocomplete="organization"
 		placeholder={m.institution_search_placeholder()}
 		bind:value={inputValue}

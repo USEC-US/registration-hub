@@ -1,6 +1,7 @@
 export type RegistrationState = 'not_open' | 'open' | 'full' | 'closed';
-export type RegistrationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+export type RegistrationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 export type PaymentAttemptStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+export type PaymentState = 'NOT_REQUIRED' | 'UNPAID' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
 export interface TokenPair {
 	access: string;
@@ -41,8 +42,8 @@ export interface PublicTournamentGame {
 	id: number;
 	game_name: string;
 	game_slug: string;
-	team_size_min: number;
-	team_size_max: number;
+	main_roster_size: number;
+	substitute_limit: number;
 	registration_opens_at: string;
 	registration_closes_at: string;
 	registration_capacity: number | null;
@@ -51,6 +52,8 @@ export interface PublicTournamentGame {
 	fee_currency: string;
 	registration_state: RegistrationState;
 	is_registration_open: boolean;
+	payment_hold_minutes: number;
+	payment_available: boolean;
 }
 
 export interface PublicTournament {
@@ -63,19 +66,40 @@ export interface PublicTournament {
 	ends_at: string | null;
 	location: string;
 	is_featured: boolean;
+	students_only: boolean;
 	tournament_games: PublicTournamentGame[];
 }
 
-export interface RegistrationMemberInput {
+export type RosterRole = 'main' | 'substitute';
+
+export interface RegistrationMemberRead {
 	gamer_tag_snapshot: string;
 	school_snapshot: string;
 	is_captain: boolean;
+	roster_role: RosterRole;
 	display_order: number;
 }
 
+export type RegistrationMemberInput = Omit<RegistrationMemberRead, 'school_snapshot'> &
+	InstitutionChoice & {
+		first_name_snapshot: string;
+		last_name_snapshot: string;
+		date_of_birth_snapshot: string;
+		student_id_snapshot: string;
+	};
+export type SubmitterRole = 'captain' | 'manager';
+
 export interface RegistrationSubmissionPayload {
+	payment_intent_token?: string;
 	tournament_game: number;
 	team_name: string;
+	team_tag: string;
+	submitter_role: SubmitterRole;
+	contact_facebook_snapshot: string;
+	contact_phone_snapshot: string;
+	contact_email_snapshot?: string;
+	contact_discord_snapshot?: string;
+	manager_name_snapshot?: string;
 	members: RegistrationMemberInput[];
 }
 
@@ -85,18 +109,23 @@ export interface RegistrationRead {
 		id: number;
 		tournament_name: string;
 		game_name: string;
-		team_size_min: number;
-		team_size_max: number;
+		main_roster_size: number;
+		substitute_limit: number;
 		fee_amount: string;
 		fee_currency: string;
 	};
 	team_name: string;
+	team_tag: string;
 	status: RegistrationStatus;
 	fee_amount_snapshot: string;
 	fee_currency_snapshot: string;
 	submitted_at: string;
 	payment_required: boolean;
-	members: RegistrationMemberInput[];
+	payment_reference: string;
+	payment_state: PaymentState;
+	payment_due_at: string | null;
+	expired: boolean;
+	members: RegistrationMemberRead[];
 	status_events: { to_status: RegistrationStatus; created_at: string }[];
 	payment_attempts: {
 		id: number;
@@ -105,4 +134,33 @@ export interface RegistrationRead {
 		currency: string;
 		created_at: string;
 	}[];
+}
+
+export interface RegistrationPaymentInstructions {
+	bank_name: string;
+	bank_bin: string;
+	account_number: string;
+	account_holder: string;
+	amount: string;
+	currency: string;
+	transfer_content: string;
+	transfer_content_limit: number;
+	qr_payload: string | null;
+	qr_png_data_url: string | null;
+	qr_contains_transfer_content: boolean;
+}
+
+export interface RegistrationPaymentSession {
+	readonly tournament_slug: string;
+	registration: RegistrationRead;
+	payment_state: PaymentState;
+	payment_due_at: string | null;
+	server_now: string;
+	expired: boolean;
+	can_upload_proof: boolean;
+	can_retry_registration: boolean;
+	replacement_note: string;
+	saved_submission: RegistrationSubmissionPayload;
+	institution_labels: Record<string, string>;
+	instructions: RegistrationPaymentInstructions | null;
 }

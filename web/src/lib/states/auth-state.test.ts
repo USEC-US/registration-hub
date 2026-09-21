@@ -23,6 +23,7 @@ vi.mock('$lib/api/auth', () => ({
 	refreshAccessToken: dependencies.refreshAccessToken
 }));
 vi.mock('$lib/auth/session', () => ({
+	isSessionAccessToken: (token: string) => dependencies.accessToken === token,
 	getAccessToken: () => dependencies.accessToken,
 	getRefreshToken: () => dependencies.refreshToken,
 	saveSession: (tokens: TokenPair) => {
@@ -606,30 +607,27 @@ describe('AuthState', () => {
 		expect(authState.status).toBe('signed-out');
 	});
 
-	it.each([401, 403])(
-		'clears and redirects for an authentication error with status %i',
-		(status) => {
-			dependencies.accessToken = 'access-token';
-			const authState = new AuthState();
-			const snapshot = authState.requireSessionSnapshot();
-			authState.updateCurrentUser(snapshot!, currentUser);
+	it.each([401])('clears and redirects for an authentication error with status %i', (status) => {
+		dependencies.accessToken = 'access-token';
+		const authState = new AuthState();
+		const snapshot = authState.requireSessionSnapshot();
+		authState.updateCurrentUser(snapshot!, currentUser);
 
-			expect(
-				authState.handleAuthenticationError(new ApiRequestError(status, 'Authentication failed.'))
-			).toBe(true);
+		expect(
+			authState.handleAuthenticationError(new ApiRequestError(status, 'Authentication failed.'))
+		).toBe(true);
 
-			expect(dependencies.clearSession).toHaveBeenCalledOnce();
-			expect(authState.currentUser).toBeNull();
-			expect(dependencies.replaceInternalLocation).toHaveBeenCalledWith(
-				'/auth/sign-in?redirect=%2Faccount%2Fprofile%3Ftab%3Dsecurity%23password'
-			);
-		}
-	);
+		expect(dependencies.clearSession).toHaveBeenCalledOnce();
+		expect(authState.currentUser).toBeNull();
+		expect(dependencies.replaceInternalLocation).toHaveBeenCalledWith(
+			'/auth/sign-in?redirect=%2Faccount%2Fprofile%3Ftab%3Dsecurity%23password'
+		);
+	});
 
-	it('leaves non-authentication errors for the caller to render', () => {
+	it.each([403, 500])('leaves non-authentication error %i for the caller to render', (status) => {
 		const authState = new AuthState();
 
-		expect(authState.handleAuthenticationError(new ApiRequestError(500, 'Server error.'))).toBe(
+		expect(authState.handleAuthenticationError(new ApiRequestError(status, 'Server error.'))).toBe(
 			false
 		);
 

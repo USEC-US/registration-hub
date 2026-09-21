@@ -1,0 +1,2317 @@
+{
+  "unresolved": [
+    {
+      "source": "swot",
+      "domain": "ahc.edu.vn",
+      "names": [
+        "An Giang Medical College",
+        "Trường Cao đẳng y tế An Giang"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "apcs.fitus.edu.vn",
+      "names": [
+        "VNUHCM - University of Science"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "aptech.vn",
+      "names": [
+        "Hanoi-Aptech Computer Education"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "aptechlearning.edu.vn",
+      "names": [
+        "Aprotrain-Aptech"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "apu.edu.vn",
+      "names": [
+        "APU AMERICAN INTERNATIONAL SCHOOL"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "arena.edu.vn",
+      "names": [
+        "FPT Arena Multimedia Education"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "aschool.edu.vn",
+      "names": [
+        "Archimedes Academy",
+        "Trường THCS Archimedes Academy"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "bacgiang.edu.vn",
+      "names": [
+        "BacGiang Specialized Upper Secondary School"
+      ],
+      "reason": "Provincial domain; verify school-specific ownership"
+    },
+    {
+      "source": "swot",
+      "domain": "bacninh.edu.vn",
+      "names": [
+        "Bac Ninh Specialized High School"
+      ],
+      "reason": "Provincial domain; verify school-specific ownership"
+    },
+    {
+      "source": "swot",
+      "domain": "banmaischool.edu.vn",
+      "names": [
+        "BAN MAI SCHOOL"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "bctech.edu.vn",
+      "names": [
+        "BCTECH",
+        "Trường Cao đẳng Kỹ thuật Công nghệ Bà Rịa - Vũng Tàu"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "binhnamphong.edu.vn",
+      "names": [
+        "Nam Phong junior high school",
+        "Trường Trung Học Cơ Sở Nam Phong"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "bkc.edu.vn",
+      "names": [
+        "BACH KHOA SAI GON COLLEGE",
+        "CAO DANG BACH KHOA SAI GON (BKC)"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "cantho.edu.vn",
+      "names": [
+        "Department of Education and Training of Can Tho City",
+        "Sở GD&ĐT Cần Thơ"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "caodangquoctehanoi.edu.vn",
+      "names": [
+        "HANOI INTERNATIONAL COLLEGE – VIET NAM",
+        "TRƯỜNG CAO ĐẲNG QUỐC TẾ HÀ NỘI"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "caugiay.edu.vn",
+      "names": [
+        "THCS Trương Công Giai"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "cdntphcm.edu.vn",
+      "names": [
+        "Ho Chi Minh City College of Vocation",
+        "Trường Cao đẳng Nghề Thành phố Hồ Chí Minh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "cdsonla.edu.vn",
+      "names": [
+        "Son La Community College"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "cis.edu.vn",
+      "names": [
+        "Canadian International School Viet Nam"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "clc.fitus.edu.vn",
+      "names": [
+        "VNUHCM - University of Science"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "codienxaydungbacninh.edu.vn",
+      "names": [
+        "Bac Ninh Vocationnal college of Electromechanics and Construction",
+        "Trường Cao đẳng Cơ điện và Xây Dựng Bắc Ninh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "coltech.vnu.vn",
+      "names": [
+        "Vietnam National University Hanoi"
+      ],
+      "reason": "Faculty-specific domain with only a generic parent-university name; verify identity"
+    },
+    {
+      "source": "swot",
+      "domain": "ctd.edu.vn",
+      "names": [
+        "Cao Đẳng Kinh Tế Kỹ Thuật Thủ Đức",
+        "Thu Duc Economic and Technical College"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ctech.edu.vn",
+      "names": [
+        "Cao Đẳng Kỹ Thuật Công Nghệ Bách Khoa"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "cth.edu.vn",
+      "names": [
+        "Con Tu Hoc",
+        "CTH Edu"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "ctim.edu.vn",
+      "names": [
+        "Cao đẳng CTIM",
+        "College of Technology and Industrial Management"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "daivietsaigon.edu.vn",
+      "names": [
+        "Trường Cao đẳng Đại Việt Sài Gòn"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "danavtc.edu.vn",
+      "names": [
+        "Danang Vocational Training College"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "daotao.sict.udn.vn",
+      "names": [
+        "Khoa Công nghệ thông tin và truyền thông - Đại học Đà Nẵng",
+        "School of Information and Communication Technology - The University of Danang"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "datapot.edu.vn",
+      "names": [
+        "Datapot is an educational institute that provides data science courses for Universities and Companies in Vietnam."
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "datapot.vn",
+      "names": [
+        "Datapot is an educational institute that provides data science courses for Universities and Companies in Vietnam."
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "devcamp.edu.vn",
+      "names": [
+        "OnSchool"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "dhcntt.edu.vn",
+      "names": [
+        "University of Information Technology Saigon",
+        "Đại Học Công Nghệ Thông Tin Sài Gòn"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "dhpd.edu.vn",
+      "names": [
+        "Phuong Dong University",
+        "Đại Học Phương Đông"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "dhsphue.edu.vn",
+      "names": [
+        "Hue University of Education",
+        "Đại học Sư Phạm Huế"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "dis.edu.vn",
+      "names": [
+        "Dream International School",
+        "Trường quốc tế ước mơ"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "discite.edu.vn",
+      "names": [
+        "Nguyen Dinh Cung"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "dlu.edu.vn",
+      "names": [
+        "University of Da Lat"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "dmail.edu.vn",
+      "names": [
+        "Cu Chi Vocational School",
+        "Truong Trung cap nghe Cu Chi"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "dtdl.edu.vn",
+      "names": [
+        "HaNoi College of Electronic and Electro - Refrigeratory Technics",
+        "Trường Cao Đẳng Điện Tử - Điện Lạnh Hà Nội"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "due.edu.vn",
+      "names": [
+        "Da Nang University of Economics",
+        "Đại học kinh tế Đà Nẵng"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "dut.edu.vn",
+      "names": [
+        "Da Nang University of Technology and Science"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "eaut.edu.vn",
+      "names": [
+        "East Asia University of Technology, Hanoi, VietNam",
+        "Trường Đại Học Công Nghệ Đông Á, Hà Nội, Việt Nam"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "edisonschools.edu.vn",
+      "names": [
+        "Edison Schools Ecopark"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "fpt.aptech.ac.vn",
+      "names": [
+        "FPT Aptech"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "fsb.edu.vn",
+      "names": [
+        "FSB School Of Business And Technology"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "fucantho.edu.vn",
+      "names": [
+        "FPT University Can Tho",
+        "Trường Đại Học FPT Cần Thơ"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "fulbright.edu.vn",
+      "names": [
+        "Fulbright University Vietnam"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "funix.edu.vn",
+      "names": [
+        "FUNiX Online University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "gamudagardens.sis.edu.vn",
+      "names": [
+        "Trường Quốc Tế Singapore tại Gamuda Gardens (Hà Nội)"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "giadinh.edu.vn",
+      "names": [
+        "Gia Dinh University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hactech.edu.vn",
+      "names": [
+        "HANOI VOCATIONAL COLLEGE OF TECHNOLOGY"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "haha.edu.vn",
+      "names": [
+        "Haha Primary School",
+        "Trường Tiểu học Haha"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hatinh.edu.vn",
+      "names": [
+        "Ha Tinh Department of Education and Training",
+        "Sở Giáo Dục & Đào Tạo Hà Tĩnh"
+      ],
+      "reason": "Shared domain; not a single institution"
+    },
+    {
+      "source": "swot",
+      "domain": "hau.edu.vn",
+      "names": [
+        "Hanoi University of Architecture"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "haugiang.edu.vn",
+      "names": [
+        "Department of Education and Training of Hau Giang Province"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "hcm.edu.vn",
+      "names": [
+        "hocmon"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "hcmier.edu.vn",
+      "names": [
+        "Institute for Environment and Resource",
+        "Viện Môi Trường và Tài Nguyên"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hcmuarc.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Architecture"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hcmussh.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Social Sciences and Humanities"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hsb.edu.vn",
+      "names": [
+        "Hanoi School of Business and Management",
+        "Trường Quản trị và Kinh doanh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "htt.edu.vn",
+      "names": [
+        "Hanoi College of Technology and Trading",
+        "Trường Cao Đẳng Công nghệ và Thương Mại Hà Nội"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hua.edu.vn",
+      "names": [
+        "Hanoi University of Agriculture"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "huas.edu.vn",
+      "names": [
+        "Nguyễn Xuân Nhật Trường"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hue.edu.vn",
+      "names": [
+        "Sở GD&ĐT Thừa Thiên Huế"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "huemed-univ.edu.vn",
+      "names": [
+        "Hue University of Medicine and Pharmacy"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hueuni.edu.vn",
+      "names": [
+        "Hue University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "huflis.edu.vn",
+      "names": [
+        "Trường Đại Học Ngoại Ngữ Huế",
+        "University of Foreign Languages and International Studies, Hue University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "huit.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Industry and Trade"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hut.edu.vn",
+      "names": [
+        "Hanoi University of Technology"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "hwru.edu.vn",
+      "names": [
+        "Water Resources University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ibm.edu.vn",
+      "names": [
+        "International Business Management Institute",
+        "Viện quản lý kinh doanh quốc tế"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ich.edu.vn",
+      "names": [
+        "International College of Ho Chi Minh City",
+        "Trường Cao Đẳng Quốc Tế TP. HCM"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ict.jvn.edu.vn",
+      "names": [
+        "John Von Neumann Institute"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "iei.edu.vn",
+      "names": [
+        "VIET NAM INTERNATIONAL UNIVERSITY HOCHIMINH CITY - INTERNATIONAL EDUCATION INSTITUTE"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ikids.edu.vn",
+      "names": [
+        "International Kids"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "ipmph.edu.vn",
+      "names": [
+        "SCHOOL OF PREVENTIVE MEDICINE AND PUBLIC HEALTH",
+        "VIỆN ĐÀO TẠO Y HỌC DỰ PHÒNG VÀ Y TẾ CÔNG CỘNG"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "ishcmc.edu.vn",
+      "names": [
+        "International School Ho Chi Minh City"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "ispace.edu.vn",
+      "names": [
+        "iSPACE vocational training college",
+        "Trường Cao đẳng An ninh mạng iSPACE"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "itrithuc.vn",
+      "names": [
+        "Digital Vietnamese Knowledge System Project of the Ministry of Science and Technology of Vietnam"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "jvn.edu.vn",
+      "names": [
+        "JVN Institute - Vietnam National University HCMC"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "kgc.edu.vn",
+      "names": [
+        "Kien Giang College",
+        "Trường Cao đẳng Kiên Giang"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "khanhhoa.edu.vn",
+      "names": [
+        "Nguyen Van Troi High School",
+        "Trường THPT Nguyễn Văn Trỗi"
+      ],
+      "reason": "Provincial domain; verify school-specific ownership"
+    },
+    {
+      "source": "swot",
+      "domain": "khdt.edu.vn",
+      "names": [
+        "University of Data Science",
+        "Đại học Khoa học Dữ liệu"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ktkt-haiduong.edu.vn",
+      "names": [
+        "Hai Duong University of Economics and Technology"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ldxh.edu.vn",
+      "names": [
+        "University of Labour Social Affairs 2",
+        "Đại học Lao động - Xã hội cơ sở 2"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "lqdtu.edu.vn",
+      "names": [
+        "Le Quy Don Technical University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "lsts.edu.vn",
+      "names": [
+        "Lawrence S.Ting School",
+        "Trường Đinh Thiện Lý"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "lumina.edu.vn",
+      "names": [
+        "Lumina Academy"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "mail.thitcholuoc.edu.vn",
+      "names": [
+        "Phuc Dien Secondary School",
+        "Trường Trung học Cơ sở Phúc Diễn"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "mayaschool.edu.vn",
+      "names": [
+        "Maya Education for Peace",
+        "MAYA SCHOOL",
+        "TRUÖNG PHÖ THÔNG LIÊN CÃP SONG NGÜ MAYA"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "mindx.edu.vn",
+      "names": [
+        "MindX Technology School"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "mit.vn",
+      "names": [
+        "student.mit.vn"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "neu.edu.vn",
+      "names": [
+        "Hanoi National Economics University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "nghean.edu.vn",
+      "names": [
+        "Department of Education and Training in Nghe An",
+        "Sở giáo dục và đào tạo Nghệ An",
+        "THPT Thanh Chương 1 | Thanh Chuong 1 High School"
+      ],
+      "reason": "Shared domain; not a single institution"
+    },
+    {
+      "source": "swot",
+      "domain": "ngs.edu.vn",
+      "names": [
+        "Hệ thống trường liên cấp Newton",
+        "NEWTON GRAMMAR SCHOOL"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "nguyensieu.edu.vn",
+      "names": [
+        "NGUYEN SIEU SCHOOL"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "onbav.edu.vn",
+      "names": [
+        "Banking Academy of Vietnam - School of Training and Retraining",
+        "Học viện Ngân hàng - Trường Đào tạo, Bồi dưỡng cán bộ"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "oude.edu.vn",
+      "names": [
+        "Trường Đại Học Mở thành phố Hồ Chí Minh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "pace.edu.vn",
+      "names": [
+        "PACE Institute of Management"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "penphy.edu.vn",
+      "names": [
+        "Trường THCS Thuận Hưng"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "pgd-hoangmai.edu.vn",
+      "names": [
+        "Trung học cơ sở Linh Đàm"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "pgdanlao.edu.vn",
+      "names": [
+        "pgdanlao.edu.vn",
+        "Phòng GD&ĐT Huyện An Lão"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "pitagon.edu.vn",
+      "names": [
+        "Pitagon Education Technology Institute"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "poly.edu.vn",
+      "names": [
+        "Cao Đẳng FPT Polytechnic",
+        "FPT Polytechnic"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "pso.edu.vn",
+      "names": [
+        "Western Sydney University Vietnam"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ptit.edu.vn",
+      "names": [
+        "Posts & Telecommunications Institude of Technology"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "quochocquynhon.edu.vn",
+      "names": [
+        "Quoc Hoc Quy Nhon"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "rdi.edu.vn",
+      "names": [
+        "Resource Development Institute - Tra Vinh University",
+        "Viện Phát triển Nguồn lực - Đại học Trà Vinh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ric.edu.vn",
+      "names": [
+        "Rubber Industrial College",
+        "Trường Cao Đẳng Công Nghiệp Cao Su"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "royal.edu.vn",
+      "names": [
+        "ROYAL SCHOOL"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "saidiait.edu.vn",
+      "names": [
+        "Saidia University of Vietnam",
+        "Trường Đại học Saidia Vietnam"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "saigonsouth.sis.edu.vn",
+      "names": [
+        "Trường Quốc tế Singapore (SIS) tại Nam Sài Gòn"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "saigontech.edu.vn",
+      "names": [
+        "Saigontech"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "sapp.edu.vn",
+      "names": [
+        "SAPP Academy"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "sic.edu.vn",
+      "names": [
+        "SaiGon International College"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "sitc.edu.vn",
+      "names": [
+        "Saigon Information Technology College",
+        "Trung cấp Công nghệ Thông tin Sài Gòn"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "sjjs.edu.vn",
+      "names": [
+        "Học Viện Thánh Giuse Dòng Tên",
+        "Saint Joseph Jesuit Scholasticate"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "skylineschool.edu.vn",
+      "names": [
+        "Skylineschool"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "sna.edu.vn",
+      "names": [
+        "International Schools of North America"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "ssis.edu.vn",
+      "names": [
+        "SAIGON SOUTH INTERNATIONAL SCHOOL"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "st.uel.edu.vn",
+      "names": [
+        "Trường Đại học Kinh tế - Luật",
+        "University of Economics and Law"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "st.umt.edu.vn",
+      "names": [
+        "Trường Đại học Quản lý và Công nghệ TP.HCM",
+        "University of Management and Technology Ho Chi Minh City"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "stu.hui.edu.vn",
+      "names": [
+        "Trường Đại học Công Thương"
+      ],
+      "reason": "Domain and university name conflict; needs verification"
+    },
+    {
+      "source": "swot",
+      "domain": "stu.vttu.edu.vn",
+      "names": [
+        "Can Tho University of Medicine and Pharmacy",
+        "Trường Đại học Võ Trường Toản"
+      ],
+      "reason": "Conflicting Vietnamese and English institution names"
+    },
+    {
+      "source": "swot",
+      "domain": "student-topica.edu.vn",
+      "names": [
+        "Topica Edtech Group",
+        "Tổ hợp giáo dục Topica"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "student.fulbright.edu.vn",
+      "names": [
+        "Fulbright University Vietnam"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "student.giadinh.edu.vn",
+      "names": [
+        "Gia Dinh University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "sv.hcmunre.edu.vn",
+      "names": [
+        "Dai Hoc Tai Nguyen va Moi Truong TPHCM"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "sv.ufm.edu.vn",
+      "names": [
+        "University of finance - marketing"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "tcu.edu.vn",
+      "names": [
+        "University Communications",
+        "Đại Học Thông tin Liên Lạc"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "teky.edu.vn",
+      "names": [
+        "Teky Holdings Young Technology Education JSc"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "thcs-doanthidiem.edu.vn",
+      "names": [
+        "Doan Thi Diem Secondary School",
+        "Trung học cơ sở Đoàn Thị Điểm"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "thcs-nguyentrai.edu.vn",
+      "names": [
+        "THCS Nguyễn Trãi"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "thcsthuanhung.edu.vn",
+      "names": [
+        "Trường THCS Thuận Hưng"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "thedeweyschools.edu.vn",
+      "names": [
+        "The Dewey Schools"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "thmkhai-nuithanh.edu.vn",
+      "names": [
+        "Nguyen Thi Minh Khai School",
+        "Truong TH Nguyen Thi Minh Khai"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "thuathienhue.edu.vn",
+      "names": [
+        "Hoang Thi Tram",
+        "Vinh Loc High School"
+      ],
+      "reason": "Province-wide domain with a personal name and school name; needs verification"
+    },
+    {
+      "source": "swot",
+      "domain": "tieuhocbunho.edu.vn",
+      "names": [
+        "Bu Nho elementary",
+        "Tieu hoc Bu Nho"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "tieuhocnghiahiep.edu.vn",
+      "names": [
+        "Truong Tieu hoc Nghia Hiep"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "tlu.edu.vn",
+      "names": [
+        "Water Resources University",
+        "Đại học thủy lợi Hà Nội"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "tnue.edu.vn",
+      "names": [
+        "Thai Nguyen University of education",
+        "trường đại học sư phạm Thái Nguyên"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "tnut.edu.vn",
+      "names": [
+        "Thai Nguyen University of technology",
+        "Đại Học Kỹ Thuật Công Nghiệp Thái Nguyên"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "topica.edu.vn",
+      "names": [
+        "Tổ hợp Công nghệ giáo dục Topica"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "tranvanbayst.edu.vn",
+      "names": [
+        "Trần Văn Bảy"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "trungvuongdanang.edu.vn",
+      "names": [
+        "Trung Vuong Da Nang Middle School",
+        "Trường THCS Trưng Vương Đà Nẵng"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "tuaf.edu.vn",
+      "names": [
+        "Thainguyen University of Agriculture and Forestry"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "tuyenquang.edu.vn",
+      "names": [
+        "Trường"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ud.edu.vn",
+      "names": [
+        "University of Da Nang"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "uef.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Economics and Finance - UEF",
+        "Trường Đại học Kinh tế - Tài chính thành phố Hồ Chí Minh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ueh.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Economics"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ufm.edu.vn",
+      "names": [
+        "University of Finance - Marketing"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ulsa.edu.vn",
+      "names": [
+        "University of Labour and Social Affairs"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "umt.edu.vn",
+      "names": [
+        "University of management and technology Ho Chi Minh City"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "uneti.edu.vn",
+      "names": [
+        "Kinh tế kỹ thuật công nghiệp Hà Nội",
+        "Uneti University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "uphcm.edu.vn",
+      "names": [
+        "Faculty of Pharmacy - University of Medicine and Pharmacy, Ho Chi Minh City",
+        "Khoa Dược - Đại học Y Dược TP.Hồ Chí Minh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "uschool.edu.vn",
+      "names": [
+        "Trường Trung Cấp Công Nghệ Tân Tiến"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ut.edu.vn",
+      "names": [
+        "Ho Chi Minh City University of Transport",
+        "﻿Trường đại học Giao thông vận tải thành phố Hồ Chí Minh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "utschool.edu.vn",
+      "names": [
+        "US Vietnam Talent International School"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "vcam.edu.vn",
+      "names": [
+        "Trường cao đẳng cơ khí nông nghiệp",
+        "Vocational college of agricultural mecanics"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "victoriaschool.edu.vn",
+      "names": [
+        "Hệ Thống Giáo Dục Victoria School",
+        "Victoria Saigon South School"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "victoryschool.edu.vn",
+      "names": [
+        "HỆ THỐNG GIÁO DỤC THỰC NGHIỆM VICTORY"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "vinhphuc.edu.vn",
+      "names": [
+        "Huong Canh A Primary School"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "vinschool.edu.vn",
+      "names": [
+        "VINGROUP school"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "vinuni.edu.vn",
+      "names": [
+        "VinUniversity"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "vjis.edu.vn",
+      "names": [
+        "Truong Lien Cap Viet Nhat"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "vku.edu.vn",
+      "names": [
+        "Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "vku.udn.vn",
+      "names": [
+        "Trường Đại học Công nghệ Thông tin và Truyền thông Việt – Hàn",
+        "Vietnam - Korea University of Information and Communication Technology"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "vmmu.edu.vn",
+      "names": [
+        "Vietnam Military Medical University"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "vnp.edu.vn",
+      "names": [
+        "Vietnam The Nerhetlands Progamme"
+      ],
+      "reason": "Institution name/scope needs review"
+    },
+    {
+      "source": "swot",
+      "domain": "vnuhcm.edu.vn",
+      "names": [
+        "Vietnam National University Ho Chi Minh City"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "vnuhn.edu.vn",
+      "names": [
+        "Nguyễn Vũ Linh",
+        "Vietnam National University"
+      ],
+      "reason": "Ambiguous national university name and non-institution name in source"
+    },
+    {
+      "source": "swot",
+      "domain": "vnuk.edu.vn",
+      "names": [
+        "The VNUK Institute for Research and Executive Education",
+        "Viện Nghiên cứu và Đào tạo Việt Anh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "vtc.edu.vn",
+      "names": [
+        "VTC ACADEMY",
+        "VTC INFORMATION TECHNOLOGY AND DESIGN ACADEMY"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "vtvc.edu.vn",
+      "names": [
+        "Trường Cao đẳng Du lịch Vũng Tàu",
+        "VTVC"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "yersin.edu.vn",
+      "names": [
+        "YERSIN UNIVERSITY DALAT"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    },
+    {
+      "source": "swot",
+      "domain": "ytebacninh.edu.vn",
+      "names": [
+        "Trường Cao đẳng Y tế Bắc Ninh"
+      ],
+      "reason": "Unmatched school; confirm identity and scope before adding"
+    }
+  ],
+  "moet_added": 86,
+  "moet_matched": 319,
+  "swot_added": 37,
+  "swot_matched": 171,
+  "records": 663,
+  "retired": {
+    "529": "Duplicate of 130",
+    "344": "Duplicate of 333",
+    "523": "Duplicate of 79",
+    "513": "Duplicate of 212 (renamed faculty)",
+    "210": "Duplicate of 213 (renamed school)",
+    "512": "Duplicate of 217 (renamed faculty)",
+    "536": "Duplicate of 166",
+    "543": "Hospital, outside institution picker scope",
+    "521": "Placeholder; use the custom institution input",
+    "532": "Duplicate of 26 (renamed HUIT)",
+    "542": "Free-text placeholder; use the custom institution input"
+  },
+  "legacy_only": [
+    {
+      "value": "118",
+      "label": "Học Viện Quân Y – Hệ Dân sự"
+    },
+    {
+      "value": "131",
+      "label": "Đại Học Kỹ Thuật – Hậu Cần Công An Nhân Dân ( Phía Bắc )"
+    },
+    {
+      "value": "135",
+      "label": "Học Viện Hành Chính Quốc Gia (phía Nam)"
+    },
+    {
+      "value": "138",
+      "label": "Học Viện Hậu Cần – Hệ Dân sự"
+    },
+    {
+      "value": "159",
+      "label": "Trường Sĩ Quan Không Quân – Hệ Cao đẳng"
+    },
+    {
+      "value": "171",
+      "label": "Đại học Nguyễn Huệ"
+    },
+    {
+      "value": "173",
+      "label": "Trường Sĩ quan Chính trị (hệ dân sự)"
+    },
+    {
+      "value": "180",
+      "label": "Đại Học Mỹ Thuật Công Nghiệp Á Châu"
+    },
+    {
+      "value": "19",
+      "label": "Đại Học Chu Văn An"
+    },
+    {
+      "value": "192",
+      "label": "Phân hiệu Đại học Nông Lâm TP. HCM tại Gia Lai"
+    },
+    {
+      "value": "204",
+      "label": "Đại Học Phòng Cháy Chữa Cháy ( Hệ Dân sự Phía Bắc )"
+    },
+    {
+      "value": "206",
+      "label": "Đại Học Phòng Cháy Chữa Cháy (Hệ Dân sự Phía Nam)"
+    },
+    {
+      "value": "225",
+      "label": "Đại Học Răng – Hàm – Mặt"
+    },
+    {
+      "value": "243",
+      "label": "Trường Sĩ Quan Thông Tin – Hệ Dân Sự – Đại Học Thông Tin Liên Lạc"
+    },
+    {
+      "value": "268",
+      "label": "Đại Học Kinh Bắc"
+    },
+    {
+      "value": "285",
+      "label": "Phân hiệu Đại học Y Hà Nội tại Thanh Hóa"
+    },
+    {
+      "value": "291",
+      "label": "Trường Sĩ Quan Công Binh – Hệ Dân sự – Đại học Ngô Quyền"
+    },
+    {
+      "value": "293",
+      "label": "Trường Sĩ Quan Kỹ Thuật Quân Sự – Hệ Dân sự – Đại Học Trần Đại Nghĩa"
+    },
+    {
+      "value": "294",
+      "label": "Cao Đẳng An Ninh Nhân Dân 1"
+    },
+    {
+      "value": "295",
+      "label": "Cao Đẳng An Ninh Nhân Dân 2"
+    },
+    {
+      "value": "298",
+      "label": "Cao Đẳng Sư Phạm Lào Cai"
+    },
+    {
+      "value": "299",
+      "label": "Cao Đẳng Sư Phạm Tuyên Quang"
+    },
+    {
+      "value": "306",
+      "label": "Cao Đẳng Sư Phạm Quảng Ninh"
+    },
+    {
+      "value": "313",
+      "label": "Cao Đẳng Sư Phạm Hà Nam"
+    },
+    {
+      "value": "321",
+      "label": "Cao Đẳng Sư Phạm Gia Lai"
+    },
+    {
+      "value": "323",
+      "label": "Cao Đẳng Sư Phạm Nha Trang"
+    },
+    {
+      "value": "326",
+      "label": "Cao Đẳng Sư Phạm Ninh Thuận"
+    },
+    {
+      "value": "332",
+      "label": "Trường Cao đẳng Y Dược Sài Gòn"
+    },
+    {
+      "value": "333",
+      "label": "Trường Cao đẳng Y Khoa Phạm Ngọc Thạch"
+    },
+    {
+      "value": "337",
+      "label": "Cao Đẳng Sư Phạm Sóc Trăng"
+    },
+    {
+      "value": "338",
+      "label": "Cao Đẳng Sư Phạm Cà Mau"
+    },
+    {
+      "value": "339",
+      "label": "Cao Đẳng Sư Phạm Điện Biên"
+    },
+    {
+      "value": "340",
+      "label": "Cao Đẳng Bán Công Công Nghệ và Quản Trị Doanh Nghiệp"
+    },
+    {
+      "value": "341",
+      "label": "Cao Đẳng Bách Khoa Hưng Yên"
+    },
+    {
+      "value": "342",
+      "label": "Cao Đẳng Công Nghệ Và Kinh Tế Bảo Lộc"
+    },
+    {
+      "value": "343",
+      "label": "Cao Đẳng Y Tế Bạch Mai"
+    },
+    {
+      "value": "345",
+      "label": "Cao Đẳng Bách Việt CBY – Cao Đẳng Y Tế Bình Dương"
+    },
+    {
+      "value": "346",
+      "label": "Cao Đẳng Y Tế Bình Dương"
+    },
+    {
+      "value": "347",
+      "label": "Cao Đẳng Công Nghiệp Hóa Chất"
+    },
+    {
+      "value": "348",
+      "label": "Cao Đẳng Công Nghiệp Thái Nguyên"
+    },
+    {
+      "value": "349",
+      "label": "Cao Đẳng Công Nghiệp Cẩm Phả"
+    },
+    {
+      "value": "350",
+      "label": "Cao Đẳng Kỹ Thuật Công Nghiệp"
+    },
+    {
+      "value": "352",
+      "label": "Cao Đẳng Công Nghiệp In"
+    },
+    {
+      "value": "353",
+      "label": "Cao Đẳng Kinh Tế Công Nghiệp Hà Nội"
+    },
+    {
+      "value": "355",
+      "label": "Cao Đẳng Công Nghiệp Tuy Hòa"
+    },
+    {
+      "value": "356",
+      "label": "Cao Đẳng Kỹ Thuật Công Nghiệp Quảng Ngãi"
+    },
+    {
+      "value": "357",
+      "label": "Cao Đẳng Kinh Tế Kỹ Thuật Vinatex TPHCM"
+    },
+    {
+      "value": "358",
+      "label": "Cao Đẳng Công Nghiệp Việt Đức"
+    },
+    {
+      "value": "359",
+      "label": "Cao Đẳng Công Nghiệp và Xây Dựng"
+    },
+    {
+      "value": "360",
+      "label": "Cao Đẳng Công Nghiệp Hưng Yên"
+    },
+    {
+      "value": "361",
+      "label": "Cao Đẳng Công Nghệ và Kinh Doanh Việt Tiến"
+    },
+    {
+      "value": "362",
+      "label": "Cao Đẳng Cảnh Sát Nhân Dân 1"
+    },
+    {
+      "value": "363",
+      "label": "Cao đẳng Cảnh sát Nhân dân II"
+    },
+    {
+      "value": "364",
+      "label": "Cao Đẳng Tư Thục Đức Trí"
+    },
+    {
+      "value": "365",
+      "label": "Cao Đẳng Kinh Tế Kỹ Thuật Điện Biên"
+    },
+    {
+      "value": "366",
+      "label": "Cao đẳng Công Nghệ Thông Tin TPHCM"
+    },
+    {
+      "value": "367",
+      "label": "Cao Đẳng Dân Lập Kinh Tế Kỹ Thuật Đông Du Đà Nẵng"
+    },
+    {
+      "value": "368",
+      "label": "Cao Đẳng Điện Lực TPHCM"
+    },
+    {
+      "value": "369",
+      "label": "Cao Đẳng Du Lịch Hà Nội"
+    },
+    {
+      "value": "370",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật và Du Lịch Nha Trang"
+    },
+    {
+      "value": "371",
+      "label": "Cao Đẳng Mỹ Thuật Trang Trí Đồng Nai"
+    },
+    {
+      "value": "372",
+      "label": "Cao Đẳng Nông Lâm Đông Bắc"
+    },
+    {
+      "value": "373",
+      "label": "Cao Đẳng Công Kỹ Nghệ Đông Á"
+    },
+    {
+      "value": "374",
+      "label": "Cao Đẳng Công Nghệ và Quản Trị Sonadezi"
+    },
+    {
+      "value": "375",
+      "label": "Cao Đẳng Xây Dựng Công Trình Đô Thị"
+    },
+    {
+      "value": "376",
+      "label": "Cao Đẳng Dược Phú Thọ"
+    },
+    {
+      "value": "378",
+      "label": "Cao Đẳng Y Tế Điện Biên"
+    },
+    {
+      "value": "379",
+      "label": "Cao Đẳng Kinh Tế – Kỹ Thuật Cần Thơ"
+    },
+    {
+      "value": "380",
+      "label": "Cao Đẳng Công Nghệ Kinh Tế Và Thủy Lợi Miền Trung"
+    },
+    {
+      "value": "381",
+      "label": "Cao Đẳng Cơ Điện Và Nông Nghiệp Nam Bộ"
+    },
+    {
+      "value": "382",
+      "label": "Cao Đẳng Đại Việt"
+    },
+    {
+      "value": "383",
+      "label": "Cao Đẳng Kinh Tế TPHCM"
+    },
+    {
+      "value": "384",
+      "label": "Cao Đẳng Công Thương TPHCM"
+    },
+    {
+      "value": "385",
+      "label": "Cao Đẳng Kinh Tế-Công Nghệ TPHCM"
+    },
+    {
+      "value": "386",
+      "label": "Cao Đẳng Giao Thông Vận Tải II"
+    },
+    {
+      "value": "387",
+      "label": "Cao Đẳng Giao Thông Vận Tải Miền Trung"
+    },
+    {
+      "value": "388",
+      "label": "Cao Đẳng Giao Thông Vận Tải 3"
+    },
+    {
+      "value": "389",
+      "label": "Cao Đẳng Giao Thông Vận Tải TPHCM"
+    },
+    {
+      "value": "390",
+      "label": "Cao Đẳng Hàng Hải I"
+    },
+    {
+      "value": "391",
+      "label": "Cao Đẳng Công Nghệ Và Kinh Tế Hà Nội"
+    },
+    {
+      "value": "392",
+      "label": "Cao Đẳng Cộng Đồng Hà Nội"
+    },
+    {
+      "value": "393",
+      "label": "Cao Đẳng Công Nghệ Thông Tin Hữu Nghị Việt Hàn"
+    },
+    {
+      "value": "394",
+      "label": "Cao Đẳng Y Tế Hưng Yên"
+    },
+    {
+      "value": "396",
+      "label": "Cao Đẳng Bách Khoa Đà Nẵng"
+    },
+    {
+      "value": "399",
+      "label": "Cao Đẳng Kinh Tế Kỹ Thuật Kiên Giang"
+    },
+    {
+      "value": "400",
+      "label": "Cao Đẳng Kinh Tế – Kế Hoạch Đà Nẵng"
+    },
+    {
+      "value": "401",
+      "label": "Cao Đẳng Cơ Khí Luyện Kim"
+    },
+    {
+      "value": "402",
+      "label": "Cao Đẳng Kinh Tế Kỹ Thuật Miền Nam"
+    },
+    {
+      "value": "403",
+      "label": "Cao Đẳng Kinh Tế – Kỹ Thuật Hà Nội"
+    },
+    {
+      "value": "404",
+      "label": "Cao Đẳng Kinh Tế- Kỹ Thuật Kon Tum"
+    },
+    {
+      "value": "405",
+      "label": "Cao Đẳng Kỹ Thuật Lý Tự Trọng TPHCM"
+    },
+    {
+      "value": "406",
+      "label": "Cao Đẳng Kinh Tế – Kỹ Thuật Quảng Nam"
+    },
+    {
+      "value": "407",
+      "label": "Cao Đẳng Du Lịch và Thương Mại"
+    },
+    {
+      "value": "408",
+      "label": "Cao Đẳng Kinh Tế – Tài Chính Thái Nguyên"
+    },
+    {
+      "value": "409",
+      "label": "Cao Đẳng Kinh Tế – Tài Chính Vĩnh Long"
+    },
+    {
+      "value": "41",
+      "label": "Đại học Tài Chính – Quản Trị Kinh Doanh"
+    },
+    {
+      "value": "410",
+      "label": "Cao Đẳng Kinh Tế Kỹ Thuật Lâm Đồng"
+    },
+    {
+      "value": "411",
+      "label": "Cao Đẳng Cộng Đồng Lào Cai"
+    },
+    {
+      "value": "413",
+      "label": "Cao Đẳng Điện Lực Miền Trung"
+    },
+    {
+      "value": "414",
+      "label": "Cao Đẳng Điện Tử – Điện Lạnh Hà Nội"
+    },
+    {
+      "value": "415",
+      "label": "Cao Đẳng Lương Thực Thực Phẩm"
+    },
+    {
+      "value": "416",
+      "label": "Cao Đẳng Lạc Việt"
+    },
+    {
+      "value": "417",
+      "label": "Cao Đẳng Y Tế Lâm Đồng"
+    },
+    {
+      "value": "421",
+      "label": "Cao Đẳng Thương Mại Và Du Lịch Hà Nội"
+    },
+    {
+      "value": "422",
+      "label": "Cao Đẳng Múa Việt Nam"
+    },
+    {
+      "value": "423",
+      "label": "Cao Đẳng Tài Nguyên và Môi Trường Miền Trung"
+    },
+    {
+      "value": "424",
+      "label": "Cao Đẳng Thương Mại"
+    },
+    {
+      "value": "425",
+      "label": "Cao Đẳng Công Nghệ Và Môi Trường"
+    },
+    {
+      "value": "426",
+      "label": "Cao Đẳng Y Tế Cà Mau"
+    },
+    {
+      "value": "427",
+      "label": "Cao Đẳng Hoan Châu"
+    },
+    {
+      "value": "428",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật Thái Bình"
+    },
+    {
+      "value": "429",
+      "label": "Cao Đẳng Ngoại Ngữ – Công Nghệ Việt Nhật"
+    },
+    {
+      "value": "430",
+      "label": "Cao Đẳng Công Nghiệp Nam Định"
+    },
+    {
+      "value": "431",
+      "label": "Cao Đẳng Công Nghệ Hà Nội"
+    },
+    {
+      "value": "432",
+      "label": "Cao Đẳng Nông Nghiệp Nam Bộ"
+    },
+    {
+      "value": "433",
+      "label": "Cao Đẳng Nông Nghiệp và Phát Triển Nông Thôn Bắc Bộ"
+    },
+    {
+      "value": "434",
+      "label": "Cao Đẳng Nghệ Thuật Hà Nội"
+    },
+    {
+      "value": "435",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật Việt Bắc"
+    },
+    {
+      "value": "436",
+      "label": "Cao Đẳng Y Tế Ninh Bình"
+    },
+    {
+      "value": "437",
+      "label": "Cao Đẳng Công Nghệ Và Kỹ Thuật Ô Tô"
+    },
+    {
+      "value": "438",
+      "label": "Cao Đẳng Phương Đông -Quảng Nam"
+    },
+    {
+      "value": "439",
+      "label": "Cao Đẳng Kinh Tế Kỹ Thuật TP HCM"
+    },
+    {
+      "value": "440",
+      "label": "Cao Đẳng Phương Đông – Đà Nẵng"
+    },
+    {
+      "value": "441",
+      "label": "Cao Đẳng Kinh Tế Kỹ Thuật Phú Thọ"
+    },
+    {
+      "value": "442",
+      "label": "Cao Đẳng Phát Thanh Truyền Hình II"
+    },
+    {
+      "value": "443",
+      "label": "Cao Đẳng Phát Thanh Truyền Hình I"
+    },
+    {
+      "value": "444",
+      "label": "Cao Đẳng Công Nghiệp Phúc Yên"
+    },
+    {
+      "value": "445",
+      "label": "Cao Đẳng Asean"
+    },
+    {
+      "value": "446",
+      "label": "Cao Đẳng Thủy Sản"
+    },
+    {
+      "value": "447",
+      "label": "Cao Đẳng Công Nghiệp Cao Su"
+    },
+    {
+      "value": "448",
+      "label": "Cao Đẳng Đại Việt Sài Gòn"
+    },
+    {
+      "value": "450",
+      "label": "Cao Đẳng Thống Kê"
+    },
+    {
+      "value": "451",
+      "label": "Cao Đẳng Kinh Tế – Kỹ Thuật Thương Mại"
+    },
+    {
+      "value": "452",
+      "label": "Cao Đẳng Thủy Lợi Bắc Bộ"
+    },
+    {
+      "value": "453",
+      "label": "Cao Đẳng Thương Mại và Du Lịch"
+    },
+    {
+      "value": "454",
+      "label": "Cao Đẳng Thể Dục Thể Thao Thanh Hóa"
+    },
+    {
+      "value": "455",
+      "label": "Cao Đẳng Công Nghiệp Thực Phẩm"
+    },
+    {
+      "value": "456",
+      "label": "Cao Đẳng Tài Chính Hải Quan"
+    },
+    {
+      "value": "457",
+      "label": "Cao Đẳng Truyền Hình"
+    },
+    {
+      "value": "458",
+      "label": "Cao Đẳng Kinh Tế – Kỹ Thuật Trung Ương"
+    },
+    {
+      "value": "459",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật Tây Bắc"
+    },
+    {
+      "value": "460",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật và Du Lịch Hạ Long"
+    },
+    {
+      "value": "461",
+      "label": "Cao đẳng Văn Hóa, Thể Thao Và Du Lịch Nguyễn Du"
+    },
+    {
+      "value": "462",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật Đăk Lăk"
+    },
+    {
+      "value": "463",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật TPHCM"
+    },
+    {
+      "value": "464",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật và Du Lịch Sài Gòn"
+    },
+    {
+      "value": "465",
+      "label": "Cao Đẳng Công Nghệ Viettronics"
+    },
+    {
+      "value": "466",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật Nghệ An"
+    },
+    {
+      "value": "467",
+      "label": "Cao Đẳng Kỹ Thuật-Công Nghệ Vạn Xuân"
+    },
+    {
+      "value": "468",
+      "label": "Cao Đẳng Văn Hóa Nghệ Thuật Du Lịch Yên Bái"
+    },
+    {
+      "value": "469",
+      "label": "Cao Đẳng Công Nghệ và Kinh Tế Công Nghiệp"
+    },
+    {
+      "value": "470",
+      "label": "Cao Đẳng Xây Dựng Số 1"
+    },
+    {
+      "value": "471",
+      "label": "Cao Đẳng Xây Dựng Nam Định"
+    },
+    {
+      "value": "472",
+      "label": "Cao Đẳng Xây Dựng Số 2"
+    },
+    {
+      "value": "473",
+      "label": "Cao Đẳng Y Tế Đồng Tháp"
+    },
+    {
+      "value": "474",
+      "label": "Cao Đẳng Y Tế Bạc Liêu"
+    },
+    {
+      "value": "475",
+      "label": "Cao Đẳng Y Tế Cần Thơ"
+    },
+    {
+      "value": "476",
+      "label": "Cao Đẳng Y Tế Đồng Nai"
+    },
+    {
+      "value": "477",
+      "label": "Cao Đẳng Y Tế Thái Bình"
+    },
+    {
+      "value": "478",
+      "label": "Cao Đẳng Y Tế Hải Phòng"
+    },
+    {
+      "value": "480",
+      "label": "Cao Đẳng Y Tế Hà Nam"
+    },
+    {
+      "value": "481",
+      "label": "Cao Đẳng Y Tế Thái Nguyên"
+    },
+    {
+      "value": "482",
+      "label": "Cao Đẳng Y Tế Khánh Hòa"
+    },
+    {
+      "value": "483",
+      "label": "Cao Đẳng Y Tế Lạng Sơn"
+    },
+    {
+      "value": "485",
+      "label": "Cao Đẳng Y Tế Hà Tĩnh"
+    },
+    {
+      "value": "486",
+      "label": "Cao Đẳng Y Tế Phú Thọ"
+    },
+    {
+      "value": "487",
+      "label": "Cao Đẳng Y Tế Quảng Ninh"
+    },
+    {
+      "value": "488",
+      "label": "Cao Đẳng Y Tế Bình Định"
+    },
+    {
+      "value": "489",
+      "label": "Cao Đẳng Dược Trung Ương"
+    },
+    {
+      "value": "490",
+      "label": "Cao Đẳng Y Tế Thanh Hóa"
+    },
+    {
+      "value": "491",
+      "label": "Cao Đẳng Y Tế Quảng Nam"
+    },
+    {
+      "value": "492",
+      "label": "Cao Đẳng Y Tế Tiền Giang"
+    },
+    {
+      "value": "493",
+      "label": "Cao Đẳng Y Tế Bình Thuận"
+    },
+    {
+      "value": "494",
+      "label": "Cao Đẳng Y Tế Huế"
+    },
+    {
+      "value": "495",
+      "label": "Cao Đẳng Y Tế Hà Nội"
+    },
+    {
+      "value": "496",
+      "label": "Cao Đẳng Cộng Đồng Hải Phòng"
+    },
+    {
+      "value": "497",
+      "label": "Cao Đẳng Cộng Đồng Hà Tây"
+    },
+    {
+      "value": "498",
+      "label": "Cao Đẳng Cộng Đồng Đồng Tháp"
+    },
+    {
+      "value": "499",
+      "label": "Cao Đẳng Cộng Đồng Kiên Giang"
+    },
+    {
+      "value": "500",
+      "label": "Cao Đẳng Cộng Đồng Vĩnh Long"
+    },
+    {
+      "value": "503",
+      "label": "Khoa Công Nghệ – Đại Học Đà Nẵng"
+    },
+    {
+      "value": "504",
+      "label": "Cao Đẳng Công Nghệ Thông Tin – Đại Học Đà Nẵng"
+    },
+    {
+      "value": "505",
+      "label": "Cao Đẳng Kinh Tế – Kỹ Thuật – Đại Học Thái Nguyên"
+    },
+    {
+      "value": "506",
+      "label": "Cao Đẳng Công Nghiệp Quốc Phòng"
+    },
+    {
+      "value": "507",
+      "label": "Cao Đẳng Y Tế Sơn La"
+    },
+    {
+      "value": "508",
+      "label": "Cao Đẳng Y Tế Trà Vinh"
+    },
+    {
+      "value": "520",
+      "label": "Cao đẳng Du lịch Sài Gòn"
+    },
+    {
+      "value": "522",
+      "label": "Trường Cao đẳng FPT Polytechnic"
+    },
+    {
+      "value": "527",
+      "label": "Đại Học Greenwich"
+    },
+    {
+      "value": "530",
+      "label": "Học viện Chính trị (Bộ Quốc Phòng)"
+    },
+    {
+      "value": "533",
+      "label": "Trường Đại học Kinh tế - Luật - Đại học Quốc gia TPHCM"
+    },
+    {
+      "value": "534",
+      "label": "Trường Ngoại ngữ - Du lịch (thuộc Trường Đại học Công nghiệp Hà Nội)"
+    },
+    {
+      "value": "535",
+      "label": "Swinburne Việt Nam"
+    },
+    {
+      "value": "539",
+      "label": "Trường Quân sự Quân khu 2"
+    },
+    {
+      "value": "540",
+      "label": "Học viên Hành chính và Quản trị công"
+    },
+    {
+      "value": "67",
+      "label": "Đại Học Lao Động – Xã Hội ( Cơ sở Sơn Tây )"
+    },
+    {
+      "value": "74",
+      "label": "Học Viện Khoa Học Quân Sự – Hệ Dân sự"
+    },
+    {
+      "value": "85",
+      "label": "Học Viện KỹThuật Quân Sự – Hệ Dân sự"
+    },
+    {
+      "value": "92",
+      "label": "Đại Học Thành Tây"
+    }
+  ],
+  "notes": [
+    "Unresolved SWOT entries are candidates, not imported additions.",
+    "Legacy-only entries retain their previous names/locations; they are not newly verified by MOET.",
+    "Province metadata from the legacy source has not been updated for the 2025 reforms.",
+    "VERIFIED means accepted for this picker; it is not accreditation or proof of a user's affiliation."
+  ]
+}
