@@ -17,6 +17,8 @@ case "${1:-web}" in
         shift || true
         cd /app/server
 
+        exec /app/server/.venv/bin/python manage.py migrate --noinput
+
         : "${HOST:=0.0.0.0}"
         : "${PORT:=8000}"
         : "${FORWARDED_ALLOW_IPS:=*}"
