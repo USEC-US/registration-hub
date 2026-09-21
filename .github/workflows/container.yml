@@ -135,6 +135,11 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Normalize image name
+        shell: bash
+        run: |
+          echo "IMAGE_NAME=${IMAGE_NAME_RAW,,}" >> "$GITHUB_ENV"
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
 
