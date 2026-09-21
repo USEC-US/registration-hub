@@ -45,6 +45,9 @@ COPY web/mise.toml ./web/mise.toml
 RUN mise trust \
     && mise install
 
+# Runtime processes should call Node directly rather than through mise shims.
+RUN ln -sf "$(mise which node)" /usr/local/bin/node
+
 # -----------------------------------------------------------------------------
 # Frontend build
 # -----------------------------------------------------------------------------
@@ -143,12 +146,9 @@ ENV NODE_ENV=production \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     VIRTUAL_ENV=/app/server/.venv \
-    PATH=/app/server/.venv/bin:/mise/shims:${PATH}
+    PATH=/app/server/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 WORKDIR /app
-
-COPY mise.toml /app/mise.toml
-RUN mise trust /app/mise.toml
 
 COPY --from=web-build /out/web /app/web
 COPY --from=server-build /app/server /app/server
