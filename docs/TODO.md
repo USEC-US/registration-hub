@@ -15,9 +15,9 @@
   in tournaments without student requirements. Student-only tournaments still
   require each player's student ID and school. The roster form explains the
   HCMUS conduct-point benefit beneath each player form.
-- Organizer admin already provides registration/payment review actions, immutable
-  roster and contact snapshots, and registration status history. Section 4 tracks
-  the remaining usability and audit review, not a replacement implementation.
+- Organizer admin provides combined registration/payment approval, immutable
+  roster and contact snapshots, and protected decision history. Payment attempts
+  remain visible, but standalone payment review is removed.
 - The first organizer navigation slice adds linked division and all-status
   registration totals to tournament/division admin lists and detail pages. These
   are record counts, not capacity counts.
@@ -27,7 +27,7 @@
   can view full payment proof images inline; public tournament images fit their
   frames without cropping. Admin record labels identify registrations, roster
   members, payment records, and status events; Vietnamese names display family
-  name first. Further audit and permissions review remains open.
+  name first. Organizer permission and audit controls are documented below.
 - Operational acceptance remains open: verify the receiving destination and scan
   the QR in a bank app, activate/monitor expiry and bank refresh jobs, and verify
   backups and restore procedures. The Compose file does not install these jobs.
@@ -127,16 +127,16 @@
 - [x] Add direct links from tournaments and divisions to their filtered registrations.
 - [x] Improve registration search, filtering, review, payment evidence, and status actions.
   - [x] Search private contact snapshots and filter by role and division; retain
-    existing guarded review and payment actions.
+    guarded registration review actions.
   - [x] Show full payment proof images in organizer registration and payment
     details, with protected inline delivery for supported raster formats.
-- [x] Show manual review, approval, and rejection controls on registration rows and detail pages for authorized organizers; keep payment proof verification separate.
+- [x] Show manual review, approval, and rejection controls on registration rows and detail pages for authorized organizers; approving a paid registration also verifies its submitted image proof.
 - [x] Display registration, manager/captain, roster, and private contact information
   clearly in organizer tables and detail pages. Tables show role, responsible
   name, and phone; details show all contact channels and the roster snapshot.
-- [ ] Preserve least-privilege organizer permissions.
-- [ ] Add an audit trail for consequential organizer actions.
-- [ ] Consider safe CSV export if club operations require it.
+- [x] Preserve least-privilege organizer permissions, including both change permissions for combined paid approval.
+- [x] Record organizer decisions and bank refreshes in admin history alongside status events and payment reviewer fields.
+- [ ] CSV export is deferred until club operations has a concrete need.
 
 ## 5. Bracket core
 

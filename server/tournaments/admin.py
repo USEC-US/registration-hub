@@ -9,9 +9,13 @@ from .models import Game, Tournament, TournamentGame
 
 
 def _is_organizer_staff(user) -> bool:
-    return user.is_authenticated and (
-        user.is_superuser
-        or (user.is_staff and user.groups.filter(name="Organizers").exists())
+    return (
+        user.is_authenticated
+        and user.is_active
+        and (
+            user.is_superuser
+            or (user.is_staff and user.groups.filter(name="Organizers").exists())
+        )
     )
 
 

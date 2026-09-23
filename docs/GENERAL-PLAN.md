@@ -63,12 +63,13 @@ understandable, and conflicting player claims are rejected safely.
 ### 4. Organizer and admin operations
 
 **Direction:** Add inline division creation, direct registration links and
-counts, strong filters, clear review actions, private-data permissions,
-exports, and audit records.
+counts, strong filters, combined registration/payment approval, private-data
+permissions, and audit records. Defer CSV export until operations needs it.
 
 **Move on when:** An organizer can configure divisions and handle all
 registrations for either a tournament or one division without searching
-through unrelated admin pages.
+through unrelated admin pages. Paid approval verifies submitted image proof
+in the same decision, with both permissions and attributable history.
 
 ### 5. Bracket system
 

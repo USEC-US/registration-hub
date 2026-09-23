@@ -7,6 +7,7 @@ from typing import Sequence
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import validate_email
+from django.contrib.admin.models import CHANGE, LogEntry
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -483,10 +484,11 @@ def _validate_roster(
 
 
 def _require_organizer(actor, permission: str) -> None:
-    if actor.is_authenticated and actor.is_superuser:
+    if actor.is_authenticated and actor.is_active and actor.is_superuser:
         return
     if (
         actor.is_authenticated
+        and actor.is_active
         and actor.is_staff
         and actor.groups.filter(name="Organizers").exists()
         and actor.has_perm(permission)
@@ -514,25 +516,36 @@ def _transition_registration(
             raise ValidationError(
                 f"Cannot move a {registration.status} registration to {to_status}."
             )
+        verified_attempt_id = None
         if (
             to_status == Registration.Status.APPROVED
             and registration.fee_amount_snapshot > 0
-            and payment_state(registration) != "VERIFIED"
         ):
-            attempt = (
-                registration.payment_attempts.filter(
-                    status=PaymentAttempt.Status.PENDING
+            if payment_state(registration) == "VERIFIED":
+                if (
+                    not registration.payment_attempts.filter(
+                        status=PaymentAttempt.Status.VERIFIED
+                    )
+                    .exclude(proof_file="")
+                    .exists()
+                ):
+                    raise ValidationError("Payment proof is required before approval.")
+            else:
+                attempt = (
+                    registration.payment_attempts.filter(
+                        status=PaymentAttempt.Status.PENDING
+                    )
+                    .order_by("-pk")
+                    .first()
                 )
-                .order_by("-pk")
-                .first()
-            )
-            if attempt is None or not attempt.proof_file:
-                raise ValidationError("Payment proof is required before approval.")
-            review_payment_attempt(
-                actor=actor,
-                payment_attempt_id=attempt.pk,
-                status=PaymentAttempt.Status.VERIFIED,
-            )
+                if attempt is None or not attempt.proof_file:
+                    raise ValidationError("Payment proof is required before approval.")
+                review_payment_attempt(
+                    actor=actor,
+                    payment_attempt_id=attempt.pk,
+                    status=PaymentAttempt.Status.VERIFIED,
+                )
+                verified_attempt_id = attempt.pk
         registration.status = to_status
         registration.save(update_fields=("status", "updated_at"))
         RegistrationStatusEvent.objects.create(
@@ -541,6 +554,17 @@ def _transition_registration(
             to_status=to_status,
             actor=actor,
             note=note.strip(),
+        )
+        audit = f"Registration {expected_status} -> {to_status}"
+        if verified_attempt_id is not None:
+            audit += f"; payment attempt #{verified_attempt_id} PENDING -> VERIFIED"
+        if note.strip():
+            audit += f"; reason: {note.strip()}"
+        LogEntry.objects.log_actions(
+            user_id=actor.pk,
+            queryset=[registration],
+            action_flag=CHANGE,
+            change_message=audit,
         )
         return registration
 
@@ -682,12 +706,23 @@ def review_payment_attempt(
         )
         if payment_attempt.status != PaymentAttempt.Status.PENDING:
             raise ValidationError("Only a pending payment attempt may be reviewed.")
+        if status == PaymentAttempt.Status.VERIFIED and not payment_attempt.proof_file:
+            raise ValidationError("Payment proof is required before verification.")
         payment_attempt.status = status
         payment_attempt.reviewed_by = actor
         payment_attempt.reviewed_at = timezone.now()
         payment_attempt.review_note = note.strip()
         payment_attempt.save(
             update_fields=("status", "reviewed_by", "reviewed_at", "review_note")
+        )
+        audit = f"Payment attempt PENDING -> {status}"
+        if note.strip():
+            audit += f"; reason: {note.strip()}"
+        LogEntry.objects.log_actions(
+            user_id=actor.pk,
+            queryset=[payment_attempt],
+            action_flag=CHANGE,
+            change_message=audit,
         )
         if (
             status == PaymentAttempt.Status.REJECTED

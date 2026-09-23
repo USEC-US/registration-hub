@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+{% if action_name == "approve_selected" %}
+<p>Paid entries with pending payment proof will verify payment and approve together. Entries without required proof will fail without approval.</p>
+{% else %}
+<p>Selected entries will be rejected with the reason entered below.</p>
+{% endif %}
+<form method="post">{% csrf_token %}
+  {{ form.as_p }}
+  <ul>
+    {% for registration, operation in items %}
+    <li>Registration #{{ registration.pk }} ({{ registration.get_status_display }}): {{ operation }}
+      <input type="hidden" name="{{ action_checkbox_name }}" value="{{ registration.pk }}">
+    </li>
+    {% endfor %}
+  </ul>
+  <input type="hidden" name="action" value="{{ action_name }}">
+  <input type="hidden" name="confirm_action" value="1">
+  <input type="hidden" name="select_across" value="{{ request.POST.select_across|default:'0' }}">
+  <button type="submit">Confirm</button>
+</form>
+{% endblock %}
