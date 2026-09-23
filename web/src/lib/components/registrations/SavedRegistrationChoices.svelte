@@ -19,7 +19,7 @@
 {#if entries.length}<Card.Root class="mb-6"
 		><Card.Header
 			><Card.Title>{m.stages_saved_entries()}</Card.Title><Card.Description
-				>{m.stages_forget_hint()}</Card.Description
+				>{m.stages_saved_progress()}</Card.Description
 			></Card.Header
 		><Card.Content class="flex flex-col gap-3"
 			>{#each entries as entry (entry.credential)}<div class="flex flex-wrap items-center gap-3">
