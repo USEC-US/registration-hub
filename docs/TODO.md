@@ -1,5 +1,36 @@
 # Project TODO
 
+## Current state — 2026-09-23
+
+- Public testing is documented at `staging.giaidau.hcmusec.com`; this review did
+  not verify the live deployment. The repository includes a Docker/Unfold/Django
+  and SvelteKit staging stack plus AMD64/ARM64 image publication to GHCR.
+  - Personal testing: Deployment is good, no issues yet. For now: must test
+      all available features.
+- Account/institution selection, the public catalogue, guest/account registration,
+  roster identity snapshots, saved registration stages, private payment proof,
+  timed reservations, local VietQR generation, and the receiving-bank catalogue
+  are implemented. Full Beta still requires organizer work, brackets, and realtime.
+- Organizer admin already provides registration/payment review actions, immutable
+  roster and contact snapshots, and registration status history. Section 4 tracks
+  the remaining usability and audit review, not a replacement implementation.
+- The first organizer navigation slice adds linked division and all-status
+  registration totals to tournament/division admin lists and detail pages. These
+  are record counts, not capacity counts. Broader review/filter/contact improvements
+  remain next.
+- Operational acceptance remains open: verify the receiving destination and scan
+  the QR in a bank app, activate/monitor expiry and bank refresh jobs, and verify
+  backups and restore procedures. The Compose file does not install these jobs.
+- Institution dataset contributions, SePay/account-holder verification, and
+  competition formats remain separate unfinished work. Settle the expanded bracket
+  scope noted in section 5 before implementation.
+- Verification for this slice: 12 focused admin tests pass on PostgreSQL 18;
+  Django system checks, server Ruff, and frontend Svelte checks pass. This was
+  not a full application regression or live deployment audit. Local dependencies
+  were restored from lockfiles and Paraglide output regenerated. The running
+  Compose database publishes port `5432`; this workstation's Django environment
+  used `5436`, so test-process overrides were required (no `.env` edits).
+
 ## 1. Account and identity foundation
 
 - [x] Finish logout navigation, route behavior, and session tests.
@@ -75,12 +106,13 @@
 - [x] Divide registration into automatically saved contact/team, roster, review/submit, and post-submission payment stages, including saved guest return access and expired-entry retry.
 - [x] Generate VietQR locally with exact amounts, destination snapshots, and explicit long-transfer-text fallback.
   - [x] Configure the site-wide receiving bank and payment hold in Django admin.
+  - [x] Add a local bank catalogue, searchable receiving-bank selection, and a guarded refresh action; see [bank catalogue operations](payments/bank-catalogue.md).
   - [ ] Verify account-holder names automatically; account lookup and SePay remain deferred. Manually entered holder names are explicitly unverified.
 
 ## 4. Organizer registration operations
 
-- [ ] Show division and registration counts from tournament administration.
-- [ ] Add direct links from tournaments and divisions to their filtered registrations.
+- [x] Show division and registration counts from tournament administration.
+- [x] Add direct links from tournaments and divisions to their filtered registrations.
 - [ ] Improve registration search, filtering, review, payment evidence, and status actions.
 - [ ] Display manager, captain, roster, and private captain-contact information clearly.
 - [ ] Preserve least-privilege organizer permissions.
@@ -115,7 +147,7 @@
 ## 7. Full Beta hardening
 
 - [ ] Maintain green backend, frontend, type, lint, and migration checks throughout every slice.
-- [ ] Add true full-stack browser tests against Django, not only mocked API routes.
+- [x] Add true full-stack registration browser tests against Django, not only mocked API routes; see [existing journey coverage](testing/registration-journey.md). Bracket/realtime journeys remain to be added with those features.
 - [ ] Seed realistic captain, manager, solo, payment, single-elimination, and double-elimination scenarios.
 - [ ] Test all participant and organizer permissions.
 - [ ] Audit contact information and payment-file privacy.
@@ -176,6 +208,11 @@ Full Beta is ready when club staff can:
 - [ ] Do not automatically approve tournament eligibility merely because payment succeeded.
 
 ## 11. Production deployment
+
+Staging groundwork exists: Compose services, persistent database/media volumes,
+SWAG reverse-proxy configuration, and multi-architecture GHCR image builds.
+Container CI currently builds/publishes images; it does not run the full test/lint
+suite or prove production readiness. The production items below remain open.
 
 - [ ] Select hosting for the Svelte frontend, Django ASGI application, PostgreSQL, Redis, and media.
 - [ ] Configure domains, HTTPS, trusted origins, secrets, and production email.

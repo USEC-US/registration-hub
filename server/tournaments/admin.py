@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.db import models
+from django.urls import reverse
+from django.utils.html import format_html
 from unfold.admin import ModelAdmin, StackedInline
 from unfold.contrib.forms.widgets import WysiwygWidget
 
@@ -69,6 +71,8 @@ class TournamentAdmin(OrganizerStaffAdmin):
     list_display = (
         "name",
         "slug",
+        "division_count",
+        "registration_count",
         "starts_at",
         "ends_at",
         "is_published",
@@ -80,6 +84,47 @@ class TournamentAdmin(OrganizerStaffAdmin):
     search_fields = ("name", "slug", "location")
     prepopulated_fields = {"slug": ("name",)}
     formfield_overrides = {models.TextField: {"widget": WysiwygWidget}}
+    readonly_fields = ("division_count", "registration_count")
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                _division_count=models.Count("tournament_games", distinct=True),
+                _registration_count=models.Count(
+                    "tournament_games__registrations", distinct=True
+                ),
+            )
+        )
+
+    @admin.display(description="Divisions", ordering="_division_count")
+    def division_count(self, obj):
+        if not obj.pk:
+            return "—"
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse(
+                "admin:tournaments_tournamentgame_changelist",
+                query={"tournament__id__exact": obj.pk},
+            ),
+            obj._division_count,
+        )
+
+    @admin.display(
+        description="Registrations (all statuses)", ordering="_registration_count"
+    )
+    def registration_count(self, obj):
+        if not obj.pk:
+            return "—"
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse(
+                "admin:registrations_registration_changelist",
+                query={"tournament_game__tournament__id__exact": obj.pk},
+            ),
+            obj._registration_count,
+        )
 
 
 @admin.register(TournamentGame)
@@ -87,6 +132,7 @@ class TournamentGameAdmin(OrganizerStaffAdmin):
     list_display = (
         "tournament",
         "game",
+        "registration_count",
         "main_roster_size",
         "substitute_limit",
         "registration_opens_at",
@@ -103,3 +149,27 @@ class TournamentGameAdmin(OrganizerStaffAdmin):
         "game__slug",
     )
     date_hierarchy = "registration_opens_at"
+    readonly_fields = ("registration_count",)
+    list_select_related = ("tournament", "game")
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(_registration_count=models.Count("registrations", distinct=True))
+        )
+
+    @admin.display(
+        description="Registrations (all statuses)", ordering="_registration_count"
+    )
+    def registration_count(self, obj):
+        if not obj.pk:
+            return "—"
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse(
+                "admin:registrations_registration_changelist",
+                query={"tournament_game__id__exact": obj.pk},
+            ),
+            obj._registration_count,
+        )
