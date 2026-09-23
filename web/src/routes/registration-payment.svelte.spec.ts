@@ -217,6 +217,11 @@ describe('private payment panel', () => {
 			authority: { credential: 'ab'.repeat(32) },
 			onupdated: vi.fn()
 		});
+		await expect.element(page.getByRole('heading', { name: 'Payment instructions' })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Payment proof' })).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Registration status timeline' }))
+			.toBeVisible();
 		await expect.element(page.getByText('001234', { exact: true })).toBeVisible();
 		await expect
 			.element(
@@ -339,15 +344,23 @@ it('uses server time, refreshes at the deadline, and cleans visibility listeners
 	await new Promise((resolve) => setTimeout(resolve, 50));
 	expect(getPaymentSession).toHaveBeenCalledTimes(calls);
 });
-it('counts down monotonically between server refreshes', async () => {
+it('formats the countdown in hours and minutes without second-by-second churn', async () => {
 	render(PaymentPanel, {
-		session: privateSession,
+		session: { ...privateSession, payment_due_at: '2026-07-19T01:02:00Z' },
 		authority: { credential: 'ab'.repeat(32) },
 		onupdated: vi.fn()
 	});
-	await expect.element(page.getByText('Time remaining: 3600 seconds')).toBeVisible();
+	await expect.element(page.getByText('Time remaining: 1 hr 2 min')).toBeVisible();
 	await new Promise((resolve) => setTimeout(resolve, 1150));
-	await expect.element(page.getByText('Time remaining: 3599 seconds')).toBeVisible();
+	await expect.element(page.getByText('Time remaining: 1 hr 2 min')).toBeVisible();
+});
+it('shows a calm final-minute countdown instead of raw seconds', async () => {
+	render(PaymentPanel, {
+		session: { ...privateSession, payment_due_at: '2026-07-19T00:00:30Z' },
+		authority: { credential: 'ab'.repeat(32) },
+		onupdated: vi.fn()
+	});
+	await expect.element(page.getByText('Time remaining: less than 1 min')).toBeVisible();
 });
 import { getTournament } from '$lib/api/tournaments';
 import { searchInstitutions } from '$lib/api/institutions';

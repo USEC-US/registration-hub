@@ -21,6 +21,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as Alert from '$lib/components/ui/alert';
+	import { Separator } from '$lib/components/ui/separator';
+	import Clock3 from '@lucide/svelte/icons/clock-3';
+	import Copy from '@lucide/svelte/icons/copy';
+	import Download from '@lucide/svelte/icons/download';
+	import QrCode from '@lucide/svelte/icons/qr-code';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import PaymentProofField from './PaymentProofField.svelte';
 	import TurnstileWidget from '$lib/components/forms/TurnstileWidget.svelte';
 	import ErrorSummary from '$lib/components/forms/ErrorSummary.svelte';
@@ -88,6 +94,21 @@
 			refreshedBoundary = true;
 			void refresh();
 		}
+	}
+	function formatRemaining(seconds: number): string {
+		if (seconds < 60) return m.payment_less_than_minute();
+		const totalMinutes = Math.ceil(seconds / 60);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		const units = (value: number, unit: 'hour' | 'minute') =>
+			new Intl.NumberFormat(getLocale(), {
+				style: 'unit',
+				unit,
+				unitDisplay: 'short'
+			}).format(value);
+		return [hours && units(hours, 'hour'), minutes && units(minutes, 'minute')]
+			.filter(Boolean)
+			.join(' ');
 	}
 	async function refresh() {
 		if (!active || busy) return;
@@ -272,92 +293,217 @@
 	}
 </script>
 
-<Card.Root
-	><Card.Header
-		><Card.Title><h2>{m.payment_page()}</h2></Card.Title><Card.Description
-			>{m.registration_reference({ id: session.registration.id })} · {session.registration
-				.team_name}</Card.Description
-		></Card.Header
-	>
-	<Card.Content class="flex min-w-0 flex-col gap-5 break-words">
-		<ErrorSummary {errors} />
-		{#if storageWarning}<p role="alert">{m.stages_storage()}</p>{/if}
-		{#if terminal}<Alert.Root variant="destructive"
-				><Alert.Description
-					><p>{m.payment_expired()}</p>
-					<p>{m.payment_terminal_contact()}</p>
-					<a class="underline" href="https://facebook.com/hcmusec"
-						>{m.registration_contact_organizers()}</a
-					></Alert.Description
-				></Alert.Root
-			>
-		{:else if session.payment_state === 'PENDING'}<p role="status">{m.payment_pending_review()}</p>
-		{:else if session.payment_state === 'VERIFIED'}<p role="status">
-				{m.payment_verified_review()}
-			</p>
-		{:else if session.payment_state === 'NOT_REQUIRED'}<p>{m.payment_free()}</p>{/if}
-		{#if !terminal && session.payment_state === 'UNPAID'}<p>
-				{m.payment_unpaid()}
-			</p>{:else if !terminal && session.payment_state === 'REJECTED'}<p>
-				{m.payment_proof_rejected()}
-			</p>{/if}
-		{#if session.replacement_note}<Alert.Root
-				><Alert.Title>{m.status_REJECTED()}</Alert.Title><Alert.Description
-					>{session.replacement_note}</Alert.Description
-				></Alert.Root
-			>{/if}
-		{#if session.payment_due_at}<p>
-				{m.payment_deadline()}:
-				<time datetime={session.payment_due_at}
-					>{new Date(session.payment_due_at).toLocaleString(getLocale())}</time
+<div class="flex min-w-0 flex-col gap-6">
+	<Card.Root class="rounded-xl py-6" aria-labelledby="payment-panel-heading">
+		<Card.Header>
+			<div class="flex items-start gap-3">
+				<span
+					class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono-data text-sm font-semibold text-primary"
+					aria-hidden="true">04</span
 				>
-			</p>
-			{#if actionable}<p>{m.payment_remaining({ seconds: remaining })}</p>{/if}{/if}
-		{#if actionable}
-			{#if session.instructions?.bank_name && session.instructions.account_number}
-				{@const instructions = session.instructions}
-				<dl class="grid gap-4 sm:grid-cols-2">
-					{#each [[m.payment_bank(), instructions.bank_name], [m.payment_account(), instructions.account_number], [m.payment_holder(), instructions.account_holder], [m.game_fee(), `${instructions.amount} ${instructions.currency}`], [m.field_transfer_content(), instructions.transfer_content]] as [label, value] (label)}<div
-							class="min-w-0"
+				<div class="flex min-w-0 flex-col gap-1">
+					<Card.Title><h2 id="payment-panel-heading">{m.payment_page()}</h2></Card.Title>
+					<Card.Description class="break-words"
+						>{m.registration_reference({
+							id: session.registration.id
+						})}{#if session.registration.team_name}
+							· {session.registration.team_name}{/if}</Card.Description
+					>
+				</div>
+			</div>
+		</Card.Header>
+		<Card.Content class="flex min-w-0 flex-col gap-6 break-words">
+			<ErrorSummary {errors} />
+			{#if storageWarning}<Alert.Root
+					><Alert.Description>{m.stages_storage()}</Alert.Description></Alert.Root
+				>{/if}
+
+			{#if terminal}
+				<Alert.Root variant="destructive">
+					<Alert.Title>{m.payment_expired()}</Alert.Title>
+					<Alert.Description>
+						<p>{m.payment_terminal_contact()}</p>
+						<a class="underline underline-offset-4" href="https://facebook.com/hcmusec"
+							>{m.registration_contact_organizers()}</a
 						>
-							<dt class="text-sm text-muted-foreground">{label}</dt>
-							<dd class="whitespace-pre-wrap break-all">{value}</dd>
-							<Button
-								size="sm"
-								variant="outline"
-								aria-label={`${m.payment_copy()} ${label}`}
-								onclick={() => copy(value)}>{m.payment_copy()}</Button
-							>
-						</div>{/each}
-				</dl>
-				{#if !instructions.qr_contains_transfer_content}<Alert.Root
-						><Alert.Title>{m.payment_qr_fallback()}</Alert.Title></Alert.Root
-					>{/if}
-				{#if instructions.qr_png_data_url}<img
-						class="mx-auto h-auto w-full max-w-80"
-						src={instructions.qr_png_data_url}
-						alt={m.payment_qr_alt()}
-					/><Button variant="outline" onclick={download}>{m.payment_qr_download()}</Button>{/if}
-			{:else}<p>{m.payment_historical()}</p>
-				{#if session.instructions?.transfer_content}<p>
-						{session.instructions.transfer_content}
-					</p>{/if}{/if}
-			<form onsubmit={upload} class="flex flex-col gap-4">
-				<PaymentProofField required disabled={busy} bind:file bind:selectionError /><TurnstileWidget
-					action="payment-proof-submit"
-					bind:this={widget}
-					bind:token
-				/><Button type="submit" disabled={busy || Boolean(selectionError)}
-					>{m.action_upload_payment_proof()}</Button
+					</Alert.Description>
+				</Alert.Root>
+			{:else if session.payment_state === 'PENDING'}
+				<Alert.Root role="status"
+					><Alert.Title>{m.payment_pending_review()}</Alert.Title></Alert.Root
 				>
-			</form>
-		{/if}
-		<p role="status">{copyStatus}</p>
-		<StatusTimeline events={session.registration.status_events} />
-		{#if terminal && retryAvailable}<p>{m.payment_retry_hint()}</p>
-			<Button onclick={retry}>{m.payment_retry()}</Button>{/if}
-	</Card.Content><Card.Footer
-		><Button variant="outline" disabled={busy} onclick={refresh}>{m.payment_refresh()}</Button
-		></Card.Footer
-	></Card.Root
->
+			{:else if session.payment_state === 'VERIFIED'}
+				<Alert.Root role="status"
+					><Alert.Title>{m.payment_verified_review()}</Alert.Title></Alert.Root
+				>
+			{:else if session.payment_state === 'NOT_REQUIRED'}
+				<Alert.Root role="status"><Alert.Title>{m.payment_free()}</Alert.Title></Alert.Root>
+			{/if}
+
+			{#if !terminal && session.payment_state === 'UNPAID'}
+				<p class="font-medium">{m.payment_unpaid()}</p>
+			{:else if !terminal && session.payment_state === 'REJECTED'}
+				<p class="font-medium">{m.payment_proof_rejected()}</p>
+			{/if}
+
+			{#if session.replacement_note}
+				<Alert.Root>
+					<Alert.Title>{m.status_REJECTED()}</Alert.Title>
+					<Alert.Description>{session.replacement_note}</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			{#if session.payment_due_at}
+				<div class="flex flex-col gap-3 rounded-lg bg-muted/30 p-4 sm:flex-row sm:items-center">
+					<span
+						class="flex size-10 shrink-0 items-center justify-center rounded-full bg-background text-primary"
+						aria-hidden="true"><Clock3 class="size-5" /></span
+					>
+					<div class="flex min-w-0 flex-1 flex-col gap-1">
+						<p class="text-xs font-medium text-muted-foreground">{m.payment_deadline()}</p>
+						<time class="font-mono-data text-sm font-semibold" datetime={session.payment_due_at}
+							>{new Date(session.payment_due_at).toLocaleString(getLocale())}</time
+						>
+					</div>
+					{#if actionable}
+						<p class="font-mono-data text-base font-semibold text-primary" role="timer">
+							{m.payment_remaining({ duration: formatRemaining(remaining) })}
+						</p>
+					{/if}
+				</div>
+			{/if}
+
+			{#if actionable}
+				<section class="flex min-w-0 flex-col gap-4" aria-labelledby="payment-instructions-heading">
+					<div class="flex flex-col gap-1">
+						<h3 id="payment-instructions-heading" class="font-heading text-lg font-semibold">
+							{m.payment_instructions_heading()}
+						</h3>
+					</div>
+					{#if session.instructions?.bank_name && session.instructions.account_number}
+						{@const instructions = session.instructions}
+						<div class="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+							<div class="flex min-w-0 flex-col gap-4">
+								<dl class="grid gap-3 sm:grid-cols-2">
+									{#each [[m.payment_bank(), instructions.bank_name], [m.payment_account(), instructions.account_number], [m.payment_holder(), instructions.account_holder], [m.game_fee(), `${instructions.amount} ${instructions.currency}`]] as [label, value] (label)}
+										<div
+											class="flex min-w-0 items-start justify-between gap-3 rounded-lg border p-4"
+										>
+											<div class="min-w-0">
+												<dt class="text-xs text-muted-foreground">{label}</dt>
+												<dd class="mt-1 whitespace-pre-wrap break-all font-medium">{value}</dd>
+											</div>
+											<Button
+												size="sm"
+												variant="outline"
+												aria-label={`${m.payment_copy()} ${label}`}
+												onclick={() => copy(value)}
+												><Copy
+													data-icon="inline-start"
+													aria-hidden="true"
+												/>{m.payment_copy()}</Button
+											>
+										</div>
+									{/each}
+								</dl>
+								<div class="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
+									<div>
+										<p class="text-xs text-muted-foreground">{m.field_transfer_content()}</p>
+										<p class="mt-1 whitespace-pre-wrap break-words font-mono-data font-semibold">
+											{instructions.transfer_content}
+										</p>
+									</div>
+									<Button
+										class="w-fit"
+										size="sm"
+										variant="outline"
+										aria-label={`${m.payment_copy()} ${m.field_transfer_content()}`}
+										onclick={() => copy(instructions.transfer_content)}
+										><Copy data-icon="inline-start" aria-hidden="true" />{m.payment_copy()}</Button
+									>
+								</div>
+								{#if !instructions.qr_contains_transfer_content}
+									<Alert.Root>
+										<Alert.Description>{m.payment_qr_fallback()}</Alert.Description>
+									</Alert.Root>
+								{/if}
+							</div>
+
+							{#if instructions.qr_png_data_url}
+								<Card.Root size="sm" class="h-fit rounded-xl">
+									<Card.Header>
+										<div class="flex items-center gap-2">
+											<QrCode class="size-4 text-primary" aria-hidden="true" />
+											<Card.Title>{m.payment_qr_alt()}</Card.Title>
+										</div>
+									</Card.Header>
+									<Card.Content>
+										<img
+											class="mx-auto h-auto w-full max-w-64"
+											src={instructions.qr_png_data_url}
+											alt={m.payment_qr_alt()}
+										/>
+									</Card.Content>
+									<Card.Footer>
+										<Button class="w-full" variant="outline" onclick={download}
+											><Download
+												data-icon="inline-start"
+												aria-hidden="true"
+											/>{m.payment_qr_download()}</Button
+										>
+									</Card.Footer>
+								</Card.Root>
+							{/if}
+						</div>
+					{:else}
+						<p>{m.payment_historical()}</p>
+						{#if session.instructions?.transfer_content}
+							<p class="whitespace-pre-wrap break-words font-mono-data">
+								{session.instructions.transfer_content}
+							</p>
+						{/if}
+					{/if}
+				</section>
+
+				<Separator />
+
+				<section class="flex flex-col gap-4" aria-labelledby="payment-proof-heading">
+					<div class="flex flex-col gap-1">
+						<h3 id="payment-proof-heading" class="font-heading text-lg font-semibold">
+							{m.payment_attempt_heading()}
+						</h3>
+						<p class="text-sm text-muted-foreground">{m.payment_attempt_intro()}</p>
+					</div>
+					<form onsubmit={upload} class="flex flex-col gap-4">
+						<PaymentProofField required disabled={busy} bind:file bind:selectionError />
+						<TurnstileWidget action="payment-proof-submit" bind:this={widget} bind:token />
+						<Button type="submit" disabled={busy || Boolean(selectionError)}
+							>{busy ? m.payment_uploading() : m.action_upload_payment_proof()}</Button
+						>
+					</form>
+				</section>
+			{/if}
+
+			{#if copyStatus}<p role="status" class="text-sm text-muted-foreground">{copyStatus}</p>{/if}
+			{#if terminal && retryAvailable}
+				<Separator />
+				<div class="flex flex-col items-start gap-3">
+					<p class="text-sm text-muted-foreground">{m.payment_retry_hint()}</p>
+					<Button onclick={retry}>{m.payment_retry()}</Button>
+				</div>
+			{/if}
+		</Card.Content>
+		<Card.Footer class="border-t">
+			<Button variant="outline" disabled={busy} onclick={refresh}
+				><RefreshCw data-icon="inline-start" aria-hidden="true" />{m.payment_refresh()}</Button
+			>
+		</Card.Footer>
+	</Card.Root>
+
+	<Card.Root class="rounded-xl py-6" aria-labelledby="payment-status-heading">
+		<Card.Header>
+			<Card.Title><h2 id="payment-status-heading">{m.status_timeline_label()}</h2></Card.Title>
+		</Card.Header>
+		<Card.Content><StatusTimeline events={session.registration.status_events} /></Card.Content>
+	</Card.Root>
+</div>

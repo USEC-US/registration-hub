@@ -11,7 +11,10 @@
 	} from '$lib/registrations/browser-storage';
 	import RegistrationPaymentPanel from '$lib/components/registrations/RegistrationPaymentPanel.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as m from '$lib/paraglide/messages';
+	import WalletCards from '@lucide/svelte/icons/wallet-cards';
 
 	let { registrationId }: { registrationId: number } = $props();
 	let active = true;
@@ -73,21 +76,68 @@
 		content="noindex,nofollow"
 	/></svelte:head
 >
-<h1 class="mb-6 font-heading text-3xl font-semibold">{m.payment_page()}</h1>
-{#if warning}<p role="alert">{m.stages_storage()}</p>{/if}
-{#if loading}<p role="status">
-		{m.registration_loading()}
-	</p>{:else if session && authority}<RegistrationPaymentPanel
-		{session}
-		{authority}
-		onupdated={(next) => {
-			if (active) session = next;
-		}}
-	/>{#if authority.credential}<p class="mt-4">{m.stages_forget_hint()}</p>
-		<Button variant="ghost" onclick={forget}>{m.stages_forget()}</Button
-		>{/if}{:else if temporaryFailure}<p role="alert">{m.payment_load_temporary()}</p>
-	<Button onclick={load}>{m.payment_load_retry()}</Button>{:else}<p role="alert">
-		{m.payment_recovery()}
-	</p>
-	<a class="underline" href="https://facebook.com/hcmusec">{m.registration_contact_organizers()}</a
-	>{/if}
+<div class="mx-auto flex max-w-6xl flex-col gap-7 sm:gap-8">
+	<header class="flex items-start gap-4">
+		<div
+			class="hidden size-14 shrink-0 items-center justify-center rounded-2xl border bg-muted/50 sm:flex"
+		>
+			<WalletCards class="size-7 text-primary" aria-hidden="true" />
+		</div>
+		<div class="flex min-w-0 flex-col gap-2">
+			{#if session}
+				<p class="text-xs font-semibold tracking-wide text-muted-foreground">
+					{session.registration.tournament_game.tournament_name}
+				</p>
+			{/if}
+			<h1 class="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+				{m.payment_page()}
+			</h1>
+			{#if session}
+				<p class="text-sm leading-relaxed text-muted-foreground">
+					{session.registration.tournament_game.game_name} · {m.registration_reference({
+						id: session.registration.payment_reference
+					})}
+				</p>
+			{/if}
+		</div>
+	</header>
+
+	{#if warning}
+		<Alert.Root><Alert.Description>{m.stages_storage()}</Alert.Description></Alert.Root>
+	{/if}
+	{#if loading}
+		<div role="status" class="flex flex-col gap-6">
+			<span class="sr-only">{m.registration_loading()}</span>
+			<Skeleton class="h-32 w-full rounded-xl" />
+			<Skeleton class="h-96 w-full rounded-xl" />
+		</div>
+	{:else if session && authority}
+		<RegistrationPaymentPanel
+			{session}
+			{authority}
+			onupdated={(next) => {
+				if (active) session = next;
+			}}
+		/>
+		{#if authority.credential}
+			<div
+				class="flex flex-col items-start gap-2 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between"
+			>
+				<p class="text-sm text-muted-foreground">{m.stages_forget_hint()}</p>
+				<Button variant="ghost" onclick={forget}>{m.stages_forget()}</Button>
+			</div>
+		{/if}
+	{:else if temporaryFailure}
+		<Alert.Root>
+			<Alert.Description>{m.payment_load_temporary()}</Alert.Description>
+			<Button class="mt-3 w-fit" onclick={load}>{m.payment_load_retry()}</Button>
+		</Alert.Root>
+	{:else}
+		<Alert.Root>
+			<Alert.Description>{m.payment_recovery()}</Alert.Description>
+			<a class="mt-3 underline underline-offset-4" href="https://facebook.com/hcmusec"
+				>{m.registration_contact_organizers()}</a
+			>
+		</Alert.Root>
+	{/if}
+</div>
