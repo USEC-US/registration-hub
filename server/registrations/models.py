@@ -59,6 +59,9 @@ class Registration(models.Model):
     def active_statuses(cls) -> tuple[str, ...]:
         return (cls.Status.SUBMITTED, cls.Status.UNDER_REVIEW, cls.Status.APPROVED)
 
+    def __str__(self) -> str:
+        return f"Registration #{self.pk} ({self.team_name or 'individual'})"
+
 
 class RegistrationMember(models.Model):
     class RosterRole(models.TextChoices):
@@ -87,7 +90,7 @@ class RegistrationMember(models.Model):
         on_delete=models.PROTECT,
         related_name="registration_members",
     )
-    school_snapshot = models.CharField(max_length=255)
+    school_snapshot = models.CharField(max_length=255, blank=True)
     is_captain = models.BooleanField(default=False)
     roster_role = models.CharField(
         max_length=10, choices=RosterRole.choices, default=RosterRole.MAIN
@@ -111,6 +114,12 @@ class RegistrationMember(models.Model):
                 name="unique_member_display_order",
             ),
         ]
+
+    def __str__(self) -> str:
+        return (
+            " ".join(filter(None, (self.last_name_snapshot, self.first_name_snapshot)))
+            or self.gamer_tag_snapshot
+        )
 
 
 class PaymentAttempt(models.Model):
@@ -144,6 +153,9 @@ class PaymentAttempt(models.Model):
     review_note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self) -> str:
+        return f"Payment attempt #{self.pk} for registration #{self.registration_id}"
+
 
 class RegistrationStatusEvent(models.Model):
     registration = models.ForeignKey(
@@ -163,6 +175,11 @@ class RegistrationStatusEvent(models.Model):
 
     class Meta:
         ordering = ("created_at", "pk")
+
+    def __str__(self) -> str:
+        return (
+            f"{self.get_to_status_display()} for registration #{self.registration_id}"
+        )
 
 
 class PaymentIntent(models.Model):
@@ -195,6 +212,9 @@ class PaymentIntent(models.Model):
         max_length=160, blank=True, editable=False
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Payment reference {self.reference}"
 
 
 class Bank(models.Model):

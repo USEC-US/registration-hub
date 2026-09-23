@@ -95,7 +95,7 @@ describe('registration browser storage', () => {
 		expect(listAccess(storage, 9)).toEqual([access]);
 	});
 
-	it('round-trips an incomplete roster draft while rejecting it as a pending submission', () => {
+	it('round-trips a roster without a school through draft and pending access', () => {
 		const storage = new MemoryStorage();
 		const memberWithoutInstitution = {
 			first_name_snapshot: 'An',
@@ -128,7 +128,7 @@ describe('registration browser storage', () => {
 				actorId: null,
 				submittedPayload: incompleteDraft.fields
 			})
-		).toBe(false);
+		).toBe(true);
 	});
 
 	it('rejects malformed, wrong-division, stale-version, invalid-stage, and invalid-payload drafts', () => {

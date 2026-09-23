@@ -11,25 +11,34 @@
   roster identity snapshots, saved registration stages, private payment proof,
   timed reservations, local VietQR generation, and the receiving-bank catalogue
   are implemented. Full Beta still requires organizer work, brackets, and realtime.
+- School is optional at account signup and in the profile, and for each player
+  in tournaments without student requirements. Student-only tournaments still
+  require each player's student ID and school. The roster form explains the
+  HCMUS conduct-point benefit beneath each player form.
 - Organizer admin already provides registration/payment review actions, immutable
   roster and contact snapshots, and registration status history. Section 4 tracks
   the remaining usability and audit review, not a replacement implementation.
 - The first organizer navigation slice adds linked division and all-status
   registration totals to tournament/division admin lists and detail pages. These
-  are record counts, not capacity counts. Broader review/filter/contact improvements
-  remain next.
+  are record counts, not capacity counts.
+- Organizer registration lists now show role, responsible name, and phone, with
+  contact search and division filtering. Detail pages group the private contact
+  snapshot, roster, payment attempts, and status history. Authorized organizers
+  can view full payment proof images inline; public tournament images fit their
+  frames without cropping. Admin record labels identify registrations, roster
+  members, payment records, and status events; Vietnamese names display family
+  name first. Further audit and permissions review remains open.
 - Operational acceptance remains open: verify the receiving destination and scan
   the QR in a bank app, activate/monitor expiry and bank refresh jobs, and verify
   backups and restore procedures. The Compose file does not install these jobs.
 - Institution dataset contributions, SePay/account-holder verification, and
   competition formats remain separate unfinished work. Settle the expanded bracket
   scope noted in section 5 before implementation.
-- Verification for this slice: 12 focused admin tests pass on PostgreSQL 18;
-  Django system checks, server Ruff, and frontend Svelte checks pass. This was
-  not a full application regression or live deployment audit. Local dependencies
-  were restored from lockfiles and Paraglide output regenerated. The running
-  Compose database publishes port `5432`; this workstation's Django environment
-  used `5436`, so test-process overrides were required (no `.env` edits).
+- Verification for these registration, organizer UI, and image changes: 290
+  Django tests pass on an isolated PostgreSQL 18 instance; server Ruff,
+  frontend Svelte checks, and 330 unit/browser component tests pass. This was
+  not a full end-to-end browser run, visual review, or live deployment audit.
+  No `.env` files or live application data were changed.
 
 ## 1. Account and identity foundation
 
@@ -37,6 +46,7 @@
 - [x] Implement the existing institution catalogue work.
 - [ ] Design a public contribution workflow for the institution dataset, including new schools, corrections, supporting sources, and maintainer review before publication. Keep this separate from the registration flow's "school not found" input; adding a school during registration is not a dataset contribution.
 - [x] Replace free-text account school fields with institution selection.
+- [x] Allow account signup and profile edits without a school.
 - [x] Review sign-in, registration, profile, redirects, and expired-session behavior together.
 - [x] Confirm private account information never appears in public APIs.
 
@@ -93,7 +103,9 @@
 - [x] Link a captain submitter to roster slot 1 for that registration.
 - [x] Keep manager submitters outside the roster.
 - [x] Collect private captain/responsible-contact information.
-- [x] Collect per-player names, date of birth, Student ID, and institution snapshots for organizer eligibility review; require Student ID for student-only tournaments.
+- [x] Collect per-player names and date of birth for organizer eligibility review;
+  require Student ID and school for student-only tournaments, and keep both
+  optional for other tournaments.
 - [x] Configure required main roster members and optional substitute places; preserve each submitted player’s role.
 - [x] Handle solo entrants consistently.
 - [x] Enforce one active entry per claimed player and division, including concurrent submissions. Game-specific identity verification remains deferred.
@@ -113,9 +125,15 @@
 
 - [x] Show division and registration counts from tournament administration.
 - [x] Add direct links from tournaments and divisions to their filtered registrations.
-- [ ] Improve registration search, filtering, review, payment evidence, and status actions.
+- [x] Improve registration search, filtering, review, payment evidence, and status actions.
+  - [x] Search private contact snapshots and filter by role and division; retain
+    existing guarded review and payment actions.
+  - [x] Show full payment proof images in organizer registration and payment
+    details, with protected inline delivery for supported raster formats.
 - [x] Show manual review, approval, and rejection controls on registration rows and detail pages for authorized organizers; keep payment proof verification separate.
-- [ ] Display registrations info, manager, captain, roster, and private captain-contact information clearly to CRUD tables and detail info.
+- [x] Display registration, manager/captain, roster, and private contact information
+  clearly in organizer tables and detail pages. Tables show role, responsible
+  name, and phone; details show all contact channels and the roster snapshot.
 - [ ] Preserve least-privilege organizer permissions.
 - [ ] Add an audit trail for consequential organizer actions.
 - [ ] Consider safe CSV export if club operations require it.

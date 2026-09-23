@@ -94,6 +94,23 @@ class AccountApiTests(APITestCase):
         self.assertEqual(response.data["institution"]["id"], institution.pk)
         self.assertNotIn("password", response.data)
 
+    def test_register_without_school_keeps_profile_unaffiliated(self):
+        for index, choice in enumerate(({}, {"institution_label": ""})):
+            with self.subTest(choice=choice):
+                email = f"player-{index}@example.com"
+                response = self.client.post(
+                    "/api/auth/register/",
+                    self.registration_payload(email=email, **choice),
+                    format="json",
+                )
+                self.assertEqual(
+                    response.status_code, status.HTTP_201_CREATED, response.data
+                )
+                self.assertIsNone(response.data["institution"])
+                self.assertIsNone(
+                    get_user_model().objects.get(email=email).institution_id
+                )
+
     @override_settings(DEBUG=False, TURNSTILE_SECRET_KEY="")
     def test_register_requires_turnstile_outside_debug(self):
         response = self.client.post(
@@ -155,10 +172,8 @@ class AccountApiTests(APITestCase):
     def test_register_rejects_invalid_institution_choices(self):
         catalogue = self.create_catalogue_institution()
         invalid_choices = (
-            {},
             {"institution_id": catalogue.pk, "institution_label": "New Academy"},
             {"institution_id": 999999},
-            {"institution_label": "   "},
         )
 
         for choice in invalid_choices:
@@ -293,3 +308,19 @@ class AccountApiTests(APITestCase):
         self.assertEqual(user.email, "player@example.com")
         self.assertEqual(user.student_id, "22120001")
         self.assertEqual(user.institution.label, "New Academy")
+
+    def test_profile_can_clear_school_without_changing_identity(self):
+        school = self.create_catalogue_institution()
+        user = create_account(
+            email="player@example.com",
+            password="strong-password-123",
+            institution=school,
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.patch(
+            "/api/account/me/", {"institution_label": ""}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIsNone(response.data["institution"])
+        user.refresh_from_db()
+        self.assertIsNone(user.institution_id)

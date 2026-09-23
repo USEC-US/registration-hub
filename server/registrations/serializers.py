@@ -132,7 +132,7 @@ class RegistrationMemberSubmissionSerializer(StrictFieldsSerializer):
     )
 
     def validate(self, attrs):
-        if bool(attrs.get("institution_id")) == bool(attrs.get("institution_label")):
+        if attrs.get("institution_id") and attrs.get("institution_label"):
             raise serializers.ValidationError(
                 "Choose a catalogue institution or enter a custom label."
             )

@@ -89,7 +89,13 @@ describe('public tournament pages', () => {
 	it('spotlights the featured tournament even when it is not first, with a link to the full catalogue', async () => {
 		const tournaments = [
 			makeTournament({ id: 2, name: 'Campus Clash', slug: 'campus-clash' }),
-			makeTournament({ id: 1, name: 'Featured Cup', slug: 'featured-cup', is_featured: true }),
+			makeTournament({
+				id: 1,
+				name: 'Featured Cup',
+				slug: 'featured-cup',
+				is_featured: true,
+				cover_image: '/media/tournaments/covers/featured.jpg'
+			}),
 			makeTournament({ id: 3, name: 'Spring Arena', slug: 'spring-arena' }),
 			makeTournament({ id: 4, name: 'Fourth Tournament', slug: 'fourth-tournament' })
 		];
@@ -97,6 +103,9 @@ describe('public tournament pages', () => {
 		const { container } = render(HomePage, { data: { tournaments, displayTimeZone }, params: {} });
 
 		expect(container.querySelectorAll('article')).toHaveLength(1);
+		expect(getComputedStyle(container.querySelector('.spotlight-art img')!).objectFit).toBe(
+			'contain'
+		);
 		await expect.element(page.getByRole('link', { name: 'Featured Cup' })).toBeVisible();
 		expect(page.getByRole('link', { name: 'Campus Clash' }).elements()).toHaveLength(0);
 		expect(page.getByRole('link', { name: 'Spring Arena' }).elements()).toHaveLength(0);
@@ -223,6 +232,7 @@ describe('public tournament pages', () => {
 			.element(page.getByRole('img', { name: `Cover image for ${coveredTournament.name}` }))
 			.toBeVisible();
 		expect(image).toHaveAttribute('src', coveredTournament.cover_image);
+		expect(getComputedStyle(image!).objectFit).toBe('contain');
 		container.style.width = '1024px';
 		const frame = image!.parentElement!.getBoundingClientRect();
 		expect(frame.width).toBeGreaterThan(0);

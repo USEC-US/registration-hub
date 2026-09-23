@@ -9,7 +9,14 @@ from django.utils import timezone
 
 from accounts.tests.factories import create_account
 from registrations.admin import PaymentAttemptAdmin, RegistrationAdmin
-from registrations.models import PaymentAttempt, Registration
+from registrations.models import (
+    PaymentAttempt,
+    PaymentIntent,
+    Registration,
+    RegistrationMember,
+    RegistrationStatusEvent,
+)
+from registrations.tests.images import payment_image
 from tournaments.models import Game, Tournament, TournamentGame
 
 
@@ -303,3 +310,114 @@ class RegistrationDecisionUiTests(TestCase):
         )
         self.registration.refresh_from_db()
         self.assertEqual(self.registration.status, Registration.Status.UNDER_REVIEW)
+
+    def test_registration_table_and_detail_show_responsible_contact(self):
+        self.registration.submitter_role = Registration.SubmitterRole.MANAGER
+        self.registration.manager_name_snapshot = "Nguyen Manager"
+        self.registration.contact_phone_snapshot = "0901234567"
+        self.registration.contact_facebook_snapshot = "facebook.com/manager"
+        self.registration.save()
+        list_url = reverse("admin:registrations_registration_changelist")
+
+        response = self.client.get(list_url, {"q": "0901234567"})
+        self.assertEqual(response.context["cl"].result_count, 1)
+        self.assertContains(response, "Nguyen Manager")
+        self.assertContains(response, "0901234567")
+        self.assertContains(response, "Manager")
+
+        detail = self.client.get(self.url("change"))
+        self.assertContains(detail, "Private contact")
+        self.assertContains(detail, "facebook.com/manager")
+        self.assertContains(detail, "Nguyen Manager")
+
+    def test_payment_proof_is_visible_in_authorized_admin_detail(self):
+        attempt = PaymentAttempt.objects.create(
+            registration=self.registration,
+            method=PaymentAttempt.Method.MANUAL_PROOF,
+            amount="50000.00",
+            currency="VND",
+            proof_file=payment_image(),
+        )
+        self.assertNotContains(
+            self.client.get(self.url("change")), attempt.proof_file.url
+        )
+        self.actor.groups.get().permissions.add(
+            Permission.objects.get(codename="view_paymentattempt")
+        )
+        self.actor = type(self.actor).objects.get(pk=self.actor.pk)
+        self.client.force_login(self.actor)
+        detail = self.client.get(self.url("change"))
+        self.assertContains(detail, f'<img src="{attempt.proof_file.url}"')
+        self.assertContains(detail, "object-fit:contain")
+        payment_detail = self.client.get(
+            reverse("admin:registrations_paymentattempt_change", args=[attempt.pk])
+        )
+        self.assertContains(payment_detail, f'<img src="{attempt.proof_file.url}"')
+
+    def test_registration_table_names_captain_from_roster_snapshot(self):
+        self.registration.submitter_role = Registration.SubmitterRole.CAPTAIN
+        self.registration.save(update_fields=("submitter_role",))
+        RegistrationMember.objects.create(
+            registration=self.registration,
+            display_order=1,
+            is_captain=True,
+            gamer_tag_snapshot="captain#1234",
+            first_name_snapshot="Lan",
+            last_name_snapshot="Nguyen",
+            school_snapshot="HCMUS",
+        )
+        response = self.client.get(
+            reverse("admin:registrations_registration_changelist")
+        )
+        self.assertContains(response, "Nguyen Lan")
+
+    def test_admin_record_labels_identify_registration_and_related_records(self):
+        self.actor.is_superuser = True
+        self.actor.save(update_fields=("is_superuser",))
+        member = RegistrationMember.objects.create(
+            registration=self.registration,
+            display_order=1,
+            gamer_tag_snapshot="captain#1234",
+            first_name_snapshot="Lan",
+            last_name_snapshot="Nguyen",
+            school_snapshot="HCMUS",
+        )
+        event = RegistrationStatusEvent.objects.create(
+            registration=self.registration,
+            to_status=Registration.Status.SUBMITTED,
+        )
+        attempt = PaymentAttempt.objects.create(
+            registration=self.registration,
+            method=PaymentAttempt.Method.MANUAL_PROOF,
+            amount=0,
+            currency="VND",
+        )
+        intent = PaymentIntent.objects.create(
+            tournament_game=self.registration.tournament_game,
+            registration=self.registration,
+            reference="TNMT12345678",
+            amount=0,
+            currency="VND",
+        )
+        registration_label = f"Registration #{self.registration.pk} (individual)"
+        self.assertContains(self.client.get(self.url("change")), registration_label)
+        self.assertContains(self.client.get(self.url("change")), "Nguyen Lan")
+        self.assertContains(
+            self.client.get(self.url("change")), "Submitted for registration"
+        )
+        self.assertContains(
+            self.client.get(
+                reverse("admin:registrations_paymentattempt_change", args=[attempt.pk])
+            ),
+            f"Payment attempt #{attempt.pk} for registration #{self.registration.pk}",
+        )
+        self.assertContains(
+            self.client.get(
+                reverse("admin:registrations_paymentintent_change", args=[intent.pk])
+            ),
+            "Payment reference TNMT12345678",
+        )
+        self.assertEqual(str(member), "Nguyen Lan")
+        self.assertEqual(
+            str(event), f"Submitted for registration #{self.registration.pk}"
+        )

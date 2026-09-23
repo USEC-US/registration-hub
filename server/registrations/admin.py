@@ -1,12 +1,13 @@
 from django import forms
+from pathlib import Path
 from django.template.response import TemplateResponse
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import Http404, HttpResponseNotAllowed, HttpResponseRedirect
 from django.urls import path, reverse
-from django.utils.html import format_html_join
-from unfold.admin import ModelAdmin, TabularInline
+from django.utils.html import format_html, format_html_join
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.decorators import action
 
 from .admin_forms import PaymentSettingsForm
@@ -28,7 +29,7 @@ from .services import (
 )
 
 
-class ImmutableInline(TabularInline):
+class ImmutableInline:
     extra = 0
     can_delete = False
 
@@ -39,14 +40,15 @@ class ImmutableInline(TabularInline):
         return False
 
 
-class RegistrationMemberInline(ImmutableInline):
+class RegistrationMemberInline(ImmutableInline, TabularInline):
     model = RegistrationMember
+    verbose_name_plural = "Roster (captain marked)"
     readonly_fields = (
         "display_order",
         "is_captain",
         "roster_role",
-        "first_name_snapshot",
         "last_name_snapshot",
+        "first_name_snapshot",
         "date_of_birth_snapshot",
         "student_id_snapshot",
         "user",
@@ -56,14 +58,36 @@ class RegistrationMemberInline(ImmutableInline):
     )
 
 
-class PaymentAttemptInline(ImmutableInline):
+@admin.display(description="Payment proof")
+def payment_proof_preview(obj):
+    if not obj.proof_file:
+        return "—"
+    url = obj.proof_file.url
+    if Path(obj.proof_file.name).suffix.lower() not in {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+    }:
+        return format_html('<a href="{}">Download proof</a>', url)
+    return format_html(
+        '<a href="{}" target="_blank" rel="noopener">'
+        '<img src="{}" alt="Payment proof" '
+        'style="display:block;max-width:100%;max-height:70vh;object-fit:contain"></a>',
+        url,
+        url,
+    )
+
+
+class PaymentAttemptInline(ImmutableInline, StackedInline):
     model = PaymentAttempt
+    show_change_link = True
     readonly_fields = (
         "method",
         "status",
         "amount",
         "currency",
-        "proof_file",
+        payment_proof_preview,
         "reference",
         "reviewed_by",
         "reviewed_at",
@@ -72,7 +96,7 @@ class PaymentAttemptInline(ImmutableInline):
     )
 
 
-class RegistrationStatusEventInline(ImmutableInline):
+class RegistrationStatusEventInline(ImmutableInline, TabularInline):
     model = RegistrationStatusEvent
     readonly_fields = ("from_status", "to_status", "actor", "note", "created_at")
 
@@ -210,16 +234,30 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         "submitted_by",
         "team_name",
         "team_tag",
+        "submitter_role",
+        "responsible_name",
+        "contact_phone_snapshot",
         "status",
         "submitted_at",
     )
-    list_filter = ("status", "tournament_game__tournament", "tournament_game__game")
+    list_filter = (
+        "status",
+        "submitter_role",
+        "tournament_game__tournament",
+        "tournament_game",
+        "tournament_game__game",
+    )
     search_fields = (
         "team_name",
         "team_tag",
         "payment_intent__reference",
         "payment_intent__transfer_content",
         "submitted_by__email",
+        "manager_name_snapshot",
+        "contact_phone_snapshot",
+        "contact_facebook_snapshot",
+        "contact_email_snapshot",
+        "contact_discord_snapshot",
         "members__gamer_tag_snapshot",
         "members__first_name_snapshot",
         "members__last_name_snapshot",
@@ -227,6 +265,45 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         "members__school_snapshot",
     )
     list_select_related = ("tournament_game", "submitted_by")
+    fieldsets = (
+        (
+            "Registration",
+            {
+                "fields": (
+                    "tournament_game",
+                    "submitted_by",
+                    "team_name",
+                    "team_tag",
+                    "status",
+                )
+            },
+        ),
+        (
+            "Private contact",
+            {
+                "fields": (
+                    "submitter_role",
+                    "manager_name_snapshot",
+                    "contact_phone_snapshot",
+                    "contact_facebook_snapshot",
+                    "contact_email_snapshot",
+                    "contact_discord_snapshot",
+                )
+            },
+        ),
+        (
+            "Payment",
+            {
+                "fields": (
+                    "fee_amount_snapshot",
+                    "fee_currency_snapshot",
+                    "payment_due_at",
+                    "payment_hold_minutes_snapshot",
+                )
+            },
+        ),
+        ("Timestamps", {"fields": ("submitted_at", "created_at", "updated_at")}),
+    )
     inlines = (
         RegistrationMemberInline,
         PaymentAttemptInline,
@@ -234,6 +311,25 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
     )
     actions = ("mark_under_review", "approve_selected", "reject_selected")
     actions_detail = ("start_review_detail", "approve_detail", "reject_detail")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("members")
+
+    @admin.display(description="Responsible person")
+    def responsible_name(self, obj):
+        if obj.submitter_role == Registration.SubmitterRole.MANAGER:
+            return obj.manager_name_snapshot or "—"
+        captain = next(
+            (member for member in obj.members.all() if member.is_captain), None
+        )
+        if captain is None:
+            return "—"
+        return (
+            " ".join(
+                filter(None, (captain.last_name_snapshot, captain.first_name_snapshot))
+            )
+            or captain.gamer_tag_snapshot
+        )
 
     def get_list_display(self, request):
         if not self.has_change_permission(request):
@@ -393,17 +489,22 @@ class RejectionReasonForm(forms.Form):
 @admin.register(PaymentAttempt)
 class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
     list_display = ("id", "registration", "amount", "currency", "status", "created_at")
-    list_filter = ("status", "currency")
+    list_filter = ("status", "currency", "registration__tournament_game__tournament")
     search_fields = (
         "registration__team_name",
         "registration__team_tag",
         "registration__payment_intent__reference",
         "registration__payment_intent__transfer_content",
         "registration__submitted_by__email",
+        "registration__manager_name_snapshot",
+        "registration__contact_phone_snapshot",
         "reference",
     )
     list_select_related = ("registration",)
     actions = ("verify_selected", "reject_selected")
+
+    def get_readonly_fields(self, request, obj=None):
+        return (*super().get_readonly_fields(request, obj), payment_proof_preview)
 
     def _review(self, request, queryset, target_status, note=None):
         completed = 0

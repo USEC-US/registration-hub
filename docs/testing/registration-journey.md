@@ -81,9 +81,9 @@ The migration test checks forward and reverse limit conversion and preservation 
 
 ## Player identity and student eligibility
 
-Each main player and substitute supplies first name, last name, date of birth, Student ID, and the existing game identifier/institution choice. Names and a valid date of birth are required for every new submission; future birth dates are rejected. Student IDs remain strings so leading zeroes survive.
+Each main player and substitute supplies first name, last name, date of birth, and the existing game identifier. Names and a valid date of birth are required for every new submission; future birth dates are rejected. Student IDs remain strings so leading zeroes survive.
 
-Enable **Students only** in the tournament admin to require Student IDs for all players in every division of that tournament. Other tournaments accept an empty Student ID. This setting collects the information needed for manual organizer review; it does not independently prove enrollment or automatically approve eligibility. Existing tournaments default to this setting being off.
+Enable **Students only** in the tournament admin to require Student IDs and schools for all players in every division of that tournament. Other tournaments accept an empty Student ID and school. School is also optional during account signup and profile edits. This setting collects the information needed for manual organizer review; it does not independently prove enrollment or automatically approve eligibility. Existing tournaments default to this setting being off.
 
 The four identity fields are stored on `RegistrationMember` as snapshots, separately from account/profile data. Organizer admin shows them alongside the roster and supports searching by player name, Student ID, and institution. They are omitted from registration receipts and read serializers. Existing player snapshots, captain ordering, role assignments, contacts, and institution catalogue behavior remain intact.
 

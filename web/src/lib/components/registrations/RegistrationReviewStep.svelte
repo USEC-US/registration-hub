@@ -47,8 +47,10 @@
 						{member.last_name_snapshot}
 						{member.first_name_snapshot} · {member.date_of_birth_snapshot}
 					</p>
-					<p>{institutionLabels[String(member.display_order)] ?? member.institution_label ?? ''}</p>
-					<p>{member.student_id_snapshot}</p>
+					{#if institutionLabels[String(member.display_order)] || member.institution_label}
+						<p>{institutionLabels[String(member.display_order)] ?? member.institution_label}</p>
+					{/if}
+					{#if member.student_id_snapshot}<p>{member.student_id_snapshot}</p>{/if}
 					<p>
 						{member.roster_role === 'main'
 							? m.roster_main_heading({ count: 1 })

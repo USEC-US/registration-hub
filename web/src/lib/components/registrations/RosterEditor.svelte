@@ -313,9 +313,6 @@
 							value={member.student_id_snapshot}
 							oninput={(event) => updateMember(index, 'student_id_snapshot', event)}
 						/>
-						{#if !studentsOnly}<Field.Description
-								>{m.roster_student_id_optional()}</Field.Description
-							>{/if}
 					</Field.Field>
 					<Field.Field>
 						<Field.Label for={`member-${index + 1}-gamer-tag`}>{m.field_gamer_tag()}</Field.Label>
@@ -329,7 +326,7 @@
 						/>
 					</Field.Field>
 					<InstitutionCombobox
-						required
+						required={studentsOnly}
 						bind:choice={() => members[index], (choice) => updateInstitution(index, choice)}
 						initialLabel={institutionLabels[String(member.display_order)] ??
 							member.institution_label ??
@@ -339,6 +336,11 @@
 					/>
 				</Field.Group>
 			</Field.Set>
+			{#if !studentsOnly}
+				<p class="whitespace-pre-line px-1 text-sm leading-6 text-muted-foreground">
+					{m.roster_non_student_note()}
+				</p>
+			{/if}
 		{/each}
 	</RadioGroup.Root>
 	{#if members.filter((m) => m.roster_role === 'main').length < mainRosterSize}<Button

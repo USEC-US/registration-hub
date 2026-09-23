@@ -62,7 +62,21 @@ class PaymentProofView(PrivateResponseMixin, APIView):
             proof = attempt.proof_file.open("rb")
         except FileNotFoundError as error:
             raise Http404 from error
-        response = FileResponse(proof, as_attachment=True)
+        header = proof.read(12)
+        proof.seek(0)
+        if header.startswith(b"\xff\xd8\xff"):
+            content_type = "image/jpeg"
+        elif header.startswith(b"\x89PNG\r\n\x1a\n"):
+            content_type = "image/png"
+        elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+            content_type = "image/webp"
+        else:
+            content_type = None
+        response = FileResponse(
+            proof,
+            as_attachment=content_type is None,
+            content_type=content_type or "application/octet-stream",
+        )
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"
         return response

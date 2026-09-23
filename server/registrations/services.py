@@ -216,16 +216,18 @@ def submit_registration(
             )
             resolved = []
             for member in members:
-                try:
-                    institution = resolve_institution(
-                        institution_id=member.institution_id,
-                        institution_label=member.institution_label
-                        or member.school_snapshot,
-                    )
-                except Institution.DoesNotExist as error:
-                    raise ValidationError(
-                        {"members": "Select an available institution."}
-                    ) from error
+                school_label = member.institution_label or member.school_snapshot
+                institution = None
+                if member.institution_id or school_label.strip():
+                    try:
+                        institution = resolve_institution(
+                            institution_id=member.institution_id,
+                            institution_label=school_label,
+                        )
+                    except Institution.DoesNotExist as error:
+                        raise ValidationError(
+                            {"members": "Select an available institution."}
+                        ) from error
                 resolved.append((member, institution))
             claims = [
                 (
@@ -237,13 +239,21 @@ def submit_registration(
             ]
             for member, institution in resolved:
                 tag = normalize_institution_label(member.gamer_tag_snapshot)
-                label = normalize_institution_label(institution.label)
+                label = (
+                    normalize_institution_label(institution.label)
+                    if institution
+                    else ""
+                )
                 if any(
                     tag == old_tag
                     and (
-                        institution.pk == old_id
-                        if old_id is not None
-                        else label == old_label
+                        institution is None
+                        or (old_id is None and not old_label)
+                        or (
+                            institution.pk == old_id
+                            if old_id is not None
+                            else label == old_label
+                        )
                     )
                     for old_tag, old_id, old_label in claims
                 ):
@@ -252,7 +262,7 @@ def submit_registration(
                             "members": "A player already has an active registration in this division."
                         }
                     )
-                claims.append((tag, institution.pk, label))
+                claims.append((tag, institution.pk if institution else None, label))
             submitted_at = timezone.now()
             if submitted_at >= tournament_game.registration_closes_at:
                 raise ValidationError("Registration is not open.")
@@ -290,7 +300,7 @@ def submit_registration(
                         last_name_snapshot=member.last_name_snapshot.strip(),
                         date_of_birth_snapshot=member.date_of_birth_snapshot,
                         student_id_snapshot=member.student_id_snapshot.strip(),
-                        school_snapshot=institution.label,
+                        school_snapshot=institution.label if institution else "",
                         is_captain=member.is_captain,
                         roster_role=member.roster_role,
                         display_order=display_order,
@@ -423,6 +433,16 @@ def _validate_roster(
                     "members": f"Player {index}: student ID is required for student-only tournaments."
                 }
             )
+        if tournament_game.tournament.students_only and not (
+            member.institution_id
+            or (member.institution_label and member.institution_label.strip())
+            or member.school_snapshot.strip()
+        ):
+            raise ValidationError(
+                {
+                    "members": f"Player {index}: school is required for student-only tournaments."
+                }
+            )
     if any(
         member.roster_role not in RegistrationMember.RosterRole.values
         for member in members
@@ -458,16 +478,8 @@ def _validate_roster(
         raise ValidationError("Roster display order must be unique.")
     if {member.display_order for member in members} != set(range(1, len(members) + 1)):
         raise ValidationError("Roster display order must be contiguous from one.")
-    if any(
-        not member.gamer_tag_snapshot.strip()
-        or not (
-            member.institution_id
-            or member.institution_label
-            or member.school_snapshot.strip()
-        )
-        for member in members
-    ):
-        raise ValidationError("Every player needs a gamer tag and school snapshot.")
+    if any(not member.gamer_tag_snapshot.strip() for member in members):
+        raise ValidationError("Every player needs a gamer tag.")
 
 
 def _require_organizer(actor, permission: str) -> None:

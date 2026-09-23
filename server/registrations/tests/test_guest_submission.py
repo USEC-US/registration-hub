@@ -263,6 +263,19 @@ class GuestSubmissionTests(APITestCase):
         self.assertEqual(registration.status_events.count(), 3)
         self.assertEqual(self.post(payload).status_code, 201)
 
+    def test_schoolless_player_cannot_repeat_same_gamer_tag_with_a_school(self):
+        payload = self.payload()
+        payload["members"][0]["institution_label"] = ""
+        first = self.post(payload)
+        self.assertEqual(first.status_code, 201, first.data)
+        payload["members"][0]["institution_label"] = "New school"
+        self.assertEqual(self.post(payload).status_code, 400)
+
+        payload["members"][0]["gamer_tag_snapshot"] = "another-player"
+        self.assertEqual(self.post(payload).status_code, 201)
+        payload["members"][0]["institution_label"] = ""
+        self.assertEqual(self.post(payload).status_code, 400)
+
     def test_invalid_proof_leaves_no_registration_or_institution(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
 

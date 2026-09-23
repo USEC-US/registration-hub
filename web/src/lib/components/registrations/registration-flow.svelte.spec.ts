@@ -68,6 +68,13 @@ describe('RosterEditor', () => {
 			'required',
 			studentsOnly
 		);
+		expect(page.getByRole('combobox', { name: 'Institution' }).element()).toHaveProperty(
+			'required',
+			studentsOnly
+		);
+		expect(page.getByText(m.roster_non_student_note()).elements()).toHaveLength(
+			studentsOnly ? 0 : 1
+		);
 		await page.getByLabelText(m.roster_first_name(), { exact: true }).fill('Minh Anh');
 		await page.getByLabelText('Last name', { exact: true }).fill('Nguyễn');
 		await page.getByLabelText('Date of birth', { exact: true }).fill('03/12/2005');
@@ -87,6 +94,9 @@ describe('RosterEditor', () => {
 		expect(page.getByLabelText('Student ID', { exact: true }).nth(1).element()).toHaveProperty(
 			'required',
 			studentsOnly
+		);
+		expect(page.getByText(m.roster_non_student_note()).elements()).toHaveLength(
+			studentsOnly ? 0 : 2
 		);
 	});
 	it('retains each institution selection when a preceding optional row is removed', async () => {
@@ -156,7 +166,7 @@ describe('RosterEditor', () => {
 		expect(state.current.filter((member) => member.is_captain)).toHaveLength(1);
 		expect(state.current[0].is_captain).toBe(true);
 	});
-	it('renders one required, empty captain row for a solo game', () => {
+	it('renders one empty captain row for a solo game', () => {
 		const { container } = render(RosterEditor, {
 			mainRosterSize: 1,
 			substituteLimit: 0
@@ -166,7 +176,7 @@ describe('RosterEditor', () => {
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveValue('');
 		expect(container.querySelector('input[name="institution"]')).toHaveValue('');
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toBeRequired();
-		expect(container.querySelector('input[name="institution"]')).toBeRequired();
+		expect(container.querySelector('input[name="institution"]')).not.toBeRequired();
 		expect(container.querySelector('input[name="member-1-gamer-tag"]')).toHaveAttribute(
 			'data-slot',
 			'input'

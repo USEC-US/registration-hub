@@ -192,7 +192,9 @@
 									>{String(member.display_order).padStart(2, '0')}</span
 								>
 								<span class="font-semibold">{member.gamer_tag_snapshot}</span>
-								<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
+								{#if member.school_snapshot}
+									<span class="text-sm text-(--text-muted)">{member.school_snapshot}</span>
+								{/if}
 								<div class="flex flex-wrap gap-2">
 									<Badge variant="secondary"
 										>{member.roster_role === 'substitute'

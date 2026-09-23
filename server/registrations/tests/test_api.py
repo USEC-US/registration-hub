@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.tests.factories import create_account
-from registrations.models import Registration
+from registrations.models import PaymentAttempt, Registration
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .images import payment_image
@@ -129,6 +129,13 @@ class RegistrationOwnershipApiTests(APITestCase):
                 )
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
                 self.assertNotIn("proof_file", response.data)
+                attempt = PaymentAttempt.objects.get(pk=response.data["id"])
+                proof = self.client.get(attempt.proof_file.url)
+                self.assertEqual(proof.status_code, 200)
+                self.assertEqual(proof["Content-Type"], f"image/{format.lower()}")
+                self.assertTrue(proof["Content-Disposition"].startswith("inline;"))
+                if proof.streaming:
+                    self.assertTrue(b"".join(proof.streaming_content))
 
     def test_payment_image_download_requires_owner_or_organizer(self):
         from django.contrib.auth.models import Group, Permission
@@ -147,6 +154,7 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.assertIn(response.status_code, (401, 403))
         if response.streaming:
             self.assertTrue(b"".join(response.streaming_content))
+
         self.client.force_authenticate(self.other_user)
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
@@ -156,6 +164,8 @@ class RegistrationOwnershipApiTests(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Cache-Control"], "private, no-store")
+        self.assertEqual(response["Content-Type"], "image/png")
+        self.assertTrue(response["Content-Disposition"].startswith("inline;"))
         if response.streaming:
             self.assertTrue(b"".join(response.streaming_content))
         self.client.force_authenticate(user=None)
@@ -171,6 +181,29 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         if response.streaming:
             self.assertTrue(b"".join(response.streaming_content))
+
+    def test_legacy_non_raster_proof_stays_a_download(self):
+        for filename in ("legacy.svg", "fake.png"):
+            with self.subTest(filename=filename):
+                attempt = PaymentAttempt.objects.create(
+                    registration=self.registration,
+                    method=PaymentAttempt.Method.MANUAL_PROOF,
+                    amount="50000.00",
+                    currency="VND",
+                    proof_file=SimpleUploadedFile(
+                        filename, b"<svg></svg>", content_type="image/svg+xml"
+                    ),
+                )
+                self.client.force_authenticate(self.owner)
+                response = self.client.get(attempt.proof_file.url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response["Content-Type"], "application/octet-stream")
+                self.assertTrue(
+                    response["Content-Disposition"].startswith("attachment;")
+                )
+                self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+                if response.streaming:
+                    self.assertTrue(b"".join(response.streaming_content))
 
     def test_unauthenticated_list_and_detail_are_not_available(self):
         list_response = self.client.get("/api/registrations/")
