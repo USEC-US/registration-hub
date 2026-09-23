@@ -126,7 +126,7 @@
 					<h2 class="font-medium">{m.stages_forget_title()}</h2>
 					<p class="text-sm text-muted-foreground">{m.stages_forget_hint()}</p>
 				</div>
-				<Button variant="ghost" onclick={forget}>{m.stages_forget()}</Button>
+				<Button variant="destructive" onclick={forget}>{m.stages_forget()}</Button>
 			</div>
 		{/if}
 	{:else if temporaryFailure}
