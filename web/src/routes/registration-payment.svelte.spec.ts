@@ -257,6 +257,29 @@ describe('private payment panel', () => {
 				.not.toBeInTheDocument();
 		}
 	);
+	it('shows registration approval for an approved paid session', async () => {
+		render(PaymentPanel, {
+			session: {
+				...privateSession,
+				registration: { ...registration, status: 'APPROVED' },
+				payment_state: 'VERIFIED',
+				can_upload_proof: false,
+				instructions: null
+			},
+			authority: { credential: 'ab'.repeat(32) },
+			onupdated: vi.fn()
+		});
+		await expect
+			.element(
+				page.getByText(
+					'The registration for team Blue Team in USEC Summer 2026 - Valorant has been confirmed! Thank you for your interest in USEC tournaments!'
+				)
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByText(/Eligibility approval is a separate organizer decision/))
+			.not.toBeInTheDocument();
+	});
 	it('shows review guidance and contact options while payment proof is pending', async () => {
 		render(PaymentPanel, {
 			session: {
@@ -296,6 +319,33 @@ describe('private payment panel', () => {
 });
 
 import PaymentPage from './registrations/[id]/payment/+page.svelte';
+it('labels removal of locally saved registration access', async () => {
+	const accessKey = `usec-registration-access:v1:${'ab'.repeat(32)}`;
+	localStorage.setItem(
+		accessKey,
+		JSON.stringify({
+			version: 1,
+			gameId: 10,
+			credential: 'ab'.repeat(32),
+			registrationId: 33,
+			attemptState: 'submitted'
+		})
+	);
+	vi.mocked(getPaymentSession).mockReset().mockResolvedValue(privateSession);
+	render(PaymentPage);
+	await expect
+		.element(page.getByRole('heading', { name: 'Delete saved registration on this device' }))
+		.toBeVisible();
+	await expect
+		.element(
+			page.getByText(
+				/registration remains on the USEC system.*Guests may not be able to reopen it here/
+			)
+		)
+		.toBeVisible();
+	await page.getByRole('button', { name: 'Forget on this device' }).click();
+	expect(localStorage.getItem(accessKey)).toBeNull();
+});
 it('loads the private payment page with saved access and never falls through a wrong credential to account authority', async () => {
 	localStorage.setItem(
 		`usec-registration-access:v1:${'ab'.repeat(32)}`,

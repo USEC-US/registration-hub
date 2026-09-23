@@ -114,7 +114,8 @@
 - [x] Show division and registration counts from tournament administration.
 - [x] Add direct links from tournaments and divisions to their filtered registrations.
 - [ ] Improve registration search, filtering, review, payment evidence, and status actions.
-- [ ] Display manager, captain, roster, and private captain-contact information clearly.
+- [x] Show manual review, approval, and rejection controls on registration rows and detail pages for authorized organizers; keep payment proof verification separate.
+- [ ] Display registrations info, manager, captain, roster, and private captain-contact information clearly to CRUD tables and detail info.
 - [ ] Preserve least-privilege organizer permissions.
 - [ ] Add an audit trail for consequential organizer actions.
 - [ ] Consider safe CSV export if club operations require it.

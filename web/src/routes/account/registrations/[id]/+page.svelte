@@ -225,7 +225,7 @@
 			</p>
 		{/if}
 		<p class="mt-4">
-			{paymentStatusMessage(registration.payment_state, registration.expired, registration.status)}
+			{paymentStatusMessage(registration)}
 		</p>
 		<a
 			class="mt-4 inline-block underline"

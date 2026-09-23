@@ -3,9 +3,11 @@ from django.template.response import TemplateResponse
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import HttpResponseNotAllowed, HttpResponseRedirect
+from django.http import Http404, HttpResponseNotAllowed, HttpResponseRedirect
 from django.urls import path, reverse
+from django.utils.html import format_html_join
 from unfold.admin import ModelAdmin, TabularInline
+from unfold.decorators import action
 
 from .admin_forms import PaymentSettingsForm
 from .bank_catalogue import BankCatalogueError, sync_bank_catalogue
@@ -231,6 +233,115 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         RegistrationStatusEventInline,
     )
     actions = ("mark_under_review", "approve_selected", "reject_selected")
+    actions_detail = ("start_review_detail", "approve_detail", "reject_detail")
+
+    def get_list_display(self, request):
+        if not self.has_change_permission(request):
+            return self.list_display
+
+        @admin.display(description="Review decision")
+        def decision_links(obj):
+            names = {
+                Registration.Status.SUBMITTED: (
+                    ("start_review_detail", "Start review"),
+                ),
+                Registration.Status.UNDER_REVIEW: (
+                    ("approve_detail", "Approve"),
+                    ("reject_detail", "Reject"),
+                ),
+            }.get(obj.status, ())
+            return format_html_join(
+                " ",
+                '<a class="font-medium text-primary-600 underline" href="{}">{}</a>',
+                (
+                    (
+                        reverse(
+                            f"admin:registrations_registration_{name}", args=[obj.pk]
+                        ),
+                        label,
+                    )
+                    for name, label in names
+                ),
+            )
+
+        return (*self.list_display, decision_links)
+
+    def get_actions_detail(self, request, object_id):
+        actions = super().get_actions_detail(request, object_id)
+        registration = self.get_object(request, object_id)
+        if registration is None:
+            return []
+        valid = {
+            Registration.Status.SUBMITTED: {"start_review_detail"},
+            Registration.Status.UNDER_REVIEW: {"approve_detail", "reject_detail"},
+        }.get(registration.status, set())
+        return [item for item in actions if item.method.original_function_name in valid]
+
+    def _decision_view(
+        self,
+        request,
+        object_id,
+        title,
+        command,
+        form_class=forms.Form,
+        variant="primary",
+    ):
+        if request.method not in ("GET", "POST"):
+            return HttpResponseNotAllowed(["GET", "POST"])
+        registration = self.get_object(request, object_id)
+        if registration is None:
+            raise Http404
+        form = form_class(request.POST if request.method == "POST" else None)
+        if request.method == "POST" and form.is_valid():
+            try:
+                command(
+                    actor=request.user,
+                    registration_id=registration.pk,
+                    note=form.cleaned_data.get("reason", ""),
+                )
+            except ValidationError as error:
+                form.add_error(None, error)
+            else:
+                self.message_user(
+                    request, f"{title} completed.", level=messages.SUCCESS
+                )
+                return HttpResponseRedirect(
+                    reverse("admin:registrations_registration_change", args=[object_id])
+                )
+        return TemplateResponse(
+            request,
+            "admin/registrations/registration_decision.html",
+            {
+                **self.admin_site.each_context(request),
+                "title": title,
+                "registration": registration,
+                "form": form,
+                "button_variant": variant,
+                "opts": self.model._meta,
+                "change_url": reverse(
+                    "admin:registrations_registration_change", args=[object_id]
+                ),
+            },
+        )
+
+    @action(permissions=["change"], description="Start review")
+    def start_review_detail(self, request, object_id):
+        return self._decision_view(request, object_id, "Start review", start_review)
+
+    @action(permissions=["change"], description="Approve")
+    def approve_detail(self, request, object_id):
+        return self._decision_view(request, object_id, "Approve", approve_registration)
+
+    @action(permissions=["change"], description="Reject")
+    def reject_detail(self, request, object_id):
+        return self._decision_view(
+            request,
+            object_id,
+            "Reject",
+            reject_registration,
+            RejectionReasonForm,
+            "danger",
+        )
 
     def _run_transition(self, request, queryset, command):
         completed = 0
@@ -273,7 +384,7 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         )
 
 
-class PaymentRejectionForm(forms.Form):
+class RejectionReasonForm(forms.Form):
     reason = forms.CharField(
         label="Rejection reason", widget=forms.Textarea, strip=True
     )
@@ -325,7 +436,7 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
 
     @admin.action(description="Reject selected payment attempts")
     def reject_selected(self, request, queryset):
-        form = PaymentRejectionForm(
+        form = RejectionReasonForm(
             request.POST if request.POST.get("confirm_rejection") else None
         )
         if form.is_bound and form.is_valid():

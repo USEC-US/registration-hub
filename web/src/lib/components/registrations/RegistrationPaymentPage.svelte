@@ -122,7 +122,10 @@
 			<div
 				class="flex flex-col items-start gap-2 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between"
 			>
-				<p class="text-sm text-muted-foreground">{m.stages_forget_hint()}</p>
+				<div class="flex flex-col gap-1">
+					<h2 class="font-medium">{m.stages_forget_title()}</h2>
+					<p class="text-sm text-muted-foreground">{m.stages_forget_hint()}</p>
+				</div>
 				<Button variant="ghost" onclick={forget}>{m.stages_forget()}</Button>
 			</div>
 		{/if}

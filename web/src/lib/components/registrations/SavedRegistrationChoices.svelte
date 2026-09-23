@@ -27,7 +27,8 @@
 							variant="outline"
 							href={resolve(localizeInternalHref(`/registrations/${entry.registrationId}/payment`))}
 							>{m.stages_view_saved({ id: entry.registrationId })}</Button
-						><Button variant="ghost" onclick={() => onforget(entry)}>{m.stages_forget()}</Button
+						><Button variant="destructive" onclick={() => onforget(entry)}
+							>{m.stages_forget()}</Button
 						>{:else}<Button onclick={() => onrecover(entry)}>{m.stages_recover()}</Button>{/if}
 				</div>{/each}</Card.Content
 		></Card.Root

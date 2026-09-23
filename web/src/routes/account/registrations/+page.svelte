@@ -199,11 +199,7 @@
 				>{m.payment_page()}</a
 			>
 			<p class="text-sm">
-				{paymentStatusMessage(
-					registration.payment_state,
-					registration.expired,
-					registration.status
-				)}
+				{paymentStatusMessage(registration)}
 			</p>
 		{/each}
 	</section>

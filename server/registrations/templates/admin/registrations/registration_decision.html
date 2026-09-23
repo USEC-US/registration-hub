@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% load unfold %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Confirm {{ title|lower }} for registration #{{ registration.pk }}</h1>
+<p class="mb-4">{{ registration.tournament_game }} · {{ registration.get_status_display }}</p>
+<form method="post">{% csrf_token %}
+  {{ form.as_p }}
+  <div class="flex items-center gap-3 mt-4">
+    {% component "unfold/components/button.html" with submit=1 variant=button_variant %}{{ title }}{% endcomponent %}
+    <a href="{{ change_url }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

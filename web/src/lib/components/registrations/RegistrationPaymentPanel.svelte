@@ -16,6 +16,7 @@
 		writeDraft
 	} from '$lib/registrations/browser-storage';
 	import { localizeInternalHref } from '$lib/navigation';
+	import { paymentStatusMessage } from '$lib/registrations/payment-status';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { Button } from '$lib/components/ui/button';
@@ -346,12 +347,10 @@
 						</p>
 					</Alert.Description>
 				</Alert.Root>
-			{:else if session.payment_state === 'VERIFIED'}
+			{:else if session.payment_state === 'VERIFIED' || session.payment_state === 'NOT_REQUIRED'}
 				<Alert.Root role="status"
-					><Alert.Title>{m.payment_verified_review()}</Alert.Title></Alert.Root
+					><Alert.Title>{paymentStatusMessage(session.registration)}</Alert.Title></Alert.Root
 				>
-			{:else if session.payment_state === 'NOT_REQUIRED'}
-				<Alert.Root role="status"><Alert.Title>{m.payment_free()}</Alert.Title></Alert.Root>
 			{/if}
 
 			{#if !terminal && session.payment_state === 'UNPAID'}

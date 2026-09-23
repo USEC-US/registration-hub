@@ -297,6 +297,38 @@ class RegistrationServiceTests(TestCase):
         self.assertEqual(registration.status, Registration.Status.APPROVED)
         self.assertEqual(registration.status_events.count(), 3)
 
+    def test_approval_verifies_submitted_payment_proof(self):
+        from registrations.reservations import expire_due_registrations, payment_state
+
+        organizer = self._organizer()
+        registration = start_review(
+            actor=organizer, registration_id=self._submit_solo().pk
+        )
+        attempt = PaymentAttempt.objects.create(
+            registration=registration,
+            method=PaymentAttempt.Method.MANUAL_PROOF,
+            amount=registration.fee_amount_snapshot,
+            currency=registration.fee_currency_snapshot,
+            proof_file=payment_image(),
+        )
+
+        approve_registration(actor=organizer, registration_id=registration.pk)
+
+        registration.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.APPROVED)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.VERIFIED)
+        self.assertEqual(attempt.reviewed_by_id, organizer.pk)
+        self.assertIsNotNone(attempt.reviewed_at)
+        self.assertEqual(payment_state(registration), "VERIFIED")
+        registration.payment_due_at = timezone.now() - timedelta(minutes=1)
+        registration.save(update_fields=("payment_due_at",))
+        self.assertEqual(
+            expire_due_registrations(division_id=registration.tournament_game_id), 0
+        )
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.APPROVED)
+
     def test_rejection_requires_reason_and_only_from_under_review(self):
         registration = self._submit_solo()
         organizer = self._organizer()

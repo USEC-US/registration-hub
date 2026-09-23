@@ -498,16 +498,28 @@ def _transition_registration(
         registration.refresh_from_db()
         if is_expired(registration, now=timezone.now()):
             raise ValidationError("Payment reservation has expired.")
-        if (
-            to_status == Registration.Status.APPROVED
-            and registration.payment_due_at is not None
-            and registration.fee_amount_snapshot > 0
-            and payment_state(registration) != "VERIFIED"
-        ):
-            raise ValidationError("Verified payment is required before approval.")
         if registration.status != expected_status:
             raise ValidationError(
                 f"Cannot move a {registration.status} registration to {to_status}."
+            )
+        if (
+            to_status == Registration.Status.APPROVED
+            and registration.fee_amount_snapshot > 0
+            and payment_state(registration) != "VERIFIED"
+        ):
+            attempt = (
+                registration.payment_attempts.filter(
+                    status=PaymentAttempt.Status.PENDING
+                )
+                .order_by("-pk")
+                .first()
+            )
+            if attempt is None or not attempt.proof_file:
+                raise ValidationError("Payment proof is required before approval.")
+            review_payment_attempt(
+                actor=actor,
+                payment_attempt_id=attempt.pk,
+                status=PaymentAttempt.Status.VERIFIED,
             )
         registration.status = to_status
         registration.save(update_fields=("status", "updated_at"))
