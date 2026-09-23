@@ -302,17 +302,23 @@
 					aria-hidden="true">04</span
 				>
 				<div class="flex min-w-0 flex-col gap-1">
-					<Card.Title><h2 id="payment-panel-heading">{m.payment_page()}</h2></Card.Title>
-					<Card.Description class="break-words"
+					<Card.Title
+						><h2 id="payment-panel-heading">
+							{session.payment_state === 'PENDING'
+								? m.registration_confirmed_heading()
+								: m.payment_page()}
+						</h2></Card.Title
+					>
+					<Card.Description class="wrap-break-word"
 						>{m.registration_reference({
 							id: session.registration.id
 						})}{#if session.registration.team_name}
-							· {session.registration.team_name}{/if}</Card.Description
+							- {session.registration.team_name}{/if}</Card.Description
 					>
 				</div>
 			</div>
 		</Card.Header>
-		<Card.Content class="flex min-w-0 flex-col gap-6 break-words">
+		<Card.Content class="flex min-w-0 flex-col gap-6 wrap-break-word">
 			<ErrorSummary {errors} />
 			{#if storageWarning}<Alert.Root
 					><Alert.Description>{m.stages_storage()}</Alert.Description></Alert.Root
@@ -329,9 +335,17 @@
 					</Alert.Description>
 				</Alert.Root>
 			{:else if session.payment_state === 'PENDING'}
-				<Alert.Root role="status"
-					><Alert.Title>{m.payment_pending_review()}</Alert.Title></Alert.Root
-				>
+				<Alert.Root role="status">
+					<Alert.Title>{m.payment_pending_heading()}</Alert.Title>
+					<Alert.Description>
+						<p>{m.payment_pending_review()}</p>
+						<p>{m.payment_pending_follow_up()}</p>
+						<p class="flex flex-wrap gap-x-4 gap-y-1">
+							<a href="https://facebook.com/hcmusec">{m.registration_contact_organizers()}</a>
+							<a href="mailto:hcmusec@gmail.com">hcmusec@gmail.com</a>
+						</p>
+					</Alert.Description>
+				</Alert.Root>
 			{:else if session.payment_state === 'VERIFIED'}
 				<Alert.Root role="status"
 					><Alert.Title>{m.payment_verified_review()}</Alert.Title></Alert.Root
@@ -353,7 +367,7 @@
 				</Alert.Root>
 			{/if}
 
-			{#if session.payment_due_at}
+			{#if actionable && session.payment_due_at}
 				<div class="flex flex-col gap-3 rounded-lg bg-muted/30 p-4 sm:flex-row sm:items-center">
 					<span
 						class="flex size-10 shrink-0 items-center justify-center rounded-full bg-background text-primary"
@@ -409,7 +423,9 @@
 								<div class="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
 									<div>
 										<p class="text-xs text-muted-foreground">{m.field_transfer_content()}</p>
-										<p class="mt-1 whitespace-pre-wrap break-words font-mono-data font-semibold">
+										<p
+											class="mt-1 whitespace-pre-wrap wrap-break-word font-mono-data font-semibold"
+										>
 											{instructions.transfer_content}
 										</p>
 									</div>
@@ -458,7 +474,7 @@
 					{:else}
 						<p>{m.payment_historical()}</p>
 						{#if session.instructions?.transfer_content}
-							<p class="whitespace-pre-wrap break-words font-mono-data">
+							<p class="whitespace-pre-wrap wrap-break-word font-mono-data">
 								{session.instructions.transfer_content}
 							</p>
 						{/if}

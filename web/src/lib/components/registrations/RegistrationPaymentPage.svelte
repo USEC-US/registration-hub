@@ -71,7 +71,7 @@
 </script>
 
 <svelte:head
-	><title>{m.payment_page()} · {m.app_title()}</title><meta
+	><title>{m.payment_page()} | {m.app_title()}</title><meta
 		name="robots"
 		content="noindex,nofollow"
 	/></svelte:head
@@ -94,9 +94,8 @@
 			</h1>
 			{#if session}
 				<p class="text-sm leading-relaxed text-muted-foreground">
-					{session.registration.tournament_game.game_name} · {m.registration_reference({
-						id: session.registration.payment_reference
-					})}
+					{session.registration.tournament_game.game_name} | {m.field_payment_reference()}:
+					{session.registration.payment_reference}
 				</p>
 			{/if}
 		</div>
