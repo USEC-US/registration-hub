@@ -5,6 +5,18 @@ from django.test import TestCase
 
 class BootstrapOrganizersCommandTests(TestCase):
     expected_permissions = {
+        "competitions.add_competition",
+        "competitions.change_competition",
+        "competitions.view_competition",
+        "competitions.view_competitionentrant",
+        "competitions.view_stage",
+        "competitions.view_stagedraw",
+        "competitions.view_stageentry",
+        "competitions.view_round",
+        "competitions.change_match",
+        "competitions.view_match",
+        "competitions.view_matchslot",
+        "competitions.view_changeset",
         "registrations.change_bank",
         "registrations.view_bank",
         "tournaments.add_game",
@@ -40,6 +52,8 @@ class BootstrapOrganizersCommandTests(TestCase):
         self.assertSetEqual(actual_permissions, self.expected_permissions)
         self.assertNotIn("registrations.delete_registration", actual_permissions)
         self.assertNotIn("registrations.add_registration", actual_permissions)
+        self.assertNotIn("competitions.delete_competition", actual_permissions)
+        self.assertNotIn("competitions.change_changeset", actual_permissions)
 
     def test_command_is_idempotent(self):
         call_command("bootstrap_organizers")

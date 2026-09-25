@@ -1,10 +1,10 @@
 # Competition core design
 
-Date: 2026-09-23. Branch: `feat/tournament-brackets`.
+Date: 2026-09-23. Approved: 2026-09-25. Branch: `feat/tournament-brackets`.
 
-Status: **Draft for written review.** The user approved the shared foundation
-and the decisions listed below. The remaining concrete defaults in this document
-are proposals for that review; they are not implemented behavior.
+Status: **Approved for implementation planning.** The shared foundation,
+decisions, and concrete defaults in this document are the initial implementation
+contract. They are not implemented behavior yet.
 
 Work tracking: [Bracket core TODO](../../BRACKET-TODO.md).
 This design supersedes the scope of the earlier
@@ -36,7 +36,7 @@ override. Swiss byes count as normal match wins, including reaching qualificatio
 TOs work in Unfold; public SvelteKit views are read-only. Work is divided into
 small tasks with explicit ownership for parallel subagents.
 
-**Read these proposed defaults before approving the specification:**
+**Approved initial defaults:**
 
 1. Points and supported tiebreaks are configured before publication. Default
    points are win 3 / draw 1 / loss 0; exact ranking rules are in Sections 7–8.
@@ -95,7 +95,7 @@ Unfold forms → competition commands → transaction + Changes
 
 Use Python/Django for generation and scoring, browser HTML/CSS/SVG for bracket
 presentation, and existing Svelte components/localization/time formatting.
-The proposed additional algorithm dependency is NetworkX for general graph
+The approved future algorithm dependency is NetworkX for general graph
 matching in Swiss. A maintained matching implementation avoids owning blossom
 or exponential backtracking code. Add it during Swiss implementation, lock its
 version, and verify its API/license and deterministic fixtures then. No matching
@@ -643,8 +643,8 @@ The integration owner controls models/migrations, command contracts, permission
 bootstrap, shared types/fixtures, URL/admin wiring, and reconciliation of tests.
 Parallel agents own bounded format modules, admin workflows/templates, or public
 components and their focused tests. They request shared-contract changes instead
-of independently editing those files. The implementation plan assigns exact
-files and prerequisites; this spec does not authorize product implementation.
+of independently editing those files. The reviewed implementation plan assigns
+exact files and prerequisites before product implementation begins.
 
 Required evidence:
 

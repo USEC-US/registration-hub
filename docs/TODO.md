@@ -32,8 +32,8 @@
   the QR in a bank app, activate/monitor expiry and bank refresh jobs, and verify
   backups and restore procedures. The Compose file does not install these jobs.
 - Institution dataset contributions, SePay/account-holder verification, and
-  competition formats remain separate unfinished work. Settle the expanded bracket
-  scope noted in section 5 before implementation.
+  competition formats remain separate unfinished work. Bracket scope and the
+  dedicated implementation backlog are tracked in [BRACKET-TODO.md](BRACKET-TODO.md).
 - Verification for these registration, organizer UI, and image changes: 290
   Django tests pass on an isolated PostgreSQL 18 instance; server Ruff,
   frontend Svelte checks, and 330 unit/browser component tests pass. This was
@@ -140,18 +140,29 @@
 
 ## 5. Bracket core
 
-- [ ] Support single elimination.
-- [ ] Support double elimination.
-- [ ] Explicitly defer groups, round robin, Swiss, and other pairing systems.
-  - It's now possible to de-defer this, and start working on it as part of a full core bracket system.
-  - This also means we should think of putting the TFT system here too. Complex (itself has a ton of rules) but TFT is popular these days in the Student community.
-- [ ] Let organizers select entrants from approved registrations.
-- [ ] Support manual seeding, randomization, byes, preview, and publication.
-- [ ] Track rounds, matches, sides, scores, winners, and advancement.
-- [ ] Support organizer result entry and controlled correction of mistakes.
-- [ ] Preserve an audit history when published results change.
-- [ ] Decide the double-elimination grand-final reset rule when this slice begins.
-- [ ] Expose public brackets and results without private registration data.
+Detailed scope, rule decisions, task dependencies, and completion checks live in
+[the bracket core TODO](BRACKET-TODO.md). Update task progress there.
+
+Inspiration (and future replacement):
+
+- [Challonge](https://challonge.com)
+- [Toornament](https://toornament.com)
+- [Battlefy](https://battlefy.com)
+- [Garena Arena of Valor VN Community Tournament hosting site](https://congdong.lienquan.garena.vn)
+
+Agreed scope:
+
+- Agreed formats: single elimination, double elimination, single/double round robin groups,
+  and both fixed-round and win/loss-threshold Swiss, combined into ordered stages
+  with TO-confirmed advancement.
+- Support best-of series and fixed-game series with draws for round robin and
+  fixed-round Swiss.
+- Organizer controls stay in Django Unfold admin; public SvelteKit brackets,
+  schedules, pairings, standings, and Changes are read-only. TO identities and
+  internal correction notes remain private.
+- Implement through small tasks with explicit dependencies and file ownership
+  so independent subagent work can run in parallel.
+- TFT remains a later phase. Live updates remain Section 6.
 
 ## 6. Realtime competition experience
 
@@ -185,11 +196,12 @@ Full Beta is ready when club staff can:
 - Accept and review real registrations.
 - Distinguish managers from captains per registration.
 - Review captain contact and payment evidence safely.
-- Build, seed, publish, and operate single- or double-elimination brackets.
+- Build, seed, publish, and operate single/double elimination, round robin groups,
+  and both Swiss presets, including qualification into playoffs.
 - Enter and correct results while public viewers receive realtime updates.
 - Complete these workflows without critical permission, privacy, data-loss, or usability failures.
 
-  SePay and group-stage formats are not Full Beta blockers.
+  SePay and TFT are not Full Beta blockers.
 
 ### 8. TFT — early post-beta
 
@@ -208,13 +220,11 @@ Full Beta is ready when club staff can:
 
 - Preserve result history and recalculate standings safely after organizer corrections.
 
-### 9. Group stages — later post-beta
+### 9. Group stages — included in bracket core
 
-- Round Robin first.
-- Swiss afterward.
-- Configurable rounds, scoring, tiebreaks, advancement count, and playoff handoff.
-- Organizer-controlled pairings and corrections where required.
-- Limit this to supported esports presets rather than attempting every possible group-stage variation.
+Round robin and both Swiss presets are now part of Section 5. Their rules,
+standings, organizer controls, and playoff handoffs are tracked only in
+[BRACKET-TODO.md](BRACKET-TODO.md).
 
 ## 10. Post-Beta: SePay integration
 

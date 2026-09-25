@@ -1,18 +1,20 @@
 # Bracket system core TODO
 
-Updated: 2026-09-23. Branch: `feat/tournament-brackets`.
+Updated: 2026-09-25. Branch: `feat/tournament-brackets`.
 
 This is the authoritative competition-core backlog, linked from
 [the project TODO](TODO.md#5-bracket-core). It replaces the scope and task list
 in the [earlier competition delivery plan](superpowers/plans/2026-09-23-competition-formats.md).
-Implementation has not started. Task boundaries below are for planning; settle
-the rules and review the design before assigning implementation work.
+The approved first single-elimination slice is implemented and focused-validated.
+Its evidence and operating notes are in
+[the single-elimination testing guide](testing/competition-single-elimination.md).
+Later formats and cross-stage behavior remain open below.
 
 The approved foundation uses a dedicated `server/competitions` Django app.
 The [detailed design](superpowers/specs/2026-09-23-competition-core-design.md)
-is drafted for written review. Its proposed defaults and exact contracts must be
-reviewed before the implementation plan is written; the rule tasks below remain
-open until that review is complete.
+and its initial defaults are approved. The
+[first-slice implementation plan](superpowers/plans/2026-09-25-competition-core-single-elimination.md)
+is approved.
 
 ## Agreed scope
 
@@ -93,8 +95,8 @@ These are confirmed requirements, not completed implementation tasks.
 Preserve the resolution and resulting qualifier changes in Changes, with TO
 identity and internal notes restricted to the organizer view. Extra tiebreak
 matches use the shared match/result lifecycle, including correction history.
-The exact rules for resolving a tie among three or more entrants remain part
-of the proposed R3/R4 design; the supported resolution paths above are agreed.
+The exact rules for resolving a tie among three or more entrants are defined by
+the approved R3/R4 design.
 
 ### Confirmed Swiss exceptions
 
@@ -109,29 +111,29 @@ Complete the decisions needed by a task before releasing that task to an agent.
 Capture the outcomes in a focused rules/design document, then produce the
 implementation plan. Do not treat the choices below as already implemented.
 
-- [ ] **R1 — Stage and entrant lifecycle.** Apply the confirmed ordered-stage
+- [x] **R1 — Stage and entrant lifecycle.** Apply the confirmed ordered-stage
   structure and TO-confirmed handoffs. Define entrant limits, team/solo public
   labels, selection of approved registrations,
   roster identity preservation, withdrawals/disqualification, and what happens
   if an entrant's eligibility changes after selection or publication.
-- [ ] **R2 — Series and result rules.** Apply the confirmed stage/round/match
+- [x] **R2 — Series and result rules.** Apply the confirmed stage/round/match
   series-length precedence and before-play restriction. Define valid/in-progress/
   final scores, draws, forfeits, double forfeits, and walkovers. Define what counts
   as a match win versus an individual game win, and how a match is marked started.
   Elimination and threshold Swiss need an explicit decisive-result rule.
-- [ ] **R3 — Elimination and group rules.** Confirm bye placement, bracket
+- [x] **R3 — Elimination and group rules.** Confirm bye placement, bracket
   seeding, double-elimination routing, and the grand-final reset/no-reset choice
   before publication. Apply the confirmed single/double round robin choice;
   define group sizes, points, and ordered tiebreaks. Apply the confirmed extra-match
   or recorded-decision resolution for remaining qualification ties, including
   rules for three or more tied entrants.
-- [ ] **R4 — Both Swiss presets.** Define pairing order, score groups, rematches,
+- [x] **R4 — Both Swiss presets.** Define pairing order, score groups, rematches,
   byes, withdrawals, impossible pairings, and validated manual overrides. Define
   fixed-round standings/tiebreaks and threshold exit/completion rules, including
   which finishers advance and how the next stage's seeds are determined. Apply the
   confirmed qualification-tie resolution paths, forced-rematch override, and
   normal-win bye credit, including qualification.
-- [ ] **R5 — Publication, correction, and handoff.** Define draft/public states,
+- [x] **R5 — Publication, correction, and handoff.** Define draft/public states,
   publication locks, and stale-edit handling. Apply the confirmed impact-preview,
   downstream-reset, and public/private Changes-history policy. Define how a TO
   confirms qualifiers and starts the next stage. Publication locks must allow
@@ -148,11 +150,11 @@ exact module boundaries and owned files after the written design is reviewed.
 
 | ID | Task | Depends on |
 | --- | --- | --- |
-| C1 | [ ] Implement the competitions app's competition root, ordered stages, saved draw versions, entrant identity, constraints, snapshots, and additive migrations, with model tests. | R1, approved design/plan |
-| C2 | [ ] Define and implement the shared match/result lifecycle, series-length precedence and locking, scoring validation, transaction boundaries, revision checks, and attributable result history. | C1, R2, R5 |
-| C3 | [ ] Implement private preview and publication validation, including entrant eligibility and locked published rules. | C1, C2, R5 |
-| C4 | [ ] Define the allowlisted public response and representative fixtures for brackets, schedules, pairings, standings, and Changes; define the admin command inputs/results. | C1–C3 |
-| C5 | [ ] Implement correction impact previews and atomic correction/reset commands, including already-played dependents; retain superseded results and reset events for Changes. | C2, R5, relevant format dependency rules |
+| C1 | [x] Implement the competitions app's competition root, ordered stages, saved draw versions, entrant identity, constraints, snapshots, and additive migrations, with model tests. | R1, approved design/plan |
+| C2 | [x] Define and implement the shared match/result lifecycle, series-length precedence and locking, scoring validation, transaction boundaries, revision checks, and attributable result history. | C1, R2, R5 |
+| C3 | [x] Implement private preview and publication validation, including entrant eligibility and locked published rules. | C1, C2, R5 |
+| C4 | [x] Define and implement the first-slice allowlisted public bracket, schedule, match, and Changes responses and admin command inputs/results. Later-format standings and pairings remain with their format tasks. | C1–C3 |
+| C5 | [x] Implement correction impact previews and atomic correction/reset commands, including already-played single-elimination dependents; retain superseded results and reset events for Changes. Cross-stage resets remain with H1. | C2, R5, relevant format dependency rules |
 
 Reuse current `TournamentGame` divisions and registration snapshots. Public
 competition responses need their own explicit field allowlist: the existing
@@ -168,8 +170,8 @@ and rules are fixed. Persisted integration follows the shared command path.
 
 | ID | Task | Depends on |
 | --- | --- | --- |
-| E1 | [ ] Generate and preview single-elimination draws from manual seeds or a saved random draw, including uneven fields and byes. | C1, C2, R3 |
-| E2 | [ ] Advance single-elimination winners, handle defined walkovers/withdrawals, and complete the final. | E1 |
+| E1 | [x] Generate and preview single-elimination draws from manual seeds or a saved random draw, including uneven fields and byes. | C1, C2, R3 |
+| E2 | [x] Advance single-elimination winners, handle the first-slice played, forfeit, double-forfeit, bye, and empty outcomes, and complete the final. Withdrawal/disqualification flows remain a later slice. | E1 |
 | E3 | [ ] Generate double-elimination upper/lower routes and verify loser destinations for small and uneven fields. | E1, C2, R3 |
 | E4 | [ ] Advance both brackets and implement the approved grand-final reset/no-reset policies and completion. | E2, E3 |
 | G1 | [ ] Assign round robin groups and generate the chosen single/double schedule, including odd-sized groups; each pair meets exactly once or twice independently of series length. | C1, C2, R3 |
@@ -190,11 +192,11 @@ agents work concurrently.
 
 | ID | Task | Depends on |
 | --- | --- | --- |
-| A1 | [ ] Extend least-privilege organizer permissions/bootstrap and test view/change boundaries, non-organizer staff, inactive users, and superusers. | C1, C2 |
-| A2 | [ ] Build competition/stage setup, approved-entrant selection, format-rule forms, stage series defaults, and round overrides. | C3, C4, A1 |
-| A3 | [ ] Build manual seeding/group assignment, random draw, private preview, and explicit publication controls. | A2, relevant E1/E3/G1/S1 generators |
-| A4 | [ ] Build match-list/detail scheduling, individual series-length overrides before play, and score-entry actions with clear validation and stale-edit feedback. | C2, C4, A1, relevant format progression |
-| A5 | [ ] Build correction impact/confirmation screens and the full organizer Changes view, including previous results, downstream reset history, actor, timestamp, and internal reason. | C5, A4 |
+| A1 | [x] Extend least-privilege organizer permissions/bootstrap and test view/change boundaries, non-organizer staff, inactive users, and superusers. | C1, C2 |
+| A2 | [x] Build first-slice competition/stage setup, approved-entrant selection, stage series defaults, and round overrides. | C3, C4, A1 |
+| A3 | [x] Build manual single-elimination seeding, saved random draw, private preview, and explicit publication controls. Group assignment remains with G1. | A2, relevant E1/E3/G1/S1 generators |
+| A4 | [x] Build match-list/detail scheduling, individual series-length overrides before play, and score-entry actions with clear validation and stale-edit feedback. | C2, C4, A1, relevant format progression |
+| A5 | [x] Build correction impact/confirmation screens and the full organizer Changes view, including previous results, downstream reset history, actor, timestamp, and internal reason. | C5, A4 |
 | A6 | [ ] Build standings, Swiss next-round controls, qualifier previews, and confirmed handoffs between ordered stages. | applicable source progression/standings, H1, A1 |
 | A7 | [ ] Build qualification-tie resolution controls: schedule extra tiebreak matches or record a manual decision, with confirmation, validation, and Changes history. | H2, A1, A4, A5 |
 
@@ -206,11 +208,11 @@ admin framework merely to make these tasks look uniform.
 
 | ID | Task | Depends on |
 | --- | --- | --- |
-| P1 | [ ] Implement published-only competition snapshots and privacy tests using the agreed allowlist. | C3, C4, relevant format readers |
-| P2 | [ ] Build accessible single/double-elimination bracket views with match IDs, schedules, effective series lengths, scores, winners, and mobile navigation. | C4 fixtures; connect to P1 before completion |
+| P1 | [x] Implement published-only first-slice competition snapshots and privacy tests using the agreed allowlist. | C3, C4, relevant format readers |
+| P2 | [x] Build the accessible single-elimination bracket view with match IDs, schedules, effective series lengths, scores, winners, and mobile navigation. Double elimination remains with E3/E4. | C4 fixtures; connect to P1 before completion |
 | P3 | [ ] Build round robin/Swiss standings, round pairings with effective series lengths, stage navigation, and qualification states. | C4 fixtures; connect to P1 before completion |
-| P4 | [ ] Connect public pages to the real API; handle unpublished/missing stages, empty/upcoming/live/completed states, refresh, time zones, and EN/VI UI. | P1–P3 |
-| P5 | [ ] Expose and render read-only public Changes for published result revisions and resets; test before/after outcomes and exclusion of actor identities, internal notes, and draft history. | C4, C5, P1 |
+| P4 | [x] Connect the single-elimination page to the real API; handle unpublished/missing, ready/live/completed, refresh, time zones, and EN/VI UI. Later-format states remain with P3. | P1–P3 |
+| P5 | [x] Expose and render read-only public Changes for published result revisions and resets; test before/after outcomes and exclusion of actor identities, internal notes, and draft history. | C4, C5, P1 |
 
 Reuse existing SvelteKit public loaders, API client, localization, time-zone
 formatters, and visual components. Public screens must never receive contact
@@ -262,6 +264,15 @@ private organizer history through API responses or page data.
 - [ ] **V5 — Delivery:** provide realistic dev/test fixtures, organizer operating
   notes, migration/rollback guidance, and recorded check results. Update this
   checklist and the project TODO with actual completion and remaining limits.
+
+First-slice evidence now covers the single-elimination portions of every gate:
+deterministic uneven draws and result rules for V1; PostgreSQL revision,
+finalization, correction, and publication races for V2; permission and public
+allowlist checks for V3; Django admin integration plus a real localized,
+responsive public browser journey for V4; and repeatable fixtures, operating
+notes, migration guidance, and recorded results for V5. The V1–V5 gates remain
+open because their text also requires later formats, ordered-stage handoffs, and
+a complete organizer browser journey.
 
 Core is complete when an authorized TO can run all agreed formats and ordered
 stage handoffs through Django Unfold admin, and spectators can follow published

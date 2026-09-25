@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "accounts",
     "tournaments",
     "registrations",
+    "competitions",
     # Allow the local SvelteKit dev server to call the Django API during development.
     "corsheaders",
     "unfold.contrib.filters",  # optional, if special filters are needed

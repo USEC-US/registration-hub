@@ -10,6 +10,8 @@ from django.utils.html import format_html, format_html_join
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.decorators import action
 
+from config.organizers import is_organizer_staff
+
 from .admin_forms import PaymentSettingsForm
 from .bank_catalogue import BankCatalogueError, sync_bank_catalogue
 from .models import (
@@ -101,30 +103,19 @@ class RegistrationStatusEventInline(ImmutableInline, TabularInline):
     readonly_fields = ("from_status", "to_status", "actor", "note", "created_at")
 
 
-def _is_organizer_staff(user) -> bool:
-    return (
-        user.is_authenticated
-        and user.is_active
-        and (
-            user.is_superuser
-            or (user.is_staff and user.groups.filter(name="Organizers").exists())
-        )
-    )
-
-
 class GuardedReadOnlyAdmin(ModelAdmin):
     def has_module_permission(self, request):
-        return _is_organizer_staff(request.user) and super().has_module_permission(
+        return is_organizer_staff(request.user) and super().has_module_permission(
             request
         )
 
     def has_view_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_view_permission(
+        return is_organizer_staff(request.user) and super().has_view_permission(
             request, obj
         )
 
     def has_change_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_change_permission(
+        return is_organizer_staff(request.user) and super().has_change_permission(
             request, obj
         )
 
@@ -150,7 +141,7 @@ class BankAdmin(GuardedReadOnlyAdmin):
 
     def has_sync_permission(self, request):
         return (
-            _is_organizer_staff(request.user)
+            is_organizer_staff(request.user)
             and request.user.has_perm("registrations.change_bank")
             and request.user.has_perm("registrations.view_bank")
         )
@@ -205,23 +196,23 @@ class PaymentSettingsAdmin(ModelAdmin):
     )
 
     def has_module_permission(self, request):
-        return _is_organizer_staff(request.user) and super().has_module_permission(
+        return is_organizer_staff(request.user) and super().has_module_permission(
             request
         )
 
     def has_view_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_view_permission(
+        return is_organizer_staff(request.user) and super().has_view_permission(
             request, obj
         )
 
     def has_change_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_change_permission(
+        return is_organizer_staff(request.user) and super().has_change_permission(
             request, obj
         )
 
     def has_add_permission(self, request):
         return (
-            _is_organizer_staff(request.user)
+            is_organizer_staff(request.user)
             and super().has_add_permission(request)
             and not PaymentSettings.objects.exists()
         )

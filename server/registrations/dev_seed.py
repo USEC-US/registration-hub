@@ -16,6 +16,15 @@ from PIL import Image, ImageDraw
 
 from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
+from competitions.commands import (
+    configure_single_elimination,
+    create_competition,
+    publish_draw,
+    save_single_elimination_draw,
+    schedule_match,
+    select_entrants,
+)
+from competitions.models import Competition, Match, StageDraw
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .models import (
@@ -23,6 +32,7 @@ from .models import (
     PaymentIntent,
     PaymentSettings,
     Registration,
+    RegistrationMember,
     RegistrationStatusEvent,
 )
 from .services import (
@@ -69,6 +79,7 @@ SCENARIO_SUMMARY = (
     "Counter-Strike 2: UNDER_REVIEW / payment VERIFIED / capacity FULL",
     "Rocket League: REJECTED / rejected payment plus pending replacement",
     "League of Legends: registration NOT_OPEN",
+    "Chess: published five-player single-elimination bracket",
     "Development draft: unpublished",
 )
 
@@ -638,6 +649,90 @@ def _rebuild_registrations(
     return valorant, chess, counter_strike, rocket_league
 
 
+def _seed_published_bracket(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    division = catalog.tournament_games["chess"]
+    existing = Competition.objects.filter(tournament_game=division).first()
+    if existing:
+        if existing.stages.filter(
+            draws__state=StageDraw.State.PUBLISHED
+        ).exists():
+            return
+        raise ValidationError("The development chess competition is incomplete.")
+
+    registrations = []
+    for index, gamer_tag in enumerate(
+        ("Knight", "Bishop", "Rook", "Queen", "King"), start=1
+    ):
+        registration, _ = Registration.objects.update_or_create(
+            tournament_game=division,
+            contact_email_snapshot=f"bracket-{index}@example.invalid",
+            defaults={
+                "submitter_role": Registration.SubmitterRole.CAPTAIN,
+                "contact_facebook_snapshot": "https://facebook.com/example",
+                "contact_phone_snapshot": f"09000000{index:02d}",
+                "status": Registration.Status.APPROVED,
+                "fee_amount_snapshot": Decimal("0.00"),
+                "fee_currency_snapshot": "VND",
+                "submitted_at": now - timedelta(days=7 - index),
+            },
+        )
+        RegistrationMember.objects.update_or_create(
+            registration=registration,
+            display_order=1,
+            defaults={
+                "gamer_tag_snapshot": gamer_tag,
+                "first_name_snapshot": "Bracket",
+                "last_name_snapshot": f"Player {index}",
+                "date_of_birth_snapshot": date(2005, 1, index),
+                "school_snapshot": "HCMUS",
+                "is_captain": True,
+            },
+        )
+        registrations.append(registration)
+
+    competition = create_competition(
+        actor=organizer, tournament_game_id=division.pk
+    )
+    configure_single_elimination(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        name="Development final bracket",
+        default_series_length=3,
+    )
+    competition.refresh_from_db()
+    entrants = select_entrants(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        registration_ids=[registration.pk for registration in registrations],
+    )
+    competition.refresh_from_db()
+    draw = save_single_elimination_draw(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        entrant_order=[entrant.pk for entrant in entrants],
+    )
+    competition.refresh_from_db()
+    publish_draw(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+    )
+    competition.refresh_from_db()
+    first_match = Match.objects.filter(
+        round__draw=draw, status=Match.Status.PENDING
+    ).order_by("round__number", "number").first()
+    if first_match:
+        schedule_match(
+            actor=organizer,
+            match_id=first_match.pk,
+            expected_revision=competition.revision,
+            scheduled_at=now + timedelta(days=14, hours=2),
+        )
+
+
 @contextmanager
 def _development_payment_destination():
     """Use fictional snapshots only for this command's fixtures, never public settings.
@@ -679,6 +774,7 @@ def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
             organizer=organizer,
             catalog=catalog,
         )
+    _seed_published_bracket(now=now, organizer=organizer, catalog=catalog)
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),

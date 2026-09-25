@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="px-4 lg:px-8">
+  <a href="{{ change_url }}">{% translate "Back" %}</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl rounded-default border border-base-200 bg-white p-6 shadow-xs dark:border-base-800 dark:bg-base-900">
+  {% if impact %}
+    <div class="mb-6 rounded-default border border-red-300 bg-red-50 p-4 text-sm dark:border-red-700 dark:bg-red-950">
+      <h2 class="mb-2 font-semibold">Correction impact</h2>
+      <p><strong>Before:</strong> {{ impact.before }}</p>
+      <p><strong>After:</strong> {{ impact.after }}</p>
+      <p><strong>Matches reset:</strong> {{ impact.affected_matches|default:"None" }}</p>
+    </div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+    {{ form.as_p }}
+    <div class="mt-6 flex gap-3">
+      <button type="submit" class="rounded-default bg-primary-600 px-4 py-2 font-medium text-white">Confirm</button>
+      <a href="{{ change_url }}" class="rounded-default border border-base-300 px-4 py-2">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

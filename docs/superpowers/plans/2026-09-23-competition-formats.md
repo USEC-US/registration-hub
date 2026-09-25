@@ -1,5 +1,10 @@
 # Section 5: Competition formats delivery plan
 
+> Superseded by [the bracket core TODO](../../BRACKET-TODO.md) following the
+> 2026-09-23 scope decisions. The current phase includes elimination, round robin
+> groups, and both Swiss presets; TFT is deferred. Use the new checklist for task
+> progress and decisions. The plan below is retained as historical context.
+
 Build single elimination → double elimination → TFT → Round Robin → Swiss as
 separately usable releases. Organizers operate them through Django admin, with
 public brackets and standings in Svelte. All five formats, realtime, and

@@ -18,9 +18,9 @@ Do not start a dependent phase while its required behavior is unstable.
 ## Delivery path
 
 ```text
-Accounts → Public UI → Registration → Organizer tools → Brackets
+Accounts → Public UI → Registration → Organizer tools → Competition core
     → Live updates → Full Beta → Stabilization
-                                  ├─ TFT → Round Robin → Swiss
+                                  ├─ TFT
                                   └─ SePay → Production
 ```
 
@@ -75,11 +75,18 @@ in the same decision, with both permissions and attributable history.
 
 **Direction:** Start with organizer-selected approved entrants, manual or
 random seeding, byes, and a preview. Complete Single Elimination first, then
-reuse the match and result flow for Double Elimination. Add publishing,
-corrections, audit history, and a public view.
+reuse the match and result flow for Double Elimination. Include single/double
+round robin groups and both fixed-round and win/loss-threshold Swiss. Divisions
+can combine supported formats into ordered stages with TO-confirmed advancement.
+Support decisive best-of series and fixed-game series with draws for round robin
+and fixed-round Swiss. Keep controls in Django Unfold admin and public views in
+SvelteKit. Add publishing, corrections, audit history, and manual scheduling.
+Use [BRACKET-TODO.md](BRACKET-TODO.md) for the authoritative scope, open rules,
+small subagent tasks, dependencies, and acceptance checks.
 
 **Move on when:** Organizers can create, publish, score, correct, and finish
-both bracket formats without corrupting advancement or historical results.
+all agreed formats and their playoff handoffs without corrupting advancement,
+standings, pairings, or historical results.
 
 ### 6. Live updates
 
@@ -120,23 +127,8 @@ advancement, Checkmate, and organizer corrections.
 **Move on when:** A large solo field can progress through multiple lobbies to
 a final, including a Checkmate win or the maximum-game points fallback.
 
-### 10. Round Robin
-
-**Direction:** Add a bounded Round Robin preset with schedule generation,
-result entry, configurable scoring and tiebreaks, standings, organizer
-corrections, and playoff qualification.
-
-**Move on when:** A complete group produces reproducible standings and the
-correct approved entrants can enter a playoff.
-
-### 11. Swiss
-
-**Direction:** Choose the supported Swiss preset before coding it. Then add
-round-by-round pairing, bye and repeat-opponent handling, standings,
-tiebreaks, organizer overrides, and playoff qualification.
-
-**Move on when:** Every new round can be generated from confirmed prior
-results and corrections do not leave later pairings inconsistent.
+Round robin groups and both Swiss presets are included in Section 5 and tracked
+in [BRACKET-TODO.md](BRACKET-TODO.md); they are no longer post-Beta expansion.
 
 ## Release Readiness
 

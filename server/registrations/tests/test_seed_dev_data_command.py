@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import Institution
+from competitions.models import Competition, Match, StageDraw
 from registrations.models import (
     PaymentAttempt,
     PaymentIntent,
@@ -218,6 +219,30 @@ class SeedDevDataCommandTests(TestCase):
         draft_response = client.get("/api/tournaments/dev-usec-draft/")
         self.assertEqual(draft_response.status_code, 404)
         self.assertFalse(Tournament.objects.get(slug="dev-usec-draft").is_published)
+
+    def test_command_seeds_one_rerunnable_published_bracket(self):
+        output = self.run_seed()
+        self.run_seed()
+        competition = Competition.objects.get(
+            tournament_game__tournament__slug="dev-usec-current",
+            tournament_game__game__slug="chess",
+        )
+        draw = competition.stages.get().draws.get(state=StageDraw.State.PUBLISHED)
+
+        self.assertEqual(competition.entrants.count(), 5)
+        self.assertEqual(draw.entries.count(), 5)
+        self.assertEqual(Match.objects.filter(round__draw=draw).count(), 7)
+        self.assertEqual(
+            Competition.objects.filter(tournament_game=competition.tournament_game).count(),
+            1,
+        )
+        self.assertIn("Chess: published five-player single-elimination bracket", output)
+
+        response = APIClient().get(
+            f"/api/tournament-games/{competition.tournament_game_id}/competition/"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["stages"][0]["entries"]), 5)
 
     def test_command_seeds_registration_status_payment_and_timeline_matrix(self):
         output = self.run_seed()

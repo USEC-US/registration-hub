@@ -70,6 +70,95 @@ export interface PublicTournament {
 	tournament_games: PublicTournamentGame[];
 }
 
+export type CompetitionStageStatus = 'DRAFT' | 'READY' | 'IN_PROGRESS' | 'AWAITING' | 'COMPLETE';
+export type CompetitionMatchStatus = 'PENDING' | 'LIVE' | 'FINAL';
+
+export interface PublicCompetitionEntry {
+	id: number;
+	seed: number;
+	display_name: string;
+	display_tag: string;
+}
+
+export interface PublicCompetitionMatchSlot {
+	position: 1 | 2;
+	is_resolved: boolean;
+	is_empty: boolean;
+	source_match_id: number | null;
+	entry: PublicCompetitionEntry | null;
+}
+
+export interface PublicCompetitionMatch {
+	id: number;
+	code: string;
+	number: number;
+	scheduled_at: string | null;
+	status: CompetitionMatchStatus;
+	outcome: string;
+	effective_series_length: number;
+	side_one_score: number | null;
+	side_two_score: number | null;
+	started_at: string | null;
+	completed_at: string | null;
+	historical: boolean;
+	winner: PublicCompetitionEntry | null;
+	slots: PublicCompetitionMatchSlot[];
+}
+
+export interface PublicCompetitionRound {
+	id: number;
+	number: number;
+	section: string;
+	series_length_override: number | null;
+	matches: PublicCompetitionMatch[];
+}
+
+export interface PublicCompetitionStage {
+	id: number;
+	sequence: number;
+	name: string;
+	format: string;
+	series_mode: string;
+	default_series_length: number;
+	status: CompetitionStageStatus;
+	published_at: string;
+	completed_at: string | null;
+	completed_without_champion: boolean;
+	champion: Pick<PublicCompetitionEntry, 'id' | 'display_name' | 'display_tag'> | null;
+	entries: PublicCompetitionEntry[];
+	rounds: PublicCompetitionRound[];
+}
+
+export interface PublicCompetition {
+	id: number;
+	competition_revision: number;
+	tournament_game_id: number;
+	tournament_slug: string;
+	tournament_name: string;
+	game_name: string;
+	stages: PublicCompetitionStage[];
+}
+
+export interface PublicCompetitionChange {
+	revision: number;
+	created_at: string;
+	kind: string;
+	match_id?: number;
+	match_code?: string;
+	scheduled_at?: string | null;
+	side_one_score?: number | null;
+	side_two_score?: number | null;
+	winner?: string | null;
+	reset_matches?: Array<{ match_id: number; match_code: string }>;
+}
+
+export interface PublicCompetitionChangesPage {
+	next: string | null;
+	previous: string | null;
+	results: PublicCompetitionChange[];
+	competition_revision: number;
+}
+
 export type RosterRole = 'main' | 'substitute';
 
 export interface RegistrationMemberRead {

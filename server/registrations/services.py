@@ -17,6 +17,7 @@ from accounts.services.institutions import (
     resolve_institution,
 )
 from tournaments.models import TournamentGame
+from config.organizers import require_organizer
 
 from .payments import create_payment_intent
 from .payment_settings import require_payment_settings
@@ -483,20 +484,6 @@ def _validate_roster(
         raise ValidationError("Every player needs a gamer tag.")
 
 
-def _require_organizer(actor, permission: str) -> None:
-    if actor.is_authenticated and actor.is_active and actor.is_superuser:
-        return
-    if (
-        actor.is_authenticated
-        and actor.is_active
-        and actor.is_staff
-        and actor.groups.filter(name="Organizers").exists()
-        and actor.has_perm(permission)
-    ):
-        return
-    raise PermissionDenied("An Organizer staff account is required.")
-
-
 def _transition_registration(
     *,
     actor,
@@ -505,7 +492,7 @@ def _transition_registration(
     to_status: str,
     note: str = "",
 ) -> Registration:
-    _require_organizer(actor, "registrations.change_registration")
+    require_organizer(actor, "registrations.change_registration")
     with transaction.atomic():
         registration = lock_registration(registration_id)
         expire_due_registrations(division_id=registration.tournament_game_id)
@@ -683,7 +670,7 @@ def review_payment_attempt(
     status: str,
     note: str = "",
 ) -> PaymentAttempt:
-    _require_organizer(actor, "registrations.change_paymentattempt")
+    require_organizer(actor, "registrations.change_paymentattempt")
     if status not in {PaymentAttempt.Status.VERIFIED, PaymentAttempt.Status.REJECTED}:
         raise ValidationError("A payment attempt may only be verified or rejected.")
 

@@ -28,8 +28,24 @@ def seed():
     from django.utils import timezone
 
     from accounts.models import Institution
+    from competitions.commands import (
+        apply_correction,
+        configure_single_elimination,
+        create_competition,
+        finalize_match,
+        preview_correction,
+        publish_draw,
+        save_single_elimination_draw,
+        schedule_match,
+        select_entrants,
+    )
+    from competitions.models import Match
+    from registrations.models import (
+        PaymentSettings,
+        Registration,
+        RegistrationMember,
+    )
     from tournaments.models import Game, Tournament, TournamentGame
-    from registrations.models import PaymentSettings, Registration
     from rest_framework.test import APIClient
 
     PaymentSettings.objects.update_or_create(
@@ -74,6 +90,7 @@ def seed():
         students_only=True,
         is_published=True,
     )
+    divisions = {}
     for slug, minimum, maximum, fee in (
         ("team-free", 2, 3, "0.00"),
         ("solo-free", 1, 1, "0.00"),
@@ -91,6 +108,7 @@ def seed():
             fee_amount=fee,
             fee_currency="VND",
         )
+        divisions[slug] = division
 
         if slug == "solo-paid":
             credential = secrets.token_hex(32)
@@ -140,6 +158,104 @@ def seed():
                     "attemptState": "submitted",
                     "registrationId": registration_id,
                 },
+            )
+
+            bracket_registrations = []
+            for index in range(1, 4):
+                registration = Registration.objects.create(
+                    tournament_game=divisions["solo-free"],
+                    status=Registration.Status.APPROVED,
+                    fee_amount_snapshot="0.00",
+                    fee_currency_snapshot="VND",
+                )
+                RegistrationMember.objects.create(
+                    registration=registration,
+                    gamer_tag_snapshot=f"Bracket Player {index}",
+                    is_captain=True,
+                    display_order=1,
+                )
+                bracket_registrations.append(registration)
+
+            competition = create_competition(
+                actor=organizer,
+                tournament_game_id=divisions["solo-free"].pk,
+            )
+            configure_single_elimination(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                name="Journey final bracket",
+                default_series_length=3,
+            )
+            competition.refresh_from_db()
+            entrants = select_entrants(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                registration_ids=[item.pk for item in bracket_registrations],
+            )
+            competition.refresh_from_db()
+            draw = save_single_elimination_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                entrant_order=[item.pk for item in entrants],
+            )
+            competition.refresh_from_db()
+            publish_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+            )
+            competition.refresh_from_db()
+            semifinal = draw.rounds.get(number=1).matches.get(number=2)
+            final = draw.rounds.get(number=2).matches.get(number=1)
+            schedule_match(
+                actor=organizer,
+                match_id=semifinal.pk,
+                expected_revision=competition.revision,
+                scheduled_at=timezone.now() + timedelta(days=1),
+            )
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=semifinal.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=2,
+                side_two_score=0,
+            )
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=final.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=0,
+                side_two_score=2,
+            )
+            competition.refresh_from_db()
+            correction = preview_correction(
+                actor=organizer,
+                match_id=semifinal.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=0,
+                side_two_score=2,
+            )
+            apply_correction(
+                actor=organizer,
+                token=correction["token"],
+                internal_reason="Browser-only correction fixture.",
+            )
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=final.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=2,
+                side_two_score=0,
             )
             return fixture_path
 
