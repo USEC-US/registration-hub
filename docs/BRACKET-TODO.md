@@ -1,6 +1,6 @@
 # Bracket system core TODO
 
-Updated: 2026-09-25. Branch: `feat/tournament-brackets`.
+Updated: 2026-09-27. Branch: `feat/tournament-brackets`.
 
 This is the authoritative competition-core backlog, linked from
 [the project TODO](TODO.md#5-bracket-core). It replaces the scope and task list
@@ -8,7 +8,17 @@ in the [earlier competition delivery plan](superpowers/plans/2026-09-23-competit
 The approved first single-elimination slice is implemented and focused-validated.
 Its evidence and operating notes are in
 [the single-elimination testing guide](testing/competition-single-elimination.md).
-Later formats and cross-stage behavior remain open below.
+Double elimination is also implemented and focused-validated; see
+[its testing guide](testing/competition-double-elimination.md). Round robin, Swiss,
+and cross-stage behavior remain open below.
+
+The delivered second slice is double elimination (E3/E4), including organizer and
+public workflows. Its [implementation plan](superpowers/plans/2026-09-27-double-elimination.md)
+was approved on 2026-09-27 for subagent execution and is now implemented.
+The plan records sanitized
+structural evidence from the supplied tournament workbook and distinguishes
+historical single-elimination results from synthetic double-elimination
+fixtures.
 
 The approved foundation uses a dedicated `server/competitions` Django app.
 The [detailed design](superpowers/specs/2026-09-23-competition-core-design.md)
@@ -172,8 +182,8 @@ and rules are fixed. Persisted integration follows the shared command path.
 | --- | --- | --- |
 | E1 | [x] Generate and preview single-elimination draws from manual seeds or a saved random draw, including uneven fields and byes. | C1, C2, R3 |
 | E2 | [x] Advance single-elimination winners, handle the first-slice played, forfeit, double-forfeit, bye, and empty outcomes, and complete the final. Withdrawal/disqualification flows remain a later slice. | E1 |
-| E3 | [ ] Generate double-elimination upper/lower routes and verify loser destinations for small and uneven fields. | E1, C2, R3 |
-| E4 | [ ] Advance both brackets and implement the approved grand-final reset/no-reset policies and completion. | E2, E3 |
+| E3 | [x] Generate double-elimination upper/lower routes and verify loser destinations for small and uneven fields. | E1, C2, R3 |
+| E4 | [x] Advance both brackets and implement the approved grand-final reset/no-reset policies and completion. | E2, E3 |
 | G1 | [ ] Assign round robin groups and generate the chosen single/double schedule, including odd-sized groups; each pair meets exactly once or twice independently of series length. | C1, C2, R3 |
 | G2 | [ ] Calculate group standings, points, ordered tiebreaks, and provisional qualifiers from confirmed results. | G1, R2, R3 |
 | S1 | [ ] Generate and preview one Swiss round using the agreed pairing rules, normal-win bye handling, and explicit recorded overrides for unavoidable rematches. | C1, C2, R4 |
@@ -193,8 +203,8 @@ agents work concurrently.
 | ID | Task | Depends on |
 | --- | --- | --- |
 | A1 | [x] Extend least-privilege organizer permissions/bootstrap and test view/change boundaries, non-organizer staff, inactive users, and superusers. | C1, C2 |
-| A2 | [x] Build first-slice competition/stage setup, approved-entrant selection, stage series defaults, and round overrides. | C3, C4, A1 |
-| A3 | [x] Build manual single-elimination seeding, saved random draw, private preview, and explicit publication controls. Group assignment remains with G1. | A2, relevant E1/E3/G1/S1 generators |
+| A2 | [x] Build single/double-elimination competition/stage setup, approved-entrant selection, stage series defaults, and round overrides. | C3, C4, A1 |
+| A3 | [x] Build manual single/double-elimination seeding, saved random draw, private preview, and explicit publication controls. Group assignment remains with G1. | A2, relevant E1/E3/G1/S1 generators |
 | A4 | [x] Build match-list/detail scheduling, individual series-length overrides before play, and score-entry actions with clear validation and stale-edit feedback. | C2, C4, A1, relevant format progression |
 | A5 | [x] Build correction impact/confirmation screens and the full organizer Changes view, including previous results, downstream reset history, actor, timestamp, and internal reason. | C5, A4 |
 | A6 | [ ] Build standings, Swiss next-round controls, qualifier previews, and confirmed handoffs between ordered stages. | applicable source progression/standings, H1, A1 |
@@ -209,9 +219,9 @@ admin framework merely to make these tasks look uniform.
 | ID | Task | Depends on |
 | --- | --- | --- |
 | P1 | [x] Implement published-only first-slice competition snapshots and privacy tests using the agreed allowlist. | C3, C4, relevant format readers |
-| P2 | [x] Build the accessible single-elimination bracket view with match IDs, schedules, effective series lengths, scores, winners, and mobile navigation. Double elimination remains with E3/E4. | C4 fixtures; connect to P1 before completion |
+| P2 | [x] Build accessible single/double-elimination bracket views with match IDs, schedules, effective series lengths, scores, winners, and mobile navigation. Includes upper/lower/finals sections and conditional/not-required reset states. | C4 fixtures; connect to P1 before completion |
 | P3 | [ ] Build round robin/Swiss standings, round pairings with effective series lengths, stage navigation, and qualification states. | C4 fixtures; connect to P1 before completion |
-| P4 | [x] Connect the single-elimination page to the real API; handle unpublished/missing, ready/live/completed, refresh, time zones, and EN/VI UI. Later-format states remain with P3. | P1–P3 |
+| P4 | [x] Connect single/double-elimination pages to the real API; handle unpublished/missing, ready/live/completed, refresh, time zones, and EN/VI UI. Later-format states remain with P3. | P1–P3 |
 | P5 | [x] Expose and render read-only public Changes for published result revisions and resets; test before/after outcomes and exclusion of actor identities, internal notes, and draft history. | C4, C5, P1 |
 
 Reuse existing SvelteKit public loaders, API client, localization, time-zone

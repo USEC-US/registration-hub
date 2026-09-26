@@ -142,6 +142,9 @@
 
 Detailed scope, rule decisions, task dependencies, and completion checks live in
 [the bracket core TODO](BRACKET-TODO.md). Update task progress there.
+Single and double elimination now have organizer/public workflows and focused
+PostgreSQL/browser validation; see the [double-elimination guide](testing/competition-double-elimination.md).
+Round robin, Swiss, handoffs, and realtime remain open.
 
 Inspiration (and future replacement):
 
@@ -177,8 +180,9 @@ Agreed scope:
 ## 7. Full Beta hardening
 
 - [ ] Maintain green backend, frontend, type, lint, and migration checks throughout every slice.
-- [x] Add true full-stack registration browser tests against Django, not only mocked API routes; see [existing journey coverage](testing/registration-journey.md). Bracket/realtime journeys remain to be added with those features.
-- [ ] Seed realistic captain, manager, solo, payment, single-elimination, and double-elimination scenarios.
+- [x] Add true full-stack registration browser tests against Django, not only mocked API routes; see [existing journey coverage](testing/registration-journey.md). Single/double-elimination journeys are also covered; realtime journeys remain open.
+- [ ] Complete realistic captain/manager/solo/payment fixture coverage. Single- and
+  double-elimination fixtures are delivered; see the [seed guide](testing/competition-double-elimination.md).
 - [ ] Test all participant and organizer permissions.
 - [ ] Audit contact information and payment-file privacy.
 - [ ] Validate file types, upload limits, rate limits, and error handling.

@@ -84,6 +84,75 @@ def seed():
         student_id="E2E-ORGANIZER",
     )
     organizer.groups.add(Group.objects.get(name="Organizers"))
+    double_tournament = Tournament.objects.create(
+        name="Double Elimination Journey Test",
+        slug="double-elimination-journey-test",
+        students_only=False,
+        is_published=True,
+    )
+    for slug in ("double-reset", "double-public"):
+        division = TournamentGame.objects.create(
+            tournament=double_tournament,
+            game=Game.objects.create(name=slug, slug=slug),
+            main_roster_size=2,
+            substitute_limit=0,
+            registration_opens_at=timezone.now() - timedelta(days=2),
+            registration_closes_at=timezone.now() - timedelta(days=1),
+            fee_amount="0.00",
+            fee_currency="VND",
+        )
+        registrations = []
+        for index in range(1, 5):
+            registration = Registration.objects.create(
+                tournament_game=division,
+                team_name=f"DE Team {index}",
+                status=Registration.Status.APPROVED,
+                contact_email_snapshot=f"private-de-{index}@example.invalid",
+                fee_amount_snapshot="0.00",
+                fee_currency_snapshot="VND",
+            )
+            for member in range(1, 3):
+                RegistrationMember.objects.create(
+                    registration=registration,
+                    gamer_tag_snapshot=f"DE-{index}-Player-{member}",
+                    is_captain=member == 1,
+                    display_order=member,
+                )
+            registrations.append(registration)
+        if slug == "double-public":
+            competition = create_competition(
+                actor=organizer, tournament_game_id=division.pk
+            )
+            configure_elimination(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                name="Public no-reset browser bracket",
+                format="DOUBLE_ELIMINATION",
+                grand_final_policy="NO_RESET",
+                default_series_length=1,
+            )
+            competition.refresh_from_db()
+            entrants = select_entrants(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                registration_ids=[registration.pk for registration in registrations],
+            )
+            competition.refresh_from_db()
+            save_elimination_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                entrant_order=[entrant.pk for entrant in entrants],
+            )
+            competition.refresh_from_db()
+            publish_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+            )
+
     tournament = Tournament.objects.create(
         name="Registration Journey Test",
         slug="registration-journey-test",

@@ -19,12 +19,14 @@ from accounts.services.institutions import normalize_institution_label
 from competitions.commands import (
     configure_elimination,
     create_competition,
+    finalize_match,
     publish_draw,
     save_elimination_draw,
     schedule_match,
     select_entrants,
+    set_round_series_length,
 )
-from competitions.models import Competition, Match, StageDraw
+from competitions.models import Competition, Match, Round, Stage, StageDraw
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .models import (
@@ -71,6 +73,7 @@ SEED_TOURNAMENT_SLUGS = (
     "dev-usec-current",
     "dev-usec-archive",
     "dev-usec-draft",
+    "dev-usec-double-elimination",
 )
 
 SCENARIO_SUMMARY = (
@@ -81,6 +84,7 @@ SCENARIO_SUMMARY = (
     "League of Legends: registration NOT_OPEN",
     "Chess: published five-player single-elimination bracket",
     "Development draft: unpublished",
+    "Double elimination: ready 16-team reset / completed 5-team no-reset brackets",
 )
 
 
@@ -305,6 +309,18 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         },
     )
 
+    double_elimination, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-double-elimination",
+        defaults={
+            "name": "USEC Synthetic Double Elimination",
+            "description": "Synthetic teams and series allocation for bracket testing.",
+            "students_only": False,
+            "starts_at": now + timedelta(days=14),
+            "ends_at": now + timedelta(days=15),
+            "is_published": True,
+        },
+    )
+
     tournament_games = {
         "valorant": _upsert_tournament_game(
             tournament=current,
@@ -367,11 +383,23 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             fee_amount=Decimal("30000.00"),
         ),
     }
+    for slug, size in (("valorant", 16), ("league-of-legends", 5)):
+        tournament_games[f"double-{slug}"] = _upsert_tournament_game(
+            tournament=double_elimination,
+            game=games[slug],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=size,
+            fee_amount=Decimal("0.00"),
+        )
     return SeedCatalog(
         tournaments={
             current.slug: current,
             archive.slug: archive,
             draft.slug: draft,
+            double_elimination.slug: double_elimination,
         },
         tournament_games=tournament_games,
     )
@@ -430,6 +458,121 @@ def _set_scenario_times(
         if payment.reviewed_at is not None:
             updates["reviewed_at"] = created_at + timedelta(hours=2)
         PaymentAttempt.objects.filter(pk=payment.pk).update(**updates)
+
+
+def _upsert_sponsor_team(
+    *,
+    now: datetime,
+    organizer,
+    division: TournamentGame,
+    team_prefix: str,
+    index: int,
+) -> Registration:
+    submitted_at = now - timedelta(days=3)
+    team_tag = f"{team_prefix}{index:02d}"
+    registration, _ = Registration.objects.update_or_create(
+        tournament_game=division,
+        contact_email_snapshot=(
+            f"{division.tournament.slug}-{division.game.slug}-"
+            f"team-{index}@example.invalid"
+        ),
+        defaults={
+            "submitted_by": None,
+            "submitter_role": Registration.SubmitterRole.CAPTAIN,
+            "contact_facebook_snapshot": "https://facebook.com/example",
+            "contact_phone_snapshot": f"090000{index:04d}",
+            "team_name": f"{division.game.name} Team {index:02d}",
+            "team_tag": team_tag,
+            "status": Registration.Status.APPROVED,
+            "fee_amount_snapshot": division.fee_amount,
+            "fee_currency_snapshot": division.fee_currency,
+            "payment_hold_minutes_snapshot": 60 if division.fee_amount > 0 else None,
+            "payment_due_at": submitted_at + timedelta(minutes=60)
+            if division.fee_amount > 0
+            else None,
+            "submitted_at": submitted_at,
+        },
+    )
+    Registration.objects.filter(pk=registration.pk).update(
+        created_at=submitted_at,
+        submitted_at=submitted_at,
+        updated_at=now,
+    )
+    RegistrationMember.objects.filter(
+        registration=registration,
+        display_order__gt=division.main_roster_size,
+    ).delete()
+    for member_number in range(1, division.main_roster_size + 1):
+        RegistrationMember.objects.update_or_create(
+            registration=registration,
+            display_order=member_number,
+            defaults={
+                "user": None,
+                "gamer_tag_snapshot": f"{team_tag}-P{member_number}",
+                "first_name_snapshot": "Bracket",
+                "last_name_snapshot": f"Player {index:02d}-{member_number}",
+                "date_of_birth_snapshot": date(2005, member_number, 1),
+                "school_snapshot": "HCMUS",
+                "is_captain": member_number == 1,
+                "roster_role": RegistrationMember.RosterRole.MAIN,
+            },
+        )
+
+    RegistrationStatusEvent.objects.filter(registration=registration).delete()
+    RegistrationStatusEvent.objects.create(
+        registration=registration,
+        from_status="",
+        to_status=Registration.Status.SUBMITTED,
+        note="Development sponsor fixture.",
+        created_at=submitted_at,
+    )
+    RegistrationStatusEvent.objects.create(
+        registration=registration,
+        from_status=Registration.Status.SUBMITTED,
+        to_status=Registration.Status.APPROVED,
+        actor=organizer,
+        note="Development sponsor fixture approved.",
+        created_at=submitted_at + timedelta(hours=1),
+    )
+
+    if division.fee_amount > 0:
+        PaymentIntent.objects.update_or_create(
+            registration=registration,
+            defaults={
+                "tournament_game": division,
+                "reference": f"DEV-{team_prefix}{index:02d}",
+                "amount": division.fee_amount,
+                "currency": division.fee_currency,
+                "bank_name_snapshot": "DEVELOPMENT SAMPLE",
+                "account_holder_snapshot": "DEVELOPMENT SAMPLE DO NOT PAY",
+            },
+        )
+        attempt = registration.payment_attempts.order_by("pk").first()
+        if attempt is None:
+            attempt = PaymentAttempt(
+                registration=registration,
+                method=PaymentAttempt.Method.MANUAL_PROOF,
+            )
+            attempt.proof_file = _sample_payment_image()
+        attempt.status = PaymentAttempt.Status.VERIFIED
+        attempt.amount = division.fee_amount
+        attempt.currency = division.fee_currency
+        attempt.reference = f"DEV-{team_prefix}{index:02d}"
+        attempt.reviewed_by = organizer
+        attempt.reviewed_at = submitted_at + timedelta(hours=2)
+        attempt.review_note = "Development sponsor fixture payment verified."
+        attempt.save()
+        PaymentAttempt.objects.filter(registration=registration).exclude(
+            pk=attempt.pk
+        ).delete()
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            created_at=submitted_at + timedelta(hours=1)
+        )
+    else:
+        PaymentIntent.objects.filter(registration=registration).delete()
+        PaymentAttempt.objects.filter(registration=registration).delete()
+
+    return registration
 
 
 def _rebuild_registrations(
@@ -734,6 +877,112 @@ def _seed_published_bracket(*, now: datetime, organizer, catalog: SeedCatalog) -
         )
 
 
+def _seed_double_elimination(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    for slug, size, policy in (
+        ("valorant", 16, Stage.GrandFinalPolicy.RESET),
+        ("league-of-legends", 5, Stage.GrandFinalPolicy.NO_RESET),
+    ):
+        division = catalog.tournament_games[f"double-{slug}"]
+        registrations = [
+            _upsert_sponsor_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="DE",
+                index=index,
+            )
+            for index in range(1, size + 1)
+        ]
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.stages.filter(draws__state=StageDraw.State.PUBLISHED).exists():
+                continue
+            raise ValidationError(
+                "The development double-elimination competition is incomplete."
+            )
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        configure_elimination(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            name=f"Synthetic {size}-team {policy.lower().replace('_', '-')} bracket",
+            format=Stage.Format.DOUBLE_ELIMINATION,
+            grand_final_policy=policy,
+            default_series_length=1,
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[registration.pk for registration in registrations],
+        )
+        competition.refresh_from_db()
+        draw = save_elimination_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            entrant_order=[entrant.pk for entrant in entrants],
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+        )
+        if policy == Stage.GrandFinalPolicy.RESET:
+            # Synthetic allocation: BO1 early rounds, BO3 late rounds and finals.
+            for round_ in draw.rounds.all():
+                if (
+                    round_.section == Round.Section.UPPER
+                    and round_.number >= 3
+                    or round_.section == Round.Section.LOWER
+                    and round_.number == 6
+                    or round_.section == Round.Section.FINALS
+                ):
+                    competition.refresh_from_db()
+                    set_round_series_length(
+                        actor=organizer,
+                        round_id=round_.pk,
+                        expected_revision=competition.revision,
+                        series_length=3,
+                    )
+        else:
+            while Match.objects.filter(
+                round__draw=draw, status=Match.Status.PENDING
+            ).exists():
+                ready = next(
+                    (
+                        match
+                        for match in Match.objects.filter(
+                            round__draw=draw, status=Match.Status.PENDING
+                        )
+                        .prefetch_related("slots")
+                        .order_by("pk")
+                        if all(
+                            slot.is_resolved and slot.resolved_entry_id
+                            for slot in match.slots.all()
+                        )
+                    ),
+                    None,
+                )
+                if ready is None:
+                    raise ValidationError(
+                        "The development no-reset bracket cannot advance."
+                    )
+                competition.refresh_from_db()
+                finalize_match(
+                    actor=organizer,
+                    match_id=ready.pk,
+                    expected_revision=competition.revision,
+                    outcome=Match.Outcome.PLAYED,
+                    side_one_score=1,
+                    side_two_score=0,
+                )
+
+
 @contextmanager
 def _development_payment_destination():
     """Use fictional snapshots only for this command's fixtures, never public settings.
@@ -776,6 +1025,7 @@ def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
             catalog=catalog,
         )
     _seed_published_bracket(now=now, organizer=organizer, catalog=catalog)
+    _seed_double_elimination(now=now, organizer=organizer, catalog=catalog)
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),

@@ -14,7 +14,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import Institution
-from competitions.models import Competition, Match, StageDraw
+from competitions.models import Competition, Match, Round, Stage, StageDraw
 from registrations.models import (
     PaymentAttempt,
     PaymentIntent,
@@ -190,7 +190,7 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertSetEqual(
             {item["slug"] for item in list_response.data},
-            {"dev-usec-current", "dev-usec-archive"},
+            {"dev-usec-current", "dev-usec-archive", "dev-usec-double-elimination"},
         )
 
         current_response = client.get("/api/tournaments/dev-usec-current/")
@@ -243,6 +243,82 @@ class SeedDevDataCommandTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["stages"][0]["entries"]), 5)
+
+    def test_double_elimination_fixtures_are_published_valid_and_stable(self):
+        self.run_seed()
+        competitions = Competition.objects.filter(
+            tournament_game__tournament__slug="dev-usec-double-elimination"
+        ).order_by("tournament_game__game__slug")
+        self.assertEqual(competitions.count(), 2)
+        original_ids = list(competitions.values_list("pk", flat=True))
+        original_matches = list(
+            Match.objects.filter(round__draw__stage__competition__in=competitions)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        self.run_seed()
+        self.assertEqual(list(competitions.values_list("pk", flat=True)), original_ids)
+        self.assertEqual(
+            list(
+                Match.objects.filter(round__draw__stage__competition__in=competitions)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            ),
+            original_matches,
+        )
+        for competition in competitions:
+            stage = competition.stages.get()
+            draw = stage.draws.get(state=StageDraw.State.PUBLISHED)
+            reset = stage.grand_final_policy == Stage.GrandFinalPolicy.RESET
+            self.assertEqual(stage.format, Stage.Format.DOUBLE_ELIMINATION)
+            self.assertEqual(draw.entries.count(), 16 if reset else 5)
+            self.assertEqual(
+                stage.status, Stage.Status.READY if reset else Stage.Status.COMPLETE
+            )
+            self.assertEqual(stage.grand_final_policy, "RESET" if reset else "NO_RESET")
+            for entrant in competition.entrants.select_related("registration"):
+                registration = entrant.registration
+                self.assertEqual(registration.status, Registration.Status.APPROVED)
+                self.assertEqual(registration.members.count(), 5)
+                self.assertTrue(
+                    registration.contact_email_snapshot.endswith("@example.invalid")
+                )
+                self.assertEqual(registration.fee_amount_snapshot, Decimal("0.00"))
+            matches = Match.objects.filter(round__draw=draw)
+            if reset:
+                self.assertEqual(stage.default_series_length, 1)
+                self.assertEqual(matches.count(), 31)
+                self.assertEqual(
+                    matches.filter(status=Match.Status.CONDITIONAL).count(), 1
+                )
+                self.assertSetEqual(
+                    set(
+                        draw.rounds.filter(series_length_override=3).values_list(
+                            "section", "number"
+                        )
+                    ),
+                    {
+                        (Round.Section.UPPER, 3),
+                        (Round.Section.UPPER, 4),
+                        (Round.Section.LOWER, 6),
+                        (Round.Section.FINALS, 1),
+                        (Round.Section.FINALS, 2),
+                    },
+                )
+            else:
+                self.assertEqual(matches.count(), 14)
+                self.assertTrue(matches.filter(outcome=Match.Outcome.BYE).exists())
+                self.assertFalse(matches.exclude(status=Match.Status.FINAL).exists())
+                self.assertIsNotNone(stage.champion_id)
+            response = APIClient().get(
+                f"/api/tournament-games/{competition.tournament_game_id}/competition/"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertSetEqual(
+                {round_["section"] for round_ in response.data["stages"][0]["rounds"]},
+                {"UPPER", "LOWER", "FINALS"},
+            )
+            self.assertNotIn("@example.invalid", str(response.data))
 
     def test_command_seeds_registration_status_payment_and_timeline_matrix(self):
         output = self.run_seed()
