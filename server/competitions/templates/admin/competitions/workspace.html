@@ -9,7 +9,7 @@
       <h1>{{ workspace_title|default:title }}</h1>
       {% if workspace_description or description %}<p class="cw-muted">{{ workspace_description|default:description }}</p>{% endif %}
       <div class="cw-meta">
-        {% if stage %}<span class="cw-badge">{{ stage.get_status_display }}</span><span>{{ stage.get_format_display }}</span>{% else %}<span class="cw-badge">Not set up</span>{% endif %}
+        {% if stage %}<span class="cw-badge">{{ stage.get_status_display }}</span><span>{{ stage.get_format_display }}</span>{% if grand_final_policy %}<span>Grand final policy: {{ grand_final_policy }}</span>{% endif %}{% else %}<span class="cw-badge">Not set up</span>{% endif %}
         <span>{{ participant_count }} entrant{{ participant_count|pluralize }}</span>
         {% if total_count %}<span>{{ completed_count }} of {{ total_count }} matches complete</span>{% endif %}
       </div>
@@ -45,6 +45,7 @@
           <dl class="cw-facts">
             <div><dt>Stage name</dt><dd>{{ stage.name }}</dd></div>
             <div><dt>Format</dt><dd>{{ stage.get_format_display }}</dd></div>
+            {% if grand_final_policy %}<div><dt>Grand final policy</dt><dd>{{ grand_final_policy }}</dd></div>{% endif %}
             <div><dt>Default match length</dt><dd>Best of {{ stage.default_series_length }}</dd></div>
             <div><dt>Bracket visibility</dt><dd>{% if stage.published_at %}Published{% else %}Private until published{% endif %}</dd></div>
           </dl>
@@ -94,6 +95,7 @@
                       <div class="cw-match-info"><span>Best of {{ match.series_length }}</span>{% if match.scheduled_at %}<time datetime="{{ match.scheduled_at|date:'c' }}">{{ match.scheduled_at|date:"M j, H:i T" }}</time>{% endif %}</div>
                       {% if match.outcome %}<p class="cw-match-note">{{ match.outcome }}</p>{% endif %}
                       {% if match.awaiting %}<p class="cw-match-note">Waiting for earlier matches</p>{% endif %}
+                      {% if match.inactive_final %}<p class="cw-match-note">{{ match.inactive_final_message }}</p>{% endif %}
                       <footer class="cw-match-actions">
                         {% if match.result_url %}<a class="cw-button cw-button-primary" href="{{ match.result_url }}">{{ match.result_label }}<span class="cw-sr-only"> for {{ match.code }}</span></a>{% else %}<a class="cw-button" href="{{ match.detail_url }}">View match<span class="cw-sr-only"> {{ match.code }}</span></a>{% endif %}
                         {% if match.schedule_url %}<a href="{{ match.schedule_url }}">Schedule<span class="cw-sr-only"> {{ match.code }}</span></a>{% endif %}
@@ -117,10 +119,11 @@
           {% for change in changes_page %}
             <li class="cw-change">
               <div class="cw-change-heading"><h3>{% if change.url %}<a href="{{ change.url }}">{{ change.label }}</a>{% else %}{{ change.label }}{% endif %}</h3><time class="cw-muted" datetime="{{ change.created_at|date:'c' }}">{{ change.created_at|date:"M j, Y, H:i T" }}</time></div>
-              {% if change.before or change.after or change.actor or change.internal_reason or change.resets %}
+              {% if change.before or change.after or change.actor or change.internal_reason or change.resets or change.activation_changes %}
                 <details><summary>View details</summary><div class="cw-change-details">
                   {% if change.before or change.after %}<dl class="cw-comparison">{% if change.before %}<div><dt>Before</dt><dd>{{ change.before|linebreaksbr }}</dd></div>{% endif %}{% if change.after %}<div><dt>After</dt><dd>{{ change.after|linebreaksbr }}</dd></div>{% endif %}</dl>{% endif %}
                   {% if change.resets %}<div><h3>Results cleared by this change</h3><ul class="cw-reset-list">{% for reset in change.resets %}<li>{{ reset }}</li>{% endfor %}</ul></div>{% endif %}
+                  {% if change.activation_changes %}<div><h3>Reserved final activation changes</h3><ul class="cw-reset-list">{% for item in change.activation_changes %}<li><a href="{{ item.url }}">{{ item.code }}</a> — {{ item.before }} &rarr; {{ item.after }}</li>{% endfor %}</ul></div>{% endif %}
                   {% if change.actor %}<p class="cw-muted"><strong>Organizer:</strong> {{ change.actor }}</p>{% endif %}
                   {% if change.internal_reason %}<p><strong>Internal note:</strong> {{ change.internal_reason|linebreaksbr }}</p>{% endif %}
                 </div></details>

@@ -6,7 +6,7 @@ from tournaments.models import TournamentGame
 
 from .admin_workspace import slot_label
 from .commands import _entrant_label
-from .models import CompetitionEntrant, Match, StageDraw
+from .models import CompetitionEntrant, Match, Stage, StageDraw
 
 
 class NewCompetitionForm(forms.Form):
@@ -31,6 +31,20 @@ class RevisionForm(forms.Form):
 
 class CompetitionSetupForm(RevisionForm):
     name = forms.CharField(label="Stage name", max_length=100, initial="Final bracket")
+    format = forms.ChoiceField(
+        required=False,
+        choices=(
+            (Stage.Format.SINGLE_ELIMINATION, "Single elimination"),
+            (Stage.Format.DOUBLE_ELIMINATION, "Double elimination"),
+        ),
+        initial=Stage.Format.SINGLE_ELIMINATION,
+    )
+    grand_final_policy = forms.ChoiceField(
+        label="Grand final policy",
+        required=False,
+        choices=(("", "Choose a grand final policy"), *Stage.GrandFinalPolicy.choices),
+        help_text="Required for double elimination; leave blank for single elimination.",
+    )
     default_series_length = forms.IntegerField(
         label="Games per match (best of)",
         min_value=1,
@@ -43,6 +57,19 @@ class CompetitionSetupForm(RevisionForm):
         if value % 2 == 0:
             raise forms.ValidationError("Best-of length must be odd.")
         return value
+
+    def clean(self):
+        cleaned = super().clean()
+        format_ = cleaned.get("format") or Stage.Format.SINGLE_ELIMINATION
+        policy = cleaned.get("grand_final_policy", "")
+        cleaned["format"] = format_
+        if format_ == Stage.Format.DOUBLE_ELIMINATION and not policy:
+            self.add_error("grand_final_policy", "Choose reset or no reset.")
+        elif format_ == Stage.Format.SINGLE_ELIMINATION and policy:
+            self.add_error(
+                "grand_final_policy", "Single elimination has no final policy."
+            )
+        return cleaned
 
 
 class EntrantChoiceField(forms.ModelMultipleChoiceField):

@@ -10,11 +10,12 @@ from accounts.tests.factories import create_account
 from competitions.commands import (
     configure_elimination,
     create_competition,
+    finalize_match,
     publish_draw,
     save_elimination_draw,
     select_entrants,
 )
-from competitions.models import Competition, Match, StageDraw
+from competitions.models import Competition, Match, Stage, StageDraw
 from registrations.models import Registration, RegistrationMember
 from tournaments.models import Game, Tournament, TournamentGame
 
@@ -146,6 +147,40 @@ class CompetitionWorkspaceTests(TestCase):
         self.assertTrue(response.url.startswith(self._url("change", competition)))
         competition.refresh_from_db()
 
+    def _publish_double_workspace(self, policy, *, entrant_count=3):
+        self.client.post(self._url("add"), {"tournament_game": self.division.pk})
+        competition = Competition.objects.get(tournament_game=self.division)
+        self._submit(
+            competition,
+            "configure_detail",
+            {
+                "name": "Double elimination playoffs",
+                "format": Stage.Format.DOUBLE_ELIMINATION,
+                "grand_final_policy": policy,
+                "default_series_length": 3,
+            },
+        )
+        self._submit(
+            competition,
+            "entrants_detail",
+            {"registrations": [item.pk for item in self.registrations[:entrant_count]]},
+        )
+        self._submit(
+            competition,
+            "draw_detail",
+            {
+                f"seed_{number}": entrant.pk
+                for number, entrant in enumerate(competition.entrants.order_by("pk"), 1)
+            },
+        )
+        preview = self.client.get(self._url("change", competition))
+        publication = self.client.get(self._url("publish_detail", competition))
+        self._submit(competition, "publish_detail", {})
+        draw = StageDraw.objects.get(
+            stage__competition=competition, state=StageDraw.State.PUBLISHED
+        )
+        return competition, draw, preview, publication
+
     def test_only_competitions_are_listed_even_for_superusers(self):
         self.viewer.user_permissions.set(
             Permission.objects.filter(content_type__app_label="competitions")
@@ -259,6 +294,283 @@ class CompetitionWorkspaceTests(TestCase):
         self.assertNotContains(
             self.client.get(self._url("change", competition)), result_url
         )
+
+    def test_setup_offers_elimination_formats_and_requires_double_final_policy(self):
+        self.client.post(self._url("add"), {"tournament_game": self.division.pk})
+        competition = Competition.objects.get(tournament_game=self.division)
+        url = self._url("configure_detail", competition)
+        response = self.client.get(url)
+        self.assertEqual(
+            list(response.context["form"].fields["format"].choices),
+            [
+                (Stage.Format.SINGLE_ELIMINATION, "Single elimination"),
+                (Stage.Format.DOUBLE_ELIMINATION, "Double elimination"),
+            ],
+        )
+        self.assertEqual(
+            list(response.context["form"].fields["grand_final_policy"].choices),
+            [
+                ("", "Choose a grand final policy"),
+                (Stage.GrandFinalPolicy.RESET, "Reset"),
+                (Stage.GrandFinalPolicy.NO_RESET, "No reset"),
+            ],
+        )
+
+        response = self.client.post(
+            url,
+            {
+                "expected_revision": competition.revision,
+                "name": "Double elimination playoffs",
+                "format": Stage.Format.DOUBLE_ELIMINATION,
+                "grand_final_policy": "",
+                "default_series_length": 3,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "grand_final_policy",
+            "Choose reset or no reset.",
+        )
+        self.assertFalse(competition.stages.exists())
+
+    def test_reset_policy_workspace_has_section_headings_and_source_outcomes(self):
+        competition, draw, preview, publication = self._publish_double_workspace(
+            Stage.GrandFinalPolicy.RESET
+        )
+        for heading in (
+            "Upper bracket round 1",
+            "Upper bracket final",
+            "Lower bracket round 1",
+            "Lower bracket final",
+            "Grand final",
+            "Reset final",
+        ):
+            self.assertContains(preview, heading)
+        self.assertContains(preview, "Winner of")
+        self.assertContains(preview, "Loser of")
+        self.assertContains(preview, "Grand final policy")
+        self.assertContains(preview, "Reset if necessary")
+        self.assertContains(publication, "Reset if necessary")
+
+        published = self.client.get(self._url("change", competition))
+        self.assertContains(published, "Reset if necessary")
+        reset = Match.objects.get(
+            round__draw=draw,
+            round__section="FINALS",
+            round__number=2,
+        )
+        self.assertEqual(reset.status, Match.Status.CONDITIONAL)
+        self.assertContains(published, "Reserved final")
+        self.assertContains(published, "activates if the lower-bracket winner wins")
+        self.assertNotContains(published, self._url("finalize_detail", reset, "match"))
+
+    def test_no_reset_policy_reaches_publication_without_reserved_final(self):
+        competition, draw, preview, publication = self._publish_double_workspace(
+            Stage.GrandFinalPolicy.NO_RESET
+        )
+        self.assertContains(preview, "No reset")
+        self.assertContains(publication, "No reset")
+        self.assertContains(
+            self.client.get(self._url("change", competition)), "No reset"
+        )
+        self.assertFalse(
+            Match.objects.filter(
+                round__draw=draw,
+                round__section="FINALS",
+                round__number=2,
+            ).exists()
+        )
+
+    def test_reserved_final_allows_setup_actions_but_rejects_play_actions(self):
+        competition, draw, _, _ = self._publish_double_workspace(
+            Stage.GrandFinalPolicy.RESET
+        )
+        reset = Match.objects.get(
+            round__draw=draw,
+            round__section="FINALS",
+            round__number=2,
+        )
+        urls = {
+            action: self._url(action, reset, "match")
+            for action in (
+                "schedule_detail",
+                "series_detail",
+                "start_detail",
+                "progress_detail",
+                "finalize_detail",
+            )
+        }
+        before = (
+            competition.revision,
+            competition.changes.count(),
+            reset.status,
+            reset.scheduled_at,
+            reset.series_length_override,
+        )
+        detail = self.client.get(self._url("change", reset, "match"))
+        self.assertContains(detail, urls["schedule_detail"])
+        self.assertContains(detail, urls["series_detail"])
+        for action in ("start_detail", "progress_detail", "finalize_detail"):
+            self.assertNotContains(detail, urls[action])
+        for url in urls.values():
+            self.assertEqual(self.client.get(url).status_code, 200)
+        competition.refresh_from_db()
+        reset.refresh_from_db()
+        self.assertEqual(
+            (
+                competition.revision,
+                competition.changes.count(),
+                reset.status,
+                reset.scheduled_at,
+                reset.series_length_override,
+            ),
+            before,
+        )
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.organizer)
+        csrf_client.get(urls["schedule_detail"])
+        self.assertEqual(
+            csrf_client.post(
+                urls["schedule_detail"],
+                {
+                    "expected_revision": competition.revision,
+                    "scheduled_at": "2026-10-01T10:00",
+                },
+            ).status_code,
+            403,
+        )
+
+        stale_revision = competition.revision
+        response = self.client.post(
+            urls["schedule_detail"],
+            {
+                "expected_revision": stale_revision,
+                "scheduled_at": "2026-10-01T10:00",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        competition.refresh_from_db()
+        reset.refresh_from_db()
+        self.assertIsNotNone(reset.scheduled_at)
+        self.assertEqual(reset.status, Match.Status.CONDITIONAL)
+
+        stale_response = self.client.post(
+            urls["series_detail"],
+            {"expected_revision": stale_revision, "series_length": 5},
+        )
+        self.assertEqual(stale_response.status_code, 200)
+        self.assertContains(stale_response, "Competition changed from revision")
+        reset.refresh_from_db()
+        self.assertIsNone(reset.series_length_override)
+
+        response = self.client.post(
+            urls["series_detail"],
+            {"expected_revision": competition.revision, "series_length": 5},
+        )
+        self.assertEqual(response.status_code, 302)
+        reset.refresh_from_db()
+        self.assertEqual(reset.series_length_override, 5)
+
+        invalid_posts = {
+            "start_detail": ({}, "Only a pending match can start"),
+            "progress_detail": (
+                {"side_one_score": 0, "side_two_score": 0},
+                "inactive reset final",
+            ),
+            "finalize_detail": (
+                {
+                    "outcome": Match.Outcome.FORFEIT,
+                    "winner_position": 1,
+                },
+                "inactive reset final",
+            ),
+        }
+        for action, (data, error) in invalid_posts.items():
+            with self.subTest(action=action):
+                competition.refresh_from_db()
+                revision = competition.revision
+                response = self.client.post(
+                    urls[action], {"expected_revision": revision, **data}
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, error)
+                competition.refresh_from_db()
+                reset.refresh_from_db()
+                self.assertEqual(competition.revision, revision)
+                self.assertEqual(reset.status, Match.Status.CONDITIONAL)
+
+        self._grant_viewer("view_competition", "view_match")
+        for action in ("schedule_detail", "series_detail", "start_detail"):
+            with self.subTest(permission_action=action):
+                self.assertEqual(self.client.get(urls[action]).status_code, 403)
+                self.assertEqual(self.client.post(urls[action], {}).status_code, 403)
+
+    def test_correction_displays_reserved_final_activation_and_private_reason(self):
+        competition, draw, _, _ = self._publish_double_workspace(
+            Stage.GrandFinalPolicy.RESET, entrant_count=2
+        )
+        upper = Match.objects.get(
+            round__draw=draw, round__section="UPPER", round__number=1
+        )
+        finalize_match(
+            actor=self.organizer,
+            match_id=upper.pk,
+            expected_revision=competition.revision,
+            outcome=Match.Outcome.FORFEIT,
+            winner_position=1,
+        )
+        competition.refresh_from_db()
+        final = Match.objects.get(
+            round__draw=draw, round__section="FINALS", round__number=1
+        )
+        finalize_match(
+            actor=self.organizer,
+            match_id=final.pk,
+            expected_revision=competition.revision,
+            outcome=Match.Outcome.FORFEIT,
+            winner_position=1,
+        )
+        competition.refresh_from_db()
+        reset = Match.objects.get(
+            round__draw=draw, round__section="FINALS", round__number=2
+        )
+        self.assertEqual(reset.status, Match.Status.NOT_REQUIRED)
+        finalize_url = self._url("finalize_detail", reset, "match")
+        workspace = self.client.get(self._url("change", competition))
+        self.assertNotContains(workspace, finalize_url)
+
+        correct_url = self._url("correct_detail", final, "match")
+        response = self.client.post(
+            correct_url,
+            {
+                "expected_revision": competition.revision,
+                "outcome": Match.Outcome.FORFEIT,
+                "winner_position": 2,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reserved final activation changes")
+        self.assertContains(response, reset.code)
+        self.assertContains(response, "Not required")
+        self.assertContains(response, "Active")
+        self.assertContains(response, "No other match results need to be cleared")
+
+        reason = "Grand final winner was recorded on the wrong side."
+        response = self.client.post(
+            correct_url,
+            {"token": response.context["token"], "internal_reason": reason},
+        )
+        self.assertEqual(response.status_code, 302)
+        reset.refresh_from_db()
+        self.assertEqual(reset.status, Match.Status.PENDING)
+        changes = self.client.get(self._url("change", competition), {"tab": "changes"})
+        self.assertContains(changes, "Reserved final activation changes")
+        self.assertContains(changes, reset.code)
+        self.assertContains(changes, "Not required")
+        self.assertContains(changes, "Active")
+        self.assertContains(changes, reason)
 
     def test_draft_bye_and_unresolved_matches_have_no_result_action(self):
         competition, draw = self._draft()

@@ -18,10 +18,14 @@
       <h2 id="cw-impact-title">Review this correction</h2>
       <dl class="cw-comparison"><div><dt>Before</dt><dd>{{ impact_display.before|linebreaksbr }}</dd></div><div><dt>After</dt><dd>{{ impact_display.after|linebreaksbr }}</dd></div></dl>
       {% if impact_display.matches %}
-        <h3>These matches will be reset</h3>
+        <h3>These match results will be cleared</h3>
         <p>Their current scores and results will be cleared. Previous results will remain in Changes.</p>
         <ul class="cw-reset-list">{% for item in impact_display.matches %}<li>{% if item.url %}<a href="{{ item.url }}">{{ item.code }} — {{ item.label }}</a>{% else %}{{ item.code }} — {{ item.label }}{% endif %}</li>{% endfor %}</ul>
-      {% else %}<p>No other matches need to be reset.</p>{% endif %}
+      {% else %}<p>No other match results need to be cleared.</p>{% endif %}
+      {% if impact_display.activation_changes %}
+        <h3>Reserved final activation changes</h3>
+        <ul class="cw-reset-list">{% for item in impact_display.activation_changes %}<li><a href="{{ item.url }}">{{ item.code }}</a> — {{ item.before }} &rarr; {{ item.after }}</li>{% endfor %}</ul>
+      {% endif %}
     </section>
   {% elif impact %}
     <div class="cw-notice cw-notice-warning"><h2>Review this correction</h2><p>Confirm the result correction below. Previous results will remain in Changes.</p></div>

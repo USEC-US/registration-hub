@@ -2,7 +2,7 @@
 
 from django.urls import reverse
 
-from .models import Match, StageDraw
+from .models import Match, Round, Stage, StageDraw
 
 
 def workspace_url(competition_id, tab=None):
@@ -17,8 +17,32 @@ def slot_label(slot):
     if slot.is_resolved or slot.is_empty:
         return "Bye"
     if slot.source_match_id:
-        return f"Winner of {slot.source_match.code}"
+        return f"{slot.get_source_outcome_display()} of {slot.source_match.code}"
     return "Opponent to be decided"
+
+
+def grand_final_policy_label(stage):
+    if not stage or stage.format != Stage.Format.DOUBLE_ELIMINATION:
+        return ""
+    if stage.grand_final_policy == Stage.GrandFinalPolicy.RESET:
+        return "Reset if necessary"
+    return "No reset"
+
+
+def round_label(round_, *, last_round_number):
+    if round_.section == Round.Section.FINALS:
+        return "Grand final" if round_.number == 1 else "Reset final"
+    if round_.section in (Round.Section.UPPER, Round.Section.LOWER):
+        bracket = round_.get_section_display()
+        return (
+            f"{bracket} bracket final"
+            if round_.number == last_round_number
+            else f"{bracket} bracket round {round_.number}"
+        )
+    remaining = last_round_number - round_.number + 1
+    return {1: "Final", 2: "Semifinals", 3: "Quarterfinals"}.get(
+        remaining, f"Round {round_.number}"
+    )
 
 
 def match_card(match, user):
@@ -29,9 +53,17 @@ def match_card(match, user):
     )
     can_operate = user.has_perm("competitions.change_match") and published
     automatic = match.outcome in (Match.Outcome.BYE, Match.Outcome.EMPTY)
+    inactive_final = match.status in (
+        Match.Status.CONDITIONAL,
+        Match.Status.NOT_REQUIRED,
+    )
     result_url = None
     result_label = "Enter result"
-    if can_operate and ready and match.status != Match.Status.FINAL:
+    if (
+        can_operate
+        and ready
+        and match.status in (Match.Status.PENDING, Match.Status.LIVE)
+    ):
         result_url = reverse(
             "admin:competitions_match_finalize_detail", args=[match.pk]
         )
@@ -48,6 +80,8 @@ def match_card(match, user):
         status = "Bye" if match.outcome == Match.Outcome.BYE else "No contest"
     elif match.status == Match.Status.FINAL:
         status = "Completed"
+    elif match.status == Match.Status.CONDITIONAL:
+        status = "Reserved final"
     return {
         "id": match.pk,
         "code": match.code,
@@ -77,9 +111,19 @@ def match_card(match, user):
         "schedule_url": reverse(
             "admin:competitions_match_schedule_detail", args=[match.pk]
         )
-        if can_operate and match.status == Match.Status.PENDING
+        if can_operate
+        and match.status
+        in (Match.Status.PENDING, Match.Status.CONDITIONAL, Match.Status.NOT_REQUIRED)
         else None,
-        "awaiting": not ready and not automatic,
+        "awaiting": not ready and not automatic and not inactive_final,
+        "inactive_final": inactive_final,
+        "inactive_final_message": (
+            "This reserved final activates if the lower-bracket winner wins the grand final."
+            if match.status == Match.Status.CONDITIONAL
+            else "This reserved final is not required because the upper-bracket winner won the grand final."
+            if match.status == Match.Status.NOT_REQUIRED
+            else ""
+        ),
         "historical": match.round.draw.state == StageDraw.State.SUPERSEDED,
     }
 
@@ -119,5 +163,26 @@ def correction_display(impact):
                 ),
             }
             for item in impact.get("affected_matches", [])
+            if item.get("status") in (Match.Status.LIVE, Match.Status.FINAL)
         ],
+        "activation_changes": reset_final_changes_display(
+            impact.get("reset_final_changes", [])
+        ),
     }
+
+
+def reset_final_changes_display(changes):
+    labels = {
+        "ACTIVE": "Active",
+        "CONDITIONAL": "Reserved",
+        "NOT_REQUIRED": "Not required",
+    }
+    return [
+        {
+            "code": item["match_code"],
+            "before": labels[item["before"]],
+            "after": labels[item["after"]],
+            "url": reverse("admin:competitions_match_change", args=[item["match_id"]]),
+        }
+        for item in changes
+    ]

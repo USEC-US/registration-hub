@@ -18,8 +18,11 @@ from tournaments.models import TournamentGame
 
 from .admin_workspace import (
     correction_display,
+    grand_final_policy_label,
     match_card,
+    reset_final_changes_display,
     result_summary,
+    round_label,
     workspace_url,
 )
 
@@ -283,18 +286,22 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             draw_rounds = list(
                 draw.rounds.prefetch_related(Prefetch("matches", queryset=matches))
             )
-            for index, round_ in enumerate(draw_rounds):
+            last_round_numbers = {}
+            for round_ in draw_rounds:
+                last_round_numbers[round_.section] = max(
+                    round_.number, last_round_numbers.get(round_.section, 0)
+                )
+            for round_ in draw_rounds:
                 cards = [
                     match_card(match, request.user) for match in round_.matches.all()
                 ]
                 all_cards.extend(cards)
-                remaining = len(draw_rounds) - index
-                label = {1: "Final", 2: "Semifinals", 3: "Quarterfinals"}.get(
-                    remaining, f"Round {round_.number}"
-                )
                 rounds.append(
                     {
-                        "label": label,
+                        "label": round_label(
+                            round_,
+                            last_round_number=last_round_numbers[round_.section],
+                        ),
                         "series_length": round_.series_length_override
                         or stage.default_series_length,
                         "series_url": reverse(
@@ -347,6 +354,9 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                         result_summary(item)
                         for item in change.private_data.get("reset_matches", [])
                     ],
+                    "activation_changes": reset_final_changes_display(
+                        change.private_data.get("reset_final_changes", [])
+                    ),
                     "url": reverse(
                         "admin:competitions_match_change",
                         args=[change.private_data["match_id"]],
@@ -366,6 +376,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "title": f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
                 "competition": competition,
                 "stage": stage,
+                "grand_final_policy": grand_final_policy_label(stage),
                 "draw": draw,
                 "workspace_url": url,
                 "bracket_url": workspace_url(competition.pk, "bracket"),
@@ -488,7 +499,15 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         )
 
     def _competition_form_view(
-        self, request, object_id, *, title, form_class, command, form_kwargs=None
+        self,
+        request,
+        object_id,
+        *,
+        title,
+        form_class,
+        command,
+        form_kwargs=None,
+        description=None,
     ):
         if request.method not in ("GET", "POST"):
             return HttpResponseNotAllowed(["GET", "POST"])
@@ -526,9 +545,10 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             ),
             extra={
                 "workspace_url": workspace_url(competition.pk),
-                "description": f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
+                "description": description
+                or f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
                 "submit_label": {
-                    "Configure single elimination": "Save setup",
+                    "Configure elimination bracket": "Save setup",
                     "Select approved entrants": "Save entrants",
                     "Save bracket draw": "Save and preview bracket",
                     "Publish saved draw": "Publish bracket",
@@ -536,23 +556,27 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             },
         )
 
-    @action(permissions=["change"], description="Configure single elimination")
+    @action(permissions=["change"], description="Configure elimination bracket")
     def configure_detail(self, request, object_id):
         competition = self.get_object(request, object_id)
         stage = competition.stages.order_by("sequence").first() if competition else None
         initial = (
-            {"name": stage.name, "default_series_length": stage.default_series_length}
+            {
+                "name": stage.name,
+                "format": stage.format,
+                "grand_final_policy": stage.grand_final_policy,
+                "default_series_length": stage.default_series_length,
+            }
             if stage
             else None
         )
         return self._competition_form_view(
             request,
             object_id,
-            title="Configure single elimination",
+            title="Configure elimination bracket",
             form_class=CompetitionSetupForm,
             form_kwargs={"initial": initial},
             command=lambda item, expected_revision, data: configure_elimination(
-                format="SINGLE_ELIMINATION",
                 actor=request.user,
                 competition_id=item.pk,
                 expected_revision=expected_revision,
@@ -606,6 +630,9 @@ class CompetitionAdmin(OrganizerStaffAdmin):
 
     @action(permissions=["change"], description="Publish saved draw")
     def publish_detail(self, request, object_id):
+        competition = self.get_object(request, object_id)
+        stage = competition.stages.order_by("sequence").first() if competition else None
+        policy = grand_final_policy_label(stage)
         return self._competition_form_view(
             request,
             object_id,
@@ -615,6 +642,14 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 actor=request.user,
                 competition_id=item.pk,
                 expected_revision=expected_revision,
+            ),
+            description=(
+                f"{competition.tournament_game.tournament.name} · "
+                f"{competition.tournament_game.game.name} · "
+                f"{stage.get_format_display()}"
+                + (f" · Grand final policy: {policy}" if policy else "")
+                if competition and stage
+                else None
             ),
         )
 
@@ -839,7 +874,9 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
             },
             Match.Status.LIVE: {"progress_detail", "finalize_detail"},
             Match.Status.FINAL: {"correct_detail"},
-        }[match.status]
+            Match.Status.CONDITIONAL: {"schedule_detail", "series_detail"},
+            Match.Status.NOT_REQUIRED: {"schedule_detail", "series_detail"},
+        }.get(match.status, set())
         if match.outcome in (Match.Outcome.BYE, Match.Outcome.EMPTY):
             valid.discard("correct_detail")
         slots = list(match.slots.all())

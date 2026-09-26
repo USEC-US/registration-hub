@@ -21,6 +21,7 @@
     </ol>
     {% if match_card.outcome %}<p class="cw-match-note">{{ match_card.outcome }}</p>{% endif %}
     {% if match_card.awaiting %}<p class="cw-match-note">Waiting for earlier matches. The entrants will appear here when those results are confirmed.</p>{% endif %}
+    {% if match_card.inactive_final %}<p class="cw-notice">{{ match_card.inactive_final_message }}</p>{% endif %}
   </section>
   {% if match_actions %}<section class="cw-panel" aria-labelledby="cw-match-actions-title"><h2 id="cw-match-actions-title">Manage this match</h2><div class="cw-actions">{% for action in match_actions %}<a class="cw-button" href="{{ action.url }}">{{ action.label }}</a>{% endfor %}</div></section>{% endif %}
   {% if changes_url %}<a class="cw-history-link" href="{{ changes_url }}">View result history in Changes <span aria-hidden="true">&rarr;</span></a>{% endif %}
