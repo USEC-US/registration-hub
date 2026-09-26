@@ -17,10 +17,10 @@ from PIL import Image, ImageDraw
 from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
 from competitions.commands import (
-    configure_single_elimination,
+    configure_elimination,
     create_competition,
     publish_draw,
-    save_single_elimination_draw,
+    save_elimination_draw,
     schedule_match,
     select_entrants,
 )
@@ -693,12 +693,13 @@ def _seed_published_bracket(*, now: datetime, organizer, catalog: SeedCatalog) -
     competition = create_competition(
         actor=organizer, tournament_game_id=division.pk
     )
-    configure_single_elimination(
+    configure_elimination(
         actor=organizer,
         competition_id=competition.pk,
         expected_revision=competition.revision,
         name="Development final bracket",
         default_series_length=3,
+        format="SINGLE_ELIMINATION",
     )
     competition.refresh_from_db()
     entrants = select_entrants(
@@ -708,7 +709,7 @@ def _seed_published_bracket(*, now: datetime, organizer, catalog: SeedCatalog) -
         registration_ids=[registration.pk for registration in registrations],
     )
     competition.refresh_from_db()
-    draw = save_single_elimination_draw(
+    draw = save_elimination_draw(
         actor=organizer,
         competition_id=competition.pk,
         expected_revision=competition.revision,
