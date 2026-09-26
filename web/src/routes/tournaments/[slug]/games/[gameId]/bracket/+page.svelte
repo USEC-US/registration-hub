@@ -287,7 +287,7 @@
 						? m.bracket_reset_policy()
 						: m.bracket_no_reset_policy()}
 				</p>
-				{#each doubleSections as section}
+				{#each doubleSections as section (section)}
 					{@const rounds = stage.rounds.filter((round) => round.section === section)}
 					{#if rounds.length}
 						<section class="mb-8" aria-labelledby={`section-${section.toLowerCase()}`}>
