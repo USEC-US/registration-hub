@@ -144,7 +144,9 @@ class CompetitionAdminTests(TestCase):
             reverse("admin:competitions_competition_change", args=[competition.pk]),
         )
         competition.refresh_from_db()
-        return competition, competition.stages.get().draws.get(state=StageDraw.State.PUBLISHED)
+        return competition, competition.stages.get().draws.get(
+            state=StageDraw.State.PUBLISHED
+        )
 
     def test_division_link_and_create_confirmation_are_csrf_protected(self):
         division_admin = admin.site.get_model_admin(TournamentGame)
@@ -261,9 +263,7 @@ class CompetitionAdminTests(TestCase):
         self.assertIsNotNone(draw.published_at)
 
         round_ = draw.rounds.get(number=2)
-        url = reverse(
-            "admin:competitions_round_series_detail", args=[round_.pk]
-        )
+        url = reverse("admin:competitions_round_series_detail", args=[round_.pk])
         self.assertContains(self.client.get(url), "Set round series length")
         self.assertEqual(self.client.put(url).status_code, 405)
         self.assertRedirects(
@@ -271,7 +271,8 @@ class CompetitionAdminTests(TestCase):
                 url,
                 {"series_length": 5, "expected_revision": competition.revision},
             ),
-            reverse("admin:competitions_round_change", args=[round_.pk]),
+            reverse("admin:competitions_competition_change", args=[competition.pk])
+            + "?tab=bracket",
         )
         round_.refresh_from_db()
         self.assertEqual(round_.series_length_override, 5)
@@ -314,13 +315,13 @@ class CompetitionAdminTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         token = response.context["token"]
-        self.assertContains(response, "Correction impact")
+        self.assertContains(response, "Review this correction")
 
         response = self.client.post(
             correct_url, {"token": token, "internal_reason": ""}
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Correction impact")
+        self.assertContains(response, "Review this correction")
         self.assertContains(response, "This field is required")
 
         self.assertRedirects(

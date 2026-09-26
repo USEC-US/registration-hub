@@ -1,0 +1,138 @@
+{% extends "admin/competitions/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="cw">
+  <header class="cw-header">
+    <div>
+      <a class="cw-back" href="{% url 'admin:competitions_competition_changelist' %}">&larr; Competitions</a>
+      <h1>{{ workspace_title|default:title }}</h1>
+      {% if workspace_description or description %}<p class="cw-muted">{{ workspace_description|default:description }}</p>{% endif %}
+      <div class="cw-meta">
+        {% if stage %}<span class="cw-badge">{{ stage.get_status_display }}</span><span>{{ stage.get_format_display }}</span>{% else %}<span class="cw-badge">Not set up</span>{% endif %}
+        <span>{{ participant_count }} entrant{{ participant_count|pluralize }}</span>
+        {% if total_count %}<span>{{ completed_count }} of {{ total_count }} matches complete</span>{% endif %}
+      </div>
+    </div>
+    <div class="cw-actions">
+      {% if public_url %}<a class="cw-button" href="{{ public_url }}">View public bracket <span aria-hidden="true">&nearr;</span></a>{% endif %}
+      {% if primary_action %}<a class="cw-button cw-button-primary" href="{{ primary_action.url }}">{{ primary_action.label }} <span aria-hidden="true">&rarr;</span></a>{% endif %}
+    </div>
+  </header>
+
+  <nav class="cw-tabs" aria-label="Competition workspace">
+    {% for item in tabs %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+  </nav>
+
+  {% if tab == "setup" %}
+    <section aria-labelledby="cw-setup-title">
+      <div class="cw-section-heading"><div><h2 id="cw-setup-title">Competition setup</h2><p class="cw-muted">Follow these steps to get your bracket ready.</p></div></div>
+      <ol class="cw-steps">
+        {% for step in setup_steps %}
+          <li class="cw-step{% if step.current %} cw-step-current{% endif %}{% if step.done %} cw-step-done{% endif %}">
+            <span class="cw-step-number" aria-hidden="true">{% if step.done %}&#10003;{% else %}{{ step.number }}{% endif %}</span>
+            <div class="cw-step-content">
+              <h3>{{ step.label }}{% if step.done %}<span class="cw-sr-only"> — complete</span>{% elif step.current %}<span class="cw-badge">Next step</span>{% endif %}</h3>
+              <p class="cw-muted">{{ step.description }}</p>
+            </div>
+            {% if step.url %}<a class="cw-button{% if step.current %} cw-button-primary{% endif %}" href="{{ step.url }}">{% if step.done %}Review{% else %}Continue{% endif %}<span class="cw-sr-only">: {{ step.label }}</span></a>{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+      {% if stage %}
+        <section class="cw-panel" aria-labelledby="cw-settings-title">
+          <h3 id="cw-settings-title">Current settings</h3>
+          <dl class="cw-facts">
+            <div><dt>Stage name</dt><dd>{{ stage.name }}</dd></div>
+            <div><dt>Format</dt><dd>{{ stage.get_format_display }}</dd></div>
+            <div><dt>Default match length</dt><dd>Best of {{ stage.default_series_length }}</dd></div>
+            <div><dt>Bracket visibility</dt><dd>{% if stage.published_at %}Published{% else %}Private until published{% endif %}</dd></div>
+          </dl>
+        </section>
+      {% endif %}
+    </section>
+  {% elif tab == "entrants" %}
+    <section aria-labelledby="cw-entrants-title">
+      <div class="cw-section-heading">
+        <div><h2 id="cw-entrants-title">Entrants <span class="cw-muted">({{ participant_count }})</span></h2><p class="cw-muted">The players or teams taking part in this competition.</p></div>
+        {% if entrants_url %}<a class="cw-button" href="{{ entrants_url }}">Edit entrants</a>{% endif %}
+      </div>
+      {% if entries %}
+        <ol class="cw-entrants">{% for entry in entries %}<li class="cw-entrant"><span class="cw-seed" title="Seed">{{ entry.seed|default:"—" }}</span><div><h3>{{ entry.name }}</h3><p class="cw-muted">{{ entry.status }}</p></div></li>{% endfor %}</ol>
+      {% else %}
+        <div class="cw-empty"><h3>No entrants selected yet</h3><p>Select approved registrations to start building the bracket.</p>{% if entrants_url %}<a class="cw-button cw-button-primary" href="{{ entrants_url }}">Select entrants</a>{% endif %}</div>
+      {% endif %}
+    </section>
+  {% elif tab == "bracket" %}
+    <section aria-labelledby="cw-bracket-title">
+      <div class="cw-section-heading">
+        <div><h2 id="cw-bracket-title">Bracket &amp; matches</h2><p class="cw-muted">Open a match to manage its schedule or enter a result.</p></div>
+        {% if draw.state == "DRAFT" %}<span class="cw-badge cw-badge-warning">Private preview</span>{% endif %}
+      </div>
+      {% if stage.champion %}<div class="cw-notice cw-notice-success"><strong>Champion: {{ stage.champion.display_name }}</strong><p>All matches are complete. Results remain available below.</p></div>{% elif stage.completed_without_champion %}<div class="cw-notice"><strong>Competition complete</strong><p>This competition finished without a champion.</p></div>{% endif %}
+      {% if rounds %}
+        {% if draw.state == "DRAFT" %}<p class="cw-notice">Check the pairings below, then publish the bracket when you are ready. Results can be entered after publication.</p>{% endif %}
+        <p id="cw-bracket-help" class="cw-muted cw-bracket-help">Rounds run from left to right. Scroll to see later rounds; each upcoming match names its qualifying matches.</p>
+        <div class="cw-bracket-scroll" role="region" aria-label="Competition bracket" aria-describedby="cw-bracket-help" tabindex="0">
+          <div class="cw-bracket">
+            {% for round in rounds %}
+              <section class="cw-round" aria-labelledby="cw-round-{{ forloop.counter }}">
+                <header class="cw-round-heading"><h3 id="cw-round-{{ forloop.counter }}">{{ round.label }}</h3><div class="cw-meta"><span>Best of {{ round.series_length }}</span>{% if round.series_url %}<a href="{{ round.series_url }}">Edit match length<span class="cw-sr-only"> for {{ round.label }}</span></a>{% endif %}</div></header>
+                <div class="cw-round-matches">
+                  {% for match in round.matches %}
+                    <article class="cw-match{% if match.historical %} cw-match-historical{% endif %}" aria-label="{{ match.title }}">
+                      <header class="cw-match-heading"><a href="{{ match.detail_url }}">{{ match.code }}</a><span class="cw-badge">{{ match.status }}</span></header>
+                      <ol class="cw-slots">
+                        {% for slot in match.slots %}
+                          <li class="cw-slot{% if slot.is_winner %} cw-slot-winner{% endif %}">
+                            {% if slot.seed %}<span class="cw-slot-seed" title="Seed {{ slot.seed }}">{{ slot.seed }}</span>{% endif %}
+                            <span class="cw-slot-name">{{ slot.label }}{% if slot.is_winner %}<span class="cw-sr-only"> — winner</span><span class="cw-winner-mark" aria-hidden="true">&#10003;</span>{% endif %}</span>
+                            <strong class="cw-slot-score">{{ slot.score|default_if_none:"—" }}</strong>
+                          </li>
+                        {% endfor %}
+                      </ol>
+                      <div class="cw-match-info"><span>Best of {{ match.series_length }}</span>{% if match.scheduled_at %}<time datetime="{{ match.scheduled_at|date:'c' }}">{{ match.scheduled_at|date:"M j, H:i T" }}</time>{% endif %}</div>
+                      {% if match.outcome %}<p class="cw-match-note">{{ match.outcome }}</p>{% endif %}
+                      {% if match.awaiting %}<p class="cw-match-note">Waiting for earlier matches</p>{% endif %}
+                      <footer class="cw-match-actions">
+                        {% if match.result_url %}<a class="cw-button cw-button-primary" href="{{ match.result_url }}">{{ match.result_label }}<span class="cw-sr-only"> for {{ match.code }}</span></a>{% else %}<a class="cw-button" href="{{ match.detail_url }}">View match<span class="cw-sr-only"> {{ match.code }}</span></a>{% endif %}
+                        {% if match.schedule_url %}<a href="{{ match.schedule_url }}">Schedule<span class="cw-sr-only"> {{ match.code }}</span></a>{% endif %}
+                      </footer>
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="cw-empty"><h3>Your bracket will appear here</h3><p>Finish setup and select your entrants, then create the pairings.</p><a class="cw-button" href="{{ setup_url }}">Go to setup</a></div>
+      {% endif %}
+    </section>
+  {% elif tab == "changes" %}
+    <section aria-labelledby="cw-changes-title">
+      <div class="cw-section-heading"><div><h2 id="cw-changes-title">Changes</h2><p class="cw-muted">Results and updates, newest first. Organizer details and internal notes are private.</p></div></div>
+      {% if changes_page %}
+        <ol class="cw-changes">
+          {% for change in changes_page %}
+            <li class="cw-change">
+              <div class="cw-change-heading"><h3>{% if change.url %}<a href="{{ change.url }}">{{ change.label }}</a>{% else %}{{ change.label }}{% endif %}</h3><time class="cw-muted" datetime="{{ change.created_at|date:'c' }}">{{ change.created_at|date:"M j, Y, H:i T" }}</time></div>
+              {% if change.before or change.after or change.actor or change.internal_reason or change.resets %}
+                <details><summary>View details</summary><div class="cw-change-details">
+                  {% if change.before or change.after %}<dl class="cw-comparison">{% if change.before %}<div><dt>Before</dt><dd>{{ change.before|linebreaksbr }}</dd></div>{% endif %}{% if change.after %}<div><dt>After</dt><dd>{{ change.after|linebreaksbr }}</dd></div>{% endif %}</dl>{% endif %}
+                  {% if change.resets %}<div><h3>Results cleared by this change</h3><ul class="cw-reset-list">{% for reset in change.resets %}<li>{{ reset }}</li>{% endfor %}</ul></div>{% endif %}
+                  {% if change.actor %}<p class="cw-muted"><strong>Organizer:</strong> {{ change.actor }}</p>{% endif %}
+                  {% if change.internal_reason %}<p><strong>Internal note:</strong> {{ change.internal_reason|linebreaksbr }}</p>{% endif %}
+                </div></details>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+        {% if changes_page.has_other_pages %}<nav class="cw-pagination" aria-label="Changes pages">{% if changes_page.has_previous %}<a class="cw-button" href="{{ workspace_url }}?tab=changes&amp;page={{ changes_page.previous_page_number }}">Newer changes</a>{% endif %}<span>Page {{ changes_page.number }} of {{ changes_page.paginator.num_pages }}</span>{% if changes_page.has_next %}<a class="cw-button" href="{{ workspace_url }}?tab=changes&amp;page={{ changes_page.next_page_number }}">Older changes</a>{% endif %}</nav>{% endif %}
+      {% else %}
+        <div class="cw-empty"><h3>No changes yet</h3><p>Competition updates and result history will appear here.</p></div>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
