@@ -53,10 +53,13 @@ For an intentional **non-production** database configured with `DEBUG=False`, us
 production-safe; the command creates predictable development accounts.
 
 The `dev-usec-double-elimination` tournament contains a ready 16-team Valorant
-reset division and a completed five-team League of Legends no-reset division. Existing sponsor, Chess, and
-League of Legends fixtures remain available. The 16-team division uses BO1 by
-default, with BO3 upper semifinals/final, lower final, and finals. Both the teams
-and double-elimination series allocation are synthetic. All registrations are
+reset division and a completed five-team League of Legends no-reset division.
+A clean checkout also provides the existing Chess single-elimination fixture.
+Local sponsor fixtures, including their League of Legends single-elimination
+bracket, are preserved when present but are not part of the committed seed
+scenarios. The 16-team division uses BO1 by default, with BO3 upper
+semifinals/final, lower final, and finals. Both the teams and double-elimination
+series allocation are synthetic. All registrations are
 approved, free, and contain five fictional roster members. The reset bracket has
 30 regular matches and one conditional final; the five-team bracket has 14
 structural matches, including automatic byes/empty paths. Reruns preserve published
