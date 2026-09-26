@@ -12,7 +12,23 @@ const competition = {
 	tournament_slug: 'summer',
 	tournament_name: 'Summer',
 	game_name: 'Valorant',
-	stages: []
+	stages: [
+		{
+			format: 'DOUBLE_ELIMINATION',
+			grand_final_policy: 'RESET',
+			rounds: [
+				{
+					section: 'LOWER',
+					matches: [
+						{
+							status: 'CONDITIONAL',
+							slots: [{ source_match_id: 31, source_outcome: 'LOSER' }]
+						}
+					]
+				}
+			]
+		}
+	]
 };
 
 const changes = {
@@ -45,6 +61,32 @@ describe('public competition API wrappers', () => {
 			changes
 		});
 		expect(fetcher).toHaveBeenCalledTimes(4);
+	});
+
+	it('preserves double-elimination routing fields in a consistent snapshot', async () => {
+		const fetcher = vi
+			.fn<typeof fetch>()
+			.mockImplementation(async (url) =>
+				Response.json(String(url).endsWith('/changes/') ? changes : competition)
+			);
+
+		const snapshot = await getCompetitionSnapshot(9, { fetcher });
+
+		expect(snapshot.competition.stages[0]).toMatchObject({
+			format: 'DOUBLE_ELIMINATION',
+			grand_final_policy: 'RESET',
+			rounds: [
+				{
+					section: 'LOWER',
+					matches: [
+						{
+							status: 'CONDITIONAL',
+							slots: [{ source_match_id: 31, source_outcome: 'LOSER' }]
+						}
+					]
+				}
+			]
+		});
 	});
 
 	it('rejects two inconsistent snapshots', async () => {

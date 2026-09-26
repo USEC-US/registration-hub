@@ -149,6 +149,8 @@ class PublicCompetitionApiTests(APITestCase):
 
     def test_double_elimination_publishes_routing_and_conditional_reset(self):
         old_match = self.draw.rounds.get(number=1).matches.get(number=1)
+        self.draw.published_at = timezone.now()
+        self.draw.save(update_fields=("published_at",))
         draw = self._double_elimination()
         self._publish()
 

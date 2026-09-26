@@ -116,13 +116,20 @@
 	}
 
 	function snapshotSummary(snapshot: PublicCompetitionMatchSnapshot): string {
+		if (!snapshot.winner) {
+			return m.bracket_change_result_no_winner({
+				outcome: outcomeLabel(snapshot.outcome),
+				sideOne: snapshot.side_one ?? m.bracket_tbd(),
+				sideTwo: snapshot.side_two ?? m.bracket_tbd()
+			});
+		}
 		return m.bracket_change_result_summary({
 			outcome: outcomeLabel(snapshot.outcome),
 			sideOne: snapshot.side_one ?? m.bracket_tbd(),
 			sideOneScore: snapshot.side_one_score ?? '—',
 			sideTwoScore: snapshot.side_two_score ?? '—',
 			sideTwo: snapshot.side_two ?? m.bracket_tbd(),
-			winner: snapshot.winner ?? m.bracket_no_champion()
+			winner: snapshot.winner
 		});
 	}
 
@@ -335,8 +342,11 @@
 				>
 					<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
 						{#each stage.rounds as round, index (round.id)}
-							<section class="bracket-round flex min-h-[28rem] flex-col">
-								<h3 class="mb-4 text-center font-semibold">
+							<section
+								class="bracket-round flex min-h-[28rem] flex-col"
+								aria-labelledby={`round-${round.id}-desktop`}
+							>
+								<h3 id={`round-${round.id}-desktop`} class="mb-4 text-center font-semibold">
 									{index === stage.rounds.length - 1
 										? m.bracket_final_round()
 										: m.bracket_round({ number: round.number })}
@@ -353,8 +363,8 @@
 
 				<div class="mobile-bracket flex flex-col gap-8 md:hidden">
 					{#each stage.rounds as round, index (round.id)}
-						<section>
-							<h3 class="mb-3 font-semibold">
+						<section aria-labelledby={`round-${round.id}-mobile`}>
+							<h3 id={`round-${round.id}-mobile`} class="mb-3 font-semibold">
 								{index === stage.rounds.length - 1
 									? m.bracket_final_round()
 									: m.bracket_round({ number: round.number })}

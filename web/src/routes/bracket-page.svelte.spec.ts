@@ -239,6 +239,7 @@ describe('public bracket page', () => {
 				.toBeVisible();
 			await expect.element(page.getByRole('heading', { name: 'Finals' }).last()).toBeVisible();
 			await expect.element(page.getByText('Loser of U1').last()).toBeVisible();
+			await expect.element(page.getByText('Winner of U1').last()).toBeVisible();
 			await expect.element(page.getByText(label, { exact: true }).last()).toBeVisible();
 			await expect
 				.element(
@@ -273,12 +274,12 @@ describe('public bracket page', () => {
 				match_id: 33,
 				match_code: 'F1',
 				status: 'FINAL',
-				outcome: 'PLAYED',
+				outcome: 'DOUBLE_FORFEIT',
 				side_one: 'Blue Team',
 				side_two: 'Red Team',
-				side_one_score: 0,
-				side_two_score: 2,
-				winner: 'Red Team',
+				side_one_score: null,
+				side_two_score: null,
+				winner: null,
 				applied_series_length: 3,
 				started_at: null,
 				completed_at: null
@@ -312,7 +313,7 @@ describe('public bracket page', () => {
 			.element(page.getByText('Before: Played · Blue Team 2–0 Red Team · Blue Team won'))
 			.toBeVisible();
 		await expect
-			.element(page.getByText('After: Played · Blue Team 0–2 Red Team · Red Team won'))
+			.element(page.getByText('After: Double forfeit · Blue Team vs Red Team · No winner'))
 			.toBeVisible();
 		await expect.element(page.getByText('Affected matches: F2')).toBeVisible();
 		await expect.element(page.getByText('F2: If needed → Active')).toBeVisible();

@@ -381,6 +381,7 @@
 	"bracket_change_before": "Trước: {summary}",
 	"bracket_change_after": "Sau: {summary}",
 	"bracket_change_result_summary": "{outcome} · {sideOne} {sideOneScore}–{sideTwoScore} {sideTwo} · {winner} thắng",
+	"bracket_change_result_no_winner": "{outcome} · {sideOne} đấu {sideTwo} · Không có đội thắng",
 	"bracket_outcome_played": "Đã thi đấu",
 	"bracket_outcome_forfeit": "Xử thua",
 	"bracket_outcome_double_forfeit": "Cả hai bị xử thua",

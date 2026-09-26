@@ -9,7 +9,23 @@ const snapshot = {
 		tournament_slug: 'summer',
 		tournament_name: 'Summer',
 		game_name: 'Valorant',
-		stages: []
+		stages: [
+			{
+				format: 'DOUBLE_ELIMINATION',
+				grand_final_policy: 'NO_RESET',
+				rounds: [
+					{
+						section: 'FINALS',
+						matches: [
+							{
+								status: 'NOT_REQUIRED',
+								slots: [{ source_match_id: 42, source_outcome: 'WINNER' }]
+							}
+						]
+					}
+				]
+			}
+		]
 	},
 	changes: {
 		next: null,
@@ -31,6 +47,41 @@ describe('public bracket loader', () => {
 			load({ fetch: fetcher, params: { slug: 'summer', gameId: '9' } } as never)
 		).resolves.toEqual({ state: 'ready', slug: 'summer', gameId: 9, ...snapshot });
 		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it('keeps double-elimination fields in ready page data', async () => {
+		const fetcher = vi
+			.fn<typeof fetch>()
+			.mockImplementation(async (url) =>
+				Response.json(String(url).endsWith('/changes/') ? snapshot.changes : snapshot.competition)
+			);
+
+		const result = await load({
+			fetch: fetcher,
+			params: { slug: 'summer', gameId: '9' }
+		} as never);
+
+		expect(result).toMatchObject({
+			state: 'ready',
+			competition: {
+				stages: [
+					{
+						grand_final_policy: 'NO_RESET',
+						rounds: [
+							{
+								section: 'FINALS',
+								matches: [
+									{
+										status: 'NOT_REQUIRED',
+										slots: [{ source_match_id: 42, source_outcome: 'WINNER' }]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		});
 	});
 
 	it.each([
