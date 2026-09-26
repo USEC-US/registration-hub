@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import secrets
-from collections import deque
 from collections.abc import Sequence
 from graphlib import CycleError, TopologicalSorter
 
@@ -533,6 +532,31 @@ def _validate_saved_draw(draw: StageDraw) -> None:
                     raise ValidationError("The saved draw routing does not match the stage format and policy.")
 
 
+def _reset_final_status(
+    *, first_status, first_outcome, winner_id, lower_entry_id, status
+):
+    if first_status != Match.Status.FINAL:
+        return Match.Status.CONDITIONAL
+    if (
+        first_outcome in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT)
+        and winner_id == lower_entry_id
+    ):
+        return (
+            status
+            if status in (Match.Status.LIVE, Match.Status.FINAL)
+            else Match.Status.PENDING
+        )
+    return Match.Status.NOT_REQUIRED
+
+
+def _reset_activation(status):
+    return (
+        "ACTIVE"
+        if status in (Match.Status.PENDING, Match.Status.LIVE, Match.Status.FINAL)
+        else status
+    )
+
+
 def _reconcile_reset_final(match: Match) -> None:
     if match.round.section != Round.Section.FINALS or match.round.number != 2:
         return
@@ -542,43 +566,49 @@ def _reconcile_reset_final(match: Match) -> None:
         round__number=1,
         number=1,
     )
-    if first.status != Match.Status.FINAL:
-        status = Match.Status.CONDITIONAL
-    elif (
-        first.outcome in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT)
-        and first.winner_id == first.slots.get(position=2).resolved_entry_id
-    ):
-        status = (
-            match.status
-            if match.status in (Match.Status.LIVE, Match.Status.FINAL)
-            else Match.Status.PENDING
-        )
-    else:
-        status = Match.Status.NOT_REQUIRED
+    status = _reset_final_status(
+        first_status=first.status,
+        first_outcome=first.outcome,
+        winner_id=first.winner_id,
+        lower_entry_id=first.slots.get(position=2).resolved_entry_id,
+        status=match.status,
+    )
     if match.status != status:
         match.status = status
         match.save(update_fields=("status",))
+
+
+def _automatic_result(status, slots):
+    if status in (
+        Match.Status.FINAL,
+        Match.Status.CONDITIONAL,
+        Match.Status.NOT_REQUIRED,
+    ):
+        return None
+    if len(slots) != 2 or not all(resolved for resolved, _ in slots):
+        return None
+    entries = [entry_id for _, entry_id in slots if entry_id is not None]
+    if len(entries) == 2:
+        return None
+    return (Match.Outcome.BYE, entries[0]) if entries else (Match.Outcome.EMPTY, None)
 
 
 def _resolve_automatic_matches(draw: StageDraw) -> None:
     now = timezone.now()
     for match in _ordered_matches(draw):
         _reconcile_reset_final(match)
-        if match.status in (
-            Match.Status.FINAL,
-            Match.Status.CONDITIONAL,
-            Match.Status.NOT_REQUIRED,
-        ):
-            continue
-        slots = list(match.slots.order_by("position"))
-        if len(slots) != 2 or not all(slot.is_resolved for slot in slots):
-            continue
-        entries = [slot.resolved_entry for slot in slots if slot.resolved_entry_id]
-        if len(entries) == 2:
+        result = _automatic_result(
+            match.status,
+            list(
+                match.slots.order_by("position").values_list(
+                    "is_resolved", "resolved_entry_id"
+                )
+            ),
+        )
+        if result is None:
             continue
         match.status = Match.Status.FINAL
-        match.outcome = Match.Outcome.BYE if entries else Match.Outcome.EMPTY
-        match.winner = entries[0] if entries else None
+        match.outcome, match.winner_id = result
         match.completed_at = now
         match.side_one_score = match.side_two_score = None
         match.save(
@@ -594,16 +624,20 @@ def _resolve_automatic_matches(draw: StageDraw) -> None:
         _propagate_completed_match(match)
 
 
-def _losing_entry_id(match: Match) -> int | None:
-    if (
-        match.outcome not in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT)
-        or not match.winner_id
-    ):
+def _routed_entry_id(outcome, winner_id, entries, source_outcome):
+    if source_outcome == MatchSlot.SourceOutcome.WINNER:
+        return winner_id
+    if outcome not in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT) or not winner_id:
         return None
-    return (
-        match.slots.exclude(resolved_entry_id=match.winner_id)
-        .values_list("resolved_entry_id", flat=True)
-        .first()
+    return next((entry_id for entry_id in entries if entry_id != winner_id), None)
+
+
+def _losing_entry_id(match: Match) -> int | None:
+    return _routed_entry_id(
+        match.outcome,
+        match.winner_id,
+        match.slots.order_by("position").values_list("resolved_entry_id", flat=True),
+        MatchSlot.SourceOutcome.LOSER,
     )
 
 
@@ -1001,20 +1035,110 @@ def _match_snapshot(match: Match) -> dict:
         "side_one_score": match.side_one_score,
         "side_two_score": match.side_two_score,
         "winner": match.winner.entrant.display_name if match.winner_id else None,
+        "applied_series_length": match.applied_series_length,
+        "started_at": match.started_at.isoformat() if match.started_at else None,
+        "completed_at": match.completed_at.isoformat() if match.completed_at else None,
     }
 
 
-def _descendant_matches(match: Match) -> list[Match]:
-    found: dict[int, Match] = {}
-    queue = deque([match.pk])
-    while queue:
-        source_id = queue.popleft()
-        dependants = Match.objects.filter(slots__source_match_id=source_id).distinct()
-        for dependant in dependants:
-            if dependant.pk not in found:
-                found[dependant.pk] = dependant
-                queue.append(dependant.pk)
-    return [item for item in _ordered_matches(match.round.draw) if item.pk in found]
+def _project_correction(match: Match, *, outcome, winner_id):
+    """Re-resolve competitive inputs; invalidate only contests whose inputs change."""
+    ordered = _ordered_matches(match.round.draw)
+    slots_by_match = {item.pk: [] for item in ordered}
+    for slot in MatchSlot.objects.filter(match_id__in=slots_by_match).order_by(
+        "position"
+    ):
+        slots_by_match[slot.match_id].append(slot)
+    projected = {}
+    affected, impacts, reset_changes = [], [], []
+    first_final_id = next(
+        (
+            item.pk
+            for item in ordered
+            if item.round.section == Round.Section.FINALS and item.round.number == 1
+        ),
+        None,
+    )
+    for item in ordered:
+        saved_slots = [
+            [slot.is_resolved, slot.resolved_entry_id]
+            for slot in slots_by_match[item.pk]
+        ]
+        slots = []
+        for slot in slots_by_match[item.pk]:
+            if slot.source_match_id:
+                source = projected[slot.source_match_id]
+                resolved = source["status"] == Match.Status.FINAL
+                entry_id = (
+                    _routed_entry_id(
+                        source["outcome"],
+                        source["winner_id"],
+                        [entry for _, entry in source["slots"]],
+                        slot.source_outcome,
+                    )
+                    if resolved
+                    else None
+                )
+                slots.append([resolved, entry_id])
+            else:
+                slots.append([slot.is_resolved, slot.resolved_entry_id])
+        state = {
+            "status": item.status,
+            "outcome": item.outcome,
+            "winner_id": item.winner_id,
+            "slots": slots,
+        }
+        if item.pk == match.pk:
+            state.update(outcome=outcome, winner_id=winner_id)
+        else:
+            changed_inputs = slots != saved_slots
+            status = Match.Status.PENDING if changed_inputs else item.status
+            is_reset = (
+                item.round.section == Round.Section.FINALS and item.round.number == 2
+            )
+            if is_reset:
+                first = projected[first_final_id]
+                status = _reset_final_status(
+                    first_status=first["status"],
+                    first_outcome=first["outcome"],
+                    winner_id=first["winner_id"],
+                    lower_entry_id=first["slots"][1][1],
+                    status=status,
+                )
+                before, after = (
+                    _reset_activation(item.status),
+                    _reset_activation(status),
+                )
+                if before != after:
+                    reset_changes.append(
+                        {
+                            "match_id": item.pk,
+                            "match_code": item.code,
+                            "before": before,
+                            "after": after,
+                        }
+                    )
+            if changed_inputs or status != item.status:
+                state.update(status=status, outcome="", winner_id=None)
+                result = _automatic_result(status, slots)
+                if result is not None:
+                    state.update(
+                        status=Match.Status.FINAL,
+                        outcome=result[0],
+                        winner_id=result[1],
+                    )
+                affected.append(item)
+                impacts.append(
+                    {
+                        "match_id": item.pk,
+                        "before": _match_snapshot(item),
+                        "before_slots": saved_slots,
+                        "after_slots": slots,
+                        "after_status": state["status"],
+                    }
+                )
+        projected[item.pk] = state
+    return affected, impacts, reset_changes
 
 
 def _correction_payload(
@@ -1038,7 +1162,11 @@ def _correction_payload(
         side_two_score=side_two_score,
         winner_position=winner_position,
     )
-    affected = _descendant_matches(match) if winner != match.winner else []
+    affected, impacts, reset_changes = _project_correction(
+        match,
+        outcome=outcome,
+        winner_id=winner.pk if winner else None,
+    )
     payload = {
         "competition_id": match.round.draw.stage.competition_id,
         "revision": competition_revision,
@@ -1048,6 +1176,9 @@ def _correction_payload(
         "side_two_score": side_two_score,
         "winner_entry_id": winner.pk if winner else None,
         "affected_match_ids": [item.pk for item in affected],
+        "before": _match_snapshot(match),
+        "match_impacts": impacts,
+        "reset_final_changes": reset_changes,
     }
     return payload, winner, affected
 
@@ -1099,6 +1230,8 @@ def _correction_preview_response(
             "winner": winner.entrant.display_name if winner else None,
         },
         "affected_matches": [_match_snapshot(item) for item in affected],
+        "match_impacts": payload["match_impacts"],
+        "reset_final_changes": payload["reset_final_changes"],
     }
 
 
@@ -1155,6 +1288,16 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
     with transaction.atomic():
         competition, match = _lock_match(submitted["match_id"])
         _check_revision(competition, submitted["revision"])
+        list(
+            Match.objects.select_for_update()
+            .filter(round__draw=match.round.draw)
+            .order_by("pk")
+        )
+        list(
+            MatchSlot.objects.select_for_update()
+            .filter(match__round__draw=match.round.draw)
+            .order_by("pk")
+        )
         current, winner, affected = _correction_payload(
             match,
             competition_revision=competition.revision,
@@ -1183,9 +1326,16 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 started_at=None,
                 completed_at=None,
             )
-            MatchSlot.objects.filter(
-                source_match_id__in=[match.pk, *affected_ids]
-            ).update(is_resolved=False, resolved_entry=None)
+            for impact in current["match_impacts"]:
+                for position, (resolved, entry_id) in enumerate(
+                    impact["after_slots"], start=1
+                ):
+                    MatchSlot.objects.filter(
+                        match_id=impact["match_id"], position=position
+                    ).update(
+                        is_resolved=resolved,
+                        resolved_entry_id=entry_id,
+                    )
         match.outcome = submitted["outcome"]
         match.side_one_score = submitted["side_one_score"]
         match.side_two_score = submitted["side_two_score"]
@@ -1213,6 +1363,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "before": before,
                 "after": _match_snapshot(match),
                 "reset_matches": reset_snapshots,
+                "reset_final_changes": current["reset_final_changes"],
             },
             public_data={
                 "kind": "result_corrected",
@@ -1221,6 +1372,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "before": before,
                 "after": _match_snapshot(match),
                 "reset_matches": reset_snapshots,
+                "reset_final_changes": current["reset_final_changes"],
             },
         )
         return match

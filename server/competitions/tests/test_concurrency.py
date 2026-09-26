@@ -1,9 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from threading import Barrier
+from threading import Barrier, Event
 
 from django.core.exceptions import ValidationError
-from django.db import close_old_connections, connection, connections
+from django.db import close_old_connections, connection, connections, transaction
 from django.test import TransactionTestCase
 from django.utils import timezone
 
@@ -20,7 +20,7 @@ from competitions.commands import (
     select_entrants,
     start_match,
 )
-from competitions.models import Match, StageDraw
+from competitions.models import Match, Stage, StageDraw
 from registrations.models import Registration, RegistrationMember
 from registrations.services import approve_registration
 from tournaments.models import Game, Tournament, TournamentGame
@@ -69,12 +69,13 @@ class CompetitionConcurrencyTests(TransactionTestCase):
         )
         return registration
 
-    def _saved_draw(self, *, publish=True):
+    def _saved_draw(self, *, publish=True, format="SINGLE_ELIMINATION"):
         competition = create_competition(
             actor=self.actor, tournament_game_id=self.division.pk
         )
         configure_elimination(
-            format="SINGLE_ELIMINATION",
+            format=format,
+            grand_final_policy="RESET" if format == "DOUBLE_ELIMINATION" else "",
             actor=self.actor,
             competition_id=competition.pk,
             expected_revision=competition.revision,
@@ -242,3 +243,109 @@ class CompetitionConcurrencyTests(TransactionTestCase):
         else:
             self.assertEqual(draw.state, StageDraw.State.DRAFT)
             self.assertEqual(results.count("denied"), 1)
+
+    def test_double_elimination_simultaneous_upper_finalization_routes_both_once(self):
+        competition, draw = self._saved_draw(format="DOUBLE_ELIMINATION")
+        upper = Match.objects.get(round__draw=draw, round__section="UPPER")
+        entries = list(
+            upper.slots.order_by("position").values_list("resolved_entry_id", flat=True)
+        )
+        revision = competition.revision
+        results = self._race(
+            *(
+                lambda: finalize_match(
+                    actor=self.actor,
+                    match_id=upper.pk,
+                    expected_revision=revision,
+                    outcome="PLAYED",
+                    side_one_score=2,
+                    side_two_score=0,
+                )
+                for _ in range(2)
+            )
+        )
+        self.assertEqual(sorted(results), ["denied", "ok"])
+        competition.refresh_from_db()
+        self.assertEqual(competition.revision, revision + 1)
+        self.assertEqual(competition.changes.filter(kind="match_finalized").count(), 1)
+        destinations = list(upper.dependent_slots.order_by("position"))
+        self.assertEqual(len(destinations), 2)
+        self.assertTrue(all(slot.is_resolved for slot in destinations))
+        self.assertEqual([slot.resolved_entry_id for slot in destinations], entries)
+        self.assertEqual(
+            [slot.source_outcome for slot in destinations], ["WINNER", "LOSER"]
+        )
+
+    def test_stale_correction_waiting_for_downstream_final_has_no_partial_reset(self):
+        competition, draw = self._saved_draw(format="DOUBLE_ELIMINATION")
+        upper = Match.objects.get(round__draw=draw, round__section="UPPER")
+        finalize_match(
+            actor=self.actor,
+            match_id=upper.pk,
+            expected_revision=competition.revision,
+            outcome="PLAYED",
+            side_one_score=2,
+            side_two_score=0,
+        )
+        competition.refresh_from_db()
+        revision = competition.revision
+        preview = preview_correction(
+            actor=self.actor,
+            match_id=upper.pk,
+            expected_revision=revision,
+            outcome="PLAYED",
+            side_one_score=0,
+            side_two_score=2,
+        )
+        final = Match.objects.get(
+            round__draw=draw, round__section="FINALS", round__number=1
+        )
+        finalized, correction_started = Event(), Event()
+
+        def downstream():
+            with transaction.atomic():
+                finalize_match(
+                    actor=self.actor,
+                    match_id=final.pk,
+                    expected_revision=revision,
+                    outcome="PLAYED",
+                    side_one_score=0,
+                    side_two_score=2,
+                )
+                finalized.set()
+                self.assertTrue(correction_started.wait(timeout=10))
+
+        def stale_correction():
+            self.assertTrue(finalized.wait(timeout=10))
+            correction_started.set()
+            apply_correction(
+                actor=self.actor, token=preview["token"], internal_reason="Stale race"
+            )
+
+        self.assertEqual(self._race(downstream, stale_correction), ["ok", "denied"])
+        competition.refresh_from_db()
+        self.assertEqual(competition.revision, revision + 1)
+        self.assertEqual(competition.changes.filter(kind="result_corrected").count(), 0)
+        self.assertEqual(competition.changes.filter(kind="match_finalized").count(), 2)
+        upper.refresh_from_db()
+        final.refresh_from_db()
+        self.assertEqual((upper.side_one_score, upper.side_two_score), (2, 0))
+        self.assertEqual((final.side_one_score, final.side_two_score), (0, 2))
+        self.assertEqual(final.status, "FINAL")
+        reset = Match.objects.get(
+            round__draw=draw, round__section="FINALS", round__number=2
+        )
+        self.assertEqual(reset.status, "PENDING")
+        self.assertEqual(
+            list(
+                reset.slots.order_by("position").values_list(
+                    "resolved_entry_id", flat=True
+                )
+            ),
+            list(
+                final.slots.order_by("position").values_list(
+                    "resolved_entry_id", flat=True
+                )
+            ),
+        )
+        self.assertEqual(Stage.objects.get(pk=draw.stage_id).status, "IN_PROGRESS")
