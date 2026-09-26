@@ -5,7 +5,9 @@
 		CompetitionStageStatus,
 		PublicCompetitionChange,
 		PublicCompetitionMatch,
-		PublicCompetitionMatchSlot
+		PublicCompetitionMatchSlot,
+		PublicCompetitionMatchSnapshot,
+		PublicCompetitionRound
 	} from '$lib/api/types';
 	import { Badge } from '$lib/components/ui/badge';
 	import { localizeInternalHref } from '$lib/navigation';
@@ -15,6 +17,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const doubleSections = ['UPPER', 'LOWER', 'FINALS'] as const;
 
 	const tournamentHref = $derived(resolve(localizeInternalHref(`/tournaments/${data.slug}`)));
 	const bracketHref = $derived(
@@ -42,11 +45,20 @@
 				return m.bracket_match_final();
 			case 'PENDING':
 				return m.bracket_match_pending();
+			case 'CONDITIONAL':
+				return m.bracket_match_conditional();
+			case 'NOT_REQUIRED':
+				return m.bracket_match_not_required();
 		}
 	}
 
-	function slotLabel(slot: PublicCompetitionMatchSlot): string {
-		if (!slot.is_resolved) return m.bracket_tbd();
+	function slotLabel(slot: PublicCompetitionMatchSlot, matchCodes: Map<number, string>): string {
+		if (!slot.is_resolved) {
+			const code = slot.source_match_id ? matchCodes.get(slot.source_match_id) : null;
+			if (code && slot.source_outcome === 'WINNER') return m.bracket_source_winner({ code });
+			if (code && slot.source_outcome === 'LOSER') return m.bracket_source_loser({ code });
+			return m.bracket_tbd();
+		}
 		if (slot.is_empty || !slot.entry) return m.bracket_bye();
 		return slot.entry.display_tag
 			? `${slot.entry.display_name} (${slot.entry.display_tag})`
@@ -84,6 +96,63 @@
 				return m.bracket_change_updated();
 		}
 	}
+
+	function sectionLabel(section: string): string {
+		switch (section) {
+			case 'UPPER':
+				return m.bracket_upper();
+			case 'LOWER':
+				return m.bracket_lower();
+			default:
+				return m.bracket_finals();
+		}
+	}
+
+	function roundLabel(round: PublicCompetitionRound): string {
+		if (round.section === 'FINALS') {
+			return round.number === 2 ? m.bracket_reset_final() : m.bracket_final_round();
+		}
+		return m.bracket_round({ number: round.number });
+	}
+
+	function snapshotSummary(snapshot: PublicCompetitionMatchSnapshot): string {
+		return m.bracket_change_result_summary({
+			outcome: outcomeLabel(snapshot.outcome),
+			sideOne: snapshot.side_one ?? m.bracket_tbd(),
+			sideOneScore: snapshot.side_one_score ?? '—',
+			sideTwoScore: snapshot.side_two_score ?? '—',
+			sideTwo: snapshot.side_two ?? m.bracket_tbd(),
+			winner: snapshot.winner ?? m.bracket_no_champion()
+		});
+	}
+
+	function outcomeLabel(outcome: string): string {
+		switch (outcome) {
+			case 'PLAYED':
+				return m.bracket_outcome_played();
+			case 'FORFEIT':
+				return m.bracket_outcome_forfeit();
+			case 'DOUBLE_FORFEIT':
+				return m.bracket_outcome_double_forfeit();
+			case 'BYE':
+				return m.bracket_outcome_bye();
+			case 'EMPTY':
+				return m.bracket_outcome_empty();
+			default:
+				return outcome;
+		}
+	}
+
+	function activationLabel(value: 'ACTIVE' | 'CONDITIONAL' | 'NOT_REQUIRED'): string {
+		switch (value) {
+			case 'ACTIVE':
+				return m.bracket_reset_active();
+			case 'CONDITIONAL':
+				return m.bracket_match_conditional();
+			case 'NOT_REQUIRED':
+				return m.bracket_match_not_required();
+		}
+	}
 </script>
 
 <svelte:head>
@@ -91,7 +160,7 @@
 	<meta name="description" content={m.bracket_meta_description()} />
 </svelte:head>
 
-{#snippet matchCard(match: PublicCompetitionMatch)}
+{#snippet matchCard(match: PublicCompetitionMatch, matchCodes: Map<number, string>)}
 	<li class="bracket-match relative">
 		<article
 			class:border-primary={match.status === 'LIVE'}
@@ -116,7 +185,7 @@
 						class="grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-3 px-3 py-2 text-sm"
 					>
 						<span class="truncate">
-							{slotLabel(slot)}
+							{slotLabel(slot, matchCodes)}
 							{#if isWinner(match, slot)}
 								<span class="sr-only"> · {m.bracket_winner()}</span>
 							{/if}
@@ -167,6 +236,9 @@
 		</section>
 	{:else}
 		{@const stage = data.competition.stages[0]}
+		{@const matchCodes = new Map(
+			stage.rounds.flatMap((round) => round.matches.map((match) => [match.id, match.code]))
+		)}
 		<header class="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
 			<div>
 				<p class="text-sm font-medium text-muted-foreground">{data.competition.tournament_name}</p>
@@ -202,46 +274,100 @@
 				</p>
 			</div>
 
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (scrolling bracket needs keyboard focus) -->
-			<div
-				class="desktop-bracket hidden overflow-x-auto pb-4 md:block"
-				role="region"
-				aria-label={m.bracket_rounds()}
-				tabindex="0"
-			>
-				<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
+			{#if stage.format === 'DOUBLE_ELIMINATION'}
+				<p class="mb-6 text-sm text-muted-foreground">
+					{stage.grand_final_policy === 'RESET'
+						? m.bracket_reset_policy()
+						: m.bracket_no_reset_policy()}
+				</p>
+				{#each doubleSections as section}
+					{@const rounds = stage.rounds.filter((round) => round.section === section)}
+					{#if rounds.length}
+						<section class="mb-8" aria-labelledby={`section-${section.toLowerCase()}`}>
+							<h3
+								id={`section-${section.toLowerCase()}`}
+								class="font-heading mb-4 text-xl font-semibold"
+							>
+								{sectionLabel(section)}
+							</h3>
+							<!-- svelte-ignore a11y_no_noninteractive_tabindex (scrolling bracket needs keyboard focus) -->
+							<div
+								class="desktop-bracket hidden overflow-x-auto pb-4 md:block"
+								role="region"
+								aria-label={sectionLabel(section)}
+								tabindex="0"
+							>
+								<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
+									{#each rounds as round (round.id)}
+										<section class="bracket-round flex min-h-[28rem] flex-col">
+											<h4 class="mb-4 text-center font-semibold">{roundLabel(round)}</h4>
+											<ol class="flex flex-1 flex-col justify-around gap-6">
+												{#each round.matches as match (match.id)}
+													{@render matchCard(match, matchCodes)}
+												{/each}
+											</ol>
+										</section>
+									{/each}
+								</div>
+							</div>
+							<div class="mobile-bracket flex flex-col gap-8 md:hidden">
+								{#each rounds as round (round.id)}
+									<section>
+										<h4 class="mb-3 font-semibold">{roundLabel(round)}</h4>
+										<ol class="flex flex-col gap-4">
+											{#each round.matches as match (match.id)}
+												{@render matchCard(match, matchCodes)}
+											{/each}
+										</ol>
+									</section>
+								{/each}
+							</div>
+						</section>
+					{/if}
+				{/each}
+			{:else}
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex (scrolling bracket needs keyboard focus) -->
+				<div
+					class="desktop-bracket hidden overflow-x-auto pb-4 md:block"
+					role="region"
+					aria-label={m.bracket_rounds()}
+					tabindex="0"
+				>
+					<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
+						{#each stage.rounds as round, index (round.id)}
+							<section class="bracket-round flex min-h-[28rem] flex-col">
+								<h3 class="mb-4 text-center font-semibold">
+									{index === stage.rounds.length - 1
+										? m.bracket_final_round()
+										: m.bracket_round({ number: round.number })}
+								</h3>
+								<ol class="flex flex-1 flex-col justify-around gap-6">
+									{#each round.matches as match (match.id)}
+										{@render matchCard(match, matchCodes)}
+									{/each}
+								</ol>
+							</section>
+						{/each}
+					</div>
+				</div>
+
+				<div class="mobile-bracket flex flex-col gap-8 md:hidden">
 					{#each stage.rounds as round, index (round.id)}
-						<section
-							class="bracket-round flex min-h-[28rem] flex-col"
-							aria-labelledby={`round-${round.id}-desktop`}
-						>
-							<h3 id={`round-${round.id}-desktop`} class="mb-4 text-center font-semibold">
+						<section>
+							<h3 class="mb-3 font-semibold">
 								{index === stage.rounds.length - 1
 									? m.bracket_final_round()
 									: m.bracket_round({ number: round.number })}
 							</h3>
-							<ol class="flex flex-1 flex-col justify-around gap-6">
-								{#each round.matches as match (match.id)}{@render matchCard(match)}{/each}
+							<ol class="flex flex-col gap-4">
+								{#each round.matches as match (match.id)}
+									{@render matchCard(match, matchCodes)}
+								{/each}
 							</ol>
 						</section>
 					{/each}
 				</div>
-			</div>
-
-			<div class="mobile-bracket flex flex-col gap-8 md:hidden">
-				{#each stage.rounds as round, index (round.id)}
-					<section aria-labelledby={`round-${round.id}-mobile`}>
-						<h3 id={`round-${round.id}-mobile`} class="mb-3 font-semibold">
-							{index === stage.rounds.length - 1
-								? m.bracket_final_round()
-								: m.bracket_round({ number: round.number })}
-						</h3>
-						<ol class="flex flex-col gap-4">
-							{#each round.matches as match (match.id)}{@render matchCard(match)}{/each}
-						</ol>
-					</section>
-				{/each}
-			</div>
+			{/if}
 		</section>
 
 		<section class="border-t pt-6" aria-labelledby="bracket-changes-heading">
@@ -251,16 +377,42 @@
 			{#if data.changes.results.length}
 				<ol class="mt-4 divide-y rounded-xl border">
 					{#each data.changes.results as change (change.revision)}
-						<li
-							class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-						>
-							<span class="text-sm">{changeLabel(change)}</span>
-							<time
-								class="font-mono-data text-xs text-muted-foreground"
-								datetime={change.created_at}
-							>
-								{formatTournamentDateTime(change.created_at, getLocale(), data.displayTimeZone)}
-							</time>
+						<li class="flex flex-col gap-2 px-4 py-3">
+							<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+								<span class="text-sm">{changeLabel(change)}</span>
+								<time
+									class="font-mono-data text-xs text-muted-foreground"
+									datetime={change.created_at}
+								>
+									{formatTournamentDateTime(change.created_at, getLocale(), data.displayTimeZone)}
+								</time>
+							</div>
+							{#if change.kind === 'result_corrected'}
+								<div class="space-y-1 text-xs text-muted-foreground">
+									{#if change.before}
+										<p>{m.bracket_change_before({ summary: snapshotSummary(change.before) })}</p>
+									{/if}
+									{#if change.after}
+										<p>{m.bracket_change_after({ summary: snapshotSummary(change.after) })}</p>
+									{/if}
+									{#if change.reset_matches?.length}
+										<p>
+											{m.bracket_change_affected({
+												codes: change.reset_matches.map((match) => match.match_code).join(', ')
+											})}
+										</p>
+									{/if}
+									{#each change.reset_final_changes ?? [] as reset (reset.match_id)}
+										<p>
+											{m.bracket_reset_change({
+												code: reset.match_code,
+												before: activationLabel(reset.before),
+												after: activationLabel(reset.after)
+											})}
+										</p>
+									{/each}
+								</div>
+							{/if}
 						</li>
 					{/each}
 				</ol>

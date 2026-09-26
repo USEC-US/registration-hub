@@ -71,7 +71,7 @@ export interface PublicTournament {
 }
 
 export type CompetitionStageStatus = 'DRAFT' | 'READY' | 'IN_PROGRESS' | 'AWAITING' | 'COMPLETE';
-export type CompetitionMatchStatus = 'PENDING' | 'LIVE' | 'FINAL';
+export type CompetitionMatchStatus = 'PENDING' | 'CONDITIONAL' | 'NOT_REQUIRED' | 'LIVE' | 'FINAL';
 
 export interface PublicCompetitionEntry {
 	id: number;
@@ -85,6 +85,7 @@ export interface PublicCompetitionMatchSlot {
 	is_resolved: boolean;
 	is_empty: boolean;
 	source_match_id: number | null;
+	source_outcome: '' | 'WINNER' | 'LOSER';
 	entry: PublicCompetitionEntry | null;
 }
 
@@ -118,6 +119,7 @@ export interface PublicCompetitionStage {
 	sequence: number;
 	name: string;
 	format: string;
+	grand_final_policy: '' | 'RESET' | 'NO_RESET';
 	series_mode: string;
 	default_series_length: number;
 	status: CompetitionStageStatus;
@@ -149,7 +151,30 @@ export interface PublicCompetitionChange {
 	side_one_score?: number | null;
 	side_two_score?: number | null;
 	winner?: string | null;
-	reset_matches?: Array<{ match_id: number; match_code: string }>;
+	before?: PublicCompetitionMatchSnapshot;
+	after?: PublicCompetitionMatchSnapshot;
+	reset_matches?: PublicCompetitionMatchSnapshot[];
+	reset_final_changes?: Array<{
+		match_id: number;
+		match_code: string;
+		before: 'ACTIVE' | 'CONDITIONAL' | 'NOT_REQUIRED';
+		after: 'ACTIVE' | 'CONDITIONAL' | 'NOT_REQUIRED';
+	}>;
+}
+
+export interface PublicCompetitionMatchSnapshot {
+	match_id: number;
+	match_code: string;
+	status: CompetitionMatchStatus;
+	outcome: string;
+	side_one: string | null;
+	side_two: string | null;
+	side_one_score: number | null;
+	side_two_score: number | null;
+	winner: string | null;
+	applied_series_length: number | null;
+	started_at: string | null;
+	completed_at: string | null;
 }
 
 export interface PublicCompetitionChangesPage {

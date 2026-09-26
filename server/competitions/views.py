@@ -120,7 +120,7 @@ class PublicMatchView(APIView):
         with consistent_public_read():
             match = get_object_or_404(
                 _published_match_queryset().filter(
-                    round__draw__published_at__isnull=False,
+                    round__draw__state=StageDraw.State.PUBLISHED,
                     round__draw__stage__published_at__isnull=False,
                     round__draw__stage__competition__tournament_game__tournament__is_published=True,
                 ),

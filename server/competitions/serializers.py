@@ -15,6 +15,7 @@ class PublicMatchSlotSerializer(serializers.Serializer):
     is_resolved = serializers.BooleanField(read_only=True)
     is_empty = serializers.SerializerMethodField()
     source_match_id = serializers.IntegerField(read_only=True, allow_null=True)
+    source_outcome = serializers.CharField(read_only=True)
     entry = serializers.SerializerMethodField()
 
     def get_is_empty(self, obj: MatchSlot) -> bool:
@@ -64,6 +65,7 @@ class PublicStageSerializer(serializers.Serializer):
     sequence = serializers.IntegerField(read_only=True)
     name = serializers.CharField(read_only=True)
     format = serializers.CharField(read_only=True)
+    grand_final_policy = serializers.CharField(read_only=True)
     series_mode = serializers.CharField(read_only=True)
     default_series_length = serializers.IntegerField(read_only=True)
     status = serializers.CharField(read_only=True)
@@ -108,7 +110,9 @@ class PublicCompetitionSerializer(serializers.Serializer):
     tournament_name = serializers.CharField(
         source="tournament_game.tournament.name", read_only=True
     )
-    game_name = serializers.CharField(source="tournament_game.game.name", read_only=True)
+    game_name = serializers.CharField(
+        source="tournament_game.game.name", read_only=True
+    )
     stages = PublicStageSerializer(many=True, read_only=True)
 
 
@@ -161,12 +165,71 @@ class PublicChangeSerializer(serializers.Serializer):
     reset_matches = serializers.ListField(
         child=serializers.JSONField(), read_only=True, required=False
     )
+    reset_final_changes = serializers.ListField(
+        child=serializers.JSONField(), read_only=True, required=False
+    )
 
     def to_representation(self, instance: ChangeSet) -> dict:
+        allowed = {
+            "kind",
+            "stage_id",
+            "draw_id",
+            "round_id",
+            "match_id",
+            "match_code",
+            "scheduled_at",
+            "series_length",
+            "side_one_score",
+            "side_two_score",
+            "outcome",
+            "winner",
+        }
+        snapshot_fields = {
+            "match_id",
+            "match_code",
+            "status",
+            "outcome",
+            "side_one",
+            "side_two",
+            "side_one_score",
+            "side_two_score",
+            "winner",
+            "applied_series_length",
+            "started_at",
+            "completed_at",
+        }
+        public_data = {
+            key: value for key, value in instance.public_data.items() if key in allowed
+        }
+        for key in ("before", "after"):
+            if key in instance.public_data:
+                public_data[key] = {
+                    field: value
+                    for field, value in instance.public_data[key].items()
+                    if field in snapshot_fields
+                }
+        if "reset_matches" in instance.public_data:
+            public_data["reset_matches"] = [
+                {
+                    field: value
+                    for field, value in snapshot.items()
+                    if field in snapshot_fields
+                }
+                for snapshot in instance.public_data["reset_matches"]
+            ]
+        if "reset_final_changes" in instance.public_data:
+            public_data["reset_final_changes"] = [
+                {
+                    field: value
+                    for field, value in change.items()
+                    if field in {"match_id", "match_code", "before", "after"}
+                }
+                for change in instance.public_data["reset_final_changes"]
+            ]
         return {
             "revision": instance.revision,
             "created_at": instance.created_at.isoformat(),
-            **instance.public_data,
+            **public_data,
         }
 
 

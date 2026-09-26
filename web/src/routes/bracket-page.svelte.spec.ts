@@ -22,6 +22,7 @@ const competition: PublicCompetition = {
 			sequence: 1,
 			name: 'Final bracket',
 			format: 'SINGLE_ELIMINATION',
+			grand_final_policy: '',
 			series_mode: 'BEST_OF',
 			default_series_length: 3,
 			status: 'IN_PROGRESS',
@@ -60,6 +61,7 @@ const competition: PublicCompetition = {
 									is_resolved: true,
 									is_empty: false,
 									source_match_id: null,
+									source_outcome: '',
 									entry: { id: 11, seed: 1, display_name: 'Blue Team', display_tag: 'BLUE' }
 								},
 								{
@@ -67,6 +69,7 @@ const competition: PublicCompetition = {
 									is_resolved: true,
 									is_empty: false,
 									source_match_id: null,
+									source_outcome: '',
 									entry: { id: 12, seed: 2, display_name: 'Red Team', display_tag: 'RED' }
 								}
 							]
@@ -93,6 +96,64 @@ const changes: PublicCompetitionChangesPage = {
 		}
 	]
 };
+
+function doubleElimination(resetStatus: 'CONDITIONAL' | 'PENDING' | 'NOT_REQUIRED') {
+	const value = structuredClone(competition);
+	const stage = value.stages[0];
+	stage.format = 'DOUBLE_ELIMINATION';
+	stage.grand_final_policy = 'RESET';
+	const baseMatch = stage.rounds[0].matches[0];
+	const match = (
+		id: number,
+		code: string,
+		status: 'PENDING' | 'CONDITIONAL' | 'NOT_REQUIRED',
+		sourceMatchId: number | null = null,
+		sourceOutcome: '' | 'WINNER' | 'LOSER' = ''
+	) => ({
+		...structuredClone(baseMatch),
+		id,
+		code,
+		status,
+		slots: structuredClone(baseMatch.slots).map((slot, index) => ({
+			...slot,
+			is_resolved: sourceMatchId === null,
+			entry: sourceMatchId === null ? slot.entry : null,
+			source_match_id: index === 0 ? sourceMatchId : null,
+			source_outcome: index === 0 ? sourceOutcome : ''
+		}))
+	});
+	stage.rounds = [
+		{
+			id: 21,
+			number: 1,
+			section: 'UPPER',
+			series_length_override: null,
+			matches: [match(31, 'U1', 'PENDING')]
+		},
+		{
+			id: 22,
+			number: 1,
+			section: 'LOWER',
+			series_length_override: null,
+			matches: [match(32, 'L1', 'PENDING', 31, 'LOSER')]
+		},
+		{
+			id: 23,
+			number: 1,
+			section: 'FINALS',
+			series_length_override: null,
+			matches: [match(33, 'F1', 'PENDING', 31, 'WINNER')]
+		},
+		{
+			id: 24,
+			number: 2,
+			section: 'FINALS',
+			series_length_override: null,
+			matches: [match(34, 'F2', resetStatus, 33, 'LOSER')]
+		}
+	];
+	return value;
+}
 
 function data(overrides: Partial<PublicCompetition> = {}) {
 	return {
@@ -161,6 +222,100 @@ describe('public bracket page', () => {
 		complete.stages[0].completed_without_champion = true;
 		render(BracketPage, { data: data(complete) } as never);
 		await expect.element(page.getByText('No champion', { exact: true })).toBeVisible();
+	});
+
+	it('groups double elimination sections and explains all reset states', async () => {
+		for (const [status, label] of [
+			['CONDITIONAL', 'If needed'],
+			['PENDING', 'Pending'],
+			['NOT_REQUIRED', 'Not required']
+		] as const) {
+			const rendered = render(BracketPage, { data: data(doubleElimination(status)) } as never);
+			await expect
+				.element(page.getByRole('heading', { name: 'Upper bracket' }).last())
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Lower bracket' }).last())
+				.toBeVisible();
+			await expect.element(page.getByRole('heading', { name: 'Finals' }).last()).toBeVisible();
+			await expect.element(page.getByText('Loser of U1').last()).toBeVisible();
+			await expect.element(page.getByText(label, { exact: true }).last()).toBeVisible();
+			await expect
+				.element(
+					page.getByText(
+						'A reset final is played if the lower-bracket winner wins the first final.'
+					)
+				)
+				.toBeVisible();
+			await rendered.unmount();
+		}
+	});
+
+	it('renders correction before/after outcomes and reset activation changes', async () => {
+		const correctionChanges = structuredClone(changes);
+		correctionChanges.results[0] = {
+			...correctionChanges.results[0],
+			before: {
+				match_id: 33,
+				match_code: 'F1',
+				status: 'FINAL',
+				outcome: 'PLAYED',
+				side_one: 'Blue Team',
+				side_two: 'Red Team',
+				side_one_score: 2,
+				side_two_score: 0,
+				winner: 'Blue Team',
+				applied_series_length: 3,
+				started_at: null,
+				completed_at: null
+			},
+			after: {
+				match_id: 33,
+				match_code: 'F1',
+				status: 'FINAL',
+				outcome: 'PLAYED',
+				side_one: 'Blue Team',
+				side_two: 'Red Team',
+				side_one_score: 0,
+				side_two_score: 2,
+				winner: 'Red Team',
+				applied_series_length: 3,
+				started_at: null,
+				completed_at: null
+			},
+			reset_matches: [
+				{
+					match_id: 34,
+					match_code: 'F2',
+					status: 'FINAL',
+					outcome: 'PLAYED',
+					side_one: 'Blue Team',
+					side_two: 'Red Team',
+					side_one_score: 2,
+					side_two_score: 1,
+					winner: 'Blue Team',
+					applied_series_length: 3,
+					started_at: null,
+					completed_at: null
+				}
+			],
+			reset_final_changes: [
+				{ match_id: 34, match_code: 'F2', before: 'CONDITIONAL', after: 'ACTIVE' }
+			]
+		};
+
+		render(BracketPage, {
+			data: { ...data(doubleElimination('PENDING')), changes: correctionChanges }
+		} as never);
+
+		await expect
+			.element(page.getByText('Before: Played · Blue Team 2–0 Red Team · Blue Team won'))
+			.toBeVisible();
+		await expect
+			.element(page.getByText('After: Played · Blue Team 0–2 Red Team · Red Team won'))
+			.toBeVisible();
+		await expect.element(page.getByText('Affected matches: F2')).toBeVisible();
+		await expect.element(page.getByText('F2: If needed → Active')).toBeVisible();
 	});
 
 	it('renders the bracket in Vietnamese', async () => {
