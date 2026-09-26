@@ -63,6 +63,10 @@ class Stage(models.Model):
         BEST_OF = "BEST_OF", "Best of"
         FIXED_GAMES = "FIXED_GAMES", "Fixed games"
 
+    class GrandFinalPolicy(models.TextChoices):
+        RESET = "RESET", "Reset"
+        NO_RESET = "NO_RESET", "No reset"
+
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         READY = "READY", "Ready"
@@ -76,6 +80,9 @@ class Stage(models.Model):
     sequence = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
     name = models.CharField(max_length=100)
     format = models.CharField(max_length=24, choices=Format.choices)
+    grand_final_policy = models.CharField(
+        max_length=8, choices=GrandFinalPolicy.choices, blank=True, default=""
+    )
     series_mode = models.CharField(max_length=16, choices=SeriesMode.choices)
     default_series_length = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1)]
@@ -104,6 +111,16 @@ class Stage(models.Model):
             models.CheckConstraint(
                 condition=Q(default_series_length__gte=1),
                 name="stage_series_length_positive",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        format="DOUBLE_ELIMINATION",
+                        grand_final_policy__in=("RESET", "NO_RESET"),
+                    )
+                    | (~Q(format="DOUBLE_ELIMINATION") & Q(grand_final_policy=""))
+                ),
+                name="stage_grand_final_policy_matches_format",
             ),
         ]
 
@@ -175,6 +192,9 @@ class StageEntry(models.Model):
 class Round(models.Model):
     class Section(models.TextChoices):
         NORMAL = "NORMAL", "Normal"
+        UPPER = "UPPER", "Upper"
+        LOWER = "LOWER", "Lower"
+        FINALS = "FINALS", "Finals"
         TIEBREAK = "TIEBREAK", "Tiebreak"
 
     draw = models.ForeignKey(StageDraw, on_delete=models.PROTECT, related_name="rounds")
@@ -206,6 +226,8 @@ class Round(models.Model):
 class Match(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
+        CONDITIONAL = "CONDITIONAL", "Conditional"
+        NOT_REQUIRED = "NOT_REQUIRED", "Not required"
         LIVE = "LIVE", "Live"
         FINAL = "FINAL", "Final"
 
@@ -276,6 +298,7 @@ class Match(models.Model):
 class MatchSlot(models.Model):
     class SourceOutcome(models.TextChoices):
         WINNER = "WINNER", "Winner"
+        LOSER = "LOSER", "Loser"
 
     match = models.ForeignKey(Match, on_delete=models.PROTECT, related_name="slots")
     position = models.PositiveSmallIntegerField()
@@ -322,6 +345,16 @@ class MatchSlot(models.Model):
                     | Q(entry__isnull=True, source_match__isnull=True, is_empty=True)
                 ),
                 name="match_slot_has_one_source",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        source_match__isnull=False,
+                        source_outcome__in=("WINNER", "LOSER"),
+                    )
+                    | Q(source_match__isnull=True, source_outcome="")
+                ),
+                name="match_slot_outcome_matches_source",
             ),
         ]
 
