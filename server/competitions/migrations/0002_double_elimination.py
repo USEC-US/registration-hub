@@ -3,6 +3,13 @@
 from django.db import migrations, models
 
 
+def backfill_double_elimination_policy(apps, schema_editor):
+    stage_model = apps.get_model("competitions", "Stage")
+    stage_model.objects.filter(
+        format="DOUBLE_ELIMINATION", grand_final_policy=""
+    ).update(grand_final_policy="RESET")
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("competitions", "0001_initial"),
@@ -18,6 +25,9 @@ class Migration(migrations.Migration):
                 default="",
                 max_length=8,
             ),
+        ),
+        migrations.RunPython(
+            backfill_double_elimination_policy, migrations.RunPython.noop
         ),
         migrations.AlterField(
             model_name="match",
