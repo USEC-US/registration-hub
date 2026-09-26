@@ -6,10 +6,10 @@ from rest_framework.test import APITestCase
 
 from accounts.tests.factories import create_account
 from competitions.commands import (
-    configure_single_elimination,
+    configure_elimination,
     create_competition,
     publish_draw,
-    save_single_elimination_draw,
+    save_elimination_draw,
     select_entrants,
 )
 from registrations.models import Registration, RegistrationMember
@@ -44,7 +44,8 @@ class PublicCompetitionApiTests(APITestCase):
         self.competition = create_competition(
             actor=self.actor, tournament_game_id=self.division.pk
         )
-        self.stage = configure_single_elimination(
+        self.stage = configure_elimination(
+            format="SINGLE_ELIMINATION",
             actor=self.actor,
             competition_id=self.competition.pk,
             expected_revision=self.competition.revision,
@@ -59,7 +60,7 @@ class PublicCompetitionApiTests(APITestCase):
             registration_ids=[item.pk for item in registrations],
         )
         self.competition.refresh_from_db()
-        self.draw = save_single_elimination_draw(
+        self.draw = save_elimination_draw(
             actor=self.actor,
             competition_id=self.competition.pk,
             expected_revision=self.competition.revision,

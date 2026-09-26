@@ -30,12 +30,12 @@ def seed():
     from accounts.models import Institution
     from competitions.commands import (
         apply_correction,
-        configure_single_elimination,
+        configure_elimination,
         create_competition,
         finalize_match,
         preview_correction,
         publish_draw,
-        save_single_elimination_draw,
+        save_elimination_draw,
         schedule_match,
         select_entrants,
     )
@@ -180,7 +180,8 @@ def seed():
                 actor=organizer,
                 tournament_game_id=divisions["solo-free"].pk,
             )
-            configure_single_elimination(
+            configure_elimination(
+                format="SINGLE_ELIMINATION",
                 actor=organizer,
                 competition_id=competition.pk,
                 expected_revision=competition.revision,
@@ -195,7 +196,7 @@ def seed():
                 registration_ids=[item.pk for item in bracket_registrations],
             )
             competition.refresh_from_db()
-            draw = save_single_elimination_draw(
+            draw = save_elimination_draw(
                 actor=organizer,
                 competition_id=competition.pk,
                 expected_revision=competition.revision,

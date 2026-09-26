@@ -10,12 +10,12 @@ from django.utils import timezone
 from accounts.tests.factories import create_account
 from competitions.commands import (
     apply_correction,
-    configure_single_elimination,
+    configure_elimination,
     create_competition,
     finalize_match,
     preview_correction,
     publish_draw,
-    save_single_elimination_draw,
+    save_elimination_draw,
     schedule_match,
     select_entrants,
     start_match,
@@ -73,7 +73,8 @@ class CompetitionConcurrencyTests(TransactionTestCase):
         competition = create_competition(
             actor=self.actor, tournament_game_id=self.division.pk
         )
-        configure_single_elimination(
+        configure_elimination(
+            format="SINGLE_ELIMINATION",
             actor=self.actor,
             competition_id=competition.pk,
             expected_revision=competition.revision,
@@ -88,7 +89,7 @@ class CompetitionConcurrencyTests(TransactionTestCase):
             registration_ids=[item.pk for item in self.registrations],
         )
         competition.refresh_from_db()
-        draw = save_single_elimination_draw(
+        draw = save_elimination_draw(
             actor=self.actor,
             competition_id=competition.pk,
             expected_revision=competition.revision,

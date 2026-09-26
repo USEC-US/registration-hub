@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 from collections import deque
 from collections.abc import Sequence
+from graphlib import CycleError, TopologicalSorter
 
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -13,7 +14,12 @@ from config.organizers import require_organizer
 from registrations.models import Registration
 from tournaments.models import TournamentGame
 
-from .elimination import SeedSlot, WinnerSlot, generate_single_elimination
+from .elimination import (
+    LoserSlot,
+    SeedSlot,
+    generate_double_elimination,
+    generate_single_elimination,
+)
 from .models import (
     ChangeSet,
     Competition,
@@ -89,25 +95,30 @@ def create_competition(*, actor, tournament_game_id: int) -> Competition:
         return competition
 
 
-def configure_single_elimination(
+def configure_elimination(
     *,
     actor,
     competition_id: int,
     expected_revision: int,
     name: str,
     default_series_length: int,
+    format: str,
+    grand_final_policy: str = "",
 ) -> Stage:
     require_organizer(actor, "competitions.change_competition")
     name = name.strip()
     if not name:
         raise ValidationError({"name": "Enter a stage name."})
+    _validate_elimination_setup(format, grand_final_policy)
     _validate_best_of(default_series_length)
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
-        stage = Stage.objects.select_for_update().filter(
-            competition=competition, sequence=1
-        ).first()
+        stage = (
+            Stage.objects.select_for_update()
+            .filter(competition=competition, sequence=1)
+            .first()
+        )
         if stage and stage.published_at:
             raise ValidationError("Published stage setup is locked.")
         if stage is None:
@@ -115,14 +126,28 @@ def configure_single_elimination(
                 competition=competition,
                 sequence=1,
                 name=name,
-                format=Stage.Format.SINGLE_ELIMINATION,
+                format=format,
+                grand_final_policy=grand_final_policy,
                 series_mode=Stage.SeriesMode.BEST_OF,
                 default_series_length=default_series_length,
             )
         else:
+            if (stage.format, stage.grand_final_policy) != (format, grand_final_policy):
+                StageDraw.objects.filter(
+                    stage=stage, state=StageDraw.State.DRAFT
+                ).update(state=StageDraw.State.SUPERSEDED)
+            stage.format = format
+            stage.grand_final_policy = grand_final_policy
             stage.name = name
             stage.default_series_length = default_series_length
-            stage.save(update_fields=("name", "default_series_length"))
+            stage.save(
+                update_fields=(
+                    "name",
+                    "default_series_length",
+                    "format",
+                    "grand_final_policy",
+                )
+            )
         _record_change(
             competition,
             actor=actor,
@@ -130,6 +155,8 @@ def configure_single_elimination(
             private_data={
                 "stage_id": stage.pk,
                 "name": stage.name,
+                "format": stage.format,
+                "grand_final_policy": stage.grand_final_policy,
                 "default_series_length": stage.default_series_length,
             },
         )
@@ -205,7 +232,7 @@ def select_entrants(
         return entrants
 
 
-def save_single_elimination_draw(
+def save_elimination_draw(
     *,
     actor,
     competition_id: int,
@@ -217,9 +244,11 @@ def save_single_elimination_draw(
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
-        stage = Stage.objects.select_for_update().filter(
-            competition=competition, sequence=1
-        ).first()
+        stage = (
+            Stage.objects.select_for_update()
+            .filter(competition=competition, sequence=1)
+            .first()
+        )
         if stage is None:
             raise ValidationError("Configure the stage before saving a draw.")
         if stage.published_at:
@@ -241,16 +270,19 @@ def save_single_elimination_draw(
                 entrant_ids
             ):
                 raise ValidationError("Manual seeds must include every entrant once.")
-        generated = generate_single_elimination(len(entrants))
+        generated = _generate_elimination(stage, len(entrants))
         if sum(len(round_.matches) for round_ in generated) > MAX_MATCHES:
             raise ValidationError("The generated draw exceeds the match limit.")
-        current = StageDraw.objects.select_for_update().filter(
-            stage=stage, state=StageDraw.State.DRAFT
-        ).first()
+        current = (
+            StageDraw.objects.select_for_update()
+            .filter(stage=stage, state=StageDraw.State.DRAFT)
+            .first()
+        )
         next_version = (
-            StageDraw.objects.filter(stage=stage).order_by("-version").values_list(
-                "version", flat=True
-            ).first()
+            StageDraw.objects.filter(stage=stage)
+            .order_by("-version")
+            .values_list("version", flat=True)
+            .first()
             or 0
         ) + 1
         if current:
@@ -266,19 +298,43 @@ def save_single_elimination_draw(
             )
             for seed, entrant_id in enumerate(ordered_ids, start=1)
         }
-        matches: dict[tuple[int, int], Match] = {}
+        matches: dict[tuple[str, int, int], Match] = {}
         for generated_round in generated:
-            round_ = Round.objects.create(draw=draw, number=generated_round.number)
+            round_ = Round.objects.create(
+                draw=draw,
+                number=generated_round.number,
+                section=generated_round.section,
+            )
+            section_code = (
+                f"{round_.section}-"
+                if stage.format == Stage.Format.DOUBLE_ELIMINATION
+                else ""
+            )
             for generated_match in generated_round.matches:
                 match = Match.objects.create(
                     round=round_,
                     number=generated_match.number,
                     code=(
-                        f"C{competition.pk}-D{draw.version}-"
+                        f"C{competition.pk}-D{draw.version}-{section_code}"
                         f"R{round_.number}-M{generated_match.number}"
                     ),
+                    status=(
+                        Match.Status.CONDITIONAL
+                        if round_.section == Round.Section.FINALS and round_.number == 2
+                        else Match.Status.PENDING
+                    ),
                 )
-                matches[(round_.number, match.number)] = match
+                matches[(round_.section, round_.number, match.number)] = match
+        # Persist the whole graph before linking either winner or loser routes.
+        for generated_round in generated:
+            for generated_match in generated_round.matches:
+                match = matches[
+                    (
+                        generated_round.section,
+                        generated_round.number,
+                        generated_match.number,
+                    )
+                ]
                 for position, slot in enumerate(generated_match.slots, start=1):
                     if isinstance(slot, SeedSlot):
                         entry = entries_by_seed.get(slot.seed)
@@ -290,14 +346,18 @@ def save_single_elimination_draw(
                             is_resolved=True,
                             resolved_entry=entry,
                         )
-                    elif isinstance(slot, WinnerSlot):
+                    else:
                         MatchSlot.objects.create(
                             match=match,
                             position=position,
                             source_match=matches[
-                                (slot.round_number, slot.match_number)
+                                (slot.section, slot.round_number, slot.match_number)
                             ],
-                            source_outcome=MatchSlot.SourceOutcome.WINNER,
+                            source_outcome=(
+                                MatchSlot.SourceOutcome.LOSER
+                                if isinstance(slot, LoserSlot)
+                                else MatchSlot.SourceOutcome.WINNER
+                            ),
                         )
         _resolve_automatic_matches(draw)
         _record_change(
@@ -325,9 +385,11 @@ def publish_draw(
         )
         if stage.published_at:
             raise ValidationError("This stage is already published.")
-        draw = StageDraw.objects.select_for_update().get(
+        draw = StageDraw.objects.select_for_update().filter(
             stage=stage, state=StageDraw.State.DRAFT
-        )
+        ).first()
+        if draw is None:
+            raise ValidationError("Save a new draw before publication.")
         registration_ids = list(
             competition.entrants.order_by("registration_id").values_list(
                 "registration_id", flat=True
@@ -350,6 +412,7 @@ def publish_draw(
         slot_count = MatchSlot.objects.filter(match__round__draw=draw).count()
         if match_count == 0 or slot_count != match_count * 2:
             raise ValidationError("The saved draw is incomplete.")
+        _validate_saved_draw(draw)
         now = timezone.now()
         draw.state = StageDraw.State.PUBLISHED
         draw.published_at = now
@@ -376,12 +439,136 @@ def _validate_best_of(length: int) -> None:
         raise ValidationError("Best-of length must be a positive odd number.")
 
 
+def _validate_elimination_setup(format: str, grand_final_policy: str) -> None:
+    if format not in (Stage.Format.SINGLE_ELIMINATION, Stage.Format.DOUBLE_ELIMINATION):
+        raise ValidationError("Choose a supported elimination format.")
+    if format == Stage.Format.DOUBLE_ELIMINATION:
+        if grand_final_policy not in Stage.GrandFinalPolicy.values:
+            raise ValidationError({"grand_final_policy": "Choose reset or no reset."})
+    elif grand_final_policy:
+        raise ValidationError({"grand_final_policy": "Single elimination has no final policy."})
+
+
+def _generate_elimination(stage: Stage, count: int):
+    _validate_elimination_setup(stage.format, stage.grand_final_policy)
+    if not 2 <= count <= MAX_ENTRANTS:
+        raise ValidationError(f"Choose between 2 and {MAX_ENTRANTS} entrants.")
+    if stage.format == Stage.Format.DOUBLE_ELIMINATION:
+        return generate_double_elimination(
+            count, grand_final_policy=stage.grand_final_policy
+        )
+    return generate_single_elimination(count)
+
+
+def _ordered_matches(draw: StageDraw) -> list[Match]:
+    matches = list(
+        Match.objects.filter(round__draw=draw)
+        .select_related("round__draw__stage")
+        .order_by("round__section", "round__number", "number", "pk")
+    )
+    by_id = {match.pk: match for match in matches}
+    graph = {match.pk: [] for match in matches}
+    for match_id, source_id in (
+        MatchSlot.objects.filter(match_id__in=by_id, source_match__isnull=False)
+        .order_by("match_id", "position")
+        .values_list("match_id", "source_match_id")
+    ):
+        if source_id not in by_id:
+            raise ValidationError("Match sources must belong to the same draw.")
+        graph[match_id].append(source_id)
+    try:
+        return [by_id[pk] for pk in TopologicalSorter(graph).static_order()]
+    except CycleError as error:
+        raise ValidationError("Match sources cannot form a cycle.") from error
+
+
+def _validate_saved_draw(draw: StageDraw) -> None:
+    entries = list(draw.entries.order_by("seed"))
+    if [entry.seed for entry in entries] != list(range(1, len(entries) + 1)):
+        raise ValidationError("The saved draw has invalid seeds.")
+    expected = _generate_elimination(draw.stage, len(entries))
+    matches = _ordered_matches(draw)
+    by_key = {(m.round.section, m.round.number, m.number): m for m in matches}
+    expected_keys = {
+        (r.section, r.number, m.number) for r in expected for m in r.matches
+    }
+    if set(by_key) != expected_keys or set(
+        draw.rounds.values_list("section", "number")
+    ) != {(r.section, r.number) for r in expected}:
+        raise ValidationError(
+            "The saved draw does not match the stage format and policy."
+        )
+    entries_by_seed = {entry.seed: entry.pk for entry in entries}
+    for round_ in expected:
+        for generated in round_.matches:
+            match = by_key[(round_.section, round_.number, generated.number)]
+            slots = list(match.slots.order_by("position"))
+            if [slot.position for slot in slots] != [1, 2]:
+                raise ValidationError("The saved draw is incomplete.")
+            for slot, source in zip(slots, generated.slots):
+                if isinstance(source, SeedSlot):
+                    entry_id = entries_by_seed.get(source.seed)
+                    valid = (
+                        slot.entry_id == entry_id
+                        and slot.source_match_id is None
+                        and slot.is_empty == (entry_id is None)
+                        and slot.source_outcome == ""
+                    )
+                else:
+                    source_match = by_key[
+                        (source.section, source.round_number, source.match_number)
+                    ]
+                    outcome = (
+                        MatchSlot.SourceOutcome.LOSER
+                        if isinstance(source, LoserSlot)
+                        else MatchSlot.SourceOutcome.WINNER
+                    )
+                    valid = (
+                        slot.source_match_id == source_match.pk
+                        and slot.source_outcome == outcome
+                        and slot.entry_id is None
+                        and not slot.is_empty
+                    )
+                if not valid:
+                    raise ValidationError("The saved draw routing does not match the stage format and policy.")
+
+
+def _reconcile_reset_final(match: Match) -> None:
+    if match.round.section != Round.Section.FINALS or match.round.number != 2:
+        return
+    first = Match.objects.get(
+        round__draw=match.round.draw,
+        round__section=Round.Section.FINALS,
+        round__number=1,
+        number=1,
+    )
+    if first.status != Match.Status.FINAL:
+        status = Match.Status.CONDITIONAL
+    elif (
+        first.outcome in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT)
+        and first.winner_id == first.slots.get(position=2).resolved_entry_id
+    ):
+        status = (
+            match.status
+            if match.status in (Match.Status.LIVE, Match.Status.FINAL)
+            else Match.Status.PENDING
+        )
+    else:
+        status = Match.Status.NOT_REQUIRED
+    if match.status != status:
+        match.status = status
+        match.save(update_fields=("status",))
+
+
 def _resolve_automatic_matches(draw: StageDraw) -> None:
     now = timezone.now()
-    for match in Match.objects.filter(round__draw=draw).order_by(
-        "round__number", "number"
-    ):
-        if match.status == Match.Status.FINAL:
+    for match in _ordered_matches(draw):
+        _reconcile_reset_final(match)
+        if match.status in (
+            Match.Status.FINAL,
+            Match.Status.CONDITIONAL,
+            Match.Status.NOT_REQUIRED,
+        ):
             continue
         slots = list(match.slots.order_by("position"))
         if len(slots) != 2 or not all(slot.is_resolved for slot in slots):
@@ -393,16 +580,40 @@ def _resolve_automatic_matches(draw: StageDraw) -> None:
         match.outcome = Match.Outcome.BYE if entries else Match.Outcome.EMPTY
         match.winner = entries[0] if entries else None
         match.completed_at = now
+        match.side_one_score = match.side_two_score = None
         match.save(
-            update_fields=("status", "outcome", "winner", "completed_at")
+            update_fields=(
+                "status",
+                "outcome",
+                "winner",
+                "completed_at",
+                "side_one_score",
+                "side_two_score",
+            )
         )
         _propagate_completed_match(match)
 
 
-def _propagate_completed_match(match: Match) -> None:
-    MatchSlot.objects.filter(source_match=match).update(
-        is_resolved=True, resolved_entry=match.winner
+def _losing_entry_id(match: Match) -> int | None:
+    if (
+        match.outcome not in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT)
+        or not match.winner_id
+    ):
+        return None
+    return (
+        match.slots.exclude(resolved_entry_id=match.winner_id)
+        .values_list("resolved_entry_id", flat=True)
+        .first()
     )
+
+
+def _propagate_completed_match(match: Match) -> None:
+    MatchSlot.objects.filter(
+        source_match=match, source_outcome=MatchSlot.SourceOutcome.WINNER
+    ).update(is_resolved=True, resolved_entry=match.winner)
+    MatchSlot.objects.filter(
+        source_match=match, source_outcome=MatchSlot.SourceOutcome.LOSER
+    ).update(is_resolved=True, resolved_entry_id=_losing_entry_id(match))
 
 
 def _match_competition_id(match_id: int) -> int:
@@ -429,7 +640,11 @@ def schedule_match(
     with transaction.atomic():
         competition, match = _lock_match(match_id)
         _check_revision(competition, expected_revision)
-        if match.status != Match.Status.PENDING:
+        if match.status not in (
+            Match.Status.PENDING,
+            Match.Status.CONDITIONAL,
+            Match.Status.NOT_REQUIRED,
+        ):
             raise ValidationError("Only an unstarted match can be rescheduled.")
         match.scheduled_at = scheduled_at
         match.save(update_fields=("scheduled_at",))
@@ -516,6 +731,8 @@ def set_match_series_length(
 
 
 def _playable_slots(match: Match) -> list[MatchSlot]:
+    if match.status in (Match.Status.CONDITIONAL, Match.Status.NOT_REQUIRED):
+        raise ValidationError("An inactive reset final cannot be played.")
     slots = list(
         match.slots.select_related("resolved_entry__entrant").order_by("position")
     )
@@ -653,9 +870,24 @@ def _validate_result(
 
 def _update_stage_completion(draw: StageDraw) -> None:
     stage = draw.stage
-    final = Match.objects.filter(round__draw=draw).order_by(
-        "-round__number", "number"
-    ).first()
+    finals = Match.objects.filter(round__draw=draw)
+    if stage.format == Stage.Format.DOUBLE_ELIMINATION:
+        finals = finals.filter(round__section=Round.Section.FINALS)
+        reset = finals.filter(round__number=2).first()
+        final = (
+            reset
+            if stage.grand_final_policy == Stage.GrandFinalPolicy.RESET
+            and reset
+            and reset.status
+            in (Match.Status.PENDING, Match.Status.LIVE, Match.Status.FINAL)
+            else finals.get(round__number=1)
+        )
+    else:
+        final = (
+            finals.filter(round__section=Round.Section.NORMAL)
+            .order_by("-round__number", "number")
+            .first()
+        )
     if final and final.status == Match.Status.FINAL:
         stage.status = Stage.Status.COMPLETE
         stage.champion = final.winner.entrant if final.winner_id else None
@@ -782,7 +1014,7 @@ def _descendant_matches(match: Match) -> list[Match]:
             if dependant.pk not in found:
                 found[dependant.pk] = dependant
                 queue.append(dependant.pk)
-    return sorted(found.values(), key=lambda item: (item.round.number, item.number))
+    return [item for item in _ordered_matches(match.round.draw) if item.pk in found]
 
 
 def _correction_payload(

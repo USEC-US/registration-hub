@@ -25,14 +25,14 @@ from .admin_workspace import (
 
 from .commands import (
     apply_correction,
-    configure_single_elimination,
+    configure_elimination,
     create_competition,
     finalize_match,
     preview_correction,
     publish_draw,
     review_correction_preview,
     save_match_progress,
-    save_single_elimination_draw,
+    save_elimination_draw,
     schedule_match,
     select_entrants,
     set_match_series_length,
@@ -551,7 +551,8 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             title="Configure single elimination",
             form_class=CompetitionSetupForm,
             form_kwargs={"initial": initial},
-            command=lambda item, expected_revision, data: configure_single_elimination(
+            command=lambda item, expected_revision, data: configure_elimination(
+                format="SINGLE_ELIMINATION",
                 actor=request.user,
                 competition_id=item.pk,
                 expected_revision=expected_revision,
@@ -594,7 +595,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             title="Save bracket draw",
             form_class=DrawForm,
             form_kwargs={"competition": competition},
-            command=lambda item, expected_revision, data: save_single_elimination_draw(
+            command=lambda item, expected_revision, data: save_elimination_draw(
                 actor=request.user,
                 competition_id=item.pk,
                 expected_revision=expected_revision,

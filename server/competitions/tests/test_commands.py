@@ -7,13 +7,13 @@ from django.utils import timezone
 from accounts.tests.factories import create_account
 from competitions.commands import (
     apply_correction,
-    configure_single_elimination,
+    configure_elimination,
     create_competition,
     finalize_match,
     preview_correction,
     publish_draw,
     save_match_progress,
-    save_single_elimination_draw,
+    save_elimination_draw,
     select_entrants,
     set_match_series_length,
     set_round_series_length,
@@ -69,7 +69,8 @@ class CompetitionCommandTests(TestCase):
         competition = create_competition(
             actor=self.actor, tournament_game_id=self.division.pk
         )
-        configure_single_elimination(
+        configure_elimination(
+            format="SINGLE_ELIMINATION",
             actor=self.actor,
             competition_id=competition.pk,
             expected_revision=competition.revision,
@@ -84,7 +85,7 @@ class CompetitionCommandTests(TestCase):
             registration_ids=[item.pk for item in self.registrations],
         )
         competition.refresh_from_db()
-        draw = save_single_elimination_draw(
+        draw = save_elimination_draw(
             actor=self.actor,
             competition_id=competition.pk,
             expected_revision=competition.revision,
@@ -279,7 +280,8 @@ class CompetitionCommandTests(TestCase):
         competition = create_competition(
             actor=self.actor, tournament_game_id=self.division.pk
         )
-        configure_single_elimination(
+        configure_elimination(
+            format="SINGLE_ELIMINATION",
             actor=self.actor,
             competition_id=competition.pk,
             expected_revision=competition.revision,
@@ -294,7 +296,7 @@ class CompetitionCommandTests(TestCase):
             registration_ids=[item.pk for item in self.registrations[:2]],
         )
         competition.refresh_from_db()
-        save_single_elimination_draw(
+        save_elimination_draw(
             actor=self.actor,
             competition_id=competition.pk,
             expected_revision=competition.revision,

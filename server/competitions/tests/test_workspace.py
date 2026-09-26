@@ -8,10 +8,10 @@ from django.utils import timezone
 
 from accounts.tests.factories import create_account
 from competitions.commands import (
-    configure_single_elimination,
+    configure_elimination,
     create_competition,
     publish_draw,
-    save_single_elimination_draw,
+    save_elimination_draw,
     select_entrants,
 )
 from competitions.models import Competition, Match, StageDraw
@@ -97,7 +97,8 @@ class CompetitionWorkspaceTests(TestCase):
         competition = create_competition(
             actor=self.organizer, tournament_game_id=self.division.pk
         )
-        configure_single_elimination(
+        configure_elimination(
+            format="SINGLE_ELIMINATION",
             actor=self.organizer,
             competition_id=competition.pk,
             expected_revision=competition.revision,
@@ -112,7 +113,7 @@ class CompetitionWorkspaceTests(TestCase):
             registration_ids=[item.pk for item in self.registrations],
         )
         competition.refresh_from_db()
-        draw = save_single_elimination_draw(
+        draw = save_elimination_draw(
             actor=self.organizer,
             competition_id=competition.pk,
             expected_revision=competition.revision,
@@ -388,7 +389,7 @@ class CompetitionWorkspaceTests(TestCase):
     def test_saved_seeds_are_preserved_and_randomize_accepts_no_manual_values(self):
         competition, _ = self._draft()
         order = list(competition.entrants.order_by("-pk").values_list("pk", flat=True))
-        save_single_elimination_draw(
+        save_elimination_draw(
             actor=self.organizer,
             competition_id=competition.pk,
             expected_revision=competition.revision,
