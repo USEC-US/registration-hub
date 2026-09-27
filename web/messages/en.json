@@ -381,7 +381,7 @@
 	"bracket_change_before": "Before: {summary}",
 	"bracket_change_after": "After: {summary}",
 	"bracket_change_result_summary": "{outcome} · {sideOne} {sideOneScore}–{sideTwoScore} {sideTwo} · {winner} won",
-	"bracket_change_result_no_winner": "{outcome} · {sideOne} vs {sideTwo} · No winner",
+	"bracket_change_result_no_winner": "{outcome} · {sideOne} {sideOneScore}–{sideTwoScore} {sideTwo} · No winner",
 	"bracket_outcome_played": "Played",
 	"bracket_outcome_forfeit": "Forfeit",
 	"bracket_outcome_double_forfeit": "Double forfeit",

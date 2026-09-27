@@ -120,7 +120,7 @@ def match_card(match, user):
         "inactive_final_message": (
             "This reserved final activates if the lower-bracket winner wins the grand final."
             if match.status == Match.Status.CONDITIONAL
-            else "This reserved final is not required because the upper-bracket winner won the grand final."
+            else "This reserved final is not required for the current grand final result."
             if match.status == Match.Status.NOT_REQUIRED
             else ""
         ),

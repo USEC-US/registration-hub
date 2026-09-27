@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { PublicCompetition } from '../../src/lib/api/types';
 
 test('organizers correct and score matches from one responsive workspace', async ({ page }) => {
 	await page.goto('http://127.0.0.1:8015/admin/competitions/competition/');
@@ -124,6 +125,10 @@ test('organizers publish a double bracket, play a reset, and correct its activat
 	await spectator.reload();
 	await expect(spectator.getByText('If needed', { exact: true })).toHaveCount(0);
 	await score('FINALS-R2-M1', 1, 0);
+	const completedBracket: PublicCompetition = await (await page.request.get(apiUrl)).json();
+	const completedReset = completedBracket.stages[0].rounds
+		.flatMap((round) => round.matches)
+		.find((match) => match.code.endsWith('FINALS-R2-M1'))!;
 	await spectator.reload();
 	await expect(spectator.getByRole('heading', { name: 'Champion', exact: true })).toBeVisible();
 	await page.goto(`${workspaceUrl}?tab=bracket`);
@@ -143,6 +148,12 @@ test('organizers publish a double bracket, play a reset, and correct its activat
 	await spectator.reload();
 	await expect(spectator.getByText('Not required', { exact: true }).first()).toBeVisible();
 	await expect(spectator.getByText(/Active → Not required/)).toBeVisible();
+	await expect(
+		spectator.getByText(
+			`${completedReset.code}: Played · ${completedReset.slots[0].entry!.display_name} 1–0 ${completedReset.slots[1].entry!.display_name} · ${completedReset.winner!.display_name} won`,
+			{ exact: true }
+		)
+	).toBeVisible();
 	await expect(spectator.getByText('Private DE browser correction reason')).toHaveCount(0);
 	const publicData = await (await page.request.get(apiUrl)).text();
 	expect(publicData).not.toContain('Private DE browser correction reason');

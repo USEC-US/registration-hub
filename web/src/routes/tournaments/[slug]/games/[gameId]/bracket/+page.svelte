@@ -118,13 +118,19 @@
 	function snapshotSummary(snapshot: PublicCompetitionMatchSnapshot): string {
 		if (!snapshot.winner) {
 			return m.bracket_change_result_no_winner({
-				outcome: outcomeLabel(snapshot.outcome),
+				outcome: snapshot.outcome
+					? outcomeLabel(snapshot.outcome)
+					: matchStatusLabel(snapshot.status),
 				sideOne: snapshot.side_one ?? m.bracket_tbd(),
+				sideOneScore: snapshot.side_one_score ?? '—',
+				sideTwoScore: snapshot.side_two_score ?? '—',
 				sideTwo: snapshot.side_two ?? m.bracket_tbd()
 			});
 		}
 		return m.bracket_change_result_summary({
-			outcome: outcomeLabel(snapshot.outcome),
+			outcome: snapshot.outcome
+				? outcomeLabel(snapshot.outcome)
+				: matchStatusLabel(snapshot.status),
 			sideOne: snapshot.side_one ?? m.bracket_tbd(),
 			sideOneScore: snapshot.side_one_score ?? '—',
 			sideTwoScore: snapshot.side_two_score ?? '—',
@@ -412,6 +418,9 @@
 											})}
 										</p>
 									{/if}
+									{#each change.reset_matches ?? [] as snapshot (snapshot.match_id)}
+										<p>{snapshot.match_code}: {snapshotSummary(snapshot)}</p>
+									{/each}
 									{#each change.reset_final_changes ?? [] as reset (reset.match_id)}
 										<p>
 											{m.bracket_reset_change({

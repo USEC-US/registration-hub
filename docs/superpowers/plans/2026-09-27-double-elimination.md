@@ -353,8 +353,10 @@ git diff --check
 ```
 
 Also run Prettier/ESLint on changed frontend files. Broaden checks only when a
-failure or changed shared behavior requires it. Recorded outcomes: 89 focused PostgreSQL tests, 16 focused frontend tests, and
-four real Django/Svelte browser scenarios passed. Migration drift, system checks,
+failure or changed shared behavior requires it. Recorded outcomes: 89 focused
+PostgreSQL tests, 17 focused frontend tests across scoped runs (7 current component
+tests plus 10 unchanged API-client/loader tests), and four real Django/Svelte
+browser scenarios passed. Migration drift, system checks,
 changed-file lint/formatting, and the production build passed. The testing guide
 records exact scope and environment warnings.
 

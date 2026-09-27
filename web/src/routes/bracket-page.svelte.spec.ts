@@ -252,7 +252,8 @@ describe('public bracket page', () => {
 		}
 	});
 
-	it('renders correction before/after outcomes and reset activation changes', async () => {
+	it.each(['en', 'vi'] as const)('renders retained correction snapshots in %s', async (locale) => {
+		overwriteGetLocale(() => locale);
 		const correctionChanges = structuredClone(changes);
 		correctionChanges.results[0] = {
 			...correctionChanges.results[0],
@@ -277,8 +278,8 @@ describe('public bracket page', () => {
 				outcome: 'DOUBLE_FORFEIT',
 				side_one: 'Blue Team',
 				side_two: 'Red Team',
-				side_one_score: null,
-				side_two_score: null,
+				side_one_score: 1,
+				side_two_score: 0,
 				winner: null,
 				applied_series_length: 3,
 				started_at: null,
@@ -305,18 +306,39 @@ describe('public bracket page', () => {
 			]
 		};
 
-		render(BracketPage, {
+		correctionChanges.results[0].reset_matches!.push({
+			...correctionChanges.results[0].reset_matches![0],
+			match_id: 32,
+			match_code: 'L1',
+			status: 'LIVE',
+			outcome: '',
+			side_one_score: 1,
+			side_two_score: null,
+			winner: null
+		});
+		const { container } = render(BracketPage, {
 			data: { ...data(doubleElimination('PENDING')), changes: correctionChanges }
 		} as never);
 
-		await expect
-			.element(page.getByText('Before: Played · Blue Team 2–0 Red Team · Blue Team won'))
-			.toBeVisible();
-		await expect
-			.element(page.getByText('After: Double forfeit · Blue Team vs Red Team · No winner'))
-			.toBeVisible();
-		await expect.element(page.getByText('Affected matches: F2')).toBeVisible();
-		await expect.element(page.getByText('F2: If needed → Active')).toBeVisible();
+		const expected =
+			locale === 'en'
+				? [
+						'Before: Played · Blue Team 2–0 Red Team · Blue Team won',
+						'After: Double forfeit · Blue Team 1–0 Red Team · No winner',
+						'F2: Played · Blue Team 2–1 Red Team · Blue Team won',
+						'L1: Live · Blue Team 1–— Red Team · No winner',
+						'Affected matches: F2, L1',
+						'F2: If needed → Active'
+					]
+				: [
+						'Trước: Đã thi đấu · Blue Team 2–0 Red Team · Blue Team thắng',
+						'Sau: Cả hai bị xử thua · Blue Team 1–0 Red Team · Không có đội thắng',
+						'F2: Đã thi đấu · Blue Team 2–1 Red Team · Blue Team thắng',
+						'L1: Trực tiếp · Blue Team 1–— Red Team · Không có đội thắng',
+						'Các trận bị ảnh hưởng: F2, L1',
+						'F2: Nếu cần → Đang áp dụng'
+					];
+		for (const summary of expected) expect.soft(container.textContent).toContain(summary);
 	});
 
 	it('renders the bracket in Vietnamese', async () => {

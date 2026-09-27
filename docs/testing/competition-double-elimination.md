@@ -89,7 +89,7 @@ the migration is not a safe rollback for populated brackets.
 | PostgreSQL competition + development seed suite | 89 tests passed with `--keepdb`; no skips. |
 | Staged-equivalent seed module, excluding unrelated sponsor additions | 12 tests passed; full working-tree seed module also passed 13 tests. |
 | Migration drift / Django system checks / focused Ruff | No changes detected; no system-check findings; clean. |
-| Focused API/loader/Svelte Vitest suite | 16 tests passed after the public UI review fixes. |
+| Focused API/loader/Svelte Vitest suite | 17 tests covered across focused runs: 7 current Svelte component tests and 10 unchanged API-client/loader tests from the prior 16-test run. |
 | i18n guard and Svelte check | Zero errors and warnings. |
 | Changed frontend Prettier / ESLint | Clean. |
 | Real Django/PostgreSQL browser journeys | Four scenarios passed across initial and focused reruns: existing SE organizer/public; new DE organizer/public. |
@@ -100,8 +100,8 @@ The new organizer journey uses a disposable four-team fixture and exercises setu
 manual seed preview, publication, upper/lower results, a lower winner activating the
 reset, a played reset, and correction confirmation making it unnecessary. Public
 refresh shows the corrected state and activation history, retains cleared scores
-in the public Changes API, and excludes the private reason. Separate public tests
-verify English/Vietnamese section headings, keyboard Tab focus, and a 390-pixel
+in both the public Changes API and the rendered page, and excludes the private
+reason. Separate public tests verify English/Vietnamese section headings, keyboard Tab focus, and a 390-pixel
 viewport without page overflow. Initial new browser failures were test-selector
 mismatches with existing accessible labels; focused reruns passed after matching
 those labels. Each browser run creates and removes a unique PostgreSQL database.
