@@ -89,12 +89,13 @@ def match_card(match, user):
         "slots": [
             {
                 "label": slot_label(slot),
+                "position": slot.position,
+                "source_match_id": slot.source_match_id,
+                "source_outcome": slot.source_outcome,
                 "seed": (slot.resolved_entry or slot.entry).seed
                 if slot.resolved_entry_id or slot.entry_id
                 else None,
-                "score": (
-                    "W" if slot.resolved_entry_id == match.winner_id else "FF"
-                )
+                "score": ("W" if slot.resolved_entry_id == match.winner_id else "FF")
                 if match.outcome == Match.Outcome.FORFEIT
                 else (
                     match.side_one_score if slot.position == 1 else match.side_two_score

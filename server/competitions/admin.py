@@ -265,7 +265,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             }
             for item in entrants
         ]
-        rounds = []
+        rounds_by_section = {}
         all_cards = []
         if draw:
             entries = [
@@ -296,8 +296,9 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     match_card(match, request.user) for match in round_.matches.all()
                 ]
                 all_cards.extend(cards)
-                rounds.append(
+                rounds_by_section.setdefault(round_.section, []).append(
                     {
+                        "id": round_.pk,
                         "label": round_label(
                             round_,
                             last_round_number=last_round_numbers[round_.section],
@@ -402,7 +403,14 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "setup_steps": setup_steps,
                 "entrants_url": setup_steps[1]["url"],
                 "entries": entries,
-                "rounds": rounds,
+                "bracket_sections": [
+                    {
+                        "kind": section,
+                        "rounds": rounds_by_section[section],
+                    }
+                    for section in Round.Section
+                    if section in rounds_by_section
+                ],
                 "participant_count": len(entrants),
                 "completed_count": sum(
                     card["status"] in ("Completed", "Bye", "No contest")

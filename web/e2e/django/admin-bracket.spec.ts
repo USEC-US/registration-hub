@@ -1,6 +1,157 @@
 import { expect, test } from '@playwright/test';
 import type { PublicCompetition } from '../../src/lib/api/types';
 
+test('double brackets place the lower bracket below the upper bracket and finals on the right', async ({
+	page
+}) => {
+	page.setDefaultTimeout(10_000);
+	await page.goto('http://127.0.0.1:8015/admin/competitions/competition/');
+	await page.getByLabel('Email', { exact: false }).fill('journey-organizer@example.test');
+	await page.getByLabel('Password', { exact: false }).fill('Journey-test-password-2026');
+	await page.getByRole('button', { name: /Log in/ }).click();
+	const tournament = await (
+		await page.request.get('http://127.0.0.1:8015/api/tournaments/double-elimination-journey-test/')
+	).json();
+	for (const scenario of [
+		{ slug: 'double-public', matches: 6, lowerRounds: 2, finals: 1 },
+		{ slug: 'double-large', matches: 31, lowerRounds: 6, finals: 2 },
+		{ slug: 'double-two', matches: 2, lowerRounds: 0, finals: 1 }
+	]) {
+		await page.setViewportSize({ width: 1440, height: 1000 });
+		await page.goto('http://127.0.0.1:8015/admin/competitions/competition/');
+		await page
+			.getByRole('link', { name: `Double Elimination Journey Test · ${scenario.slug}` })
+			.click();
+		const bracket = page.getByRole('region', { name: 'Competition bracket', exact: true });
+		const division = tournament.tournament_games.find(
+			(game: { game_slug: string }) => game.game_slug === scenario.slug
+		);
+		const competition: PublicCompetition = await (
+			await page.request.get(
+				`http://127.0.0.1:8015/api/tournament-games/${division.id}/competition/`
+			)
+		).json();
+		const routes = competition.stages[0].rounds.flatMap((round) =>
+			round.matches.flatMap((match) =>
+				match.slots
+					.filter((slot) => slot.source_match_id)
+					.map((slot) => ({
+						match: String(match.id),
+						source: String(slot.source_match_id),
+						position: String(slot.position),
+						outcome: slot.source_outcome
+					}))
+			)
+		);
+		await expect(bracket.locator('.cw-bracket-lines path')).toHaveCount(routes.length);
+		expect(
+			await bracket.locator('.cw-bracket-lines path').evaluateAll((paths) =>
+				paths.map((path) => ({
+					match: path.getAttribute('data-match'),
+					source: path.getAttribute('data-source'),
+					position: path.getAttribute('data-position'),
+					outcome: path.getAttribute('data-outcome')
+				}))
+			)
+		).toEqual(expect.arrayContaining(routes));
+		await expect(bracket.locator('.cw-match')).toHaveCount(scenario.matches);
+		await expect(bracket.locator('[data-section="LOWER"] .cw-round')).toHaveCount(
+			scenario.lowerRounds
+		);
+		await expect(bracket.locator('[data-section="FINALS"] .cw-round')).toHaveCount(scenario.finals);
+		for (const viewport of [
+			{ width: 1440, height: 1000 },
+			{ width: 390, height: 844 }
+		]) {
+			await page.setViewportSize(viewport);
+			const upper = await bracket.locator('[data-section="UPPER"]').boundingBox();
+			const finals = await bracket.locator('[data-section="FINALS"]').boundingBox();
+			expect(upper).not.toBeNull();
+			expect(finals).not.toBeNull();
+			let bracketRight = upper!.x + upper!.width;
+			if (scenario.lowerRounds) {
+				const lower = await bracket.locator('[data-section="LOWER"]').boundingBox();
+				expect(lower).not.toBeNull();
+				expect(lower!.y).toBeGreaterThanOrEqual(upper!.y + upper!.height);
+				expect(lower!.x).toBe(upper!.x);
+				bracketRight = Math.max(bracketRight, lower!.x + lower!.width);
+			}
+			expect(finals!.x).toBeGreaterThanOrEqual(bracketRight);
+			for (const scrollLeft of [0, 5000]) {
+				await bracket.evaluate((element, left) => {
+					element.scrollLeft = left;
+				}, scrollLeft);
+				await expect
+					.poll(() =>
+						bracket.locator('.cw-bracket-lines path').evaluateAll((elements) => {
+							const errors: string[] = [];
+							for (const element of elements) {
+								const path = element as SVGPathElement;
+								const root = path.closest('.cw-bracket')!;
+								const source = root.querySelector(`[data-match-id="${path.dataset.source}"]`)!;
+								const target = root.querySelector(
+									`[data-match-id="${path.dataset.match}"] [data-position="${path.dataset.position}"]`
+								)!;
+								const sourceBox = source.getBoundingClientRect();
+								const targetBox = target.getBoundingClientRect();
+								const transform = path.getScreenCTM()!;
+								const length = path.getTotalLength();
+								const start = path.getPointAtLength(0).matrixTransform(transform);
+								const end = path.getPointAtLength(length).matrixTransform(transform);
+								if (
+									Math.abs(start.x - sourceBox.right) > 1 ||
+									start.y <= sourceBox.top ||
+									start.y >= sourceBox.bottom ||
+									Math.abs(end.x - targetBox.left) > 1 ||
+									Math.abs(end.y - (targetBox.top + targetBox.height / 2)) > 1
+								) {
+									errors.push(`Misaligned route: ${path.dataset.source} to ${path.dataset.match}`);
+								}
+								const obstacles = Array.from(
+									root.querySelectorAll('.cw-match, .cw-round-heading')
+								).map((card) => card.getBoundingClientRect());
+								for (let distance = 2; distance < length; distance += 4) {
+									const point = path.getPointAtLength(distance).matrixTransform(transform);
+									if (
+										obstacles.some(
+											(box) =>
+												point.x > box.left + 1 &&
+												point.x < box.right - 1 &&
+												point.y > box.top + 1 &&
+												point.y < box.bottom - 1
+										)
+									) {
+										errors.push(
+											`Route crosses a card or heading: ${path.dataset.source} to ${path.dataset.match}`
+										);
+										break;
+									}
+								}
+							}
+							return errors;
+						})
+					)
+					.toEqual([]);
+			}
+			await bracket.focus();
+			await expect(bracket).toBeFocused();
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
+			if (viewport.width === 1440) {
+				await bracket.evaluate((element) => {
+					element.scrollLeft = 0;
+				});
+				await test.info().attach(scenario.slug, {
+					body: await page.screenshot({
+						path: `/tmp/${scenario.slug}-connectors.png`,
+						fullPage: true
+					}),
+					contentType: 'image/png'
+				});
+			}
+		}
+	}
+});
+
 test('organizers correct and score matches from one responsive workspace', async ({ page }) => {
 	await page.goto('http://127.0.0.1:8015/admin/competitions/competition/');
 	await page.getByLabel('Email', { exact: false }).fill('journey-organizer@example.test');

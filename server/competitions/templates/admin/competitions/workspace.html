@@ -71,21 +71,24 @@
         {% if draw.state == "DRAFT" %}<span class="cw-badge cw-badge-warning">Private preview</span>{% endif %}
       </div>
       {% if stage.champion %}<div class="cw-notice cw-notice-success"><strong>Champion: {{ stage.champion.display_name }}</strong><p>All matches are complete. Results remain available below.</p></div>{% elif stage.completed_without_champion %}<div class="cw-notice"><strong>Competition complete</strong><p>This competition finished without a champion.</p></div>{% endif %}
-      {% if rounds %}
+      {% if bracket_sections %}
         {% if draw.state == "DRAFT" %}<p class="cw-notice">Check the pairings below, then publish the bracket when you are ready. Results can be entered after publication.</p>{% endif %}
         <p id="cw-bracket-help" class="cw-muted cw-bracket-help">Rounds run from left to right. Scroll to see later rounds; each upcoming match names its qualifying matches.</p>
+        <p class="cw-bracket-legend cw-muted"><span class="cw-route-winner">Winner advances</span>{% if stage.format == 'DOUBLE_ELIMINATION' %}<span class="cw-route-loser">Loser advances</span>{% endif %}</p>
         <div class="cw-bracket-scroll" role="region" aria-label="Competition bracket" aria-describedby="cw-bracket-help" tabindex="0">
-          <div class="cw-bracket">
-            {% for round in rounds %}
-              <section class="cw-round" aria-labelledby="cw-round-{{ forloop.counter }}">
-                <header class="cw-round-heading"><h3 id="cw-round-{{ forloop.counter }}">{{ round.label }}</h3><div class="cw-meta"><span>Best of {{ round.series_length }}</span>{% if round.series_url %}<a href="{{ round.series_url }}">Edit match length<span class="cw-sr-only"> for {{ round.label }}</span></a>{% endif %}</div></header>
+          <div class="cw-bracket{% if stage.format == 'DOUBLE_ELIMINATION' %} cw-bracket-double{% endif %}">
+            {% for section in bracket_sections %}
+              <div class="cw-bracket-section" data-section="{{ section.kind }}">
+              {% for round in section.rounds %}
+              <section class="cw-round" aria-labelledby="cw-round-{{ round.id }}">
+                <header class="cw-round-heading"><h3 id="cw-round-{{ round.id }}">{{ round.label }}</h3><div class="cw-meta"><span>Best of {{ round.series_length }}</span>{% if round.series_url %}<a href="{{ round.series_url }}">Edit match length<span class="cw-sr-only"> for {{ round.label }}</span></a>{% endif %}</div></header>
                 <div class="cw-round-matches">
                   {% for match in round.matches %}
-                    <article class="cw-match{% if match.historical %} cw-match-historical{% endif %}" aria-label="{{ match.title }}">
+                    <article class="cw-match{% if match.historical %} cw-match-historical{% endif %}" aria-label="{{ match.title }}" data-match-id="{{ match.id }}">
                       <header class="cw-match-heading"><a href="{{ match.detail_url }}">{{ match.code }}</a><span class="cw-badge">{{ match.status }}</span></header>
                       <ol class="cw-slots">
                         {% for slot in match.slots %}
-                          <li class="cw-slot{% if slot.is_winner %} cw-slot-winner{% endif %}">
+                          <li class="cw-slot{% if slot.is_winner %} cw-slot-winner{% endif %}" data-position="{{ slot.position }}"{% if slot.source_match_id %} data-source-match="{{ slot.source_match_id }}" data-source-outcome="{{ slot.source_outcome }}"{% endif %}>
                             {% if slot.seed %}<span class="cw-slot-seed" title="Seed {{ slot.seed }}">{{ slot.seed }}</span>{% endif %}
                             <span class="cw-slot-name">{{ slot.label }}{% if slot.is_winner %}<span class="cw-sr-only"> — winner</span><span class="cw-winner-mark" aria-hidden="true">&#10003;</span>{% endif %}</span>
                             <strong class="cw-slot-score">{{ slot.score|default_if_none:"—" }}</strong>
@@ -104,6 +107,8 @@
                   {% endfor %}
                 </div>
               </section>
+              {% endfor %}
+              </div>
             {% endfor %}
           </div>
         </div>
@@ -138,4 +143,5 @@
     </section>
   {% endif %}
 </div>
+{% if tab == 'bracket' %}<script src="{% static 'competitions/bracket.js' %}" defer></script>{% endif %}
 {% endblock %}

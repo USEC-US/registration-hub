@@ -90,7 +90,12 @@ def seed():
         students_only=False,
         is_published=True,
     )
-    for slug in ("double-reset", "double-public"):
+    for slug, entrant_count, policy in (
+        ("double-reset", 4, "RESET"),
+        ("double-public", 4, "NO_RESET"),
+        ("double-large", 16, "RESET"),
+        ("double-two", 2, "NO_RESET"),
+    ):
         division = TournamentGame.objects.create(
             tournament=double_tournament,
             game=Game.objects.create(name=slug, slug=slug),
@@ -102,7 +107,7 @@ def seed():
             fee_currency="VND",
         )
         registrations = []
-        for index in range(1, 5):
+        for index in range(1, entrant_count + 1):
             registration = Registration.objects.create(
                 tournament_game=division,
                 team_name=f"DE Team {index}",
@@ -119,7 +124,7 @@ def seed():
                     display_order=member,
                 )
             registrations.append(registration)
-        if slug == "double-public":
+        if slug != "double-reset":
             competition = create_competition(
                 actor=organizer, tournament_game_id=division.pk
             )
@@ -127,9 +132,9 @@ def seed():
                 actor=organizer,
                 competition_id=competition.pk,
                 expected_revision=competition.revision,
-                name="Public no-reset browser bracket",
+                name="Public browser bracket",
                 format="DOUBLE_ELIMINATION",
-                grand_final_policy="NO_RESET",
+                grand_final_policy=policy,
                 default_series_length=1,
             )
             competition.refresh_from_db()

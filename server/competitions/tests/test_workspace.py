@@ -144,7 +144,7 @@ class CompetitionWorkspaceTests(TestCase):
             outcome=Match.Outcome.FORFEIT,
             side_one_score=1,
             side_two_score=0,
-            winner_entry_id=slots[1].resolved_entry_id,
+            winner_position=2,
         )
         match.refresh_from_db()
         self.assertEqual(
@@ -414,6 +414,88 @@ class CompetitionWorkspaceTests(TestCase):
                 round__section="FINALS",
                 round__number=2,
             ).exists()
+        )
+
+    def test_workspace_connectors_keep_match_sources_after_publication(self):
+        competition, draw, preview, _ = self._publish_double_workspace(
+            Stage.GrandFinalPolicy.RESET
+        )
+        for response in (preview, self.client.get(self._url("change", competition))):
+            self.assertContains(response, "competitions/bracket.js")
+            for match in Match.objects.filter(round__draw=draw).prefetch_related(
+                "slots"
+            ):
+                self.assertContains(response, f'data-match-id="{match.pk}"')
+                card = match_card(match, self.organizer)
+                self.assertEqual(
+                    [
+                        (
+                            slot["position"],
+                            slot["source_match_id"],
+                            slot["source_outcome"],
+                        )
+                        for slot in card["slots"]
+                    ],
+                    [
+                        (slot.position, slot.source_match_id, slot.source_outcome)
+                        for slot in match.slots.all()
+                    ],
+                )
+                for slot in match.slots.all():
+                    if slot.source_match_id:
+                        self.assertContains(
+                            response,
+                            f'data-source-match="{slot.source_match_id}" '
+                            f'data-source-outcome="{slot.source_outcome}"',
+                        )
+
+    def test_large_double_workspace_groups_every_match_in_ordered_sections(self):
+        self.registrations = list(self.registrations)
+        for index in range(4, 17):
+            registration = Registration.objects.create(
+                tournament_game=self.division,
+                status=Registration.Status.APPROVED,
+                fee_amount_snapshot="0.00",
+                fee_currency_snapshot="VND",
+            )
+            RegistrationMember.objects.create(
+                registration=registration,
+                gamer_tag_snapshot=f"Bracket Player {index}",
+                is_captain=True,
+                display_order=1,
+            )
+            self.registrations.append(registration)
+        competition, draw, preview, _ = self._publish_double_workspace(
+            Stage.GrandFinalPolicy.RESET, entrant_count=16
+        )
+        for response in (preview, self.client.get(self._url("change", competition))):
+            sections = response.context.get("bracket_sections", [])
+            self.assertEqual(
+                [section["kind"] for section in sections], ["UPPER", "LOWER", "FINALS"]
+            )
+            self.assertEqual(
+                [len(section["rounds"]) for section in sections], [4, 6, 2]
+            )
+            self.assertCountEqual(
+                [
+                    match["id"]
+                    for section in sections
+                    for round_ in section["rounds"]
+                    for match in round_["matches"]
+                ],
+                Match.objects.filter(round__draw=draw).values_list("pk", flat=True),
+            )
+
+    def test_two_entrant_double_workspace_has_no_empty_lower_section(self):
+        _, _, preview, _ = self._publish_double_workspace(
+            Stage.GrandFinalPolicy.NO_RESET, entrant_count=2
+        )
+        self.assertEqual(
+            [
+                section["kind"]
+                for section in preview.context.get("bracket_sections", [])
+            ],
+            ["UPPER", "FINALS"],
         )
 
     def test_reserved_final_allows_setup_actions_but_rejects_play_actions(self):
