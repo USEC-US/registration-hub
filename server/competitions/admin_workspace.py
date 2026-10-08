@@ -92,9 +92,13 @@ def match_card(match, user):
                 "seed": (slot.resolved_entry or slot.entry).seed
                 if slot.resolved_entry_id or slot.entry_id
                 else None,
-                "score": match.side_one_score
-                if slot.position == 1
-                else match.side_two_score,
+                "score": (
+                    "W" if slot.resolved_entry_id == match.winner_id else "FF"
+                )
+                if match.outcome == Match.Outcome.FORFEIT
+                else (
+                    match.side_one_score if slot.position == 1 else match.side_two_score
+                ),
                 "is_winner": bool(
                     match.winner_id and slot.resolved_entry_id == match.winner_id
                 ),

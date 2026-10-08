@@ -65,8 +65,9 @@
 			: slot.entry.display_name;
 	}
 
-	function score(match: PublicCompetitionMatch, position: 1 | 2): string {
-		const value = position === 1 ? match.side_one_score : match.side_two_score;
+	function score(match: PublicCompetitionMatch, slot: PublicCompetitionMatchSlot): string {
+		if (match.outcome === 'FORFEIT') return isWinner(match, slot) ? 'W' : 'FF';
+		const value = slot.position === 1 ? match.side_one_score : match.side_two_score;
 		return value === null ? '—' : String(value);
 	}
 
@@ -203,7 +204,7 @@
 								<span class="sr-only"> · {m.bracket_winner()}</span>
 							{/if}
 						</span>
-						<span class="font-mono-data text-right">{score(match, slot.position)}</span>
+						<span class="font-mono-data text-right">{score(match, slot)}</span>
 					</li>
 				{/each}
 			</ul>

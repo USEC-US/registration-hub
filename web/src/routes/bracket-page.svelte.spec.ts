@@ -201,6 +201,26 @@ describe('public bracket page', () => {
 		expect(document.activeElement).toBe(backLink);
 	});
 
+	it.each([0, 1])(
+		'labels a forfeit with winning slot index %s as W and FF',
+		async (winnerIndex) => {
+			const forfeited = structuredClone(competition);
+			const match = forfeited.stages[0].rounds[0].matches[0];
+			match.status = 'FINAL';
+			match.outcome = 'FORFEIT';
+			match.winner = match.slots[winnerIndex].entry;
+			const { container } = render(BracketPage, { data: data(forfeited) } as never);
+
+			const entrants = container.querySelectorAll('.bracket-match article ul');
+			expect(entrants).toHaveLength(2); // Desktop and mobile cards share the result.
+			for (const list of entrants) {
+				expect(Array.from(list.children, (row) => row.lastElementChild?.textContent)).toEqual(
+					winnerIndex === 0 ? ['W', 'FF'] : ['FF', 'W']
+				);
+			}
+		}
+	);
+
 	it('renders completion and public correction history', async () => {
 		const complete = structuredClone(competition);
 		complete.stages[0].status = 'COMPLETE';

@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.tests.factories import create_account
+from competitions.admin_workspace import match_card
 from competitions.commands import (
     configure_elimination,
     create_competition,
@@ -129,6 +130,39 @@ class CompetitionWorkspaceTests(TestCase):
             )
             competition.refresh_from_db()
         return competition, draw
+
+    def test_forfeit_cards_label_winner_without_replacing_recorded_scores(self):
+        competition, draw = self._draft(published=True)
+        match = Match.objects.get(
+            round__draw=draw, round__number=1, status=Match.Status.PENDING
+        )
+        slots = list(match.slots.order_by("position"))
+        finalize_match(
+            actor=self.organizer,
+            match_id=match.pk,
+            expected_revision=competition.revision,
+            outcome=Match.Outcome.FORFEIT,
+            side_one_score=1,
+            side_two_score=0,
+            winner_entry_id=slots[1].resolved_entry_id,
+        )
+        match.refresh_from_db()
+        self.assertEqual(
+            [slot["score"] for slot in match_card(match, self.organizer)["slots"]],
+            ["FF", "W"],
+        )
+        self.assertEqual((match.side_one_score, match.side_two_score), (1, 0))
+
+        match.winner_id = slots[0].resolved_entry_id
+        self.assertEqual(
+            [slot["score"] for slot in match_card(match, self.organizer)["slots"]],
+            ["W", "FF"],
+        )
+        match.outcome = Match.Outcome.PLAYED
+        self.assertEqual(
+            [slot["score"] for slot in match_card(match, self.organizer)["slots"]],
+            [1, 0],
+        )
 
     def _primary_action(self, competition, expected_url):
         response = self.client.get(self._url("change", competition))
