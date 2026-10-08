@@ -158,7 +158,7 @@ rolled back safely.
 ## Decisions deferred to their phase
 
 - Double Elimination grand-final reset behavior.
-  - **EDITOR'S NOTE**: Behavior is decided: Allow both, default to no reset. Mostd popular Esports tournament don't usually do Bracket Resets on GF because it takes too much time.
+  - **EDITOR'S NOTE**: Behavior is decided: Allow both, default to no reset. Most popular Esports tournament don't usually do Bracket Resets on GF because it takes too much time.
 - TFT point presets and fallback tiebreak sequence.
 - The exact supported Swiss pairing and tiebreak preset.
 - The Turnstile-protected entry points, environment domains, and verification
