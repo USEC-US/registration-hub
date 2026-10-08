@@ -78,7 +78,12 @@ class SeedDevDataCommandTests(TestCase):
 
     def test_rerun_removes_replaced_sample_images_after_commit(self):
         self.run_seed()
-        previous = [attempt.proof_file for attempt in PaymentAttempt.objects.all()]
+        previous = [
+            attempt.proof_file
+            for attempt in PaymentAttempt.objects.filter(
+                registration__submitted_by__email="player@email.com"
+            )
+        ]
         self.assertTrue(all(proof.storage.exists(proof.name) for proof in previous))
         with self.captureOnCommitCallbacks(execute=True):
             self.run_seed()
@@ -86,7 +91,9 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(
             all(
                 attempt.proof_file.storage.exists(attempt.proof_file.name)
-                for attempt in PaymentAttempt.objects.all()
+                for attempt in PaymentAttempt.objects.filter(
+                    registration__submitted_by__email="player@email.com"
+                )
             )
         )
 
@@ -190,7 +197,15 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertSetEqual(
             {item["slug"] for item in list_response.data},
-            {"dev-usec-current", "dev-usec-archive", "dev-usec-double-elimination"},
+            {
+                "dev-usec-current",
+                "dev-usec-archive",
+                "dev-usec-double-elimination",
+                "dev-fpt-shop-uni-tour-2026",
+                "dev-sponsor-open",
+                "dev-sponsor-arena",
+                "dev-sponsor-expired",
+            },
         )
 
         current_response = client.get("/api/tournaments/dev-usec-current/")
@@ -220,6 +235,153 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(draft_response.status_code, 404)
         self.assertFalse(Tournament.objects.get(slug="dev-usec-draft").is_published)
 
+    def test_command_seeds_sponsor_bracket_fixtures(self):
+        output = self.run_seed()
+        now = timezone.now()
+        tournaments = {
+            tournament.slug: tournament
+            for tournament in Tournament.objects.filter(slug__startswith="dev-sponsor-")
+        }
+
+        self.assertSetEqual(
+            set(tournaments),
+            {"dev-sponsor-open", "dev-sponsor-arena", "dev-sponsor-expired"},
+        )
+        self.assertEqual(
+            TournamentGame.objects.get(
+                tournament__slug="dev-sponsor-open", game__slug="valorant"
+            ).fee_amount,
+            Decimal("50000.00"),
+        )
+        self.assertEqual(
+            TournamentGame.objects.get(
+                tournament__slug="dev-sponsor-open",
+                game__slug="league-of-legends",
+            ).fee_amount,
+            Decimal("100000.00"),
+        )
+        self.assertEqual(
+            TournamentGame.objects.get(
+                tournament__slug="dev-sponsor-arena", game__slug="arena-of-valor"
+            ).fee_amount,
+            Decimal("0.00"),
+        )
+
+        expired_divisions = TournamentGame.objects.filter(
+            tournament__slug__in=("dev-sponsor-open", "dev-sponsor-expired")
+        ).exclude(game__slug="league-of-legends")
+        self.assertTrue(
+            all(division.registration_closes_at < now for division in expired_divisions)
+        )
+        self.assertTrue(
+            TournamentGame.objects.filter(
+                tournament__slug="dev-sponsor-expired",
+                registration_closes_at__lt=now,
+            ).count()
+            >= 2
+        )
+
+        for tournament in tournaments.values():
+            self.assertGreaterEqual(
+                Registration.objects.filter(
+                    tournament_game__tournament=tournament,
+                    status=Registration.Status.APPROVED,
+                ).count(),
+                8,
+            )
+        for division in TournamentGame.objects.filter(
+            tournament__slug__startswith="dev-sponsor-"
+        ):
+            self.assertEqual(
+                Registration.objects.filter(
+                    tournament_game=division,
+                    status=Registration.Status.APPROVED,
+                ).count(),
+                8,
+            )
+        self.assertEqual(
+            PaymentAttempt.objects.filter(
+                registration__tournament_game__tournament__slug__startswith="dev-sponsor-",
+                status=PaymentAttempt.Status.VERIFIED,
+            ).count(),
+            32,
+        )
+        self.assertFalse(
+            PaymentAttempt.objects.filter(
+                registration__tournament_game__tournament__slug="dev-sponsor-arena"
+            ).exists()
+        )
+
+        competition = Competition.objects.get(
+            tournament_game__tournament__slug="dev-sponsor-open",
+            tournament_game__game__slug="league-of-legends",
+        )
+        draw = competition.stages.get().draws.get(state=StageDraw.State.PUBLISHED)
+        self.assertEqual(competition.entrants.count(), 8)
+        self.assertEqual(draw.entries.count(), 8)
+        self.assertEqual(Match.objects.filter(round__draw=draw).count(), 7)
+        self.assertIn(
+            "League of Legends: published eight-team single-elimination bracket",
+            output,
+        )
+
+    def test_fpt_shop_uni_tour_fixture_matches_workbook_bracket_shape(self):
+        output = self.run_seed()
+        self.run_seed()
+        tournament = Tournament.objects.get(slug="dev-fpt-shop-uni-tour-2026")
+        division = TournamentGame.objects.get(
+            tournament=tournament,
+            game__slug="arena-of-valor",
+        )
+        registrations = list(
+            Registration.objects.filter(tournament_game=division).order_by("team_tag")
+        )
+        competition = Competition.objects.get(tournament_game=division)
+        stage = competition.stages.get()
+        draw = stage.draws.get(state=StageDraw.State.PUBLISHED)
+        rounds = list(draw.rounds.order_by("number"))
+        matches = Match.objects.filter(round__draw=draw)
+
+        self.assertTrue(tournament.is_published)
+        self.assertIn("Development Fixture", tournament.name)
+        self.assertEqual(division.main_roster_size, 5)
+        self.assertEqual(division.registration_capacity, 16)
+        self.assertEqual(division.fee_amount, Decimal("0.00"))
+        self.assertEqual(len(registrations), 16)
+        self.assertTrue(
+            all(
+                registration.status == Registration.Status.APPROVED
+                for registration in registrations
+            )
+        )
+        self.assertTrue(
+            all(
+                registration.contact_email_snapshot.endswith("@example.invalid")
+                for registration in registrations
+            )
+        )
+        self.assertTrue(
+            all(
+                registration.team_name.startswith("Arena of Valor Team ")
+                for registration in registrations
+            )
+        )
+        self.assertEqual(competition.entrants.count(), 16)
+        self.assertEqual([round_.matches.count() for round_ in rounds], [8, 4, 2, 1])
+        self.assertEqual(stage.format, Stage.Format.SINGLE_ELIMINATION)
+        self.assertEqual(stage.default_series_length, 1)
+        self.assertEqual(
+            [round_.series_length_override for round_ in rounds],
+            [None, None, 3, 3],
+        )
+        self.assertEqual(matches.count(), 15)
+        self.assertFalse(matches.exclude(status=Match.Status.PENDING).exists())
+        self.assertEqual(matches.filter(scheduled_at__isnull=False).count(), 1)
+        self.assertIn(
+            "FPT Shop Uni Tour 2026: synthetic 16-team LQM bracket",
+            output,
+        )
+
     def test_command_seeds_one_rerunnable_published_bracket(self):
         output = self.run_seed()
         self.run_seed()
@@ -233,7 +395,9 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(draw.entries.count(), 5)
         self.assertEqual(Match.objects.filter(round__draw=draw).count(), 7)
         self.assertEqual(
-            Competition.objects.filter(tournament_game=competition.tournament_game).count(),
+            Competition.objects.filter(
+                tournament_game=competition.tournament_game
+            ).count(),
             1,
         )
         self.assertIn("Chess: published five-player single-elimination bracket", output)
@@ -600,10 +764,21 @@ class SeedDevDataCommandTests(TestCase):
                     "league-of-legends",
                     "rocket-league",
                     "ea-sports-fc",
+                    "arena-of-valor",
                 )
             ).exists()
         )
         self.assertFalse(
-            Tournament.objects.filter(slug__startswith="dev-usec-").exists()
+            Tournament.objects.filter(
+                slug__in=(
+                    "dev-usec-current",
+                    "dev-usec-archive",
+                    "dev-usec-draft",
+                    "dev-sponsor-open",
+                    "dev-sponsor-arena",
+                    "dev-sponsor-expired",
+                    "dev-fpt-shop-uni-tour-2026",
+                )
+            ).exists()
         )
         self.assertFalse(Institution.objects.exists())

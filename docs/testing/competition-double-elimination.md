@@ -54,7 +54,14 @@ production-safe; the command creates predictable development accounts.
 
 The `dev-usec-double-elimination` tournament contains a ready 16-team Valorant
 reset division and a completed five-team League of Legends no-reset division.
-A clean checkout also provides the existing Chess single-elimination fixture.
+A separate `dev-fpt-shop-uni-tour-2026` tournament provides a published 16-team
+Arena of Valor single-elimination bracket. It follows the verified LQM South
+workbook structure: BO1 opening and quarterfinal rounds, followed by BO3
+semifinals and final. Teams, roster snapshots, and match state are synthetic;
+the bracket is ready for play and its first match is scheduled. This fixture
+keeps the spreadsheet-derived single-elimination example separate from the
+double-elimination test tournament. A clean checkout also provides the existing
+Chess single-elimination fixture.
 Local sponsor fixtures, including their League of Legends single-elimination
 bracket, are preserved when present but are not part of the committed seed
 scenarios. The 16-team division uses BO1 by default, with BO3 upper
@@ -65,9 +72,10 @@ approved, free, and contain five fictional roster members. The reset bracket has
 structural matches, including automatic byes/empty paths. Reruns preserve published
 bracket IDs and results while restoring fixture registration snapshots.
 
-The supplied tournament workbook informed only field size and series variation:
-its verified 16-team bracket is single elimination. No personal data is imported,
-and neither tests nor seed commands require the workbook.
+The supplied workbook informs only the FPT fixture's field size and series
+variation. No participant identities, contact data, check-in sheets, TFT data,
+or historical results are imported, and neither tests nor seed commands require
+the workbook.
 
 ## Migration and rollback
 

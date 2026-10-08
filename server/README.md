@@ -72,12 +72,20 @@ Seeded tournament slugs:
 - `dev-usec-current`: open, full, and upcoming registration scenarios;
 - `dev-usec-archive`: closed and rejected historical scenarios;
 - `dev-usec-draft`: unpublished admin-only scenario.
+- `dev-sponsor-open`: paid eight-team Valorant and League of Legends divisions;
+  Valorant is expired and League of Legends is open with a published bracket;
+- `dev-sponsor-arena`: free eight-team Arena of Valor division;
+- `dev-sponsor-expired`: paid eight-team Counter-Strike 2 and Rocket League
+  divisions with expired registration windows.
+- `dev-fpt-shop-uni-tour-2026`: synthetic 16-team Arena of Valor bracket modeled
+  on the workbook's LQM South single-elimination structure; no workbook identities
+  or results are imported.
 - `dev-usec-double-elimination`: free synthetic Valorant (16 teams, ready reset
   bracket) and League of Legends (five teams, completed no-reset bracket).
   See the [double-elimination guide](../docs/testing/competition-double-elimination.md)
   for series allocation, organizer operation, and migration safety.
 
-Rerunning the command resets the three documented accounts, the `dev-usec-*`
-tournament configuration, and command-owned registrations within those tournaments.
-It does not flush the database, remove registrations submitted by other accounts,
-or modify unrelated tournaments.
+Rerunning the command resets the three documented accounts, the `dev-usec-*`,
+`dev-sponsor-*`, and `dev-fpt-*` tournament configuration, and command-owned
+registrations within those tournaments. It does not flush the database, remove
+registrations submitted by other accounts, or modify unrelated tournaments.

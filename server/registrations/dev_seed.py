@@ -69,10 +69,18 @@ ACCOUNT_CREDENTIALS = (
     ("Admin", ADMIN_EMAIL, "admin@123"),
 )
 
+BRACKET_TOURNAMENT_SLUGS = (
+    "dev-sponsor-open",
+    "dev-sponsor-arena",
+    "dev-sponsor-expired",
+    "dev-fpt-shop-uni-tour-2026",
+)
+
 SEED_TOURNAMENT_SLUGS = (
     "dev-usec-current",
     "dev-usec-archive",
     "dev-usec-draft",
+    *BRACKET_TOURNAMENT_SLUGS,
     "dev-usec-double-elimination",
 )
 
@@ -84,6 +92,11 @@ SCENARIO_SUMMARY = (
     "League of Legends: registration NOT_OPEN",
     "Chess: published five-player single-elimination bracket",
     "Development draft: unpublished",
+    "Publisher open: 8-team paid Valorant/League of Legends divisions",
+    "Publisher arena: 8-team free Arena of Valor division",
+    "Publisher archive: 8-team divisions, all registration expired",
+    "League of Legends: published eight-team single-elimination bracket",
+    "FPT Shop Uni Tour 2026: synthetic 16-team LQM bracket (BO1 early, BO3 finals)",
     "Double elimination: ready 16-team reset / completed 5-team no-reset brackets",
 )
 
@@ -273,6 +286,7 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         ),
         "rocket-league": _upsert_game(slug="rocket-league", name="Rocket League"),
         "ea-sports-fc": _upsert_game(slug="ea-sports-fc", name="EA Sports FC"),
+        "arena-of-valor": _upsert_game(slug="arena-of-valor", name="Arena of Valor"),
     }
 
     current, _ = Tournament.objects.update_or_create(
@@ -306,6 +320,53 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             "ends_at": now + timedelta(days=31),
             "location": "HCMUS",
             "is_published": False,
+        },
+    )
+    sponsor_open, _ = Tournament.objects.update_or_create(
+        slug="dev-sponsor-open",
+        defaults={
+            "name": "USEC Publisher Showcase Open",
+            "description": "Eight-team paid Valorant and League of Legends divisions.",
+            "starts_at": now + timedelta(days=21),
+            "ends_at": now + timedelta(days=22),
+            "location": "HCMUS",
+            "is_published": True,
+        },
+    )
+    sponsor_arena, _ = Tournament.objects.update_or_create(
+        slug="dev-sponsor-arena",
+        defaults={
+            "name": "USEC Arena of Valor Cup",
+            "description": "Eight-team free Arena of Valor division.",
+            "starts_at": now + timedelta(days=28),
+            "ends_at": now + timedelta(days=29),
+            "location": "HCMUS",
+            "is_published": True,
+        },
+    )
+    sponsor_expired, _ = Tournament.objects.update_or_create(
+        slug="dev-sponsor-expired",
+        defaults={
+            "name": "USEC Publisher Showcase Archive",
+            "description": "Eight-team divisions with expired registration windows.",
+            "starts_at": now - timedelta(days=60),
+            "ends_at": now - timedelta(days=59),
+            "location": "HCMUS",
+            "is_published": True,
+        },
+    )
+    fpt_shop_uni_tour, _ = Tournament.objects.update_or_create(
+        slug="dev-fpt-shop-uni-tour-2026",
+        defaults={
+            "name": "FPT Shop Uni Tour 2026 Development Fixture",
+            "description": (
+                "Synthetic 16-team Arena of Valor bracket modeled on the "
+                "verified southern single-elimination structure."
+            ),
+            "starts_at": now + timedelta(days=21),
+            "ends_at": now + timedelta(days=22),
+            "location": "Development fixture",
+            "is_published": True,
         },
     )
 
@@ -382,6 +443,66 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             registration_capacity=32,
             fee_amount=Decimal("30000.00"),
         ),
+        "sponsor-valorant": _upsert_tournament_game(
+            tournament=sponsor_open,
+            game=games["valorant"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=8,
+            fee_amount=Decimal("50000.00"),
+        ),
+        "sponsor-league-of-legends": _upsert_tournament_game(
+            tournament=sponsor_open,
+            game=games["league-of-legends"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=7),
+            registration_closes_at=now + timedelta(days=7),
+            registration_capacity=8,
+            fee_amount=Decimal("100000.00"),
+        ),
+        "sponsor-arena-of-valor": _upsert_tournament_game(
+            tournament=sponsor_arena,
+            game=games["arena-of-valor"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=7),
+            registration_closes_at=now + timedelta(days=7),
+            registration_capacity=8,
+            fee_amount=Decimal("0.00"),
+        ),
+        "sponsor-counter-strike-2": _upsert_tournament_game(
+            tournament=sponsor_expired,
+            game=games["counter-strike-2"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=90),
+            registration_closes_at=now - timedelta(days=60),
+            registration_capacity=8,
+            fee_amount=Decimal("75000.00"),
+        ),
+        "sponsor-rocket-league": _upsert_tournament_game(
+            tournament=sponsor_expired,
+            game=games["rocket-league"],
+            main_roster_size=3,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=90),
+            registration_closes_at=now - timedelta(days=60),
+            registration_capacity=8,
+            fee_amount=Decimal("60000.00"),
+        ),
+        "fpt-lqm": _upsert_tournament_game(
+            tournament=fpt_shop_uni_tour,
+            game=games["arena-of-valor"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=16,
+            fee_amount=Decimal("0.00"),
+        ),
     }
     for slug, size in (("valorant", 16), ("league-of-legends", 5)):
         tournament_games[f"double-{slug}"] = _upsert_tournament_game(
@@ -399,6 +520,10 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             current.slug: current,
             archive.slug: archive,
             draft.slug: draft,
+            sponsor_open.slug: sponsor_open,
+            sponsor_arena.slug: sponsor_arena,
+            sponsor_expired.slug: sponsor_expired,
+            fpt_shop_uni_tour.slug: fpt_shop_uni_tour,
             double_elimination.slug: double_elimination,
         },
         tournament_games=tournament_games,
@@ -460,7 +585,7 @@ def _set_scenario_times(
         PaymentAttempt.objects.filter(pk=payment.pk).update(**updates)
 
 
-def _upsert_sponsor_team(
+def _upsert_development_team(
     *,
     now: datetime,
     organizer,
@@ -523,7 +648,7 @@ def _upsert_sponsor_team(
         registration=registration,
         from_status="",
         to_status=Registration.Status.SUBMITTED,
-        note="Development sponsor fixture.",
+        note="Development team fixture.",
         created_at=submitted_at,
     )
     RegistrationStatusEvent.objects.create(
@@ -531,7 +656,7 @@ def _upsert_sponsor_team(
         from_status=Registration.Status.SUBMITTED,
         to_status=Registration.Status.APPROVED,
         actor=organizer,
-        note="Development sponsor fixture approved.",
+        note="Development team fixture approved.",
         created_at=submitted_at + timedelta(hours=1),
     )
 
@@ -573,6 +698,31 @@ def _upsert_sponsor_team(
         PaymentAttempt.objects.filter(registration=registration).delete()
 
     return registration
+
+
+def _seed_sponsor_teams(
+    *, now: datetime, organizer, catalog: SeedCatalog
+) -> dict[str, tuple[Registration, ...]]:
+    divisions = (
+        ("sponsor-valorant", "VAL"),
+        ("sponsor-league-of-legends", "LOL"),
+        ("sponsor-arena-of-valor", "AOV"),
+        ("sponsor-counter-strike-2", "CS2"),
+        ("sponsor-rocket-league", "RLG"),
+    )
+    return {
+        key: tuple(
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=catalog.tournament_games[key],
+                team_prefix=prefix,
+                index=index,
+            )
+            for index in range(1, 9)
+        )
+        for key, prefix in divisions
+    }
 
 
 def _rebuild_registrations(
@@ -792,13 +942,83 @@ def _rebuild_registrations(
     return valorant, chess, counter_strike, rocket_league
 
 
+def _publish_single_elimination_bracket(
+    *,
+    now: datetime,
+    organizer,
+    division: TournamentGame,
+    registrations: tuple[Registration, ...],
+    name: str,
+    default_series_length: int = 3,
+    round_series_lengths: dict[int, int] | None = None,
+) -> None:
+    existing = Competition.objects.filter(tournament_game=division).first()
+    if existing:
+        if existing.stages.filter(draws__state=StageDraw.State.PUBLISHED).exists():
+            return
+        raise ValidationError(
+            f"The development {division.game.name} competition is incomplete."
+        )
+
+    competition = create_competition(actor=organizer, tournament_game_id=division.pk)
+    configure_elimination(
+        format="SINGLE_ELIMINATION",
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        name=name,
+        default_series_length=default_series_length,
+    )
+    competition.refresh_from_db()
+    entrants = select_entrants(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        registration_ids=[registration.pk for registration in registrations],
+    )
+    competition.refresh_from_db()
+    draw = save_elimination_draw(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        entrant_order=[entrant.pk for entrant in entrants],
+    )
+    competition.refresh_from_db()
+    publish_draw(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+    )
+    for round_ in draw.rounds.order_by("number"):
+        series_length = (round_series_lengths or {}).get(round_.number)
+        if series_length is not None:
+            competition.refresh_from_db()
+            set_round_series_length(
+                actor=organizer,
+                round_id=round_.pk,
+                expected_revision=competition.revision,
+                series_length=series_length,
+            )
+    competition.refresh_from_db()
+    first_match = (
+        Match.objects.filter(round__draw=draw, status=Match.Status.PENDING)
+        .order_by("round__number", "number")
+        .first()
+    )
+    if first_match:
+        schedule_match(
+            actor=organizer,
+            match_id=first_match.pk,
+            expected_revision=competition.revision,
+            scheduled_at=now + timedelta(days=14, hours=2),
+        )
+
+
 def _seed_published_bracket(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
     division = catalog.tournament_games["chess"]
     existing = Competition.objects.filter(tournament_game=division).first()
     if existing:
-        if existing.stages.filter(
-            draws__state=StageDraw.State.PUBLISHED
-        ).exists():
+        if existing.stages.filter(draws__state=StageDraw.State.PUBLISHED).exists():
             return
         raise ValidationError("The development chess competition is incomplete.")
 
@@ -833,48 +1053,54 @@ def _seed_published_bracket(*, now: datetime, organizer, catalog: SeedCatalog) -
         )
         registrations.append(registration)
 
-    competition = create_competition(
-        actor=organizer, tournament_game_id=division.pk
-    )
-    configure_elimination(
-        actor=organizer,
-        competition_id=competition.pk,
-        expected_revision=competition.revision,
+    _publish_single_elimination_bracket(
+        now=now,
+        organizer=organizer,
+        division=division,
+        registrations=tuple(registrations),
         name="Development final bracket",
-        default_series_length=3,
-        format="SINGLE_ELIMINATION",
     )
-    competition.refresh_from_db()
-    entrants = select_entrants(
-        actor=organizer,
-        competition_id=competition.pk,
-        expected_revision=competition.revision,
-        registration_ids=[registration.pk for registration in registrations],
+
+
+def _seed_sponsor_bracket(
+    *,
+    now: datetime,
+    organizer,
+    catalog: SeedCatalog,
+    sponsor_teams: dict[str, tuple[Registration, ...]],
+) -> None:
+    _publish_single_elimination_bracket(
+        now=now,
+        organizer=organizer,
+        division=catalog.tournament_games["sponsor-league-of-legends"],
+        registrations=sponsor_teams["sponsor-league-of-legends"],
+        name="Publisher showcase League of Legends bracket",
     )
-    competition.refresh_from_db()
-    draw = save_elimination_draw(
-        actor=organizer,
-        competition_id=competition.pk,
-        expected_revision=competition.revision,
-        entrant_order=[entrant.pk for entrant in entrants],
-    )
-    competition.refresh_from_db()
-    publish_draw(
-        actor=organizer,
-        competition_id=competition.pk,
-        expected_revision=competition.revision,
-    )
-    competition.refresh_from_db()
-    first_match = Match.objects.filter(
-        round__draw=draw, status=Match.Status.PENDING
-    ).order_by("round__number", "number").first()
-    if first_match:
-        schedule_match(
-            actor=organizer,
-            match_id=first_match.pk,
-            expected_revision=competition.revision,
-            scheduled_at=now + timedelta(days=14, hours=2),
+
+
+def _seed_fpt_shop_uni_tour_bracket(
+    *, now: datetime, organizer, catalog: SeedCatalog
+) -> None:
+    division = catalog.tournament_games["fpt-lqm"]
+    registrations = tuple(
+        _upsert_development_team(
+            now=now,
+            organizer=organizer,
+            division=division,
+            team_prefix="FPT",
+            index=index,
         )
+        for index in range(1, 17)
+    )
+    _publish_single_elimination_bracket(
+        now=now,
+        organizer=organizer,
+        division=division,
+        registrations=registrations,
+        name="Synthetic FPT Shop Uni Tour 2026 LQM bracket",
+        default_series_length=1,
+        round_series_lengths={3: 3, 4: 3},
+    )
 
 
 def _seed_double_elimination(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
@@ -884,7 +1110,7 @@ def _seed_double_elimination(*, now: datetime, organizer, catalog: SeedCatalog) 
     ):
         division = catalog.tournament_games[f"double-{slug}"]
         registrations = [
-            _upsert_sponsor_team(
+            _upsert_development_team(
                 now=now,
                 organizer=organizer,
                 division=division,
@@ -1025,6 +1251,22 @@ def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
             catalog=catalog,
         )
     _seed_published_bracket(now=now, organizer=organizer, catalog=catalog)
+    sponsor_teams = _seed_sponsor_teams(
+        now=now,
+        organizer=organizer,
+        catalog=catalog,
+    )
+    _seed_sponsor_bracket(
+        now=now,
+        organizer=organizer,
+        catalog=catalog,
+        sponsor_teams=sponsor_teams,
+    )
+    _seed_fpt_shop_uni_tour_bracket(
+        now=now,
+        organizer=organizer,
+        catalog=catalog,
+    )
     _seed_double_elimination(now=now, organizer=organizer, catalog=catalog)
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),

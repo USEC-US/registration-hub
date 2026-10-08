@@ -18,11 +18,15 @@ draw and public Changes. The page has desktop round columns, a mobile round list
 a keyboard-focusable scroll region, and English and Vietnamese labels. Reads use
 normal HTTP; viewers refresh explicitly after concurrent revisions.
 
-`seed_dev_data` creates one repeatable five-player Chess bracket with structural
-byes and a scheduled match. The disposable Playwright database creates a completed
-three-player bracket, corrects a semifinal after its final was played, replays the
-final, and retains the public correction event. No fixture touches the configured
-development database.
+`seed_dev_data` creates repeatable five-player Chess and eight-team League of
+Legends brackets, three publisher/sponsor tournaments, and a synthetic 16-team
+Arena of Valor bracket modeled on the FPT Shop Uni Tour workbook's LQM South
+field size and series lengths. The fixture imports no workbook identities or
+results. Double-elimination fixtures are documented in the
+[double-elimination guide](competition-double-elimination.md). The disposable
+Playwright database creates a completed three-player bracket, corrects a
+semifinal after its final was played, replays the final, and retains the public
+correction event. No fixture touches the configured development database.
 
 ## Organizer operation
 
@@ -80,6 +84,5 @@ Three repository-wide baselines remain outside this slice:
 - Full `pnpm lint` stops on 16 pre-existing Prettier warnings outside the changed
   competition files. Focused Prettier and ESLint checks are green.
 
-The remaining competition backlog covers double elimination, round robin, Swiss,
-ordered-stage handoffs, qualification ties, and realtime delivery. Those are not
-part of this first slice.
+The remaining competition backlog covers round robin, Swiss, ordered-stage
+handoffs, qualification ties, and realtime delivery.
