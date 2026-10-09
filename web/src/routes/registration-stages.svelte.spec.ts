@@ -335,12 +335,14 @@ it('keeps multiple saved submissions available when the division is closed', asy
 			})
 		);
 	mountGame({ is_registration_open: false, capacity_remaining: 0 });
-	await expect
-		.element(page.getByRole('link', { name: 'View registration 33 / payment' }))
-		.toBeVisible();
-	await expect
-		.element(page.getByRole('link', { name: 'View registration 34 / payment' }))
-		.toBeVisible();
+	await expect.element(page.getByRole('link', { name: 'View saved form' }).nth(1)).toBeVisible();
+	expect(
+		page
+			.getByRole('link', { name: 'View saved form' })
+			.elements()
+			.map((link) => link.getAttribute('href'))
+			.sort()
+	).toEqual(['/en/registrations/33/payment', '/en/registrations/34/payment']);
 });
 it('requires Turnstile only at review and keeps fields after authoritative roster errors', async () => {
 	vi.mocked(submitSavedRegistration).mockRejectedValue(
@@ -812,9 +814,7 @@ it('keeps saved access and draft restoration ahead of the payment availability n
 	);
 	const draft = localStorage.getItem('usec-registration-draft:v1:10');
 	mountGame({ payment_available: false });
-	await expect
-		.element(page.getByRole('link', { name: 'View registration 33 / payment' }))
-		.toBeVisible();
+	await expect.element(page.getByRole('link', { name: 'View saved form' })).toBeVisible();
 	await expect.element(page.getByText('Continue your saved draft?')).toBeVisible();
 	expect(localStorage.getItem('usec-registration-draft:v1:10')).toBe(draft);
 	await page.getByRole('button', { name: 'Continue', exact: true }).click();
