@@ -154,3 +154,61 @@ class StageWorkspaceTests(TestCase):
         )
         self.assertContains(response, regenerate)
         self.assertEqual(replacement.state, "DRAFT")
+
+    def test_future_stage_without_published_source_shows_waiting_state(self):
+        source, destination = self._chain(publish=False)
+        self.client.force_login(self.actor)
+        response = self.client.get(
+            workspace_url(self.competition.pk, "setup", stage_id=destination.pk)
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Waiting for previous stage")
+        self.assertEqual(response.context_data["stage"].pk, destination.pk)
+
+    def test_third_stage_waits_when_predecessor_is_unpublished_or_retired(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+        from competitions.commands import (
+            publish_draw,
+            preview_correction,
+            apply_correction,
+        )
+        from competitions.models import Match
+
+        source, destination = self._chain(formats=("SINGLE_ELIMINATION",) * 3)
+        third = self.competition.stages.get(sequence=3)
+        self.client.force_login(self.actor)
+        url = workspace_url(self.competition.pk, "setup", stage_id=third.pk)
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self._finish(source)
+        draw = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        publish_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        match = Match.objects.filter(round__draw=source).order_by("pk").first()
+        preview = preview_correction(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=0,
+            side_two_score=1,
+        )
+        apply_correction(
+            actor=self.actor,
+            token=preview["token"],
+            internal_reason="Replay changed path",
+        )
+        draw.refresh_from_db()
+        self.assertEqual(draw.state, "SUPERSEDED")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Waiting for previous stage")

@@ -44,10 +44,14 @@ The Django browser harness creates a unique disposable database and temporary me
 
 ## Local evidence (2026-10-10)
 
-- 185 PostgreSQL competition and development-seed tests passed, including populated migration, all nine format combinations, Top-3 ties, three-stage chains, two played successor retirements, stable draws and concurrent operations.
+- 187 PostgreSQL competition and development-seed tests passed, including populated migration, all nine format combinations, Top-3 ties, three-stage chains, two played successor retirements, stable draws and concurrent operations.
 - All 19 Django-backed organizer, spectator and registration browser journeys passed, including both new multi-stage journeys, English/Vietnamese and 390px containment.
 - 28 focused frontend tests passed. Svelte/i18n checks reported no errors or warnings; the production build and changed-file ESLint passed.
 - Django checks, migration drift and backend Ruff checks passed. Tests used a disposable PostgreSQL 18 instance and synthetic data, not the configured live database.
+
+A fresh whole-feature reviewer found a future-stage workspace crash when the predecessor has no published draw. Regressions cover stage 1's private preview, an unpublished stage 2, and a retired predecessor; the waiting view now handles these states.
+
+Deferred minor: `Changes?stage=<id>` currently omits round-level series changes. The unfiltered Changes endpoint retains them; stored history is preserved.
 
 ## Migration and rollout
 

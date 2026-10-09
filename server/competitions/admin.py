@@ -574,12 +574,17 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             previous = competition.stages.get(sequence=stage.sequence - 1)
             source = previous.draws.filter(state="PUBLISHED").first()
             source_qualification = stage_qualification(source) if source else None
-            waiting_reason = (
-                (source_qualification["block_reason"] or "Waiting for previous stage")
-                if not source_qualification
-                or source_qualification["qualification_state"] != "RESOLVED"
-                else "Ready for a saved random draw"
-            )
+            if (
+                source_qualification
+                and source_qualification["qualification_state"] == "RESOLVED"
+            ):
+                waiting_reason = "Ready for a saved random draw"
+            else:
+                waiting_reason = (
+                    source_qualification["block_reason"]
+                    if source_qualification
+                    else None
+                ) or "Waiting for previous stage"
             if (
                 can_manage
                 and source_qualification
