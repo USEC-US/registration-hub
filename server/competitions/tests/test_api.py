@@ -142,7 +142,7 @@ class PublicCompetitionApiTests(APITestCase):
         self.assertEqual(response.data["stages"][0]["grand_final_policy"], "")
         self.assertEqual(
             response.data["stages"][0]["rounds"][0]["matches"][0]["code"],
-            f"C{self.competition.pk}-D1-R1-M1",
+            "Final bracket-M1",
         )
         rendered = response.rendered_content.decode()
         self.assertNotIn("PRIVATE-", rendered)

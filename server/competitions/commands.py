@@ -21,6 +21,8 @@ from .command_support import (
     _record_change,
     _match_snapshot,
     _validate_best_of,
+    _stage_for_command,
+    _validate_stage_sequence,
     _validate_series_length,
 )
 from .elimination import (
@@ -69,19 +71,21 @@ def configure_elimination(
     default_series_length: int,
     format: str,
     grand_final_policy: str = "",
+    stage_sequence: int = 1,
 ) -> Stage:
     require_organizer(actor, "competitions.change_competition")
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100:
+        raise ValidationError({"name": "Enter a stage name of at most 100 characters."})
     name = name.strip()
-    if not name:
-        raise ValidationError({"name": "Enter a stage name."})
     _validate_elimination_setup(format, grand_final_policy)
     _validate_best_of(default_series_length)
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
+        _validate_stage_sequence(competition, stage_sequence)
         stage = (
             Stage.objects.select_for_update()
-            .filter(competition=competition, sequence=1)
+            .filter(competition=competition, sequence=stage_sequence)
             .first()
         )
         if stage and stage.published_at:
@@ -89,7 +93,7 @@ def configure_elimination(
         if stage is None:
             stage = Stage.objects.create(
                 competition=competition,
-                sequence=1,
+                sequence=stage_sequence,
                 name=name,
                 format=format,
                 grand_final_policy=grand_final_policy,
@@ -101,6 +105,8 @@ def configure_elimination(
                 StageDraw.objects.filter(
                     stage=stage, state=StageDraw.State.DRAFT
                 ).update(state=StageDraw.State.SUPERSEDED)
+            if stage.format != format:
+                stage.group_plans.all().delete()
             stage.format = format
             stage.series_mode = Stage.SeriesMode.BEST_OF
             stage.grand_final_policy = grand_final_policy
@@ -182,6 +188,11 @@ def select_entrants(
         StageDraw.objects.filter(
             stage__competition=competition, state=StageDraw.State.DRAFT
         ).update(state=StageDraw.State.SUPERSEDED)
+        first = competition.stages.filter(
+            sequence=1, format=Stage.Format.ROUND_ROBIN
+        ).first()
+        if first and sum(p.size for p in first.group_plans.all()) != len(unique_ids):
+            first.group_plans.all().delete()
         competition.entrants.update(is_selected=False)
         entrants = []
         for registration_id in unique_ids:
@@ -214,18 +225,17 @@ def save_elimination_draw(
     expected_revision: int,
     entrant_order: Sequence[int] | None = None,
     randomize: bool = False,
+    stage_id: int | None = None,
 ) -> StageDraw:
     require_organizer(actor, "competitions.change_competition")
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
-        stage = (
-            Stage.objects.select_for_update()
-            .filter(competition=competition, sequence=1)
-            .first()
-        )
-        if stage is None:
-            raise ValidationError("Configure the stage before saving a draw.")
+        stage = _stage_for_command(competition, stage_id)
+        if stage.sequence != 1:
+            raise ValidationError(
+                "Generate later draws from the previous stage's qualifiers."
+            )
         if stage.published_at:
             raise ValidationError("The published draw cannot be replaced directly.")
         entrants = list(
@@ -284,19 +294,11 @@ def save_elimination_draw(
                 number=generated_round.number,
                 section=generated_round.section,
             )
-            section_code = (
-                f"{round_.section}-"
-                if stage.format == Stage.Format.DOUBLE_ELIMINATION
-                else ""
-            )
             for generated_match in generated_round.matches:
                 match = Match.objects.create(
                     round=round_,
                     number=generated_match.number,
-                    code=(
-                        f"C{competition.pk}-D{draw.version}-{section_code}"
-                        f"R{round_.number}-M{generated_match.number}"
-                    ),
+                    code=f"{stage.name}-M{len(matches) + 1}",
                     status=(
                         Match.Status.CONDITIONAL
                         if round_.section == Round.Section.FINALS and round_.number == 2
@@ -352,14 +354,14 @@ def save_elimination_draw(
         return draw
 
 
-def publish_draw(*, actor, competition_id: int, expected_revision: int) -> StageDraw:
+def publish_draw(
+    *, actor, competition_id: int, expected_revision: int, stage_id: int | None = None
+) -> StageDraw:
     require_organizer(actor, "competitions.change_competition")
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
-        stage = Stage.objects.select_for_update().get(
-            competition=competition, sequence=1
-        )
+        stage = _stage_for_command(competition, stage_id)
         if stage.published_at:
             raise ValidationError("This stage is already published.")
         draw = (
@@ -394,6 +396,9 @@ def publish_draw(*, actor, competition_id: int, expected_revision: int) -> Stage
         if match_count == 0 or slot_count != match_count * 2:
             raise ValidationError("The saved draw is incomplete.")
         _validate_saved_draw(draw)
+        from .stage_commands import validate_stage_plan
+
+        validate_stage_plan(competition)
         now = timezone.now()
         draw.state = StageDraw.State.PUBLISHED
         draw.published_at = now

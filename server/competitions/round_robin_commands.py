@@ -20,6 +20,8 @@ from .command_support import (
     _match_snapshot,
     _record_change,
     _validate_series_length,
+    _stage_for_command,
+    _validate_stage_sequence,
 )
 from .models import (
     CompetitionEntrant,
@@ -30,6 +32,7 @@ from .models import (
     StageDraw,
     StageEntry,
     StageGroup,
+    StageGroupPlan,
     TieResolution,
 )
 from .round_robin import (
@@ -394,6 +397,7 @@ def confirm_group_tie(*, actor, token, internal_reason=""):
         if current != submitted:
             raise ValidationError("The tie impact changed. Preview it again.")
         resolution = TieResolution.objects.create(
+            draw=group.draw,
             group=group,
             parent_id=current["parent_resolution_id"],
             method=current["method"],
@@ -539,6 +543,7 @@ def configure_round_robin(
     draw_points: Decimal,
     loss_points: Decimal,
     tiebreaks: Sequence[str] = DEFAULT_TIEBREAKS,
+    stage_sequence: int = 1,
 ) -> Stage:
     require_organizer(actor, "competitions.change_competition")
     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100:
@@ -548,9 +553,10 @@ def configure_round_robin(
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
+        _validate_stage_sequence(competition, stage_sequence)
         stage = (
             Stage.objects.select_for_update()
-            .filter(competition=competition, sequence=1)
+            .filter(competition=competition, sequence=stage_sequence)
             .first()
         )
         if stage and stage.published_at:
@@ -561,6 +567,7 @@ def configure_round_robin(
             )
         values = {
             "name": name.strip(),
+            "advancement_count": None,
             "format": Stage.Format.ROUND_ROBIN,
             "grand_final_policy": "",
             "series_mode": series_mode,
@@ -576,7 +583,9 @@ def configure_round_robin(
                 setattr(stage, key, value)
             stage.save(update_fields=tuple(values))
         else:
-            stage = Stage.objects.create(competition=competition, sequence=1, **values)
+            stage = Stage.objects.create(
+                competition=competition, sequence=stage_sequence, **values
+            )
         _record_change(
             competition,
             actor=actor,
@@ -608,6 +617,7 @@ def _save_group_rounds(
         if resolution
         else 0
     )
+    ordinal = Match.objects.filter(round__draw=group.draw).count()
     for fixture in generated:
         round_ = Round.objects.create(
             draw=group.draw,
@@ -623,11 +633,12 @@ def _save_group_rounds(
                 Match(
                     round=round_,
                     number=number,
-                    code=f"C{group.draw.stage.competition_id}-D{group.draw.version}-G{group.number}-{section}-R{round_.number}-M{number}",
+                    code=f"{group.draw.stage.name}-M{ordinal + number}",
                 )
                 for number, _ in enumerate(fixture.pairings, 1)
             ]
         )
+        ordinal += len(matches)
         MatchSlot.objects.bulk_create(
             [
                 MatchSlot(
@@ -652,16 +663,17 @@ def save_round_robin_draw(
     ordered_entrant_ids: Sequence[int],
     memberships: Sequence[Sequence[int]] | None = None,
     randomize: bool = False,
+    stage_id: int | None = None,
 ) -> StageDraw:
     require_organizer(actor, "competitions.change_competition")
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
-        stage = (
-            Stage.objects.select_for_update()
-            .filter(competition=competition, sequence=1)
-            .first()
-        )
+        stage = _stage_for_command(competition, stage_id)
+        if stage.sequence != 1:
+            raise ValidationError(
+                "Generate later draws from the previous stage qualifiers."
+            )
         if not stage or stage.format != Stage.Format.ROUND_ROBIN:
             raise ValidationError("Configure round robin before saving groups.")
         if stage.published_at:
@@ -718,6 +730,30 @@ def save_round_robin_draw(
             > MAX_MATCHES
         ):
             raise ValidationError("The generated draw exceeds the match limit.")
+        planned = [
+            (p.name, p.size, p.qualifying_places) for p in stage.group_plans.all()
+        ]
+        actual = [
+            (name, len(group), quota)
+            for (name, quota), group in zip(specs, allocations, strict=True)
+        ]
+        if planned and actual != planned:
+            raise ValidationError(
+                "Saved group membership must match the configured group plan."
+            )
+        if not planned:
+            StageGroupPlan.objects.bulk_create(
+                [
+                    StageGroupPlan(
+                        stage=stage,
+                        number=i,
+                        name=name,
+                        size=size,
+                        qualifying_places=quota,
+                    )
+                    for i, (name, size, quota) in enumerate(actual, 1)
+                ]
+            )
         stage.draws.filter(state=StageDraw.State.DRAFT).update(
             state=StageDraw.State.SUPERSEDED
         )

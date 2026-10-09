@@ -93,3 +93,32 @@ def _validate_series_length(mode: str, length: int) -> None:
             raise ValidationError("Best-of length must be a positive odd number.")
     elif mode != Stage.SeriesMode.FIXED_GAMES:
         raise ValidationError("Choose a supported series mode.")
+
+
+def _stage_for_command(competition, stage_id=None):
+    stage = (
+        Stage.objects.select_for_update()
+        .filter(
+            competition=competition,
+            **({"sequence": 1} if stage_id is None else {"pk": stage_id}),
+        )
+        .first()
+    )
+    if stage is None:
+        raise ValidationError("Configure a stage belonging to this competition.")
+    return stage
+
+
+def _require_plan_editable(competition):
+    if competition.stages.filter(sequence=1, published_at__isnull=False).exists():
+        raise ValidationError("The whole stage plan is locked after first publication.")
+
+
+def _validate_stage_sequence(competition, sequence):
+    _require_plan_editable(competition)
+    if type(sequence) is not int or not 1 <= sequence <= min(
+        32767, competition.stages.count() + 1
+    ):
+        raise ValidationError(
+            "Configure an existing stage or the next contiguous stage."
+        )
