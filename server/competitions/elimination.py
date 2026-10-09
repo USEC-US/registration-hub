@@ -203,3 +203,65 @@ def generate_double_elimination(
             )
         )
     return upper + tuple(lower) + tuple(finals)
+
+
+@dataclass(frozen=True)
+class EliminationResult:
+    round_number: int
+    section: str
+    status: str
+    outcome: str
+    side_one_id: int | None
+    side_two_id: int | None
+    winner_id: int | None
+
+
+@dataclass(frozen=True)
+class PlacementBands:
+    bands: tuple[tuple[int, ...], ...]
+    unranked_entry_ids: tuple[int, ...]
+
+
+def finishing_bands(entry_ids, results, *, format: str) -> PlacementBands:
+    """Rank terminal losses; structural matches never invent finishers."""
+    if format not in ("SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"):
+        raise ValueError("Unsupported elimination format.")
+    entries = set(entry_ids)
+    ordinary = [r for r in results if r.section != "TIEBREAK" and r.status == "FINAL"]
+    final_section = "FINALS" if format == "DOUBLE_ELIMINATION" else "NORMAL"
+    finals = [r for r in ordinary if r.section == final_section]
+    final = max(finals, key=lambda r: r.round_number, default=None)
+    bands = []
+    ranked = set()
+    if final:
+        finalists = {i for i in (final.side_one_id, final.side_two_id) if i in entries}
+        if final.winner_id in finalists:
+            bands.append((final.winner_id,))
+            remainder = finalists - {final.winner_id}
+            if remainder:
+                bands.append(tuple(sorted(remainder)))
+        elif final.outcome == "DOUBLE_FORFEIT" and finalists:
+            bands.append(tuple(sorted(finalists)))
+        ranked.update(i for band in bands for i in band)
+    section = "LOWER" if format == "DOUBLE_ELIMINATION" else "NORMAL"
+    exits = {}
+    for result in ordinary:
+        if result.section != section or result.outcome in ("BYE", "EMPTY"):
+            continue
+        for entrant in (result.side_one_id, result.side_two_id):
+            if (
+                entrant in entries
+                and entrant != result.winner_id
+                and entrant not in ranked
+            ):
+                if entrant in exits:
+                    raise ValueError("An entrant has multiple terminal exits.")
+                exits[entrant] = result.round_number
+    # An undefined upper exit cannot be ordered against terminal lower losses.
+    uncertain = entries - ranked - set(exits)
+    if format != "DOUBLE_ELIMINATION" or not uncertain:
+        for depth in sorted(set(exits.values()), reverse=True):
+            band = tuple(sorted(i for i, round_ in exits.items() if round_ == depth))
+            bands.append(band)
+            ranked.update(band)
+    return PlacementBands(tuple(bands), tuple(sorted(entries - ranked)))
