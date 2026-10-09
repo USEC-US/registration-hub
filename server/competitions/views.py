@@ -2,8 +2,9 @@ from contextlib import contextmanager
 
 from drf_spectacular.utils import extend_schema
 from django.db import connection, transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 from rest_framework.pagination import CursorPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -58,6 +59,7 @@ def _published_stage_queryset():
         "entries__entrant",
         "groups__entries__entrant",
         "groups__tie_resolutions__contenders",
+        "tie_resolutions__contenders",
         Prefetch("rounds", queryset=_published_round_queryset()),
     )
     return (
@@ -131,7 +133,11 @@ class PublicMatchView(APIView):
         with consistent_public_read():
             match = get_object_or_404(
                 _published_match_queryset().filter(
-                    round__draw__state=StageDraw.State.PUBLISHED,
+                    round__draw__state__in=(
+                        StageDraw.State.PUBLISHED,
+                        StageDraw.State.SUPERSEDED,
+                    ),
+                    round__draw__published_at__isnull=False,
                     round__draw__stage__published_at__isnull=False,
                     round__draw__stage__competition__tournament_game__tournament__is_published=True,
                 ),
@@ -161,6 +167,28 @@ class PublicCompetitionChangesView(APIView):
                 competition=competition,
                 public_data__has_key="kind",
             ).order_by("-revision")
+            if request.query_params.get("stage"):
+                if not request.query_params["stage"].isdecimal():
+                    raise Http404
+                stage = get_object_or_404(
+                    competition.stages.filter(published_at__isnull=False),
+                    pk=request.query_params["stage"],
+                )
+                match_ids = list(
+                    Match.objects.filter(
+                        round__draw__stage=stage,
+                        round__draw__published_at__isnull=False,
+                    ).values_list("pk", flat=True)
+                )
+                queryset = queryset.filter(
+                    Q(public_data__stage_id=stage.pk)
+                    | Q(public_data__match_id__in=match_ids)
+                    | Q(
+                        public_data__handoff_impact__retired_draws__contains=[
+                            {"stage_id": stage.pk}
+                        ]
+                    )
+                )
             paginator = self.pagination_class()
             page = paginator.paginate_queryset(queryset, request, view=self)
             response = paginator.get_paginated_response(

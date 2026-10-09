@@ -192,10 +192,9 @@ class PublicCompetitionApiTests(APITestCase):
             for match in round_["matches"]
         )
         self.assertEqual(reset["status"], "CONDITIONAL")
-        self.assertEqual(
-            self.client.get(f"/api/competition-matches/{old_match.pk}/").status_code,
-            status.HTTP_404_NOT_FOUND,
-        )
+        historical = self.client.get(f"/api/competition-matches/{old_match.pk}/")
+        self.assertEqual(historical.status_code, status.HTTP_200_OK)
+        self.assertTrue(historical.data["historical"])
         current_match = Match.objects.filter(round__draw=draw).first()
         self.assertEqual(
             self.client.get(

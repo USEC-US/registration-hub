@@ -103,6 +103,89 @@ class PublicStageSerializer(serializers.Serializer):
     rounds = serializers.SerializerMethodField()
     groups = serializers.SerializerMethodField()
     round_robin_rules = serializers.SerializerMethodField()
+    qualification = serializers.SerializerMethodField()
+    draw_state = serializers.SerializerMethodField()
+
+    def get_draw_state(self, obj):
+        return "PUBLISHED" if self._draw(obj) else "AWAITING_REPLACEMENT"
+
+    def get_qualification(self, obj):
+        if obj.format != Stage.Format.ROUND_ROBIN and obj.advancement_count is None:
+            return None
+        draw = self._draw(obj)
+        result = {
+            "state": "PROVISIONAL",
+            "advance_count": obj.advancement_count,
+            "qualifiers": [],
+            "placement_bands": [],
+            "cutoff_ties": [],
+            "block_reason": None,
+        }
+        if draw is None:
+            return result
+        from .qualification import stage_qualification
+
+        draw._qualification_matches = [
+            m for r in draw.rounds.all() for m in r.matches.all()
+        ]
+        state = stage_qualification(draw)
+        entries = {e.pk: PublicEntrySerializer(e).data for e in draw.entries.all()}
+        rounds = list(draw.rounds.all())
+        resolutions = {r.pk: r for r in draw.tie_resolutions.all()}
+        ties = []
+        for cutoff in state["cutoffs"]:
+            resolution = resolutions.get(cutoff["resolution_id"])
+            ties.append(
+                {
+                    "group_id": cutoff["group_id"],
+                    "places": cutoff["places"],
+                    "tied_entries": [entries[i] for i in cutoff["entry_ids"]],
+                    "resolution_id": cutoff["resolution_id"],
+                    "parent_id": cutoff["parent_resolution_id"],
+                    "method": resolution.method if resolution else None,
+                    "state": resolution.state if resolution else "AWAITING_RESOLUTION",
+                    "ordered_entries": [entries[i] for i in resolution.decision_order]
+                    if resolution
+                    else [],
+                    "round_ids": [
+                        r.pk
+                        for r in rounds
+                        if resolution and r.tie_resolution_id == resolution.pk
+                    ],
+                }
+            )
+        represented = {cutoff["resolution_id"] for cutoff in state["cutoffs"]}
+        if obj.format != Stage.Format.ROUND_ROBIN:
+            for resolution in resolutions.values():
+                if resolution.pk in represented:
+                    continue
+                ties.append(
+                    {
+                        "group_id": None,
+                        "places": resolution.places,
+                        "tied_entries": [
+                            entries[e.pk] for e in resolution.contenders.all()
+                        ],
+                        "resolution_id": resolution.pk,
+                        "parent_id": resolution.parent_id,
+                        "method": resolution.method,
+                        "state": resolution.state,
+                        "ordered_entries": [
+                            entries[i] for i in resolution.decision_order
+                        ],
+                        "round_ids": [
+                            r.pk for r in rounds if r.tie_resolution_id == resolution.pk
+                        ],
+                    }
+                )
+        return {
+            **result,
+            "state": state["qualification_state"],
+            "qualifiers": [entries[i] for i in state["qualifier_entry_ids"]],
+            "placement_bands": [[entries[i] for i in band] for band in state["bands"]],
+            "cutoff_ties": ties,
+            "block_reason": state["block_reason"],
+        }
 
     def get_round_robin_rules(self, obj):
         if obj.format != Stage.Format.ROUND_ROBIN:
@@ -282,6 +365,7 @@ class PublicChangeSerializer(serializers.Serializer):
             "kind",
             "stage_id",
             "draw_id",
+            "source_stage_id",
             "round_id",
             "match_id",
             "match_code",
@@ -377,6 +461,22 @@ class PublicChangeSerializer(serializers.Serializer):
                 {k: v for k, v in snapshot.items() if k in snapshot_fields}
                 for snapshot in impact["historical_matches"]
             ]
+        handoff = instance.public_data.get("handoff_impact")
+        if handoff:
+            public_data["handoff_impact"] = {
+                "retired_draws": [
+                    {k: v for k, v in item.items() if k in {"stage_id", "draw_id"}}
+                    for item in handoff.get("retired_draws", [])
+                ],
+                "reset_matches": [
+                    {
+                        k: v
+                        for k, v in item.items()
+                        if k in snapshot_fields | {"stage_id", "draw_id"}
+                    }
+                    for item in handoff.get("reset_matches", [])
+                ],
+            }
         return {
             "revision": instance.revision,
             "created_at": instance.created_at.isoformat(),
