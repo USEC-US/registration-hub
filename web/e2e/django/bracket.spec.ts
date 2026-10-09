@@ -82,6 +82,12 @@ test('round robin groups show unequal standings, rests, qualification and histor
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.goto(`/${locale}/tournaments/round-robin-journey-test/games/${division.id}/bracket`);
 		await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(3);
+		const rounds = page.getByLabel(locale === 'en' ? 'Round' : 'Vòng đấu', { exact: true });
+		await expect(rounds).toBeEnabled();
+		await rounds.focus();
+		await page.keyboard.press('Space');
+		await page.keyboard.press('End');
+		await page.keyboard.press('Enter');
 		await expect(
 			page.getByText(locale === 'en' ? 'Historical' : 'Lịch sử', { exact: true }).first()
 		).toBeVisible();

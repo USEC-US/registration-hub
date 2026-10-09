@@ -345,6 +345,7 @@
 	"bracket_champion": "Nhà vô địch",
 	"bracket_no_champion": "Không có nhà vô địch",
 	"bracket_rounds": "Các vòng đấu",
+	"bracket_round_selection": "Vòng đấu",
 	"bracket_entries": "{count} đội hoặc tuyển thủ",
 	"bracket_round": "Vòng {number}",
 	"bracket_final_round": "Chung kết",

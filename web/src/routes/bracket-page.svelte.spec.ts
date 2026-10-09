@@ -545,6 +545,7 @@ function roundRobinCompetition() {
 				: []
 	}));
 	const round = stage.rounds[0];
+	round.section = 'NORMAL';
 	round.group_id = 1;
 	round.effective_series_mode = 'FIXED_GAMES';
 	round.resting_entry = entries[2];
@@ -581,6 +582,27 @@ function roundRobinCompetition() {
 }
 
 describe('public round robin groups', () => {
+	it('bounds rendered cards to one round while retaining historical navigation', async () => {
+		const value = roundRobinCompetition();
+		const stage = value.stages[0];
+		const ordinary = stage.rounds.find((round) => round.section === 'NORMAL')!;
+		for (let i = 0; i < 50; i++)
+			stage.rounds.push({
+				...ordinary,
+				id: 100 + i,
+				number: 10 + i,
+				matches: ordinary.matches.map((match) => ({ ...match, id: 1000 + i }))
+			});
+		const { container } = render(BracketPage, { data: data(value) } as never);
+		await expect.element(page.getByRole('table')).toBeVisible();
+		expect(container.querySelectorAll('article')).toHaveLength(ordinary.matches.length);
+		const selector = page.getByLabelText('Round', { exact: true });
+		await expect.element(selector).toBeEnabled();
+		(selector.element() as HTMLSelectElement).value = '10';
+		selector.element().dispatchEvent(new Event('change', { bubbles: true }));
+		await expect.element(page.getByText('Historical', { exact: true })).toBeVisible();
+		expect(container.querySelectorAll('article')).toHaveLength(1);
+	});
 	it.each(['en', 'vi'] as const)(
 		'shows tied ranks, decimal points, fixed draws, rests and retained contests in %s',
 		async (locale) => {
@@ -599,6 +621,12 @@ describe('public round robin groups', () => {
 				locale === 'en' ? 'Rest: Green Team' : 'Nghỉ lượt: Green Team'
 			);
 			expect(container.textContent).toContain(locale === 'en' ? 'Draw' : 'Hòa');
+			const rounds = container.querySelector<HTMLSelectElement>('#round-select')!;
+			rounds.value = '10';
+			rounds.dispatchEvent(new Event('change', { bubbles: true }));
+			await expect
+				.element(page.getByText(locale === 'en' ? 'Historical' : 'Lịch sử', { exact: true }))
+				.toBeVisible();
 			expect(container.textContent).toContain(locale === 'en' ? 'Historical' : 'Lịch sử');
 			expect(container.textContent).toContain(
 				locale === 'en' ? 'Awaiting qualification resolution' : 'Chờ phân định suất đi tiếp'

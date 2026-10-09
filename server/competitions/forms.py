@@ -253,8 +253,9 @@ class GroupDrawForm(DrawForm):
         self.initial.setdefault("group_specs", specs)
         choices = [
             (index, line.split("|")[0].strip() or f"Group {index}")
-            for index, line in enumerate(specs.splitlines(), 1)
-            if line.strip()
+            for index, line in enumerate(
+                (line for line in specs.splitlines() if line.strip()), 1
+            )
         ]
         saved = (
             dict(draw.entries.values_list("entrant_id", "group__number"))

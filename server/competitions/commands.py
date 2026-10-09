@@ -583,6 +583,8 @@ def _automatic_result(status, slots):
 
 
 def _resolve_automatic_matches(draw: StageDraw) -> None:
+    if draw.stage.format == Stage.Format.ROUND_ROBIN:
+        return
     now = timezone.now()
     for match in _ordered_matches(draw):
         _reconcile_reset_final(match)
@@ -814,7 +816,14 @@ def start_match(*, actor, match_id: int, expected_revision: int) -> Match:
         match.started_at = now
         match.applied_series_mode = match.effective_series_mode
         match.applied_series_length = match.effective_series_length
-        match.save(update_fields=("status", "started_at", "applied_series_length"))
+        match.save(
+            update_fields=(
+                "status",
+                "started_at",
+                "applied_series_mode",
+                "applied_series_length",
+            )
+        )
         stage = match.round.draw.stage
         stage.status = Stage.Status.IN_PROGRESS
         stage.save(update_fields=("status",))

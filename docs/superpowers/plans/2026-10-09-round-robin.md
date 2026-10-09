@@ -20,7 +20,7 @@ especially Sections 3–5, 7, 9–13.
 
 **Status:** Approved for native implementation on 2026-10-09. Scope selected on 2026-10-09: round robin groups,
 standings, qualification ties, organizer controls, and public views. Stage handoffs
-are the next slice. All eight tasks are implemented and verified; final review follows.
+are the next slice. All eight tasks are implemented. The fresh review findings are fixed; final verification is recorded in the operating guide.
 
 ## Global Constraints
 

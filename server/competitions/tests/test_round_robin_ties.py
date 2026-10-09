@@ -102,6 +102,21 @@ class RoundRobinTieTests(TestCase):
             [row.points for row in group_standings(self.group)["standings"]], [2, 2, 2]
         )
 
+    def test_start_extra_contest_persists_decisive_mode(self):
+        self.tied_group()
+        resolution = self.confirm(self.preview(method="EXTRA_MATCHES", series_length=3))
+        match = Match.objects.filter(round__tie_resolution=resolution).first()
+        self.competition.refresh_from_db()
+        start_match(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=self.competition.revision,
+        )
+        match.refresh_from_db()
+        self.assertEqual(
+            (match.applied_series_mode, match.applied_series_length), ("BEST_OF", 3)
+        )
+
     def test_remaining_mini_table_tie_requires_explicit_nested_resolution(self):
         ids = self.tied_group()
         resolution = self.confirm(self.preview(method="EXTRA_MATCHES"))

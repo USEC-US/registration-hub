@@ -345,6 +345,7 @@
 	"bracket_champion": "Champion",
 	"bracket_no_champion": "No champion",
 	"bracket_rounds": "Bracket rounds",
+	"bracket_round_selection": "Round",
 	"bracket_entries": "{count} entrants",
 	"bracket_round": "Round {number}",
 	"bracket_final_round": "Final",

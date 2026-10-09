@@ -34,7 +34,9 @@ A best-of result ends when one entrant reaches its winning score. A fixed-game
 final must total the configured number of games; equal scores are a draw.
 Progress must remain below that total. Scores must be nonnegative integers.
 
-Standings use final ordinary results only. A forfeit receives normal win/loss
+Use group and round selection to browse fixtures, including historical extra
+contests. The organizer **View round** form also works without JavaScript. Only
+one round of cards is rendered at once. Standings use final ordinary results only. A forfeit receives normal win/loss
 points. A double forfeit gives neither side points and records a loss for each.
 Only completed played results contribute games won and game difference. An odd
 round's absent entrant rests: no scored bye, points, or fabricated games.
@@ -66,7 +68,8 @@ are recorded for this stage; moving them into a playoff is not implemented here.
 
 Use the existing **Correct result → Preview correction** workflow. The preview
 shows projected standings and qualifiers, invalidated tie decisions, and extra
-contests that will become historical. Confirmation requires a private reason.
+contests that will become historical, with match identities, current statuses and
+preserved score summaries. Confirmation requires a private reason.
 A changed losing score can invalidate a decision even if the winner is unchanged
 when game metrics participate in ranking.
 
@@ -116,9 +119,9 @@ tests; Chromium component tests cover EN/VI standings; real Django browser tests
 cover publication, fixed draws, manual/extra ties, corrections and retained
 history.
 
-- Full Django suite: **429 tests passed** on PostgreSQL, including populated
+- Full Django suite: **435 tests passed** on PostgreSQL, including populated
   migration, transaction rollback, tie/correction contention and seeded reruns.
-- Full frontend suite: **355 tests passed** across 45 files.
+- Full frontend suite: **356 tests passed** across 45 files.
 - Real Django/Chromium suite: **17 journeys passed**, including elimination and
   registration regressions, EN/VI, keyboard group selection and 390px local scrolling.
 - Svelte check: **0 errors, 0 warnings**. Changed-file Ruff, formatting, ESLint,
@@ -128,7 +131,6 @@ The production build passed. The existing calendar
 package circular-import/empty-chunk warnings and Vitest's development-server
 `wrapDynamicImport` diagnostics are tooling noise; the test assertions pass.
 Deployment against an existing live database and stage handoffs are outside this proof.
-
 
 ## Execution decisions
 
@@ -145,7 +147,30 @@ Deployment against an existing live database and stage handoffs are outside this
   JavaScript; changing group definitions requires that extra action.
 - Used native select/table elements with installed Field components; custom
   dropdown/table styling would require a separate UI change.
-
+- Applied the same integer/storage bounds to elimination setup after review found
+  its legacy validator accepted nonintegers and oversized values. Existing callers
+  must pass integer lengths within 1–32767.
+- Kept the approved later scope: stage handoffs/navigation, Swiss, withdrawal/
+  disqualification commands, TFT and realtime. These workflows remain unavailable.
+- Reviewed migration/rollback strategy without deploying or executing rollback
+  against a live database; live rollout still needs matching code/database backups.
 - Disabled the public group selector until hydration attaches its handler;
   early input cannot silently leave the previous group's standings on screen.
   Group switching requires JavaScript; the initially rendered standings remain readable.
+
+- Preserved baseline short match labels, public Changes ordering/pagination and
+  generic double-forfeit card labels; their existing presentation limits remain.
+- Kept existing calendar build warnings and Vitest development-server diagnostics;
+  passing assertions and builds do not guarantee future toolchain compatibility.
+- Bounded organizer and public round robin cards by selected round; browsing a
+  full schedule requires moving between rounds.
+
+## Final review
+
+One fresh reviewer inspected the complete slice. All five Important findings
+were addressed with failing regressions followed by passing checks: stored mode
+at Start, blank-line manual group assignments, per-fixture scoring queries,
+bounded public rendering, and complete extra-contest correction previews.
+The executor also fixed the shared legacy best-of validation issue and bounded
+organizer rendering. No minor findings were deferred. Final suite counts above
+include those fixes; no second review was dispatched.

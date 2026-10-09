@@ -1,7 +1,9 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 
 from competitions.commands import (
     create_competition,
@@ -11,6 +13,7 @@ from competitions.commands import (
     select_entrants,
     set_match_series_length,
     set_round_series_length,
+    start_match,
 )
 from competitions.models import Match, Stage, StageDraw
 from competitions.round_robin_commands import (
@@ -224,6 +227,30 @@ class RoundRobinCommandTests(TestCase):
             ),
             [0, 1, 1],
         )
+
+    def test_start_persists_fixed_mode(self):
+        draw = self.published_group()
+        match = Match.objects.filter(round__draw=draw).first()
+        self.competition.refresh_from_db()
+        start_match(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=self.competition.revision,
+        )
+        match.refresh_from_db()
+        self.assertEqual(
+            (match.applied_series_mode, match.applied_series_length), ("FIXED_GAMES", 2)
+        )
+
+    def test_scoring_query_count_is_bounded_for_many_fixtures(self):
+        self.configure()
+        self.choose(size=12)
+        draw = self.draw(group_specs=[("A", 1)])
+        self.publish()
+        match = Match.objects.filter(round__draw=draw).first()
+        with CaptureQueriesContext(connection) as queries:
+            self.result(match)
+        self.assertLess(len(queries), 40)
 
     def test_last_numbered_match_does_not_complete_earlier_pending_play(self):
         draw = self.published_group()

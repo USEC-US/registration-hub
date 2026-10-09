@@ -74,6 +74,7 @@
         {% if draw.state == "DRAFT" %}<span class="cw-badge cw-badge-warning">Private preview</span>{% endif %}
       </div>
       {% if groups %}{% include "admin/competitions/group_rules.html" %}{% include "admin/competitions/group_assignment.html" %}{% endif %}
+      {% if round_choices %}<form method="get" action="{{ workspace_url }}" class="cw-panel"><input type="hidden" name="tab" value="bracket"><input type="hidden" name="group" value="{{ selected_group.pk }}"><label for="cw-round-select">Round</label><select id="cw-round-select" name="round">{% for pk, label in round_choices %}<option value="{{ pk }}"{% if pk == selected_round_id %} selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="cw-button" type="submit">View round</button></form>{% endif %}
       {% if stage.champion %}<div class="cw-notice cw-notice-success"><strong>Champion: {{ stage.champion.display_name }}</strong><p>All matches are complete. Results remain available below.</p></div>{% elif stage.completed_without_champion %}<div class="cw-notice"><strong>Competition complete</strong><p>This competition finished without a champion.</p></div>{% endif %}
       {% if bracket_sections %}
         {% if draw.state == "DRAFT" %}<p class="cw-notice">Check the pairings below, then publish the bracket when you are ready. Results can be entered after publication.</p>{% endif %}

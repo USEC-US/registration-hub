@@ -489,6 +489,41 @@ class RoundRobinAdminTests(TestCase):
                 self.assertContains(response, "3.00 / 1.00 / 0.00")
                 self.assertContains(response, "Match wins → Head-to-head points")
 
+    def test_blank_lines_keep_manual_choices_and_memberships_consistent(self):
+        self.setup_rr()
+        self.registrations.append(self._registration(4))
+        self.action("entrants", {"registrations": [r.pk for r in self.registrations]})
+        ids = list(self.competition.entrants.values_list("pk", flat=True))
+        data = {
+            "group_specs": "Alpha | 1\n\nBeta | 1",
+            "allocation": "MANUAL",
+            **{f"seed_{i}": pk for i, pk in enumerate(ids, 1)},
+            **{f"group_{pk}": 1 if i < 2 else 2 for i, pk in enumerate(ids)},
+        }
+        choices = self.action("draw", {**data, "preview_groups": "1"})
+        self.assertEqual(
+            list(choices.context["form"].fields[f"group_{ids[-1]}"].choices),
+            [(1, "Alpha"), (2, "Beta")],
+        )
+        self.assertEqual(self.action("draw", data).status_code, 302)
+        draw = self.competition.stages.get().draws.get(state="DRAFT")
+        self.assertEqual([g.entries.count() for g in draw.groups.all()], [2, 2])
+
+    def test_group_workspace_renders_only_the_selected_round(self):
+        self.published_rr()
+        rounds = list(self.draw.rounds.all())
+        url = reverse(
+            "admin:competitions_competition_change", args=[self.competition.pk]
+        )
+        for round_ in (rounds[0], rounds[-1]):
+            response = self.client.get(url, {"tab": "bracket", "round": round_.pk})
+            rendered = [
+                r["id"]
+                for s in response.context["bracket_sections"]
+                for r in s["rounds"]
+            ]
+            self.assertEqual(rendered, [round_.pk])
+
     def test_publish_fixed_draw_standings_and_confirm_manual_tie(self):
         self.published_rr()
         for match in Match.objects.filter(round__draw=self.draw):
@@ -579,6 +614,7 @@ class RoundRobinAdminTests(TestCase):
             finalize_match,
             preview_correction,
             apply_correction,
+            start_match,
         )
         from competitions.round_robin_commands import (
             preview_group_tie,
@@ -616,6 +652,22 @@ class RoundRobinAdminTests(TestCase):
         )
         self.assertEqual(self.group.tie_resolutions.count(), 0)
         resolution = confirm_group_tie(actor=self.organizer, token=preview["token"])
+        extras = list(Match.objects.filter(round__tie_resolution=resolution))
+        self.competition.refresh_from_db()
+        finalize_match(
+            actor=self.organizer,
+            match_id=extras[0].pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=1,
+            side_two_score=0,
+        )
+        self.competition.refresh_from_db()
+        start_match(
+            actor=self.organizer,
+            match_id=extras[1].pk,
+            expected_revision=self.competition.revision,
+        )
         target = Match.objects.filter(
             round__draw=self.draw, round__section="NORMAL"
         ).first()
@@ -628,6 +680,20 @@ class RoundRobinAdminTests(TestCase):
             side_one_score=2,
             side_two_score=0,
         )
+        review = self.client.post(
+            reverse("admin:competitions_match_correct_detail", args=[target.pk]),
+            {
+                "expected_revision": self.competition.revision,
+                "outcome": "PLAYED",
+                "side_one_score": 2,
+                "side_two_score": 0,
+            },
+        )
+        self.assertContains(review, "Extra contests becoming historical")
+        for extra in extras:
+            self.assertContains(review, extra.code)
+        self.assertContains(review, "1–0")
+        self.assertContains(review, "Live")
         apply_correction(
             actor=self.organizer, token=correction["token"], internal_reason="Typo"
         )

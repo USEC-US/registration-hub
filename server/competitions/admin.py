@@ -289,6 +289,8 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         ]
         rounds_by_section = {}
         all_cards = []
+        round_choices = []
+        selected_round_id = None
         if draw:
             entries = [
                 {
@@ -306,14 +308,24 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "round__draw__stage"
             ).prefetch_related(Prefetch("slots", queryset=slots))
             draw_rounds = list(
-                draw.rounds.select_related("tie_resolution").prefetch_related(
-                    Prefetch("matches", queryset=matches)
-                )
+                draw.rounds.select_related(
+                    "draw__stage", "tie_resolution"
+                ).prefetch_related(Prefetch("matches", queryset=matches))
             )
             if selected_group:
                 draw_rounds = [
                     r for r in draw_rounds if r.group_id == selected_group.pk
                 ]
+                round_choices = [
+                    (r.pk, round_label(r, last_round_number=0)) for r in draw_rounds
+                ]
+                if round_choices:
+                    requested = request.GET.get("round", str(round_choices[0][0]))
+                    selected_round_id = next(
+                        (pk for pk, _ in round_choices if str(pk) == requested), None
+                    )
+                    if selected_round_id is None:
+                        raise Http404
             last_round_numbers = {}
             for round_ in draw_rounds:
                 last_round_numbers[round_.section] = max(
@@ -324,6 +336,8 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     match_card(match, request.user) for match in round_.matches.all()
                 ]
                 all_cards.extend(cards)
+                if selected_round_id is not None and round_.pk != selected_round_id:
+                    continue
                 rounds_by_section.setdefault(round_.section, []).append(
                     {
                         "id": round_.pk,
@@ -478,6 +492,8 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 if stage
                 else [],
                 "groups": groups,
+                "round_choices": round_choices,
+                "selected_round_id": selected_round_id,
                 "selected_group": selected_group,
                 "group_display": group_display,
                 "draw": draw,

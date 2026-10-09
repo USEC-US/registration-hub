@@ -23,6 +23,7 @@
 
 	let { data }: PageProps = $props();
 	let groupId = $state('');
+	let roundId = $state('');
 	let hydrated = $state(false);
 	onMount(() => {
 		hydrated = true;
@@ -380,6 +381,8 @@
 		{#if stage.format === 'ROUND_ROBIN' && stage.round_robin_rules}
 			{@const rules = stage.round_robin_rules}
 			{@const group = stage.groups.find((g) => String(g.id) === groupId) ?? stage.groups[0]}
+			{@const groupRounds = stage.rounds.filter((r) => r.group_id === group?.id)}
+			{@const selectedRound = groupRounds.find((r) => String(r.id) === roundId) ?? groupRounds[0]}
 			<section aria-labelledby="group-rules-heading" class="flex flex-col gap-3">
 				<h2 id="group-rules-heading" class="font-heading text-2xl font-semibold">
 					{m.bracket_rules()}
@@ -412,6 +415,7 @@
 						value={String(group?.id ?? '')}
 						onchange={(event) => {
 							groupId = event.currentTarget.value;
+							roundId = '';
 						}}
 						class="w-full rounded-md border bg-background px-3 py-2 sm:max-w-sm"
 						aria-label={m.bracket_group()}
@@ -497,9 +501,29 @@
 					<h2 id="group-rounds-heading" class="font-heading text-2xl font-semibold">
 						{m.bracket_rounds()}
 					</h2>
-					{#each stage.rounds.filter((r) => r.group_id === group.id) as round (round.id)}<section
-							class="flex flex-col gap-3"
+					<Field.Field
+						><Field.FieldLabel for="round-select">{m.bracket_round_selection()}</Field.FieldLabel>
+						<select
+							id="round-select"
+							aria-label={m.bracket_round_selection()}
+							disabled={!hydrated}
+							value={String(selectedRound?.id ?? '')}
+							onchange={(event) => {
+								roundId = event.currentTarget.value;
+							}}
+							class="w-full rounded-md border bg-background px-3 py-2 sm:max-w-sm"
 						>
+							{#each groupRounds as item (item.id)}<option value={String(item.id)}
+									>{item.section === 'TIEBREAK'
+										? m.bracket_extra_contests() + ' · '
+										: ''}{roundLabel(item)}{item.matches.some((match) => match.historical)
+										? ' · ' + m.bracket_historical()
+										: ''}</option
+								>{/each}
+						</select></Field.Field
+					>
+					{#if selectedRound}{@const round = selectedRound}
+						<section class="flex flex-col gap-3">
 							<h3 class="font-semibold">
 								{round.section === 'TIEBREAK' ? m.bracket_extra_contests() + ' · ' : ''}{roundLabel(
 									round
@@ -511,7 +535,7 @@
 							<ol class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 								{#each round.matches as match (match.id)}{@render matchCard(match)}{/each}
 							</ol>
-						</section>{/each}
+						</section>{/if}
 				</section>
 			{/if}
 		{:else}

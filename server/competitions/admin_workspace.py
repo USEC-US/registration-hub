@@ -197,6 +197,17 @@ def correction_display(impact):
             ],
             "before_qualifiers": [names[pk] for pk in group["before"]["qualifiers"]],
             "after_qualifiers": [names[pk] for pk in group["after"]["qualifiers"]],
+            "historical_matches": [
+                {
+                    "code": item["match_code"],
+                    "status": dict(Match.Status.choices)[item["status"]],
+                    "label": result_summary(item),
+                    "url": reverse(
+                        "admin:competitions_match_change", args=[item["match_id"]]
+                    ),
+                }
+                for item in group["historical_matches"]
+            ],
         }
     return {
         "group": group_display,

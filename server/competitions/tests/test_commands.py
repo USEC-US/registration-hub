@@ -25,6 +25,22 @@ from tournaments.models import Game, Tournament, TournamentGame
 
 
 class CompetitionCommandTests(TestCase):
+    def test_elimination_setup_rejects_noninteger_and_oversized_lengths(self):
+        competition = create_competition(
+            actor=self.actor, tournament_game_id=self.division.pk
+        )
+        for length in (True, 3.0, "3", 32769):
+            with self.subTest(length=length), self.assertRaises(ValidationError):
+                configure_elimination(
+                    actor=self.actor,
+                    competition_id=competition.pk,
+                    expected_revision=competition.revision,
+                    format="SINGLE_ELIMINATION",
+                    name="Final",
+                    default_series_length=length,
+                )
+        self.assertFalse(competition.stages.exists())
+
     def setUp(self):
         self.actor = create_account(
             email="admin@example.com",
@@ -166,7 +182,9 @@ class CompetitionCommandTests(TestCase):
             side_one_score=0,
             side_two_score=2,
         )
-        self.assertEqual([item["match_id"] for item in preview["affected_matches"]], [final.pk])
+        self.assertEqual(
+            [item["match_id"] for item in preview["affected_matches"]], [final.pk]
+        )
 
         apply_correction(
             actor=self.actor,
@@ -313,4 +331,6 @@ class CompetitionCommandTests(TestCase):
                 expected_revision=competition.revision,
             )
 
-        self.assertFalse(Competition.objects.get(pk=competition.pk).stages.get().published_at)
+        self.assertFalse(
+            Competition.objects.get(pk=competition.pk).stages.get().published_at
+        )

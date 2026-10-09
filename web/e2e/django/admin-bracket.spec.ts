@@ -415,6 +415,10 @@ test('organizers publish groups, resolve ties and correct results while spectato
 	await expect(spectator.getByText('Group stage complete', { exact: true })).toBeVisible();
 	await score(ordinary[0].id, 2, 0, true);
 	await spectator.reload();
+	const historicalRound = (await snapshot()).stages[0].rounds.find((round) =>
+		round.matches.some((match) => match.historical)
+	)!;
+	await spectator.getByLabel('Round', { exact: true }).selectOption(String(historicalRound.id));
 	await expect(spectator.getByText('Historical', { exact: true }).first()).toBeVisible();
 	const final = await snapshot();
 	expect(

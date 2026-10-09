@@ -53,8 +53,7 @@ def _record_change(
 
 
 def _validate_best_of(length: int) -> None:
-    if length < 1 or length % 2 == 0:
-        raise ValidationError("Best-of length must be a positive odd number.")
+    _validate_series_length(Stage.SeriesMode.BEST_OF, length)
 
 
 def _match_snapshot(match: Match) -> dict:
@@ -90,6 +89,7 @@ def _validate_series_length(mode: str, length: int) -> None:
     if type(length) is not int or not 1 <= length <= 32767:
         raise ValidationError("Series length must be an integer between 1 and 32767.")
     if mode == Stage.SeriesMode.BEST_OF:
-        _validate_best_of(length)
+        if length % 2 == 0:
+            raise ValidationError("Best-of length must be a positive odd number.")
     elif mode != Stage.SeriesMode.FIXED_GAMES:
         raise ValidationError("Choose a supported series mode.")
