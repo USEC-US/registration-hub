@@ -39,33 +39,44 @@ def _published_match_queryset():
         "position"
     )
     return Match.objects.select_related(
-        "round__draw__stage__competition", "winner__entrant"
+        "round__draw__stage__competition", "round__tie_resolution", "winner__entrant"
     ).prefetch_related(Prefetch("slots", queryset=slots))
 
 
 def _published_round_queryset():
-    return Round.objects.prefetch_related(
-        Prefetch("matches", queryset=_published_match_queryset())
+    return Round.objects.select_related(
+        "draw__stage__competition", "group", "tie_resolution"
+    ).prefetch_related(
+        "group__entries__entrant",
+        "tie_resolution__contenders__entrant",
+        Prefetch("matches", queryset=_published_match_queryset()),
     )
 
 
 def _published_stage_queryset():
     draws = StageDraw.objects.filter(state=StageDraw.State.PUBLISHED).prefetch_related(
         "entries__entrant",
+        "groups__entries__entrant",
+        "groups__tie_resolutions__contenders",
         Prefetch("rounds", queryset=_published_round_queryset()),
     )
-    return Stage.objects.filter(published_at__isnull=False).select_related(
-        "competition", "champion"
-    ).prefetch_related(Prefetch("draws", queryset=draws))
+    return (
+        Stage.objects.filter(published_at__isnull=False)
+        .select_related("competition", "champion")
+        .prefetch_related(Prefetch("draws", queryset=draws))
+    )
 
 
 def _published_competition_queryset():
-    return Competition.objects.filter(
-        tournament_game__tournament__is_published=True,
-        stages__published_at__isnull=False,
-    ).select_related(
-        "tournament_game__tournament", "tournament_game__game"
-    ).prefetch_related(Prefetch("stages", queryset=_published_stage_queryset())).distinct()
+    return (
+        Competition.objects.filter(
+            tournament_game__tournament__is_published=True,
+            stages__published_at__isnull=False,
+        )
+        .select_related("tournament_game__tournament", "tournament_game__game")
+        .prefetch_related(Prefetch("stages", queryset=_published_stage_queryset()))
+        .distinct()
+    )
 
 
 class PublicCompetitionView(APIView):

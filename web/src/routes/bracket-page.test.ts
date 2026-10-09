@@ -13,9 +13,15 @@ const snapshot = {
 			{
 				format: 'DOUBLE_ELIMINATION',
 				grand_final_policy: 'NO_RESET',
+				groups: [],
+				round_robin_rules: null,
 				rounds: [
 					{
 						section: 'FINALS',
+						group_id: null,
+						tie_resolution_id: null,
+						effective_series_mode: 'BEST_OF',
+						resting_entry: null,
 						matches: [
 							{
 								status: 'NOT_REQUIRED',
@@ -67,9 +73,15 @@ describe('public bracket loader', () => {
 				stages: [
 					{
 						grand_final_policy: 'NO_RESET',
+						groups: [],
+						round_robin_rules: null,
 						rounds: [
 							{
 								section: 'FINALS',
+								group_id: null,
+								tie_resolution_id: null,
+								effective_series_mode: 'BEST_OF',
+								resting_entry: null,
 								matches: [
 									{
 										status: 'NOT_REQUIRED',

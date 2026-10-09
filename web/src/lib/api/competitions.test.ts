@@ -16,9 +16,15 @@ const competition = {
 		{
 			format: 'DOUBLE_ELIMINATION',
 			grand_final_policy: 'RESET',
+			groups: [],
+			round_robin_rules: null,
 			rounds: [
 				{
 					section: 'LOWER',
+					group_id: null,
+					tie_resolution_id: null,
+					effective_series_mode: 'BEST_OF',
+					resting_entry: null,
 					matches: [
 						{
 							status: 'CONDITIONAL',
@@ -75,9 +81,15 @@ describe('public competition API wrappers', () => {
 		expect(snapshot.competition.stages[0]).toMatchObject({
 			format: 'DOUBLE_ELIMINATION',
 			grand_final_policy: 'RESET',
+			groups: [],
+			round_robin_rules: null,
 			rounds: [
 				{
 					section: 'LOWER',
+					group_id: null,
+					tie_resolution_id: null,
+					effective_series_mode: 'BEST_OF',
+					resting_entry: null,
 					matches: [
 						{
 							status: 'CONDITIONAL',

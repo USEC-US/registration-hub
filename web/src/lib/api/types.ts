@@ -97,6 +97,7 @@ export interface PublicCompetitionMatch {
 	status: CompetitionMatchStatus;
 	outcome: string;
 	effective_series_length: number;
+	effective_series_mode: 'BEST_OF' | 'FIXED_GAMES';
 	side_one_score: number | null;
 	side_two_score: number | null;
 	started_at: string | null;
@@ -110,6 +111,10 @@ export interface PublicCompetitionRound {
 	id: number;
 	number: number;
 	section: string;
+	group_id: number | null;
+	tie_resolution_id: number | null;
+	effective_series_mode: 'BEST_OF' | 'FIXED_GAMES';
+	resting_entry: PublicCompetitionEntry | null;
 	series_length_override: number | null;
 	matches: PublicCompetitionMatch[];
 }
@@ -129,6 +134,49 @@ export interface PublicCompetitionStage {
 	champion: Pick<PublicCompetitionEntry, 'id' | 'display_name' | 'display_tag'> | null;
 	entries: PublicCompetitionEntry[];
 	rounds: PublicCompetitionRound[];
+	groups: PublicCompetitionGroup[];
+	round_robin_rules: {
+		meetings: 1 | 2;
+		win_points: string;
+		draw_points: string;
+		loss_points: string;
+		tiebreaks: string[];
+	} | null;
+}
+
+export interface PublicCompetitionStanding {
+	entry: PublicCompetitionEntry;
+	rank: number;
+	played: number;
+	wins: number;
+	draws: number;
+	losses: number;
+	points: string;
+	games_won: number;
+	game_difference: number;
+	qualification: 'PROVISIONAL' | 'TIED' | 'QUALIFIED' | 'NOT_QUALIFIED';
+}
+
+export interface PublicCompetitionGroup {
+	id: number;
+	number: number;
+	name: string;
+	qualifying_places: number;
+	entries: PublicCompetitionEntry[];
+	round_ids: number[];
+	standings: PublicCompetitionStanding[];
+	qualifiers: PublicCompetitionEntry[];
+	qualification_state: 'PROVISIONAL' | 'AWAITING_RESOLUTION' | 'RESOLVED';
+	tie_resolutions: Array<{
+		id: number;
+		parent_id: number | null;
+		method: 'MANUAL' | 'EXTRA_MATCHES';
+		state: 'PENDING' | 'AWAITING_RESOLUTION' | 'CONFIRMED' | 'SUPERSEDED';
+		tied_entries: PublicCompetitionEntry[];
+		places: number;
+		ordered_entries: PublicCompetitionEntry[];
+		round_ids: number[];
+	}>;
 }
 
 export interface PublicCompetition {
@@ -151,6 +199,31 @@ export interface PublicCompetitionChange {
 	side_one_score?: number | null;
 	side_two_score?: number | null;
 	winner?: string | null;
+	group_name?: string;
+	method?: 'MANUAL' | 'EXTRA_MATCHES';
+	tied_entries?: string[];
+	ordered_entries?: string[];
+	group_impact?: {
+		group_id: number;
+		group_name: string;
+		invalidated_resolution_ids: number[];
+		revalidated_resolution_ids: number[];
+		before: {
+			qualifiers: number[];
+			qualification_state: string;
+			standings: Array<
+				Omit<PublicCompetitionStanding, 'entry' | 'qualification'> & { entry_id: number }
+			>;
+		};
+		after: {
+			qualifiers: number[];
+			qualification_state: string;
+			standings: Array<
+				Omit<PublicCompetitionStanding, 'entry' | 'qualification'> & { entry_id: number }
+			>;
+		};
+		historical_matches: PublicCompetitionMatchSnapshot[];
+	};
 	before?: PublicCompetitionMatchSnapshot;
 	after?: PublicCompetitionMatchSnapshot;
 	reset_matches?: PublicCompetitionMatchSnapshot[];
@@ -173,6 +246,7 @@ export interface PublicCompetitionMatchSnapshot {
 	side_two_score: number | null;
 	winner: string | null;
 	applied_series_length: number | null;
+	applied_series_mode?: 'BEST_OF' | 'FIXED_GAMES' | '';
 	started_at: string | null;
 	completed_at: string | null;
 }

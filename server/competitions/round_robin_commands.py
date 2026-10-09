@@ -89,11 +89,13 @@ def _fingerprint(results, *, points, tiebreaks, source=""):
 def group_standings(group: StageGroup, *, replacement=None) -> dict:
     stage = group.draw.stage
     entry_ids = [entry.pk for entry in group.entries.all()]
-    matches = list(
-        Match.objects.filter(round__group=group)
-        .select_related("round")
-        .prefetch_related("slots")
-    )
+    matches = getattr(group, "_standings_matches", None)
+    if matches is None:
+        matches = list(
+            Match.objects.filter(round__group=group)
+            .select_related("round")
+            .prefetch_related("slots")
+        )
     ordinary = [m for m in matches if m.round.section == Round.Section.NORMAL]
 
     def results_for(items):
@@ -114,7 +116,7 @@ def group_standings(group: StageGroup, *, replacement=None) -> dict:
         tiebreaks=stage.tiebreaks,
     )
     complete = all(m.status == Match.Status.FINAL for m in ordinary)
-    resolutions = list(group.tie_resolutions.prefetch_related("contenders").all())
+    resolutions = list(group.tie_resolutions.all())
     fingerprint = _fingerprint(
         ordinary_results, points=points, tiebreaks=stage.tiebreaks
     )

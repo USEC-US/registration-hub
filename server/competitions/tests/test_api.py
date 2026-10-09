@@ -13,6 +13,7 @@ from competitions.commands import (
     select_entrants,
 )
 from competitions.models import Match
+from competitions.tests import test_round_robin_ties as rr_fixtures
 from registrations.models import Registration, RegistrationMember
 from tournaments.models import Game, Tournament, TournamentGame
 
@@ -311,3 +312,113 @@ class PublicCompetitionApiTests(APITestCase):
                 self.assertEqual(
                     self.client.get(url).status_code, status.HTTP_404_NOT_FOUND
                 )
+
+
+class PublicRoundRobinApiTests(APITestCase):
+    setUp = rr_fixtures.RoundRobinTieTests.setUp
+    _registration = rr_fixtures.RoundRobinTieTests._registration
+    configure = rr_fixtures.RoundRobinTieTests.configure
+    setup_stage = rr_fixtures.RoundRobinTieTests.setup_stage
+    choose = rr_fixtures.RoundRobinTieTests.choose
+    draw = rr_fixtures.RoundRobinTieTests.draw
+    publish = rr_fixtures.RoundRobinTieTests.publish
+    published_group = rr_fixtures.RoundRobinTieTests.published_group
+    result = rr_fixtures.RoundRobinTieTests.result
+    tied_group = rr_fixtures.RoundRobinTieTests.tied_group
+    preview = rr_fixtures.RoundRobinTieTests.preview
+    confirm = rr_fixtures.RoundRobinTieTests.confirm
+
+    def test_groups_standings_rules_and_read_only_public_envelopes(self):
+        self.tied_group(win_points="2.50", draw_points="0.75", loss_points="0.25")
+        self.competition.refresh_from_db()
+        revision = self.competition.revision
+        url = f"/api/tournament-games/{self.division.pk}/competition/"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        stage = response.data["stages"][0]
+        self.assertEqual(stage["round_robin_rules"]["draw_points"], "0.75")
+        group = stage["groups"][0]
+        self.assertEqual(
+            set(group),
+            {
+                "id",
+                "number",
+                "name",
+                "qualifying_places",
+                "entries",
+                "round_ids",
+                "standings",
+                "qualifiers",
+                "qualification_state",
+                "tie_resolutions",
+            },
+        )
+        self.assertEqual(group["qualification_state"], "AWAITING_RESOLUTION")
+        self.assertEqual([r["rank"] for r in group["standings"]], [1, 1, 1])
+        self.assertEqual([r["points"] for r in group["standings"]], ["1.50"] * 3)
+        self.assertEqual([r["qualification"] for r in group["standings"]], ["TIED"] * 3)
+        for round_ in stage["rounds"]:
+            self.assertIsNotNone(round_["resting_entry"])
+            self.assertEqual(round_["effective_series_mode"], "FIXED_GAMES")
+            match = round_["matches"][0]
+            self.assertEqual(match["effective_series_mode"], "FIXED_GAMES")
+            self.assertEqual(
+                self.client.get(f"/api/competition-matches/{match['id']}/").data[
+                    "competition_revision"
+                ],
+                revision,
+            )
+        self.competition.refresh_from_db()
+        self.assertEqual(self.competition.revision, revision)
+
+    def test_tie_history_and_nested_correction_data_exclude_private_fields(self):
+        from competitions.commands import preview_correction, apply_correction
+
+        self.tied_group()
+        resolution = self.confirm(
+            self.preview(method="EXTRA_MATCHES"), reason="PRIVATE-REASON"
+        )
+        target = Match.objects.filter(
+            round__draw=self.saved, round__section="NORMAL"
+        ).first()
+        self.competition.refresh_from_db()
+        correction = preview_correction(
+            actor=self.actor,
+            match_id=target.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=2,
+            side_two_score=0,
+        )
+        apply_correction(
+            actor=self.actor,
+            token=correction["token"],
+            internal_reason="PRIVATE-CORRECTION",
+        )
+        change = self.competition.changes.order_by("-revision").first()
+        change.public_data["group_impact"]["after"]["standings"][0]["contact_phone"] = (
+            "PRIVATE-PHONE"
+        )
+        change.public_data["group_impact"]["historical_matches"][0]["student_id"] = (
+            "PRIVATE-STUDENT"
+        )
+        change.save(update_fields=["public_data"])
+        url = f"/api/tournament-games/{self.division.pk}/competition/"
+        response = self.client.get(url)
+        stage = response.data["stages"][0]
+        tie = stage["groups"][0]["tie_resolutions"][0]
+        self.assertEqual(tie["id"], resolution.pk)
+        self.assertEqual(tie["state"], "SUPERSEDED")
+        self.assertNotIn("source_fingerprint", tie)
+        self.assertNotIn("registration", str(tie))
+        extras = [
+            m
+            for r in stage["rounds"]
+            if r["section"] == "TIEBREAK"
+            for m in r["matches"]
+        ]
+        self.assertTrue(all(m["historical"] for m in extras))
+        changes = self.client.get(url + "changes/")
+        self.assertIn("group_impact", changes.data["results"][0])
+        self.assertNotIn("PRIVATE-", changes.rendered_content.decode())
+        self.assertNotIn(self.actor.email, changes.rendered_content.decode())

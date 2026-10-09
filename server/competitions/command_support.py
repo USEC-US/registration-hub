@@ -80,6 +80,7 @@ def _match_snapshot(match: Match) -> dict:
         "side_two_score": match.side_two_score,
         "winner": match.winner.entrant.display_name if match.winner_id else None,
         "applied_series_length": match.applied_series_length,
+        "applied_series_mode": match.applied_series_mode,
         "started_at": match.started_at.isoformat() if match.started_at else None,
         "completed_at": match.completed_at.isoformat() if match.completed_at else None,
     }

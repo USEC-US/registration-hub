@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from .models import ChangeSet, Match, MatchSlot, Round, Stage
+from .models import ChangeSet, Match, MatchSlot, Round, Stage, TieResolution
+from .round_robin_commands import group_standings
 
 
 class PublicEntrySerializer(serializers.Serializer):
@@ -35,6 +36,7 @@ class PublicMatchSerializer(serializers.Serializer):
     status = serializers.CharField(read_only=True)
     outcome = serializers.CharField(read_only=True)
     effective_series_length = serializers.IntegerField(read_only=True)
+    effective_series_mode = serializers.CharField(read_only=True)
     side_one_score = serializers.IntegerField(read_only=True, allow_null=True)
     side_two_score = serializers.IntegerField(read_only=True, allow_null=True)
     started_at = serializers.DateTimeField(read_only=True, allow_null=True)
@@ -44,7 +46,10 @@ class PublicMatchSerializer(serializers.Serializer):
     slots = PublicMatchSlotSerializer(many=True, read_only=True)
 
     def get_historical(self, obj: Match) -> bool:
-        return obj.round.draw.state == obj.round.draw.State.SUPERSEDED
+        return obj.round.draw.state == obj.round.draw.State.SUPERSEDED or (
+            obj.round.tie_resolution_id is not None
+            and obj.round.tie_resolution.state == TieResolution.State.SUPERSEDED
+        )
 
     def get_winner(self, obj: Match) -> dict | None:
         if obj.winner_id is None:
@@ -58,6 +63,27 @@ class PublicRoundSerializer(serializers.Serializer):
     section = serializers.CharField(read_only=True)
     series_length_override = serializers.IntegerField(read_only=True, allow_null=True)
     matches = PublicMatchSerializer(many=True, read_only=True)
+    group_id = serializers.IntegerField(read_only=True, allow_null=True)
+    tie_resolution_id = serializers.IntegerField(read_only=True, allow_null=True)
+    effective_series_mode = serializers.SerializerMethodField()
+    resting_entry = serializers.SerializerMethodField()
+
+    def get_effective_series_mode(self, obj):
+        return obj.series_mode_override or obj.draw.stage.series_mode
+
+    def get_resting_entry(self, obj):
+        if not obj.group_id:
+            return None
+        entries = (
+            obj.tie_resolution.contenders.all()
+            if obj.tie_resolution_id
+            else obj.group.entries.all()
+        )
+        playing = {
+            slot.resolved_entry_id for m in obj.matches.all() for slot in m.slots.all()
+        }
+        rest = next((entry for entry in entries if entry.pk not in playing), None)
+        return PublicEntrySerializer(rest).data if rest else None
 
 
 class PublicStageSerializer(serializers.Serializer):
@@ -75,6 +101,88 @@ class PublicStageSerializer(serializers.Serializer):
     champion = serializers.SerializerMethodField()
     entries = serializers.SerializerMethodField()
     rounds = serializers.SerializerMethodField()
+    groups = serializers.SerializerMethodField()
+    round_robin_rules = serializers.SerializerMethodField()
+
+    def get_round_robin_rules(self, obj):
+        if obj.format != Stage.Format.ROUND_ROBIN:
+            return None
+        return {
+            "meetings": obj.round_robin_meetings,
+            "win_points": str(obj.win_points),
+            "draw_points": str(obj.draw_points),
+            "loss_points": str(obj.loss_points),
+            "tiebreaks": obj.tiebreaks,
+        }
+
+    def get_groups(self, obj):
+        draw = self._draw(obj)
+        if not draw or obj.format != Stage.Format.ROUND_ROBIN:
+            return []
+        rounds = list(draw.rounds.all())
+        result = []
+        for group in draw.groups.all():
+            group_rounds = [r for r in rounds if r.group_id == group.pk]
+            group._standings_matches = [
+                m for r in group_rounds for m in r.matches.all()
+            ]
+            state = group_standings(group)
+            entries = {
+                entry.pk: PublicEntrySerializer(entry).data
+                for entry in group.entries.all()
+            }
+            tied = {pk for tie in state["cutoff_ties"] for pk in tie["entry_ids"]}
+            standings = [
+                {
+                    "entry": entries[row.entry_id],
+                    "rank": row.rank,
+                    "played": row.played,
+                    "wins": row.wins,
+                    "draws": row.draws,
+                    "losses": row.losses,
+                    "points": f"{row.points:.2f}",
+                    "games_won": row.games_won,
+                    "game_difference": row.game_difference,
+                    "qualification": "PROVISIONAL"
+                    if state["qualification_state"] == "PROVISIONAL"
+                    else "QUALIFIED"
+                    if row.entry_id in state["qualifiers"]
+                    else "TIED"
+                    if row.entry_id in tied
+                    else "NOT_QUALIFIED",
+                }
+                for row in state["standings"]
+            ]
+            ties = [
+                {
+                    "id": tie.pk,
+                    "parent_id": tie.parent_id,
+                    "method": tie.method,
+                    "state": tie.state,
+                    "places": tie.places,
+                    "tied_entries": [entries[e.pk] for e in tie.contenders.all()],
+                    "ordered_entries": [entries[pk] for pk in tie.decision_order],
+                    "round_ids": [
+                        r.pk for r in group_rounds if r.tie_resolution_id == tie.pk
+                    ],
+                }
+                for tie in group.tie_resolutions.all()
+            ]
+            result.append(
+                {
+                    "id": group.pk,
+                    "number": group.number,
+                    "name": group.name,
+                    "qualifying_places": group.qualifying_places,
+                    "entries": list(entries.values()),
+                    "round_ids": [r.pk for r in group_rounds],
+                    "standings": standings,
+                    "qualifiers": [entries[pk] for pk in state["qualifiers"]],
+                    "qualification_state": state["qualification_state"],
+                    "tie_resolutions": ties,
+                }
+            )
+        return result
 
     def _draw(self, obj: Stage):
         return next(
@@ -183,6 +291,13 @@ class PublicChangeSerializer(serializers.Serializer):
             "side_two_score",
             "outcome",
             "winner",
+            "group_id",
+            "group_name",
+            "resolution_id",
+            "method",
+            "places",
+            "tied_entries",
+            "ordered_entries",
         }
         snapshot_fields = {
             "match_id",
@@ -195,6 +310,7 @@ class PublicChangeSerializer(serializers.Serializer):
             "side_two_score",
             "winner",
             "applied_series_length",
+            "applied_series_mode",
             "started_at",
             "completed_at",
         }
@@ -225,6 +341,41 @@ class PublicChangeSerializer(serializers.Serializer):
                     if field in {"match_id", "match_code", "before", "after"}
                 }
                 for change in instance.public_data["reset_final_changes"]
+            ]
+        impact = instance.public_data.get("group_impact")
+        if impact:
+            fields = {
+                "entry_id",
+                "rank",
+                "played",
+                "wins",
+                "draws",
+                "losses",
+                "points",
+                "games_won",
+                "game_difference",
+            }
+            public_data["group_impact"] = {
+                key: impact[key]
+                for key in (
+                    "group_id",
+                    "group_name",
+                    "invalidated_resolution_ids",
+                    "revalidated_resolution_ids",
+                )
+            }
+            for key in ("before", "after"):
+                public_data["group_impact"][key] = {
+                    "qualification_state": impact[key]["qualification_state"],
+                    "qualifiers": impact[key]["qualifiers"],
+                    "standings": [
+                        {k: v for k, v in row.items() if k in fields}
+                        for row in impact[key]["standings"]
+                    ],
+                }
+            public_data["group_impact"]["historical_matches"] = [
+                {k: v for k, v in snapshot.items() if k in snapshot_fields}
+                for snapshot in impact["historical_matches"]
             ]
         return {
             "revision": instance.revision,
