@@ -20,6 +20,10 @@
     </div>
   </header>
 
+  {% if stages %}<form method="get" class="cw-panel cw-stage-select"><input type="hidden" name="tab" value="{{ tab }}"><label for="cw-stage-select">Stage</label><select id="cw-stage-select" name="stage">{% for item in stages %}<option value="{{ item.pk }}"{% if item.pk == stage.pk %} selected{% endif %}>{{ item.sequence }}. {{ item.name }}</option>{% endfor %}</select><button type="submit" class="cw-button">View stage</button></form>{% endif %}
+  {% if waiting_reason %}<p class="cw-notice">{{ waiting_reason }}</p>{% endif %}
+  {% if stage.published_at and not draw %}<p class="cw-notice">Awaiting replacement draw. Previous results remain available in Changes.</p>{% endif %}
+
   <nav class="cw-tabs" aria-label="Competition workspace">
     {% for item in tabs %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
   </nav>
@@ -27,6 +31,11 @@
   {% if tab == "setup" %}
     <section aria-labelledby="cw-setup-title">
       <div class="cw-section-heading"><div><h2 id="cw-setup-title">Competition setup</h2><p class="cw-muted">Follow these steps to get your bracket ready.</p></div></div>
+      <section class="cw-panel"><h3>Ordered stage plan</h3><p>{% if plan_locked %}The whole stage plan is locked.{% else %}First publication locks the whole stage plan: order, formats, group sizes and advancement rules.{% endif %}</p>
+        {% if plan_error and not plan_locked %}<p class="cw-notice" role="alert">{{ plan_error }}</p>{% endif %}
+        <div class="cw-bracket-scroll"><table class="cw-table"><thead><tr><th>Stage</th><th>Incoming</th><th>Advancing</th><th>Rules</th>{% if can_manage and not plan_locked %}<th>Actions</th>{% endif %}</tr></thead><tbody>{% for row in plan_rows %}<tr><td>{{ row.stage.sequence }}. {{ row.stage.name }}<br>{{ row.stage.get_format_display }}</td><td>{{ row.incoming_count|default_if_none:"Set previous quota" }}</td><td>{{ row.outgoing_count|default_if_none:"Final stage" }}</td><td>{% for group in row.stage.group_plans.all %}{{ group.name }}: {{ group.size }} entrants, {{ group.qualifying_places }} advance<br>{% endfor %}</td>{% if can_manage and not plan_locked %}<td><a href="{{ row.configure_url }}">Edit setup</a> · <a href="{{ row.rules_url }}">Advancement rules</a>{% if row.remove_url %} · <a href="{{ row.remove_url }}">Remove unused stage</a>{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody></table></div>
+        {% if can_manage and not plan_locked %}<div class="cw-actions"><a class="cw-button" href="{{ add_stage_url }}">Add stage</a>{% if stages|length > 1 %}<a class="cw-button" href="{{ reorder_url }}">Reorder stages</a>{% endif %}</div>{% endif %}
+      </section>
       <ol class="cw-steps">
         {% for step in setup_steps %}
           <li class="cw-step{% if step.current %} cw-step-current{% endif %}{% if step.done %} cw-step-done{% endif %}">
@@ -60,13 +69,14 @@
         {% if entrants_url %}<a class="cw-button" href="{{ entrants_url }}">Edit entrants</a>{% endif %}
       </div>
       {% if entries %}
-        <ol class="cw-entrants">{% for entry in entries %}<li class="cw-entrant"><span class="cw-seed" title="Seed">{{ entry.seed|default:"—" }}</span><div><h3>{{ entry.name }}</h3><p class="cw-muted">{{ entry.status }}</p></div></li>{% endfor %}</ol>
+        <ol class="cw-entrants">{% for entry in entries %}<li class="cw-entrant"><span class="cw-seed" title="Draw position">{{ entry.seed|default:"—" }}</span><div><h3>{{ entry.name }}</h3><p class="cw-muted">{{ entry.status }}</p></div></li>{% endfor %}</ol>
       {% else %}
         <div class="cw-empty"><h3>No entrants selected yet</h3><p>Select approved registrations to start building the bracket.</p>{% if entrants_url %}<a class="cw-button cw-button-primary" href="{{ entrants_url }}">Select entrants</a>{% endif %}</div>
       {% endif %}
     </section>
   {% elif tab == "standings" %}
-    {% include "admin/competitions/group_standings.html" %}
+    {% if groups %}{% include "admin/competitions/group_standings.html" %}{% endif %}
+    {% if qualification_display and not groups %}<section class="cw-panel"><h2>Qualification</h2><p>Top {{ stage.advancement_count }} advance · {{ qualification_display.qualification_state }}</p>{% if qualification_display.block_reason %}<p role="alert">{{ qualification_display.block_reason }}</p>{% endif %}<p>Qualified: {{ qualification_display.qualifier_names|join:", "|default:"Awaiting completion" }}</p><ol>{% for band in qualification_display.placement_names %}<li>{{ band|join:", " }}</li>{% endfor %}</ol>{% if qualification_tie_url %}<a class="cw-button" href="{{ qualification_tie_url }}">Resolve qualification tie</a>{% endif %}</section>{% endif %}
   {% elif tab == "bracket" %}
     <section aria-labelledby="cw-bracket-title">
       <div class="cw-section-heading">
@@ -74,7 +84,7 @@
         {% if draw.state == "DRAFT" %}<span class="cw-badge cw-badge-warning">Private preview</span>{% endif %}
       </div>
       {% if groups %}{% include "admin/competitions/group_rules.html" %}{% include "admin/competitions/group_assignment.html" %}{% endif %}
-      {% if round_choices %}<form method="get" action="{{ workspace_url }}" class="cw-panel"><input type="hidden" name="tab" value="bracket"><input type="hidden" name="group" value="{{ selected_group.pk }}"><label for="cw-round-select">Round</label><select id="cw-round-select" name="round">{% for pk, label in round_choices %}<option value="{{ pk }}"{% if pk == selected_round_id %} selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="cw-button" type="submit">View round</button></form>{% endif %}
+      {% if round_choices %}<form method="get" action="{{ workspace_url }}" class="cw-panel"><input type="hidden" name="tab" value="bracket">{% if selected_stage_id %}<input type="hidden" name="stage" value="{{ selected_stage_id }}">{% endif %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><label for="cw-round-select">Round</label><select id="cw-round-select" name="round">{% for pk, label in round_choices %}<option value="{{ pk }}"{% if pk == selected_round_id %} selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="cw-button" type="submit">View round</button></form>{% endif %}
       {% if stage.champion %}<div class="cw-notice cw-notice-success"><strong>Champion: {{ stage.champion.display_name }}</strong><p>All matches are complete. Results remain available below.</p></div>{% elif stage.completed_without_champion %}<div class="cw-notice"><strong>Competition complete</strong><p>This competition finished without a champion.</p></div>{% endif %}
       {% if bracket_sections %}
         {% if draw.state == "DRAFT" %}<p class="cw-notice">Check the pairings below, then publish the bracket when you are ready. Results can be entered after publication.</p>{% endif %}

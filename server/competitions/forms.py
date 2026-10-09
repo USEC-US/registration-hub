@@ -41,6 +41,13 @@ class RevisionForm(forms.Form):
 
 
 class CompetitionSetupForm(RevisionForm):
+    stage_sequence = forms.IntegerField(
+        min_value=1,
+        max_value=32767,
+        required=False,
+        widget=forms.HiddenInput,
+        initial=1,
+    )
     name = forms.CharField(label="Stage name", max_length=100, initial="Final bracket")
     format = forms.ChoiceField(
         required=False,
@@ -241,7 +248,13 @@ class GroupDrawForm(DrawForm):
         super().__init__(*args, competition=competition, **kwargs)
         stage = competition.stages.first()
         draw = stage.draws.exclude(state="SUPERSEDED").first() if stage else None
-        groups = list(draw.groups.all()) if draw else []
+        groups = (
+            list(stage.group_plans.all())
+            if stage and stage.group_plans.exists()
+            else list(draw.groups.all())
+            if draw
+            else []
+        )
         specs = (
             self.data.get("group_specs", "")
             if self.is_bound
@@ -304,7 +317,7 @@ class GroupDrawForm(DrawForm):
         return cleaned
 
 
-class GroupTieForm(RevisionForm):
+class QualificationTieForm(RevisionForm):
     method = forms.ChoiceField(
         label="Resolve qualification tie", choices=TieResolution.Method.choices
     )
@@ -316,15 +329,22 @@ class GroupTieForm(RevisionForm):
         required=False,
     )
 
-    def __init__(self, *args, group, **kwargs):
+    def __init__(self, *args, group=None, draw=None, **kwargs):
         super().__init__(*args, **kwargs)
-        state = group_standings(group)
+        from .qualification import stage_qualification
+
+        draw = group.draw if group else draw
+        state = (
+            group_standings(group)
+            if group
+            else {"cutoff_ties": stage_qualification(draw)["cutoffs"]}
+        )
         self.tie = next(
             (tie for tie in state["cutoff_ties"] if tie["resolution_id"] is None), None
         )
         entries = {
             entry.pk: entry.entrant.display_name
-            for entry in group.entries.select_related("entrant")
+            for entry in draw.entries.select_related("entrant")
         }
         if self.tie:
             choices = [(pk, entries[pk]) for pk in self.tie["entry_ids"]]
@@ -341,7 +361,7 @@ class GroupTieForm(RevisionForm):
         cleaned = super().clean()
         if self.tie is None:
             raise forms.ValidationError(
-                "This group has no qualification tie awaiting a choice."
+                "This stage has no qualification tie awaiting a choice."
             )
         cleaned["tied_entry_ids"] = self.tie["entry_ids"]
         cleaned["parent_resolution_id"] = self.tie["parent_resolution_id"]
@@ -355,6 +375,9 @@ class GroupTieForm(RevisionForm):
         )
         cleaned["series_length"] = cleaned.get("series_length") or 1
         return cleaned
+
+
+GroupTieForm = QualificationTieForm
 
 
 class TieReasonForm(forms.Form):
@@ -467,4 +490,93 @@ class CorrectionReasonForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         min_length=1,
         help_text="Only authorized organizers can see this note.",
+    )
+
+
+class StageGroupPlanForm(forms.Form):
+    name = forms.CharField(max_length=100)
+    size = forms.IntegerField(min_value=2, max_value=256)
+    qualifying_places = forms.IntegerField(min_value=1, max_value=256)
+
+    def clean(self):
+        data = super().clean()
+        if (
+            data.get("size") is not None
+            and data.get("qualifying_places", 0) > data["size"]
+        ):
+            self.add_error("qualifying_places", "The quota cannot exceed group size.")
+        return data
+
+
+class StageGroupsForm(RevisionForm):
+    group_specs = forms.CharField(
+        label="Planned groups",
+        widget=forms.Textarea(attrs={"rows": 5}),
+        help_text="One group per line: name | size | qualifying places. Sizes may be unequal.",
+    )
+
+    def clean_group_specs(self):
+        specs = []
+        try:
+            for line in self.cleaned_data["group_specs"].splitlines():
+                if not line.strip():
+                    continue
+                name, size, quota = line.rsplit("|", 2)
+                row = StageGroupPlanForm(
+                    {
+                        "name": name.strip(),
+                        "size": size.strip(),
+                        "qualifying_places": quota.strip(),
+                    }
+                )
+                if not row.is_valid():
+                    raise ValueError
+                specs.append(
+                    (
+                        row.cleaned_data["name"],
+                        row.cleaned_data["size"],
+                        row.cleaned_data["qualifying_places"],
+                    )
+                )
+        except ValueError as error:
+            raise forms.ValidationError(
+                "Use name | size | qualifying places with valid integer sizes and quotas."
+            ) from error
+        return specs
+
+
+class StageAdvancementForm(RevisionForm):
+    advancement_count = forms.IntegerField(
+        label="Entrants advancing to the next stage",
+        min_value=1,
+        max_value=256,
+        required=False,
+        help_text="Set Top N for an elimination stage; leave empty for the final stage.",
+    )
+
+
+class StageOrderForm(RevisionForm):
+    def __init__(self, *args, competition, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stages = list(competition.stages.all())
+        choices = [(s.pk, s.name) for s in self.stages]
+        for i, stage in enumerate(self.stages, 1):
+            self.fields[f"position_{i}"] = forms.TypedChoiceField(
+                label=f"Stage {i}", choices=choices, coerce=int, initial=stage.pk
+            )
+
+    def clean(self):
+        data = super().clean()
+        data["stage_ids"] = [
+            data.get(f"position_{i}") for i in range(1, len(self.stages) + 1)
+        ]
+        if len(set(data["stage_ids"])) != len(self.stages):
+            raise forms.ValidationError("Include each stage exactly once.")
+        return data
+
+
+class NextStageDrawForm(RevisionForm):
+    regenerate = forms.BooleanField(
+        label="Replace the existing private preview with a new random draw",
+        required=False,
     )

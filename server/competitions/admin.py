@@ -56,8 +56,12 @@ from .forms import (
     ScheduleForm,
     SeriesLengthForm,
     GroupDrawForm,
-    GroupTieForm,
     TieReasonForm,
+    QualificationTieForm,
+    StageGroupsForm,
+    StageAdvancementForm,
+    StageOrderForm,
+    NextStageDrawForm,
 )
 from .models import (
     ChangeSet,
@@ -76,10 +80,41 @@ from .round_robin_commands import (
     configure_round_robin,
     save_round_robin_draw,
     group_standings,
-    preview_group_tie,
-    confirm_group_tie,
 )
 from .forms import TIEBREAK_CHOICES
+from .stage_commands import (
+    set_stage_groups,
+    set_stage_advancement,
+    reorder_stages,
+    remove_stage,
+    validate_stage_plan,
+)
+from .handoff_commands import generate_next_stage_draw
+from .qualification import (
+    stage_qualification,
+    preview_qualification_tie,
+    confirm_qualification_tie,
+)
+
+
+def _selected_stage(request, competition):
+    if request.GET.get("stage"):
+        if not request.GET["stage"].isdecimal():
+            raise Http404
+        return get_object_or_404(competition.stages, pk=request.GET["stage"])
+    return competition.stages.select_related("champion").first()
+
+
+def _stage_context_id(request, stage):
+    return (
+        stage.pk
+        if stage and (request.GET.get("stage") or stage.competition.stages.count() > 1)
+        else None
+    )
+
+
+def _stage_action_url(url, stage_id):
+    return f"{url}?stage={stage_id}" if stage_id is not None else url
 
 
 class ImmutableInline:
@@ -196,7 +231,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             raise Http404
         if not self.has_view_or_change_permission(request, competition):
             raise PermissionDenied
-        stage = competition.stages.select_related("champion").first()
+        stage = _selected_stage(request, competition)
         draw = (
             stage.draws.exclude(state=StageDraw.State.SUPERSEDED).first()
             if stage
@@ -212,7 +247,8 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             "competitions.change_match"
         )
         can_view_changes = request.user.has_perm("competitions.view_changeset")
-        url = workspace_url(competition.pk)
+        selected_stage_id = _stage_context_id(request, stage)
+        url = workspace_url(competition.pk, stage_id=selected_stage_id)
         selected_tab = request.GET.get("tab", "bracket" if draw else "setup")
         if selected_tab not in ("setup", "entrants", "bracket", "standings", "changes"):
             raise Http404
@@ -266,9 +302,12 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     "number": index + 1,
                     "label": label,
                     "description": description,
-                    "url": reverse(
-                        f"admin:competitions_competition_{action_name}",
-                        args=[competition.pk],
+                    "url": _stage_action_url(
+                        reverse(
+                            f"admin:competitions_competition_{action_name}",
+                            args=[competition.pk],
+                        ),
+                        selected_stage_id,
                     )
                     if available
                     else None,
@@ -470,6 +509,114 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 }
                 for change in changes_page
             ]
+        stages = list(competition.stages.prefetch_related("group_plans"))
+        plan_locked = bool(stages and stages[0].published_at)
+        plan_error = None
+        plan_rows = []
+        incoming = competition.entrants.filter(is_selected=True).count()
+        for item in stages:
+            outgoing = (
+                sum(p.qualifying_places for p in item.group_plans.all())
+                if item.format == "ROUND_ROBIN"
+                else item.advancement_count
+            )
+            plan_rows.append(
+                {
+                    "stage": item,
+                    "incoming_count": incoming,
+                    "outgoing_count": outgoing if item.sequence < len(stages) else None,
+                    "configure_url": _stage_action_url(
+                        reverse(
+                            "admin:competitions_competition_configure_detail",
+                            args=[competition.pk],
+                        ),
+                        item.pk,
+                    ),
+                    "rules_url": reverse(
+                        "admin:competitions_stage_rules", args=[competition.pk, item.pk]
+                    ),
+                    "remove_url": reverse(
+                        "admin:competitions_stage_remove",
+                        args=[competition.pk, item.pk],
+                    )
+                    if not item.draws.exists()
+                    else None,
+                }
+            )
+            incoming = outgoing
+        try:
+            validate_stage_plan(competition)
+        except ValidationError as error:
+            plan_error = " ".join(error.messages)
+        qualification = (
+            stage_qualification(draw) if draw and draw.state == "PUBLISHED" else None
+        )
+        entry_names = (
+            dict(draw.entries.values_list("pk", "entrant__display_name"))
+            if draw
+            else {}
+        )
+        qualification_display = (
+            {
+                **qualification,
+                "qualifier_names": [
+                    entry_names[i] for i in qualification["qualifier_entry_ids"]
+                ],
+                "placement_names": [
+                    [entry_names[i] for i in band] for band in qualification["bands"]
+                ],
+            }
+            if qualification
+            else None
+        )
+        waiting_reason = None
+        if stage and stage.sequence > 1 and not draw:
+            previous = competition.stages.get(sequence=stage.sequence - 1)
+            source = previous.draws.filter(state="PUBLISHED").first()
+            source_qualification = stage_qualification(source) if source else None
+            waiting_reason = (
+                (source_qualification["block_reason"] or "Waiting for previous stage")
+                if not source_qualification
+                or source_qualification["qualification_state"] != "RESOLVED"
+                else "Ready for a saved random draw"
+            )
+            if (
+                can_manage
+                and source_qualification
+                and source_qualification["qualification_state"] == "RESOLVED"
+            ):
+                primary_action = {
+                    "url": reverse(
+                        "admin:competitions_stage_generate",
+                        args=[competition.pk, stage.pk],
+                    ),
+                    "label": "Generate next stage draw",
+                }
+        if stage and stage.sequence > 1:
+            setup_steps[1]["url"] = None
+            setup_steps[2]["url"] = (
+                reverse(
+                    "admin:competitions_stage_generate", args=[competition.pk, stage.pk]
+                )
+                if can_manage
+                and not published
+                and waiting_reason != "Waiting for previous stage"
+                else None
+            )
+        if plan_locked:
+            setup_steps[0]["url"] = None
+            setup_steps[1]["url"] = None
+        if draw and draw.state == "DRAFT" and can_manage:
+            primary_action = {
+                "url": _stage_action_url(
+                    reverse(
+                        "admin:competitions_competition_publish_detail",
+                        args=[competition.pk],
+                    ),
+                    selected_stage_id,
+                ),
+                "label": "Publish saved draw",
+            }
         return TemplateResponse(
             request,
             "admin/competitions/workspace.html",
@@ -480,6 +627,32 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "title": f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
                 "competition": competition,
                 "stage": stage,
+                "selected_stage_id": selected_stage_id,
+                "stages": stages,
+                "plan_rows": plan_rows,
+                "plan_locked": plan_locked,
+                "plan_error": plan_error,
+                "waiting_reason": waiting_reason,
+                "qualification_display": qualification_display,
+                "qualification_tie_url": reverse(
+                    "admin:competitions_draw_tie_preview", args=[draw.pk]
+                )
+                if draw
+                and can_manage
+                and qualification
+                and any(
+                    t["resolution_id"] is None and t["group_id"] is None
+                    for t in qualification["cutoffs"]
+                )
+                else None,
+                "add_stage_url": reverse(
+                    "admin:competitions_competition_configure_detail",
+                    args=[competition.pk],
+                )
+                + f"?sequence={len(stages) + 1}",
+                "reorder_url": reverse(
+                    "admin:competitions_stages_order", args=[competition.pk]
+                ),
                 "grand_final_policy": grand_final_policy_label(stage),
                 "stage_series_label": series_label(
                     stage.series_mode, stage.default_series_length
@@ -498,13 +671,22 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "group_display": group_display,
                 "draw": draw,
                 "workspace_url": url,
-                "bracket_url": workspace_url(competition.pk, "bracket"),
-                "setup_url": workspace_url(competition.pk, "setup"),
+                "group_base_url": workspace_url(
+                    competition.pk, selected_tab, stage_id=selected_stage_id
+                ),
+                "bracket_url": workspace_url(
+                    competition.pk, "bracket", stage_id=selected_stage_id
+                ),
+                "setup_url": workspace_url(
+                    competition.pk, "setup", stage_id=selected_stage_id
+                ),
                 "tab": selected_tab,
                 "tabs": [
                     {
                         "label": label,
-                        "url": workspace_url(competition.pk, tab),
+                        "url": workspace_url(
+                            competition.pk, tab, stage_id=selected_stage_id
+                        ),
                         "active": tab == selected_tab,
                     }
                     for tab, label in [
@@ -515,7 +697,11 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                         ("changes", "Changes"),
                     ]
                     if (tab != "changes" or can_view_changes)
-                    and (tab != "standings" or groups)
+                    and (
+                        tab != "standings"
+                        or groups
+                        or (stage and stage.advancement_count)
+                    )
                 ],
                 "can_manage": can_manage,
                 "can_view_matches": can_view_matches,
@@ -531,7 +717,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     for section in Round.Section
                     if section in rounds_by_section
                 ],
-                "participant_count": len(entrants),
+                "participant_count": len(entries),
                 "completed_count": sum(
                     card["status"] in ("Completed", "Bye", "No contest")
                     for card in all_cards
@@ -576,8 +762,150 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             + f"?competition__id__exact={obj.pk}",
         )
 
+    def _plan_stage(self, request, competition_id, stage_id):
+        require_organizer(request.user, "competitions.change_competition")
+        competition = get_object_or_404(Competition, pk=competition_id)
+        stage = get_object_or_404(competition.stages, pk=stage_id)
+        return competition, stage
+
+    def stage_rules_view(self, request, competition_id, stage_id):
+        competition, stage = self._plan_stage(request, competition_id, stage_id)
+        grouped = stage.format == "ROUND_ROBIN"
+        return self._competition_form_view(
+            request,
+            competition_id,
+            title="Stage advancement rules",
+            stage=stage,
+            form_class=StageGroupsForm if grouped else StageAdvancementForm,
+            form_kwargs={
+                "initial": {
+                    "group_specs": "\n".join(
+                        f"{p.name} | {p.size} | {p.qualifying_places}"
+                        for p in stage.group_plans.all()
+                    )
+                }
+                if grouped
+                else {"advancement_count": stage.advancement_count}
+            },
+            command=lambda item, revision, data: (
+                set_stage_groups if grouped else set_stage_advancement
+            )(
+                actor=request.user,
+                stage_id=stage.pk,
+                expected_revision=revision,
+                **{
+                    ("group_specs" if grouped else "advancement_count"): data.get(
+                        "group_specs" if grouped else "advancement_count"
+                    )
+                },
+            ),
+        )
+
+    def stage_generate_view(self, request, competition_id, stage_id):
+        competition, stage = self._plan_stage(request, competition_id, stage_id)
+        if request.method not in ("GET", "POST"):
+            return HttpResponseNotAllowed(["GET", "POST"])
+        form = NextStageDrawForm(
+            request.POST if request.method == "POST" else None,
+            initial={"expected_revision": competition.revision},
+        )
+        if request.method == "POST" and form.is_valid():
+            try:
+                generate_next_stage_draw(
+                    actor=request.user, stage_id=stage.pk, **form.cleaned_data
+                )
+            except ValidationError as error:
+                form.add_error(None, error)
+            else:
+                return HttpResponseRedirect(
+                    workspace_url(competition.pk, "bracket", stage_id=stage.pk)
+                )
+        return _action_response(
+            request,
+            title="Generate next stage draw",
+            form=form,
+            opts=self.model._meta,
+            change_url=workspace_url(competition.pk, "bracket", stage_id=stage.pk),
+            extra={
+                "description": "Finish all required previous-stage play and qualification cutoffs. Save one unrestricted random draw, review it, then publish separately.",
+                "submit_label": "Generate and preview draw",
+            },
+        )
+
+    def stage_remove_view(self, request, competition_id, stage_id):
+        competition, stage = self._plan_stage(request, competition_id, stage_id)
+        return self._competition_form_view(
+            request,
+            competition_id,
+            title=f"Remove unused stage: {stage.name}",
+            form_class=RevisionForm,
+            stage=stage,
+            command=lambda item, revision, data: remove_stage(
+                actor=request.user, stage_id=stage.pk, expected_revision=revision
+            ),
+        )
+
+    def stages_order_view(self, request, competition_id):
+        require_organizer(request.user, "competitions.change_competition")
+        competition = get_object_or_404(Competition, pk=competition_id)
+        return self._competition_form_view(
+            request,
+            competition_id,
+            title="Reorder stages",
+            form_class=StageOrderForm,
+            form_kwargs={"competition": competition},
+            command=lambda item, revision, data: reorder_stages(
+                actor=request.user,
+                competition_id=item.pk,
+                expected_revision=revision,
+                stage_ids=data["stage_ids"],
+            ),
+        )
+
+    def draw_tie_preview_view(self, request, draw_id):
+        draw = get_object_or_404(
+            StageDraw.objects.select_related("stage__competition"), pk=draw_id
+        )
+        return self._tie_preview_view(request, draw)
+
+    def draw_tie_confirm_view(self, request, draw_id):
+        draw = get_object_or_404(
+            StageDraw.objects.select_related("stage__competition"), pk=draw_id
+        )
+        return self._tie_confirm_view(request, draw)
+
     def get_urls(self):
         return [
+            path(
+                "<int:competition_id>/stage/<int:stage_id>/rules/",
+                self.admin_site.admin_view(self.stage_rules_view),
+                name="competitions_stage_rules",
+            ),
+            path(
+                "<int:competition_id>/stage/<int:stage_id>/generate/",
+                self.admin_site.admin_view(self.stage_generate_view),
+                name="competitions_stage_generate",
+            ),
+            path(
+                "<int:competition_id>/stage/<int:stage_id>/remove/",
+                self.admin_site.admin_view(self.stage_remove_view),
+                name="competitions_stage_remove",
+            ),
+            path(
+                "<int:competition_id>/stages/order/",
+                self.admin_site.admin_view(self.stages_order_view),
+                name="competitions_stages_order",
+            ),
+            path(
+                "draw/<int:draw_id>/tie/preview/",
+                self.admin_site.admin_view(self.draw_tie_preview_view),
+                name="competitions_draw_tie_preview",
+            ),
+            path(
+                "draw/<int:draw_id>/tie/confirm/",
+                self.admin_site.admin_view(self.draw_tie_confirm_view),
+                name="competitions_draw_tie_confirm",
+            ),
             path(
                 "group/<int:group_id>/tie/preview/",
                 self.admin_site.admin_view(self.group_tie_preview_view),
@@ -602,20 +930,32 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         group = get_object_or_404(
             StageGroup.objects.select_related("draw__stage__competition"), pk=group_id
         )
-        form = GroupTieForm(
+        return self._tie_preview_view(request, group.draw, group)
+
+    def _tie_preview_view(self, request, draw, group=None):
+        require_organizer(request.user, "competitions.change_competition")
+        if request.method not in ("GET", "POST"):
+            return HttpResponseNotAllowed(["GET", "POST"])
+        form = QualificationTieForm(
             request.POST if request.method == "POST" else None,
             group=group,
-            initial={"expected_revision": group.draw.stage.competition.revision},
+            draw=draw,
+            initial={"expected_revision": draw.stage.competition.revision},
         )
         extra = {
-            "workspace_url": workspace_url(group.draw.stage.competition_id, "standings")
+            "workspace_url": workspace_url(
+                draw.stage.competition_id,
+                "standings",
+                stage_id=_stage_context_id(request, draw.stage),
+            )
         }
         if request.method == "POST" and form.is_valid():
             try:
                 data = form.cleaned_data
-                preview = preview_group_tie(
+                preview = preview_qualification_tie(
                     actor=request.user,
-                    group_id=group.pk,
+                    draw_id=draw.pk,
+                    group_id=group.pk if group else None,
                     **{
                         key: data[key]
                         for key in (
@@ -631,15 +971,15 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             except ValidationError as error:
                 form.add_error(None, error)
             else:
-                names = dict(group.entries.values_list("pk", "entrant__display_name"))
+                names = dict(draw.entries.values_list("pk", "entrant__display_name"))
                 extra.update(
                     {
                         "token": preview["token"],
                         "form_action": reverse(
-                            "admin:competitions_group_tie_confirm", args=[group.pk]
+                            "admin:competitions_draw_tie_confirm", args=[draw.pk]
                         ),
                         "tie_preview": {
-                            "group_name": group.name,
+                            "group_name": group.name if group else draw.stage.name,
                             "method": preview["method"],
                             "places": preview["places"],
                             "ordered_entries": [
@@ -673,37 +1013,53 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         )
 
     def group_tie_confirm_view(self, request, group_id):
+        group = get_object_or_404(
+            StageGroup.objects.select_related("draw__stage__competition"), pk=group_id
+        )
+        return self._tie_confirm_view(request, group.draw, group)
+
+    def _tie_confirm_view(self, request, draw, group=None):
         require_organizer(request.user, "competitions.change_competition")
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
-        group = get_object_or_404(StageGroup, pk=group_id)
         form = TieReasonForm(request.POST)
-        token = request.POST.get("token", "")
         if form.is_valid():
             try:
-                payload = signing.loads(token, salt=TIE_SALT, max_age=3600)
-                if payload["group_id"] != group.pk:
-                    raise ValidationError("The preview belongs to another group.")
-                confirm_group_tie(
+                payload = signing.loads(
+                    request.POST.get("token", ""), salt=TIE_SALT, max_age=3600
+                )
+                if payload.get("draw_id") != draw.pk or (
+                    group and payload.get("group_id") != group.pk
+                ):
+                    raise ValidationError(
+                        "This tie preview belongs to a different draw or group."
+                    )
+                confirm_qualification_tie(
                     actor=request.user,
-                    token=token,
+                    token=request.POST.get("token", ""),
                     internal_reason=form.cleaned_data["internal_reason"],
                 )
-            except signing.BadSignature:
-                form.add_error(None, "The tie preview is invalid or expired.")
-            except ValidationError as error:
-                form.add_error(None, error)
+            except (ValidationError, signing.BadSignature) as error:
+                form.add_error(None, str(error))
             else:
                 return HttpResponseRedirect(
-                    workspace_url(group.draw.stage.competition_id, "standings")
+                    workspace_url(
+                        draw.stage.competition_id,
+                        "standings",
+                        stage_id=_stage_context_id(request, draw.stage),
+                    )
                 )
         return _action_response(
             request,
-            title="Review qualification tie",
+            title="Confirm qualification tie",
             form=form,
             opts=self.model._meta,
-            change_url=workspace_url(group.draw.stage.competition_id, "standings"),
-            extra={"token": token},
+            change_url=workspace_url(
+                draw.stage.competition_id,
+                "standings",
+                stage_id=_stage_context_id(request, draw.stage),
+            ),
+            extra={"token": request.POST.get("token", "")},
         )
 
     def create_view(self, request, division_id):
@@ -757,12 +1113,15 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         command,
         form_kwargs=None,
         description=None,
+        stage=None,
     ):
         if request.method not in ("GET", "POST"):
             return HttpResponseNotAllowed(["GET", "POST"])
         competition = self.get_object(request, object_id)
         if competition is None:
             raise Http404
+        stage = stage or _selected_stage(request, competition)
+        selected_stage_id = _stage_context_id(request, stage)
         form_kwargs = {**(form_kwargs or {})}
         initial = {
             **(form_kwargs.pop("initial", None) or {}),
@@ -785,19 +1144,24 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 form.add_error(None, error)
             else:
                 self.message_user(request, f"{title} completed.", messages.SUCCESS)
+                if (
+                    selected_stage_id
+                    and not competition.stages.filter(pk=selected_stage_id).exists()
+                ):
+                    selected_stage_id = None
                 return HttpResponseRedirect(
-                    reverse("admin:competitions_competition_change", args=[object_id])
+                    workspace_url(competition.pk, stage_id=selected_stage_id)
                 )
         return _action_response(
             request,
             title=title,
             form=form,
             opts=self.model._meta,
-            change_url=reverse(
-                "admin:competitions_competition_change", args=[object_id]
-            ),
+            change_url=workspace_url(competition.pk, stage_id=selected_stage_id),
             extra={
-                "workspace_url": workspace_url(competition.pk),
+                "workspace_url": workspace_url(
+                    competition.pk, stage_id=selected_stage_id
+                ),
                 "group_assignment": isinstance(form, GroupDrawForm),
                 "description": description
                 or f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
@@ -813,9 +1177,12 @@ class CompetitionAdmin(OrganizerStaffAdmin):
     @action(permissions=["change"], description="Stage setup")
     def configure_detail(self, request, object_id):
         competition = self.get_object(request, object_id)
-        stage = competition.stages.order_by("sequence").first() if competition else None
+        stage = _selected_stage(request, competition) if competition else None
+        if request.GET.get("sequence"):
+            stage = None
         initial = (
             {
+                "stage_sequence": stage.sequence,
                 "name": stage.name,
                 "format": stage.format,
                 "grand_final_policy": stage.grand_final_policy,
@@ -833,7 +1200,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 },
             }
             if stage
-            else None
+            else {"stage_sequence": request.GET.get("sequence", 1)}
         )
         return self._competition_form_view(
             request,
@@ -866,6 +1233,12 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             actor=request.user,
             competition_id=competition.pk,
             expected_revision=expected_revision,
+            stage_sequence=data.get("stage_sequence")
+            or (
+                _selected_stage(request, competition).sequence
+                if _selected_stage(request, competition)
+                else 1
+            ),
             **{key: data[key] for key in fields},
         )
 
@@ -898,7 +1271,9 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         competition = self.get_object(request, object_id)
         if competition is None:
             raise Http404
-        stage = competition.stages.first()
+        stage = _selected_stage(request, competition)
+        if stage and stage.sequence > 1:
+            return self.stage_generate_view(request, competition.pk, stage.pk)
         is_round_robin = stage and stage.format == "ROUND_ROBIN"
         command = save_round_robin_draw if is_round_robin else save_elimination_draw
         fields = (
@@ -923,7 +1298,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
     @action(permissions=["change"], description="Publish saved draw")
     def publish_detail(self, request, object_id):
         competition = self.get_object(request, object_id)
-        stage = competition.stages.order_by("sequence").first() if competition else None
+        stage = _selected_stage(request, competition) if competition else None
         policy = grand_final_policy_label(stage)
         return self._competition_form_view(
             request,
@@ -934,12 +1309,14 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 actor=request.user,
                 competition_id=item.pk,
                 expected_revision=expected_revision,
+                stage_id=stage.pk if stage else None,
             ),
             description=(
                 f"{competition.tournament_game.tournament.name} · "
                 f"{competition.tournament_game.game.name} · "
                 f"{stage.get_format_display()}"
                 + (f" · Grand final policy: {policy}" if policy else "")
+                + " · First publication locks the whole stage plan: order, formats, group sizes and advancement rules."
                 if competition and stage
                 else None
             ),
@@ -1106,12 +1483,20 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
         card = match_card(match, request.user)
         return {
             "workspace_url": workspace_url(
-                match.round.draw.stage.competition_id, "bracket"
+                match.round.draw.stage.competition_id,
+                "bracket",
+                stage_id=_stage_context_id(request, match.round.draw.stage),
             ),
             "bracket_url": workspace_url(
-                match.round.draw.stage.competition_id, "bracket"
+                match.round.draw.stage.competition_id,
+                "bracket",
+                stage_id=_stage_context_id(request, match.round.draw.stage),
             ),
-            "setup_url": workspace_url(match.round.draw.stage.competition_id, "setup"),
+            "setup_url": workspace_url(
+                match.round.draw.stage.competition_id,
+                "setup",
+                stage_id=_stage_context_id(request, match.round.draw.stage),
+            ),
             "match_card": card,
             "match_actions": [
                 {
@@ -1143,7 +1528,9 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
                 "opts": self.model._meta,
                 "original": match,
                 "changes_url": workspace_url(
-                    match.round.draw.stage.competition_id, "changes"
+                    match.round.draw.stage.competition_id,
+                    "changes",
+                    stage_id=_stage_context_id(request, match.round.draw.stage),
                 )
                 if request.user.has_perm("competitions.view_changeset")
                 else None,

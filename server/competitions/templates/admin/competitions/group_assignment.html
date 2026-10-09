@@ -1,3 +1,3 @@
 <nav class="cw-tabs" aria-label="Groups">
-  {% for group in groups %}<a href="{{ workspace_url }}?tab={{ tab }}&amp;group={{ group.pk }}"{% if selected_group.pk == group.pk %} aria-current="page"{% endif %}>{{ group.name }} · {{ group.qualifying_places }} place{{ group.qualifying_places|pluralize }}</a>{% endfor %}
+  {% for group in groups %}<a href="{{ group_base_url }}&amp;group={{ group.pk }}"{% if selected_group.pk == group.pk %} aria-current="page"{% endif %}>{{ group.name }} · {{ group.qualifying_places }} place{{ group.qualifying_places|pluralize }}</a>{% endfor %}
 </nav>

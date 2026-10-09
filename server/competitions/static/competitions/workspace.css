@@ -188,3 +188,6 @@
 
 .cw-standings { width: 100%; border-collapse: collapse; white-space: nowrap; }
 .cw-standings th, .cw-standings td { padding: .75rem; text-align: left; border-bottom: 1px solid var(--cw-border); }
+
+.cw-stage-select { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.cw-stage-select select { max-width: 100%; min-width: 0; }

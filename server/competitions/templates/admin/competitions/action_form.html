@@ -34,6 +34,7 @@
   {% endif %}
   {% if tie_preview %}<section class="cw-panel"><h2>{{ tie_preview.group_name }} — {{ tie_preview.places }} qualifying place{{ tie_preview.places|pluralize }}</h2>
     {% if tie_preview.method == 'MANUAL' %}<p>Organizer order: {{ tie_preview.ordered_entries|join:" → " }}</p>{% else %}<p>Extra contests · Best of {{ tie_preview.series_length }}. Ordinary group points stay unchanged.</p><ul>{% for pairing in tie_preview.fixtures %}<li>{{ pairing|join:" vs " }}</li>{% endfor %}</ul>{% endif %}</section>{% endif %}
+  {% if impact_display.handoff.superseded_draw_ids %}<section class="cw-panel"><h2>Downstream draws leaving the active competition</h2><p>{{ impact_display.handoff.superseded_draw_ids|length }} draw{{ impact_display.handoff.superseded_draw_ids|length|pluralize }} will become historical. Their recorded results are preserved.</p><ul>{% for result in impact_display.retired_results %}<li>{{ result }}</li>{% endfor %}</ul></section>{% endif %}
   <form method="post"{% if form_action %} action="{{ form_action }}"{% endif %} class="cw-panel cw-form">
     {% csrf_token %}
     {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}

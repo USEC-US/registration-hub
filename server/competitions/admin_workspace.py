@@ -1,5 +1,7 @@
 """Presentation data for the organizer workspace; mutations stay in commands."""
 
+from urllib.parse import urlencode
+
 from django.urls import reverse
 
 from .models import Match, Round, Stage, StageDraw, StageEntry
@@ -9,9 +11,14 @@ def series_label(mode, length):
     return f"Fixed {length} games" if mode == "FIXED_GAMES" else f"Best of {length}"
 
 
-def workspace_url(competition_id, tab=None):
+def workspace_url(competition_id, tab=None, *, stage_id=None):
     url = reverse("admin:competitions_competition_change", args=[competition_id])
-    return f"{url}?tab={tab}" if tab else url
+    params = {}
+    if tab:
+        params["tab"] = tab
+    if stage_id is not None:
+        params["stage"] = stage_id
+    return f"{url}?{urlencode(params)}" if params else url
 
 
 def slot_label(slot):
@@ -211,6 +218,11 @@ def correction_display(impact):
         }
     return {
         "group": group_display,
+        "handoff": impact.get("handoff_impact"),
+        "retired_results": [
+            result_summary(m)
+            for m in impact.get("handoff_impact", {}).get("reset_matches", [])
+        ],
         "before": result_summary(impact.get("before")),
         "after": result_summary(impact.get("after")),
         "matches": [
