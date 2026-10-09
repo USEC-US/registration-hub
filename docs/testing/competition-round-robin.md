@@ -130,7 +130,7 @@ history.
 The production build passed. The existing calendar
 package circular-import/empty-chunk warnings and Vitest's development-server
 `wrapDynamicImport` diagnostics are tooling noise; the test assertions pass.
-Deployment against an existing live database and stage handoffs are outside this proof.
+Deployment against an existing live database remains outside this proof. Ordered stage handoffs are now covered in [the multi-stage operating notes](competition-multi-stage.md).
 
 ## Execution decisions
 
@@ -150,8 +150,9 @@ Deployment against an existing live database and stage handoffs are outside this
 - Applied the same integer/storage bounds to elimination setup after review found
   its legacy validator accepted nonintegers and oversized values. Existing callers
   must pass integer lengths within 1–32767.
-- Kept the approved later scope: stage handoffs/navigation, Swiss, withdrawal/
-  disqualification commands, TFT and realtime. These workflows remain unavailable.
+- The original slice left stage handoffs/navigation, Swiss, withdrawal/
+  disqualification commands, TFT and realtime for later. Stage handoffs/navigation
+  are now delivered by the multi-stage slice; the other workflows remain unavailable.
 - Reviewed migration/rollback strategy without deploying or executing rollback
   against a live database; live rollout still needs matching code/database backups.
 - Disabled the public group selector until hydration attaches its handler;

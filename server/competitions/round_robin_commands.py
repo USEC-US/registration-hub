@@ -478,6 +478,9 @@ def save_round_robin_draw(
             if memberships is not None:
                 raise ValidationError("Random ordering requires snake allocation.")
             secrets.SystemRandom().shuffle(ids)
+        planned = [
+            (p.name, p.size, p.qualifying_places) for p in stage.group_plans.all()
+        ]
         try:
             specs = [(name.strip(), places) for name, places in group_specs]
             if not specs or any(
@@ -490,7 +493,11 @@ def save_round_robin_draw(
             allocations = (
                 list(memberships)
                 if memberships is not None
-                else allocate_snake_groups(ids, len(specs))
+                else allocate_snake_groups(
+                    ids,
+                    len(specs),
+                    group_sizes=[size for _, size, _ in planned] if planned else None,
+                )
             )
             if len(allocations) != len(specs):
                 raise ValueError
@@ -514,9 +521,6 @@ def save_round_robin_draw(
             > MAX_MATCHES
         ):
             raise ValidationError("The generated draw exceeds the match limit.")
-        planned = [
-            (p.name, p.size, p.qualifying_places) for p in stage.group_plans.all()
-        ]
         actual = [
             (name, len(group), quota)
             for (name, quota), group in zip(specs, allocations, strict=True)

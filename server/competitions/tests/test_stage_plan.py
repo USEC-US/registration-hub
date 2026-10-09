@@ -282,3 +282,18 @@ class StagePlanTests(TestCase):
         )
         source.refresh_from_db()
         self.assertEqual(source.sequence, 1)
+
+    def test_default_allocation_respects_arbitrary_planned_sizes(self):
+        source, _, entrants = self._configure((2, 5, 3), (1, 4, 2))
+        draw = save_round_robin_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            group_specs=[
+                (p.name, p.qualifying_places) for p in source.group_plans.all()
+            ],
+            ordered_entrant_ids=[entry.pk for entry in entrants],
+        )
+        self.assertEqual(
+            [group.entries.count() for group in draw.groups.all()], [2, 5, 3]
+        )

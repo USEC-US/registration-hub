@@ -18,18 +18,21 @@ from competitions.round_robin_commands import (
     configure_round_robin,
     save_round_robin_draw,
 )
-from competitions.tests.test_commands import CompetitionCommandTests
+from competitions.tests import test_commands as fixtures
 
 
 class HandoffTests(TestCase):
-    setUp = CompetitionCommandTests.setUp
-    _registration = CompetitionCommandTests._registration
+    setUp = fixtures.CompetitionCommandTests.setUp
+    _registration = fixtures.CompetitionCommandTests._registration
 
     def _chain(
         self,
         source_format="SINGLE_ELIMINATION",
         destination_format="SINGLE_ELIMINATION",
         size=4,
+        formats=None,
+        advance_count=None,
+        publish=True,
     ):
         from competitions.stage_commands import set_stage_advancement, set_stage_groups
 
@@ -37,7 +40,9 @@ class HandoffTests(TestCase):
             actor=self.actor, tournament_game_id=self.division.pk
         )
         stages = []
-        for sequence, format_ in enumerate((source_format, destination_format), 1):
+        formats = formats or (source_format, destination_format)
+        incoming = size
+        for sequence, format_ in enumerate(formats, 1):
             self.competition.refresh_from_db()
             kwargs = dict(
                 actor=self.actor,
@@ -61,7 +66,15 @@ class HandoffTests(TestCase):
                     actor=self.actor,
                     stage_id=stage.pk,
                     expected_revision=self.competition.revision,
-                    group_specs=[("A", size, size)],
+                    group_specs=[
+                        (
+                            "A",
+                            incoming,
+                            (advance_count or incoming)
+                            if sequence < len(formats)
+                            else incoming,
+                        )
+                    ],
                 )
             else:
                 stage = configure_elimination(
@@ -71,15 +84,17 @@ class HandoffTests(TestCase):
                     if format_ == "DOUBLE_ELIMINATION"
                     else "",
                 )
-                if sequence == 1:
+                if sequence < len(formats):
                     self.competition.refresh_from_db()
                     set_stage_advancement(
                         actor=self.actor,
                         stage_id=stage.pk,
                         expected_revision=self.competition.revision,
-                        advancement_count=size,
+                        advancement_count=advance_count or incoming,
                     )
             stages.append(stage)
+            if sequence < len(formats):
+                incoming = advance_count or incoming
         self.competition.refresh_from_db()
         entrants = select_entrants(
             actor=self.actor,
@@ -93,7 +108,7 @@ class HandoffTests(TestCase):
                 actor=self.actor,
                 competition_id=self.competition.pk,
                 expected_revision=self.competition.revision,
-                group_specs=[("A", size)],
+                group_specs=[("A", stages[0].group_plans.get().qualifying_places)],
                 ordered_entrant_ids=[e.pk for e in entrants],
             )
         else:
@@ -104,11 +119,12 @@ class HandoffTests(TestCase):
                 entrant_order=[e.pk for e in entrants],
             )
         self.competition.refresh_from_db()
-        publish_draw(
-            actor=self.actor,
-            competition_id=self.competition.pk,
-            expected_revision=self.competition.revision,
-        )
+        if publish:
+            publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                expected_revision=self.competition.revision,
+            )
         self.competition.refresh_from_db()
         return draw, stages[1]
 
@@ -229,3 +245,80 @@ class HandoffTests(TestCase):
                 stage_id=destination.pk,
                 expected_revision=self.competition.revision,
             )
+
+    def test_top_three_manual_choice_feeds_exact_round_robin_field(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+        from competitions.qualification import (
+            stage_qualification,
+            preview_qualification_tie,
+            confirm_qualification_tie,
+        )
+
+        source, destination = self._chain(
+            destination_format="ROUND_ROBIN", advance_count=3
+        )
+        self._finish(source)
+        state = stage_qualification(source)
+        self.assertEqual(state["qualification_state"], "AWAITING_RESOLUTION")
+        tie = state["cutoffs"][0]
+        preview = preview_qualification_tie(
+            actor=self.actor,
+            draw_id=source.pk,
+            expected_revision=self.competition.revision,
+            tied_entry_ids=tie["entry_ids"],
+            method="MANUAL",
+            ordered_entry_ids=tie["entry_ids"],
+        )
+        confirm_qualification_tie(
+            actor=self.actor, token=preview["token"], internal_reason="Top three cutoff"
+        )
+        self.competition.refresh_from_db()
+        draw = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.assertEqual(draw.entries.count(), 3)
+        self.assertEqual(
+            set(draw.entries.values_list("source_entry_id", flat=True)),
+            set(stage_qualification(source)["qualifier_entry_ids"]),
+        )
+        self.assertEqual(draw.groups.get().entries.count(), 3)
+
+    def test_three_stage_chain_waits_for_each_source_and_restarts_labels(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+
+        source, second = self._chain(
+            formats=("SINGLE_ELIMINATION", "ROUND_ROBIN", "DOUBLE_ELIMINATION")
+        )
+        third = self.competition.stages.get(sequence=3)
+        self.assertFalse(second.draws.exists())
+        self.assertFalse(third.draws.exists())
+        with self.assertRaises(ValidationError):
+            generate_next_stage_draw(
+                actor=self.actor,
+                stage_id=third.pk,
+                expected_revision=self.competition.revision,
+            )
+        draws = [source]
+        for stage in (second, third):
+            self._finish(draws[-1])
+            draw = generate_next_stage_draw(
+                actor=self.actor,
+                stage_id=stage.pk,
+                expected_revision=self.competition.revision,
+            )
+            before = list(draw.entries.values_list("pk", "seed"))
+            self.assertTrue(
+                Match.objects.filter(round__draw=draw, code=f"{stage.name}-M1").exists()
+            )
+            self.assertEqual(list(draw.entries.values_list("pk", "seed")), before)
+            self.competition.refresh_from_db()
+            publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                stage_id=stage.pk,
+                expected_revision=self.competition.revision,
+            )
+            draws.append(draw)
+        self.assertEqual(draws[2].source_draw_id, draws[1].pk)

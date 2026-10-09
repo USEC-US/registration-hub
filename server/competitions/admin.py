@@ -599,8 +599,11 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     "admin:competitions_stage_generate", args=[competition.pk, stage.pk]
                 )
                 if can_manage
-                and not published
-                and waiting_reason != "Waiting for previous stage"
+                and (not draw or draw.state == "DRAFT")
+                and (
+                    draw is not None
+                    or waiting_reason == "Ready for a saved random draw"
+                )
                 else None
             )
         if plan_locked:
@@ -785,7 +788,16 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     )
                 }
                 if grouped
-                else {"advancement_count": stage.advancement_count}
+                else {"advancement_count": stage.advancement_count},
+                **(
+                    {}
+                    if grouped
+                    else {
+                        "is_final": not competition.stages.filter(
+                            sequence__gt=stage.sequence
+                        ).exists()
+                    }
+                ),
             },
             command=lambda item, revision, data: (
                 set_stage_groups if grouped else set_stage_advancement
@@ -1395,16 +1407,27 @@ class RoundAdmin(ReadOnlyCompetitionAdmin):
                     request, "Set round series length completed.", messages.SUCCESS
                 )
                 return HttpResponseRedirect(
-                    workspace_url(round_.draw.stage.competition_id, "bracket")
+                    workspace_url(
+                        round_.draw.stage.competition_id,
+                        "bracket",
+                        stage_id=_stage_context_id(request, round_.draw.stage),
+                    )
                 )
         return _action_response(
             request,
             title="Set round series length",
             form=form,
             opts=self.model._meta,
-            change_url=workspace_url(round_.draw.stage.competition_id, "bracket"),
+            change_url=workspace_url(
+                round_.draw.stage.competition_id,
+                "bracket",
+                stage_id=_stage_context_id(request, round_.draw.stage),
+            ),
             extra={
-                "workspace_url": workspace_url(round_.draw.stage.competition_id),
+                "workspace_url": workspace_url(
+                    round_.draw.stage.competition_id,
+                    stage_id=_stage_context_id(request, round_.draw.stage),
+                ),
                 "description": f"Round {round_.number}",
                 "submit_label": "Save series length",
             },

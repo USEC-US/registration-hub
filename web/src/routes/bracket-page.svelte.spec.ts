@@ -673,7 +673,7 @@ describe('public round robin groups', () => {
 });
 
 describe('public multi-stage navigation', () => {
-	it('switches stages by identity, resets group selection, and shows replacement state', async () => {
+	it('switches stages by identity, keeps selection on refresh, and shows replacement state', async () => {
 		const value = roundRobinCompetition();
 		const playoffs = structuredClone(competition.stages[0]);
 		playoffs.id = 22;
@@ -683,7 +683,7 @@ describe('public multi-stage navigation', () => {
 		playoffs.entries = [];
 		playoffs.rounds = [];
 		value.stages.push(playoffs);
-		const { container } = render(BracketPage, {
+		const { container, rerender } = render(BracketPage, {
 			params: { slug: 'summer', gameId: '9' },
 			data: {
 				state: 'ready',
@@ -700,6 +700,21 @@ describe('public multi-stage navigation', () => {
 			.element(page.getByText('Awaiting replacement draw', { exact: true }))
 			.toBeVisible();
 		expect(container.querySelector('#group-select')).toBeNull();
+		await rerender({
+			data: {
+				state: 'ready',
+				slug: 'summer',
+				gameId: 9,
+				competition: structuredClone(value),
+				changes,
+				displayTimeZone,
+				selectedStageId: value.stages[0].id
+			},
+			params: { slug: 'summer', gameId: '9' }
+		});
+		await expect
+			.element(page.getByText('Awaiting replacement draw', { exact: true }))
+			.toBeVisible();
 		await page
 			.getByRole('combobox', { name: 'Stage', exact: true })
 			.selectOptions(String(value.stages[0].id));

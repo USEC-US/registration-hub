@@ -32,8 +32,9 @@
 			sorted[0]
 		);
 	});
+	const requestedStageId = $derived(data.state === 'ready' ? data.selectedStageId : undefined);
 	$effect(() => {
-		stageId = data.state === 'ready' ? data.selectedStageId : undefined;
+		stageId = requestedStageId;
 		groupId = '';
 		roundId = '';
 	});
@@ -442,7 +443,8 @@
 									></tr
 								></thead
 							><tbody
-								>{#each qualification.placement_bands as band, index (band[0].id)}<tr class="border-t"
+								>{#each qualification.placement_bands as band, index (band[0].id)}<tr
+										class="border-t"
 										><th scope="row" class="px-4 py-3 text-left"
 											>{qualification.placement_bands
 												.slice(0, index)

@@ -186,3 +186,17 @@ class QualificationTests(TestCase):
         draw.stage.refresh_from_db()
         self.assertEqual(draw.stage.champion_id, champion)
         self.assertEqual(stage_qualification(draw)["qualification_state"], "RESOLVED")
+
+    def test_inconsistent_terminal_exits_report_blocked_qualification(self):
+        from competitions.qualification import stage_qualification
+
+        draw = self._elimination()
+        semifinals = list(
+            Match.objects.filter(round__draw=draw, round__number=1).order_by("pk")
+        )
+        loser = semifinals[0].slots.get(position=2).resolved_entry_id
+        semifinals[1].slots.filter(position=2).update(resolved_entry_id=loser)
+        state = stage_qualification(draw)
+        self.assertEqual(state["qualification_state"], "BLOCKED")
+        self.assertEqual(state["qualifier_entry_ids"], [])
+        self.assertIn("terminal", state["block_reason"].lower())

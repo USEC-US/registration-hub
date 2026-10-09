@@ -270,20 +270,26 @@ test('organizers publish a double bracket, play a reset, and correct its activat
 		await page.locator('input[name="side_two_score"]').fill(String(sideTwo));
 		await page.getByRole('button', { name: 'Save result', exact: true }).click();
 	}
-	for (const code of ['UPPER-R1-M1', 'UPPER-R1-M2', 'UPPER-R2-M1', 'LOWER-R1-M1', 'LOWER-R2-M1'])
-		await score(code, 1, 0);
-	await score('FINALS-R1-M1', 0, 1);
+	const published: PublicCompetition = await (await page.request.get(apiUrl)).json();
+	const finals = published.stages[0].rounds.filter((round) => round.section === 'FINALS');
+	for (const match of published.stages[0].rounds
+		.filter((round) => round.section !== 'FINALS')
+		.flatMap((round) => round.matches))
+		await score(match.code, 1, 0);
+	await score(finals[0].matches[0].code, 0, 1);
 	await spectator.reload();
 	await expect(spectator.getByText('If needed', { exact: true })).toHaveCount(0);
-	await score('FINALS-R2-M1', 1, 0);
+	await score(finals[1].matches[0].code, 1, 0);
 	const completedBracket: PublicCompetition = await (await page.request.get(apiUrl)).json();
 	const completedReset = completedBracket.stages[0].rounds
 		.flatMap((round) => round.matches)
-		.find((match) => match.code.endsWith('FINALS-R2-M1'))!;
+		.find((match) => match.id === finals[1].matches[0].id)!;
 	await spectator.reload();
 	await expect(spectator.getByRole('heading', { name: 'Champion', exact: true })).toBeVisible();
 	await page.goto(`${workspaceUrl}?tab=bracket`);
-	await page.getByRole('link', { name: /Correct result for .*FINALS-R1-M1$/ }).click();
+	await page
+		.getByRole('link', { name: new RegExp(`Correct result for .*${finals[0].matches[0].code}$`) })
+		.click();
 	await page.locator('input[name="side_one_score"]').fill('1');
 	await page.locator('input[name="side_two_score"]').fill('0');
 	await page.getByRole('button', { name: 'Preview correction' }).click();
@@ -301,7 +307,7 @@ test('organizers publish a double bracket, play a reset, and correct its activat
 	await expect(spectator.getByText(/Active → Not required/)).toBeVisible();
 	await expect(
 		spectator.getByText(
-			`M7: Played · ${completedReset.slots[0].entry!.display_name} 1–0 ${completedReset.slots[1].entry!.display_name} · ${completedReset.winner!.display_name} won`,
+			`${completedReset.code}: Played · ${completedReset.slots[0].entry!.display_name} 1–0 ${completedReset.slots[1].entry!.display_name} · ${completedReset.winner!.display_name} won`,
 			{ exact: true }
 		)
 	).toBeVisible();
@@ -436,5 +442,136 @@ test('organizers publish groups, resolve ties and correct results while spectato
 	expect(
 		await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 	).toBeTruthy();
+	await spectator.close();
+});
+
+test('multi-stage organizers lock groups, publish a saved draw and retire played playoffs', async ({
+	page,
+	context
+}) => {
+	test.setTimeout(180_000);
+	const tournament = await (
+		await page.request.get('http://127.0.0.1:8015/api/tournaments/multi-stage-journey-test/')
+	).json();
+	const division = tournament.tournament_games.find(
+		(game: { game_slug: string }) => game.game_slug === 'ms-workflow'
+	);
+	const apiUrl = `http://127.0.0.1:8015/api/tournament-games/${division.id}/competition/`;
+	await page.goto(`http://127.0.0.1:8015/admin/competitions/competition/create/${division.id}/`);
+	await page.getByLabel('Email', { exact: false }).fill('journey-organizer@example.test');
+	await page.getByLabel('Password', { exact: false }).fill('Journey-test-password-2026');
+	await page.getByRole('button', { name: /Log in/ }).click();
+	await page.getByRole('button', { name: 'Continue to setup', exact: true }).click();
+	const workspace = page.url().split('?')[0];
+	await page.getByRole('link', { name: /Continue\s*:\s*Set up/ }).click();
+	await page.getByLabel('Format:', { exact: true }).selectOption('ROUND_ROBIN');
+	await page.getByLabel('Stage name').fill('Groups1');
+	await page.getByLabel('Series mode').selectOption('FIXED_GAMES');
+	await page.getByLabel('Games per match:', { exact: true }).fill('2');
+	for (let i = 1; i <= 4; i++)
+		await page.getByLabel(`Tiebreaker ${i}:`, { exact: true }).selectOption('');
+	await page.getByRole('button', { name: 'Save setup', exact: true }).click();
+	const groupStageId = await page.getByLabel('Stage', { exact: true }).inputValue();
+	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
+	await page.getByRole('link', { name: 'Advancement rules', exact: true }).click();
+	await page.getByLabel('Planned groups').fill('Alpha | 3 | 2\nBeta | 3 | 2\nGamma | 2 | 2');
+	await page.getByRole('button', { name: 'Stage advancement rules', exact: true }).click();
+	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
+	await page.getByRole('link', { name: 'Add stage', exact: true }).click();
+	await page.getByLabel('Stage name').fill('Playoffs');
+	await page.getByLabel('Games per match:', { exact: true }).fill('1');
+	await page.getByRole('button', { name: 'Save setup', exact: true }).click();
+	await expect(page.getByLabel('Stage', { exact: true }).locator('option')).toHaveCount(2);
+	const options = await page
+		.getByLabel('Stage', { exact: true })
+		.locator('option')
+		.evaluateAll((items) =>
+			items.map((item) => ({ id: (item as HTMLOptionElement).value, text: item.textContent }))
+		);
+	const playoffStageId = options.find((item) => item.text?.includes('Playoffs'))!.id;
+	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
+	await page.getByRole('link', { name: /Continue\s*:\s*Choose entrants/ }).click();
+	for (let i = 1; i <= 8; i++) await page.getByLabel(`MS Team ${i}`, { exact: true }).check();
+	await page.getByRole('button', { name: 'Save entrants', exact: true }).click();
+	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
+	await page.getByRole('link', { name: /Continue\s*:\s*Seed the bracket/ }).click();
+	await page.getByLabel('Group allocation').selectOption('MANUAL');
+	const assignments = page.locator('select[name^="group_"]');
+	for (let i = 0; i < 8; i++)
+		await assignments.nth(i).selectOption(String(i < 3 ? 1 : i < 6 ? 2 : 3));
+	await page.getByRole('button', { name: 'Save and preview bracket', exact: true }).click();
+	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
+	await page.getByRole('link', { name: /Continue\s*:\s*Publish/ }).click();
+	await expect(page.getByText(/First publication locks the whole stage plan/)).toBeVisible();
+	await page.getByRole('button', { name: 'Publish bracket', exact: true }).click();
+	const snapshot = async (): Promise<PublicCompetition> => (await page.request.get(apiUrl)).json();
+	expect((await snapshot()).stages).toHaveLength(1);
+	await page.goto(`${workspace}?stage=${playoffStageId}`);
+	await expect(
+		page.getByRole('link', { name: 'Generate next stage draw', exact: true })
+	).toHaveCount(0);
+	const ordinary = (await snapshot()).stages[0].rounds.flatMap((round) => round.matches);
+	async function score(id: number, first: number, second: number, correction = false) {
+		await page.goto(`http://127.0.0.1:8015/admin/competitions/match/${id}/change/`);
+		await page
+			.getByRole('link', { name: correction ? 'Correct result' : 'Enter result', exact: true })
+			.click();
+		await page.locator('[name="side_one_score"]').fill(String(first));
+		await page.locator('[name="side_two_score"]').fill(String(second));
+		await page
+			.getByRole('button', { name: correction ? 'Preview correction' : 'Save result', exact: true })
+			.click();
+	}
+	for (const match of ordinary) await score(match.id, 1, 1);
+	for (const groupId of (await snapshot()).stages[0].groups!.slice(0, 2).map((group) => group.id)) {
+		await page.goto(`${workspace}?tab=standings&stage=${groupStageId}&group=${groupId}`);
+		await page.getByRole('link', { name: 'Resolve qualification tie', exact: true }).click();
+		await page.getByLabel('Resolve qualification tie').selectOption('MANUAL');
+		await page.getByRole('button', { name: 'Preview tie choice', exact: true }).click();
+		await page.getByLabel('Private organizer reason').fill('PRIVATE-MS-TIE');
+		await page.getByRole('button', { name: 'Confirm qualification tie', exact: true }).click();
+	}
+	await page.goto(`${workspace}?stage=${playoffStageId}`);
+	await page.getByRole('link', { name: 'Generate next stage draw', exact: true }).click();
+	await page.getByRole('button', { name: 'Generate and preview draw', exact: true }).click();
+	await expect(page.getByText('Private preview', { exact: true })).toBeVisible();
+	expect((await snapshot()).stages).toHaveLength(1);
+	const previewNames = await page.locator('.cw-slot-name').allTextContents();
+	await page.reload();
+	expect(await page.locator('.cw-slot-name').allTextContents()).toEqual(previewNames);
+	await page.getByRole('link', { name: /Publish saved draw/ }).click();
+	await page.getByRole('button', { name: 'Publish bracket', exact: true }).click();
+	const playoffs = (await snapshot()).stages.find((stage) => stage.id === Number(playoffStageId))!;
+	expect(playoffs.entries).toHaveLength(6);
+	const played = playoffs.rounds
+		.flatMap((round) => round.matches)
+		.find((match) => match.status === 'PENDING')!;
+	await score(played.id, 1, 0);
+	await score(ordinary[0].id, 2, 0, true);
+	await expect(
+		page.getByRole('heading', { name: 'Downstream draws leaving the active competition' })
+	).toBeVisible();
+	await page.getByLabel('Reason for correction').fill('PRIVATE-MS-CORRECTION');
+	await page.getByRole('button', { name: 'Confirm correction and resets', exact: true }).click();
+	const retired = (await snapshot()).stages.find((stage) => stage.id === Number(playoffStageId))!;
+	expect(retired.draw_state).toBe('AWAITING_REPLACEMENT');
+	expect(retired.rounds).toEqual([]);
+	const historical = await (
+		await page.request.get(`http://127.0.0.1:8015/api/competition-matches/${played.id}/`)
+	).json();
+	expect(historical.historical).toBe(true);
+	expect([historical.side_one_score, historical.side_two_score]).toEqual([1, 0]);
+	const spectator = await context.newPage();
+	await spectator.setViewportSize({ width: 390, height: 844 });
+	await spectator.goto(
+		`/en/tournaments/multi-stage-journey-test/games/${division.id}/bracket?stage=${playoffStageId}`
+	);
+	await expect(spectator.getByText('Awaiting replacement draw', { exact: true })).toBeVisible();
+	await expect(spectator.getByText(/Playoffs-M/).first()).toBeVisible();
+	expect(await spectator.locator('body').textContent()).not.toContain('PRIVATE-MS');
+	expect(await spectator.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto(`${workspace}?tab=setup&stage=${playoffStageId}`);
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 	await spectator.close();
 });

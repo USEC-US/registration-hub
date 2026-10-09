@@ -100,6 +100,7 @@ test('round robin groups show unequal standings, rests, qualification and histor
 		).toBeVisible();
 		const group = page.getByLabel(locale === 'en' ? 'Group' : 'Bảng', { exact: true });
 		await expect(group).toBeEnabled();
+		await expect(group).toBeEnabled();
 		await group.focus();
 		await expect(group).toBeFocused();
 		await page.keyboard.press('Space');
@@ -130,5 +131,42 @@ test('round robin groups show unequal standings, rests, qualification and histor
 				exact: true
 			})
 			.focus();
+	}
+});
+
+test('multi-stage spectators switch unequal groups and playoffs in EN and VI at 390px', async ({
+	page
+}) => {
+	const tournament = await (
+		await page.request.get('http://127.0.0.1:8015/api/tournaments/multi-stage-journey-test/')
+	).json();
+	const division = tournament.tournament_games.find(
+		(game: { game_slug: string }) => game.game_slug === 'ms-valorant'
+	);
+	const competition = await (
+		await page.request.get(`http://127.0.0.1:8015/api/tournament-games/${division.id}/competition/`)
+	).json();
+	const [groups, playoffs] = competition.stages;
+	await page.setViewportSize({ width: 390, height: 844 });
+	for (const locale of ['en', 'vi']) {
+		await page.goto(
+			`/${locale}/tournaments/multi-stage-journey-test/games/${division.id}/bracket?stage=${groups.id}`
+		);
+		const stage = page.getByLabel(locale === 'en' ? 'Stage' : 'Giai đoạn', { exact: true });
+		await expect(stage).toHaveValue(String(groups.id));
+		await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(3);
+		const group = page.getByLabel(locale === 'en' ? 'Group' : 'Bảng', { exact: true });
+		await expect(group).toBeEnabled();
+		await group.focus();
+		await page.keyboard.press('Space');
+		await page.keyboard.press('End');
+		await page.keyboard.press('Enter');
+		await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(2);
+		await stage.selectOption(String(playoffs.id));
+		await expect(group).toHaveCount(0);
+		await expect(stage).toHaveValue(String(playoffs.id));
+		await expect(page.getByText('Playoffs', { exact: true })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Playoffs-M1', exact: true })).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 	}
 });

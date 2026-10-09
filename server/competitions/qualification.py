@@ -202,10 +202,14 @@ def stage_qualification(draw, *, projected_matches=None):
             json.dumps([stage.advancement_count, inputs], sort_keys=True).encode()
         ).hexdigest()
         if complete:
-            placement = finishing_bands(entry_ids, results, format=stage.format)
-            bands = [list(band) for band in placement.bands]
+            try:
+                placement = finishing_bands(entry_ids, results, format=stage.format)
+            except ValueError:
+                blocked = "Terminal placement is inconsistent; resolve the recorded results before advancing."
+            else:
+                bands = [list(band) for band in placement.bands]
             quota = stage.advancement_count
-            if quota is not None:
+            if quota is not None and blocked is None:
                 if quota == len(entry_ids):
                     qualifiers = entry_ids
                 elif sum(map(len, bands)) < quota:

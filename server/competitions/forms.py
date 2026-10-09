@@ -546,6 +546,10 @@ class StageGroupsForm(RevisionForm):
 
 
 class StageAdvancementForm(RevisionForm):
+    def __init__(self, *args, is_final=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["advancement_count"].required = not is_final
+
     advancement_count = forms.IntegerField(
         label="Entrants advancing to the next stage",
         min_value=1,

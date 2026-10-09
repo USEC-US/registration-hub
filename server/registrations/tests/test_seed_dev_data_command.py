@@ -202,6 +202,7 @@ class SeedDevDataCommandTests(TestCase):
                 "dev-usec-archive",
                 "dev-usec-double-elimination",
                 "dev-usec-round-robin",
+                "dev-usec-multi-stage",
                 "dev-fpt-shop-uni-tour-2026",
                 "dev-sponsor-open",
                 "dev-sponsor-arena",
@@ -845,3 +846,38 @@ class SeedDevDataCommandTests(TestCase):
                 ),
                 matches,
             )
+
+    def test_multi_stage_seed_preserves_published_draws_and_unequal_group_rules(self):
+        self.run_seed()
+        competitions = list(
+            Competition.objects.filter(
+                tournament_game__tournament__slug="dev-usec-multi-stage"
+            ).order_by("pk")
+        )
+        self.assertEqual(len(competitions), 3)
+        ids = []
+        for competition in competitions:
+            self.assertEqual(competition.stages.count(), 2)
+            source, destination = list(competition.stages.all())
+            sizes = list(source.group_plans.values_list("size", flat=True))
+            self.assertIn(sizes, ([3, 3, 2], [3, 2, 2], [2, 5, 3]))
+            draw = destination.draws.get(state="PUBLISHED")
+            self.assertEqual(draw.entries.count(), 7 if sizes == [2, 5, 3] else 6)
+            self.assertEqual(draw.entries.filter(source_entry__isnull=True).count(), 0)
+            ids.extend(
+                Match.objects.filter(round__draw=draw).values_list("pk", flat=True)
+            )
+        before = list(
+            Match.objects.filter(pk__in=ids).values_list(
+                "pk", "code", "side_one_score", "side_two_score"
+            )
+        )
+        self.run_seed()
+        self.assertEqual(
+            list(
+                Match.objects.filter(pk__in=ids).values_list(
+                    "pk", "code", "side_one_score", "side_two_score"
+                )
+            ),
+            before,
+        )

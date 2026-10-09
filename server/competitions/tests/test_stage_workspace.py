@@ -62,3 +62,95 @@ class StageWorkspaceTests(TestCase):
             response.url,
             workspace_url(self.competition.pk, "bracket", stage_id=destination.pk),
         )
+
+    def test_nonfinal_elimination_rules_require_a_quota(self):
+        source, final = self._chain(publish=False)
+        self.client.force_login(self.actor)
+        url = reverse(
+            "admin:competitions_stage_rules",
+            args=[self.competition.pk, source.stage_id],
+        )
+        response = self.client.post(
+            url,
+            {"expected_revision": self.competition.revision, "advancement_count": ""},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("advancement_count", response.context_data["form"].errors)
+        final_url = reverse(
+            "admin:competitions_stage_rules", args=[self.competition.pk, final.pk]
+        )
+        response = self.client.post(
+            final_url,
+            {"expected_revision": self.competition.revision, "advancement_count": ""},
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_round_action_preserves_destination_stage(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+        from competitions.commands import publish_draw
+
+        source, destination = self._chain()
+        self._finish(source)
+        draw = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        publish_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        self.client.force_login(self.actor)
+        round_ = draw.rounds.first()
+        action = reverse("admin:competitions_round_series_detail", args=[round_.pk])
+        response = self.client.get(action)
+        expected = workspace_url(
+            self.competition.pk, "bracket", stage_id=destination.pk
+        )
+        self.assertContains(response, expected.replace("&", "&amp;"))
+        response = self.client.post(
+            action, {"expected_revision": self.competition.revision, "series_length": 3}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, expected)
+
+    def test_replacement_private_preview_offers_regeneration(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+        from competitions.commands import publish_draw
+
+        source, destination = self._chain(source_format="ROUND_ROBIN")
+        self._finish(source)
+        draw = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        publish_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        # A published identity with a replacement draft is the state after retirement/replay.
+        draw.state = "SUPERSEDED"
+        draw.save(update_fields=("state",))
+        replacement = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.client.force_login(self.actor)
+        url = workspace_url(self.competition.pk, "setup", stage_id=destination.pk)
+        response = self.client.get(url)
+        regenerate = reverse(
+            "admin:competitions_stage_generate",
+            args=[self.competition.pk, destination.pk],
+        )
+        self.assertContains(response, regenerate)
+        self.assertEqual(replacement.state, "DRAFT")

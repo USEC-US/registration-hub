@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from itertools import groupby
+from itertools import cycle, groupby
 
 
 TIEBREAKS = ("HEAD_TO_HEAD", "MATCH_WINS", "GAME_DIFFERENCE", "GAMES_WON")
@@ -45,15 +45,29 @@ def _validate_field(ids: Sequence[int]) -> None:
 
 
 def allocate_snake_groups(
-    ordered_ids: Sequence[int], group_count: int
+    ordered_ids: Sequence[int],
+    group_count: int,
+    *,
+    group_sizes: Sequence[int] | None = None,
 ) -> tuple[tuple[int, ...], ...]:
     _validate_field(ordered_ids)
     if type(group_count) is not int or not 1 <= group_count <= len(ordered_ids) // 2:
         raise ValueError("Each group needs at least two entrants.")
+    if group_sizes is not None and (
+        len(group_sizes) != group_count
+        or any(type(size) is not int or size < 2 for size in group_sizes)
+        or sum(group_sizes) != len(ordered_ids)
+    ):
+        raise ValueError("Planned group sizes must partition the entrant field.")
     groups = [[] for _ in range(group_count)]
-    for index, entry_id in enumerate(ordered_ids):
-        cycle, position = divmod(index, group_count)
-        groups[group_count - position - 1 if cycle % 2 else position].append(entry_id)
+    positions = cycle((*range(group_count), *reversed(range(group_count))))
+    for entry_id in ordered_ids:
+        position = next(positions)
+        while (
+            group_sizes is not None and len(groups[position]) == group_sizes[position]
+        ):
+            position = next(positions)
+        groups[position].append(entry_id)
     return tuple(tuple(group) for group in groups)
 
 

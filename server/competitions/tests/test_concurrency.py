@@ -457,3 +457,119 @@ class RoundRobinConcurrencyTests(CompetitionConcurrencyTests):
             ),
         )
         self.assertEqual(sorted(results), ["denied", "ok"])
+
+
+class StageHandoffConcurrencyTests(TransactionTestCase):
+    setUp = CompetitionConcurrencyTests.setUp
+    _registration = CompetitionConcurrencyTests._registration
+    _race = CompetitionConcurrencyTests._race
+
+    def _completed_source(self):
+        from competitions.tests import test_handoffs as fixtures
+
+        self._chain = fixtures.HandoffTests._chain.__get__(self)
+        self._finish = fixtures.HandoffTests._finish.__get__(self)
+        source, destination = self._chain()
+        self._finish(source)
+        return source, destination
+
+    def test_simultaneous_generation_saves_one_draw_and_one_history(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+        from competitions.tests import test_handoffs as fixtures
+
+        self._chain = fixtures.HandoffTests._chain.__get__(self)
+        self._finish = fixtures.HandoffTests._finish.__get__(self)
+        source, destination = self._chain()
+        self._finish(source)
+        revision = self.competition.revision
+        results = self._race(
+            *(
+                lambda: generate_next_stage_draw(
+                    actor=self.actor,
+                    stage_id=destination.pk,
+                    expected_revision=revision,
+                )
+                for _ in range(2)
+            )
+        )
+        self.assertEqual(sorted(results), ["denied", "ok"])
+        self.assertEqual(destination.draws.exclude(state="SUPERSEDED").count(), 1)
+        self.assertEqual(
+            self.competition.changes.filter(kind="successor_draw_saved").count(), 1
+        )
+
+    def test_successor_publication_and_source_correction_share_one_revision(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+
+        source, destination = self._completed_source()
+        draw = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        revision = self.competition.revision
+        match = Match.objects.filter(round__draw=source).order_by("pk").first()
+        preview = preview_correction(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=revision,
+            outcome="PLAYED",
+            side_one_score=0,
+            side_two_score=1,
+        )
+        results = self._race(
+            lambda: publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                stage_id=destination.pk,
+                expected_revision=revision,
+            ),
+            lambda: apply_correction(
+                actor=self.actor,
+                token=preview["token"],
+                internal_reason="Correction race",
+            ),
+        )
+        self.assertEqual(sorted(results), ["denied", "ok"])
+        draw.refresh_from_db()
+        self.competition.refresh_from_db()
+        self.assertEqual(self.competition.revision, revision + 1)
+        self.assertEqual(
+            draw.state, "PUBLISHED" if results[0] == "ok" else "SUPERSEDED"
+        )
+
+    def test_eligibility_change_serializes_with_generation_and_blocks_publication(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+
+        source, destination = self._completed_source()
+        registration = source.entries.first().entrant.registration
+        revision = self.competition.revision
+
+        def change_eligibility():
+            with transaction.atomic():
+                TournamentGame.objects.select_for_update().get(pk=self.division.pk)
+                Registration.objects.filter(pk=registration.pk).update(
+                    status="REJECTED"
+                )
+
+        results = self._race(
+            lambda: generate_next_stage_draw(
+                actor=self.actor, stage_id=destination.pk, expected_revision=revision
+            ),
+            change_eligibility,
+        )
+        self.assertEqual(results[1], "ok")
+        self.assertEqual(destination.draws.count(), int(results[0] == "ok"))
+        self.assertEqual(
+            self.competition.changes.filter(kind="successor_draw_saved").count(),
+            int(results[0] == "ok"),
+        )
+        self.competition.refresh_from_db()
+        with self.assertRaises(ValidationError):
+            publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                stage_id=destination.pk,
+                expected_revision=self.competition.revision,
+            )

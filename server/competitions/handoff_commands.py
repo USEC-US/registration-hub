@@ -162,7 +162,10 @@ def project_handoff_corrections(
     }
     current_source = source_draw
     snapshot = projected_qualification
-    retire = source_needs_replay
+    retire = source_needs_replay or any(
+        snapshot["resolution_states"].get(resolution.pk) != resolution.state
+        for resolution in source_draw.tie_resolutions.exclude(state="SUPERSEDED")
+    )
     draws = (
         StageDraw.objects.filter(
             stage__competition=source_draw.stage.competition,

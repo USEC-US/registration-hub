@@ -10,14 +10,14 @@ from competitions.commands import (
     schedule_match,
 )
 from competitions.models import Match, StageDraw
-from competitions.tests.test_handoffs import HandoffTests
+from competitions.tests import test_handoffs as fixtures
 
 
 class StageCorrectionTests(TestCase):
-    setUp = HandoffTests.setUp
-    _registration = HandoffTests._registration
-    _chain = HandoffTests._chain
-    _finish = HandoffTests._finish
+    setUp = fixtures.HandoffTests.setUp
+    _registration = fixtures.HandoffTests._registration
+    _chain = fixtures.HandoffTests._chain
+    _finish = fixtures.HandoffTests._finish
 
     def _played_destination(self):
         from competitions.handoff_commands import generate_next_stage_draw
@@ -149,3 +149,160 @@ class StageCorrectionTests(TestCase):
         match.refresh_from_db()
         self.assertEqual(destination.state, "PUBLISHED")
         self.assertEqual(match.side_one_score, 1)
+
+    def test_changed_qualifiers_retire_two_played_successors_atomically(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+
+        source, second = self._chain(
+            formats=("SINGLE_ELIMINATION", "SINGLE_ELIMINATION", "SINGLE_ELIMINATION"),
+            advance_count=2,
+        )
+        draws = []
+        self._finish(source)
+        for stage in (second, self.competition.stages.get(sequence=3)):
+            draw = generate_next_stage_draw(
+                actor=self.actor,
+                stage_id=stage.pk,
+                expected_revision=self.competition.revision,
+            )
+            self.competition.refresh_from_db()
+            publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                stage_id=stage.pk,
+                expected_revision=self.competition.revision,
+            )
+            self._finish(draw)
+            draws.append(draw)
+        ids = [draw.pk for draw in draws]
+        matches = Match.objects.filter(round__draw_id__in=ids)
+        saved = list(
+            matches.values_list(
+                "pk", "side_one_score", "side_two_score", "applied_series_length"
+            )
+        )
+        source_match = Match.objects.filter(round__draw=source).order_by("pk").first()
+        preview = preview_correction(
+            actor=self.actor,
+            match_id=source_match.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=0,
+            side_two_score=1,
+        )
+        self.assertEqual(preview["handoff_impact"]["superseded_draw_ids"], ids)
+        apply_correction(
+            actor=self.actor,
+            token=preview["token"],
+            internal_reason="Correct the qualifier",
+        )
+        self.assertEqual(
+            StageDraw.objects.filter(pk__in=ids, state="SUPERSEDED").count(), 2
+        )
+        self.assertEqual(
+            list(
+                matches.values_list(
+                    "pk", "side_one_score", "side_two_score", "applied_series_length"
+                )
+            ),
+            saved,
+        )
+
+    def test_invalidated_manual_tie_retires_suffix_even_with_same_resolved_set(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+        from competitions.round_robin_commands import (
+            configure_round_robin,
+            save_round_robin_draw,
+            group_standings,
+            preview_group_tie,
+            confirm_group_tie,
+        )
+        from competitions.commands import finalize_match
+        from competitions.qualification import stage_qualification
+
+        source, destination = self._chain(
+            source_format="ROUND_ROBIN", size=3, advance_count=2, publish=False
+        )
+        configure_round_robin(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            name="Stage1",
+            meetings=1,
+            series_mode="FIXED_GAMES",
+            default_series_length=2,
+            win_points=3,
+            draw_points=1,
+            loss_points=0,
+            tiebreaks=[],
+        )
+        self.competition.refresh_from_db()
+        source = save_round_robin_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            group_specs=[("A", 2)],
+            ordered_entrant_ids=list(
+                source.entries.values_list("entrant_id", flat=True)
+            ),
+        )
+        self.competition.refresh_from_db()
+        publish_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+        )
+        ordinary = list(Match.objects.filter(round__draw=source).order_by("pk"))
+        for match in ordinary:
+            self.competition.refresh_from_db()
+            finalize_match(
+                actor=self.actor,
+                match_id=match.pk,
+                expected_revision=self.competition.revision,
+                outcome="PLAYED",
+                side_one_score=1,
+                side_two_score=1,
+            )
+        self.competition.refresh_from_db()
+        group = source.groups.get()
+        tie = group_standings(group)["cutoff_ties"][0]
+        preview = preview_group_tie(
+            actor=self.actor,
+            group_id=group.pk,
+            expected_revision=self.competition.revision,
+            tied_entry_ids=tie["entry_ids"],
+            method="MANUAL",
+            ordered_entry_ids=tie["entry_ids"],
+        )
+        confirm_group_tie(
+            actor=self.actor, token=preview["token"], internal_reason="Cutoff choice"
+        )
+        before = set(stage_qualification(source)["qualifier_entry_ids"])
+        self.competition.refresh_from_db()
+        draw = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        publish_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        self._finish(draw)
+        match = ordinary[0]
+        self.assertIn(match.slots.get(position=1).resolved_entry_id, before)
+        self.assertNotIn(match.slots.get(position=2).resolved_entry_id, before)
+        preview = preview_correction(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=2,
+            side_two_score=0,
+        )
+        self.assertEqual(set(preview["group_impact"]["after"]["qualifiers"]), before)
+        self.assertEqual(preview["handoff_impact"]["superseded_draw_ids"], [draw.pk])
+        self.assertEqual(preview["handoff_impact"]["retained_draw_ids"], [])
