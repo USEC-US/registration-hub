@@ -2,8 +2,9 @@
 
 Date: 2026-10-09. Branch: `feat/tournament-brackets`.
 
-Status: **Conversational design approved; written specification awaiting review.**
-This document defines proposed behavior, not completed implementation.
+Status: **Written specification approved for implementation planning.**
+Approved: 2026-10-09. This document defines proposed behavior, not completed
+implementation.
 
 This is the next supported-format slice of the
 [competition core design](2026-09-23-competition-core-design.md). For this slice,
@@ -34,6 +35,8 @@ The user approved:
   not determine destination slots or byes; same-group rematches are permitted.
 - Draw generation, preview, and publication are separate from entering the last
   source result. Refresh never creates or reshuffles fixtures.
+- Newly generated matches use the stage name and draw-wide numbering, such as
+  `Groups1-M1` and `Playoffs-M1`.
 - Corrections preserve an existing later draw when its source remains complete
   and the qualified entrant set remains valid and unchanged. Otherwise affected
   downstream draws require explicit retirement and replacement, with history
@@ -224,7 +227,8 @@ needed.
 | StageDraw | Add a protected preceding source-draw link and qualifying-input fingerprint for later draws. Creation/history records the confirmed handoff; no independent handoff workflow record is required. |
 | StageEntry | Reuse `source_entry` to link each advanced entrant to the preceding draw, and `seed` to retain its saved random position. |
 | TieResolution | Add draw ownership and make group scope optional, supporting elimination placement bands as well as existing group cutoffs. Backfill draw ownership from existing groups. |
-| Round, Match, MatchSlot, ChangeSet | Reuse tiebreak sections, normal match operations, stable identifiers, and attributable private/public history. |
+| Match | Store readable stage-prefixed labels for new fixtures; remove global code uniqueness and allow a full stage name plus match suffix. Numeric IDs and round-local match numbers retain their existing identity constraints. |
+| Round, MatchSlot, ChangeSet | Reuse tiebreak sections, normal match operations, stable identifiers, and attributable private/public history. |
 
 Stage-owned group plans are needed to validate and freeze arbitrary future group
 partitions before source completion. They are setup rules, not empty placeholder
@@ -272,6 +276,24 @@ current advancement. Reuse consistent snapshots and revision-mismatch handling.
 
 ## 7. Organizer and public presentation
 
+### Match labels
+
+For each newly generated draw, save codes as `{stage.name}-M{ordinal}`, starting
+at 1 in fixture creation order. Number continuously across all groups, rounds,
+and bracket sections, including structural bye and conditional-final fixtures.
+Extra matches continue after the draw's existing matches, including retained
+superseded tie fixtures; they never reuse a number within that draw. A replacement
+draw starts at 1 again.
+
+Codes are display labels. Different competitions, identically named stages, and
+replacement draws may share a label. Routes, dependencies, actions, and history
+references use existing numeric IDs and stage/draw context, including the
+historical label for retired fixtures. Preserve every existing stored code,
+including legacy labels, without renumbering or rewriting history. Use the
+configured stage name directly; no additional prefix setting is needed.
+
+### Stage views
+
 Keep the current Unfold Competition workspace and add stage selection. Before
 first publication, setup shows the full stage order, formats, group sizes,
 advancement counts, expected incoming counts, and validation failures. The
@@ -299,7 +321,8 @@ mutation endpoint or new frontend admin application is added.
 
 ## 8. Compatibility, migration, and scope
 
-Migrations are additive except for the supported nullable group scope on ties.
+Migrations are additive except for the supported nullable group scope on ties
+and the display-code length/global-uniqueness changes.
 Backfill group plans for current Round Robin setup and draw ownership for
 existing TieResolution rows without regenerating draws or fixtures. Retain
 published match IDs, results, display snapshots, histories, and existing quotas.
@@ -346,6 +369,7 @@ saved permutations, and complete required source play.
 | Unauthorized or cross-stage/direct-URL operations | Enforce permissions, current-draw identity, CSRF, scope, and revision checks. |
 | Public privacy and coherent snapshots | No draft/actor/private-data leakage; no mixed-revision advancement; historical published records remain readable. |
 | Migration from existing saved competitions | Preserve published IDs, fixtures, scores, quotas, and histories; maintain one current draw per stage. |
+| Stage-prefixed match labels | Number once per draw across groups/sections; append extra-match numbers; repeated names and replacement labels work through distinct IDs; preserve legacy codes. |
 
 Run focused PostgreSQL command/concurrency, model/migration, API/privacy, and
 organizer tests; relevant frontend type/build and stage-selection tests; and one
@@ -357,7 +381,8 @@ without substituting a broader completion claim.
 
 ## 10. Written review handoff
 
-Review this specification before writing the implementation plan. No product
-code, migrations, or new runtime tests have been changed. The plan will break
-the reviewed design into the responsible model, command, format, organizer,
-public, fixture, and verification changes.
+The written specification was approved on 2026-10-09. The
+[implementation plan](../plans/2026-10-09-multi-stage-competition.md) maps the
+reviewed design to model, command, format, organizer, public, fixture, and
+verification changes. Execution waits for plan review and an execution-method
+choice. No product code, migrations, or new runtime tests have been changed.
