@@ -38,6 +38,7 @@ from .models import (
     Stage,
     StageDraw,
     StageEntry,
+    TieResolution,
 )
 
 CORRECTION_SALT = "competitions.correction"
@@ -654,7 +655,18 @@ def _lock_match(match_id: int) -> tuple[Competition, Match]:
     list(MatchSlot.objects.select_for_update().filter(match=match).order_by("position"))
     if match.round.draw.state != StageDraw.State.PUBLISHED:
         raise ValidationError("Only published matches can be operated.")
+    _check_current_tie_match(match)
     return competition, match
+
+
+def _check_current_tie_match(match):
+    if (
+        match.round.tie_resolution_id
+        and match.round.tie_resolution.state == TieResolution.State.SUPERSEDED
+    ):
+        raise ValidationError(
+            "Superseded tie contests are historical and cannot be operated."
+        )
 
 
 def schedule_match(
@@ -704,11 +716,20 @@ def set_round_series_length(
         )
         if round_.draw.state != StageDraw.State.PUBLISHED:
             raise ValidationError("Only a published round can be changed.")
+        if (
+            round_.tie_resolution_id
+            and round_.tie_resolution.state == TieResolution.State.SUPERSEDED
+        ):
+            raise ValidationError("Superseded tie rounds are historical.")
+        inherited_length = (
+            series_length
+            if series_length is not None
+            else round_.draw.stage.default_series_length
+        )
         _validate_series_length(
             round_.series_mode_override or round_.draw.stage.series_mode,
-            series_length or round_.draw.stage.default_series_length,
+            inherited_length,
         )
-        inherited_length = series_length or round_.draw.stage.default_series_length
         if (
             round_.matches.filter(
                 started_at__isnull=False,
@@ -1156,6 +1177,7 @@ def _correction_payload(
     side_two_score: int | None,
     winner_position: int | None,
 ) -> tuple[dict, StageEntry | None, list[Match]]:
+    _check_current_tie_match(match)
     if match.status != Match.Status.FINAL or match.outcome in (
         Match.Outcome.BYE,
         Match.Outcome.EMPTY,
@@ -1168,11 +1190,24 @@ def _correction_payload(
         side_two_score=side_two_score,
         winner_position=winner_position,
     )
-    affected, impacts, reset_changes = _project_correction(
-        match,
-        outcome=outcome,
-        winner_id=winner.pk if winner else None,
-    )
+    group_impact = None
+    if match.round.draw.stage.format == Stage.Format.ROUND_ROBIN:
+        from .round_robin_commands import project_group_correction
+
+        group_impact = project_group_correction(
+            match,
+            outcome=outcome,
+            side_one_score=side_one_score,
+            side_two_score=side_two_score,
+            winner_entry_id=winner.pk if winner else None,
+        )
+        affected, impacts, reset_changes = [], [], []
+    else:
+        affected, impacts, reset_changes = _project_correction(
+            match,
+            outcome=outcome,
+            winner_id=winner.pk if winner else None,
+        )
     payload = {
         "competition_id": match.round.draw.stage.competition_id,
         "revision": competition_revision,
@@ -1185,6 +1220,7 @@ def _correction_payload(
         "before": _match_snapshot(match),
         "match_impacts": impacts,
         "reset_final_changes": reset_changes,
+        "group_impact": group_impact,
     }
     return payload, winner, affected
 
@@ -1238,6 +1274,7 @@ def _correction_preview_response(
         "affected_matches": [_match_snapshot(item) for item in affected],
         "match_impacts": payload["match_impacts"],
         "reset_final_changes": payload["reset_final_changes"],
+        "group_impact": payload["group_impact"],
     }
 
 
@@ -1356,6 +1393,10 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "completed_at",
             )
         )
+        if current["group_impact"]:
+            from .round_robin_commands import apply_group_correction_impact
+
+            apply_group_correction_impact(match, current["group_impact"])
         _propagate_completed_match(match)
         _resolve_automatic_matches(match.round.draw)
         _update_stage_completion(match.round.draw)
@@ -1370,6 +1411,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "after": _match_snapshot(match),
                 "reset_matches": reset_snapshots,
                 "reset_final_changes": current["reset_final_changes"],
+                "group_impact": current["group_impact"],
             },
             public_data={
                 "kind": "result_corrected",
@@ -1379,6 +1421,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "after": _match_snapshot(match),
                 "reset_matches": reset_snapshots,
                 "reset_final_changes": current["reset_final_changes"],
+                "group_impact": current["group_impact"],
             },
         )
         return match

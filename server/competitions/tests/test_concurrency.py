@@ -149,9 +149,7 @@ class CompetitionConcurrencyTests(TransactionTestCase):
         match.refresh_from_db()
         self.assertEqual(sorted(results), ["denied", "ok"])
         self.assertEqual(match.status, Match.Status.FINAL)
-        self.assertEqual(
-            competition.changes.filter(kind="match_finalized").count(), 1
-        )
+        self.assertEqual(competition.changes.filter(kind="match_finalized").count(), 1)
 
     def test_stale_revision_cannot_start_after_schedule_change(self):
         competition, draw = self._saved_draw()
@@ -211,9 +209,7 @@ class CompetitionConcurrencyTests(TransactionTestCase):
         self.assertEqual(sorted(results), ["denied", "ok"])
         self.assertEqual(match.side_one_score, 0)
         self.assertEqual(match.side_two_score, 2)
-        self.assertEqual(
-            competition.changes.filter(kind="result_corrected").count(), 1
-        )
+        self.assertEqual(competition.changes.filter(kind="result_corrected").count(), 1)
 
     def test_approval_and_publication_share_the_division_lock(self):
         competition, draw = self._saved_draw(publish=False)
@@ -349,3 +345,115 @@ class CompetitionConcurrencyTests(TransactionTestCase):
             ),
         )
         self.assertEqual(Stage.objects.get(pk=draw.stage_id).status, "IN_PROGRESS")
+
+
+class RoundRobinConcurrencyTests(CompetitionConcurrencyTests):
+    def _tied_group(self):
+        from competitions.round_robin_commands import (
+            configure_round_robin,
+            save_round_robin_draw,
+            preview_group_tie,
+        )
+
+        competition = create_competition(
+            actor=self.actor, tournament_game_id=self.division.pk
+        )
+        configure_round_robin(
+            actor=self.actor,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            name="Groups",
+            meetings=1,
+            series_mode="FIXED_GAMES",
+            default_series_length=2,
+            win_points=3,
+            draw_points=1,
+            loss_points=0,
+            tiebreaks=[],
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=self.actor,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[r.pk for r in self.registrations],
+        )
+        competition.refresh_from_db()
+        draw = save_round_robin_draw(
+            actor=self.actor,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            group_specs=[("A", 1)],
+            ordered_entrant_ids=[e.pk for e in entrants],
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=self.actor,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+        )
+        competition.refresh_from_db()
+        match = Match.objects.get(round__draw=draw)
+        finalize_match(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=competition.revision,
+            outcome="PLAYED",
+            side_one_score=1,
+            side_two_score=1,
+        )
+        competition.refresh_from_db()
+        ids = list(draw.entries.values_list("pk", flat=True))
+        preview = preview_group_tie(
+            actor=self.actor,
+            group_id=draw.groups.get().pk,
+            expected_revision=competition.revision,
+            tied_entry_ids=ids,
+            method="MANUAL",
+            ordered_entry_ids=ids,
+        )
+        return competition, match, preview
+
+    def test_concurrent_tie_confirmation_records_one_decision(self):
+        from competitions.round_robin_commands import confirm_group_tie
+
+        competition, match, preview = self._tied_group()
+        revision = competition.revision
+        results = self._race(
+            *(
+                lambda: confirm_group_tie(
+                    actor=self.actor,
+                    token=preview["token"],
+                    internal_reason="Confirmed",
+                )
+                for _ in range(2)
+            )
+        )
+        self.assertEqual(sorted(results), ["denied", "ok"])
+        competition.refresh_from_db()
+        self.assertEqual(competition.revision, revision + 1)
+        self.assertEqual(
+            competition.changes.filter(kind="group_tie_confirmed").count(), 1
+        )
+
+    def test_correction_and_tie_confirmation_use_one_revision(self):
+        from competitions.round_robin_commands import confirm_group_tie
+
+        competition, match, preview = self._tied_group()
+        correction = preview_correction(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=competition.revision,
+            outcome="PLAYED",
+            side_one_score=2,
+            side_two_score=0,
+        )
+        results = self._race(
+            lambda: confirm_group_tie(
+                actor=self.actor, token=preview["token"], internal_reason="Choice"
+            ),
+            lambda: apply_correction(
+                actor=self.actor, token=correction["token"], internal_reason="Typo"
+            ),
+        )
+        self.assertEqual(sorted(results), ["denied", "ok"])
