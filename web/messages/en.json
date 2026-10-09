@@ -370,7 +370,7 @@
 	"bracket_change_match_series": "Match {code} series length updated",
 	"bracket_change_match_started": "Match {code} started",
 	"bracket_change_score": "Match {code} live score updated",
-	"bracket_change_match_finalized": "Match {code} finalized",
+	"bracket_change_match_finalized": "Match {code} has ended",
 	"bracket_change_result_corrected": "Match {code} result corrected",
 	"bracket_upper": "Upper bracket",
 	"bracket_lower": "Lower bracket",

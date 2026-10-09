@@ -235,7 +235,7 @@ describe('public bracket page', () => {
 
 		await expect.element(page.getByText('Complete', { exact: true })).toBeVisible();
 		await expect.element(page.getByRole('heading', { name: 'Champion' })).toBeVisible();
-		await expect.element(page.getByText('Match R1M1 result corrected')).toBeVisible();
+		await expect.element(page.getByText('Match M1 (Final) result corrected')).toBeVisible();
 		await completeRender.unmount();
 
 		complete.stages[0].champion = null;
@@ -258,8 +258,8 @@ describe('public bracket page', () => {
 				.element(page.getByRole('heading', { name: 'Lower bracket' }).last())
 				.toBeVisible();
 			await expect.element(page.getByRole('heading', { name: 'Finals' }).last()).toBeVisible();
-			await expect.element(page.getByText('Loser of U1').last()).toBeVisible();
-			await expect.element(page.getByText('Winner of U1').last()).toBeVisible();
+			await expect.element(page.getByText('Loser of M1', { exact: true }).last()).toBeVisible();
+			await expect.element(page.getByText('Winner of M1', { exact: true }).last()).toBeVisible();
 			await expect.element(page.getByText(label, { exact: true }).last()).toBeVisible();
 			await expect
 				.element(
@@ -272,11 +272,109 @@ describe('public bracket page', () => {
 		}
 	});
 
+	it('numbers single-elimination matches across rounds and includes byes', async () => {
+		const value = structuredClone(competition);
+		const stage = value.stages[0];
+		const firstRound = stage.rounds[0];
+		const firstMatch = firstRound.matches[0];
+		firstMatch.status = 'FINAL';
+		firstMatch.outcome = 'BYE';
+		firstMatch.slots[1].is_empty = true;
+		firstMatch.slots[1].entry = null;
+		firstRound.matches.push({ ...structuredClone(firstMatch), id: 5, code: 'R1M2', number: 2 });
+		stage.rounds.push({
+			...structuredClone(firstRound),
+			id: 6,
+			number: 2,
+			matches: [{ ...structuredClone(firstMatch), id: 7, code: 'R2M1', number: 1 }]
+		});
+		const { container } = render(BracketPage, { data: data(value) } as never);
+
+		for (const layout of ['desktop', 'mobile']) {
+			expect(
+				Array.from(container.querySelectorAll(`.${layout}-bracket article h3`), (heading) =>
+					heading.textContent?.trim()
+				)
+			).toEqual(['M1', 'M2', 'M3']);
+		}
+		expect(container.textContent).toContain('Match M1 (Round 1) result corrected');
+		expect(container.querySelector('article ul')).toHaveAttribute(
+			'aria-label',
+			'Entrants for match M1'
+		);
+	});
+
+	it.each(['en', 'vi'] as const)(
+		'uses one sequence for every double-elimination section and log action in %s',
+		async (locale) => {
+			overwriteGetLocale(() => locale);
+			const value = doubleElimination('CONDITIONAL');
+			const rounds = value.stages[0].rounds;
+			const upper = rounds[0];
+			upper.matches.push({ ...structuredClone(upper.matches[0]), id: 35, code: 'U2', number: 2 });
+			const upperFinal = {
+				...structuredClone(upper),
+				id: 25,
+				number: 2,
+				matches: [{ ...structuredClone(upper.matches[0]), id: 36, code: 'U3', number: 1 }]
+			};
+			// The API orders rounds by round number, interleaving bracket sections.
+			value.stages[0].rounds = [...rounds.slice(0, 3), upperFinal, rounds[3]];
+			const log = structuredClone(changes);
+			log.results = [
+				'match_scheduled',
+				'match_series_length_changed',
+				'match_started',
+				'match_progress_saved',
+				'match_finalized',
+				'result_corrected'
+			].map((kind, index) => ({
+				...log.results[0],
+				kind,
+				revision: index + 1,
+				match_id: 31,
+				match_code: 'U1'
+			}));
+			log.results.push({ ...log.results[4], revision: 7, match_id: 34, match_code: 'F2' });
+			const { container } = render(BracketPage, {
+				data: { ...data(value), changes: log }
+			} as never);
+
+			for (const layout of ['desktop', 'mobile']) {
+				expect(
+					Array.from(container.querySelectorAll(`.${layout}-bracket article h3`), (heading) =>
+						heading.textContent?.trim()
+					)
+				).toEqual(['M1', 'M2', 'M3', 'M4', 'M5', 'M6']);
+			}
+			const logItems = container.querySelectorAll(
+				'section[aria-labelledby="bracket-changes-heading"] > ol > li'
+			);
+			for (const item of Array.from(logItems).slice(0, 6)) {
+				expect(item.textContent).toContain(
+					locale === 'en' ? 'M1 (Upper bracket Round 1)' : 'M1 (Nhánh thắng Vòng 1)'
+				);
+			}
+			expect(logItems[4].textContent).toContain(
+				locale === 'en'
+					? 'Match M1 (Upper bracket Round 1) has ended'
+					: 'Trận M1 (Nhánh thắng Vòng 1) đã kết thúc'
+			);
+			expect(logItems[6].textContent).toContain(
+				locale === 'en'
+					? 'Match M6 (Reset final) has ended'
+					: 'Trận M6 (Chung kết tái đấu) đã kết thúc'
+			);
+		}
+	);
+
 	it.each(['en', 'vi'] as const)('renders retained correction snapshots in %s', async (locale) => {
 		overwriteGetLocale(() => locale);
 		const correctionChanges = structuredClone(changes);
 		correctionChanges.results[0] = {
 			...correctionChanges.results[0],
+			match_id: 33,
+			match_code: 'F1',
 			before: {
 				match_id: 33,
 				match_code: 'F1',
@@ -345,18 +443,18 @@ describe('public bracket page', () => {
 				? [
 						'Before: Played · Blue Team 2–0 Red Team · Blue Team won',
 						'After: Double forfeit · Blue Team 1–0 Red Team · No winner',
-						'F2: Played · Blue Team 2–1 Red Team · Blue Team won',
-						'L1: Live · Blue Team 1–— Red Team · No winner',
-						'Affected matches: F2, L1',
-						'F2: If needed → Active'
+						'M4: Played · Blue Team 2–1 Red Team · Blue Team won',
+						'M2: Live · Blue Team 1–— Red Team · No winner',
+						'Affected matches: M4, M2',
+						'M4: If needed → Active'
 					]
 				: [
 						'Trước: Đã thi đấu · Blue Team 2–0 Red Team · Blue Team thắng',
 						'Sau: Cả hai bị xử thua · Blue Team 1–0 Red Team · Không có đội thắng',
-						'F2: Đã thi đấu · Blue Team 2–1 Red Team · Blue Team thắng',
-						'L1: Trực tiếp · Blue Team 1–— Red Team · Không có đội thắng',
-						'Các trận bị ảnh hưởng: F2, L1',
-						'F2: Nếu cần → Đang áp dụng'
+						'M4: Đã thi đấu · Blue Team 2–1 Red Team · Blue Team thắng',
+						'M2: Trực tiếp · Blue Team 1–— Red Team · Không có đội thắng',
+						'Các trận bị ảnh hưởng: M4, M2',
+						'M4: Nếu cần → Đang áp dụng'
 					];
 		for (const summary of expected) expect.soft(container.textContent).toContain(summary);
 	});
@@ -367,6 +465,6 @@ describe('public bracket page', () => {
 
 		await expect.element(page.getByRole('heading', { name: 'Valorant · Nhánh đấu' })).toBeVisible();
 		await expect.element(page.getByText('Đang diễn ra', { exact: true })).toBeVisible();
-		await expect.element(page.getByText('Đã sửa kết quả trận R1M1')).toBeVisible();
+		await expect.element(page.getByText('Đã sửa kết quả trận M1 (Chung kết)')).toBeVisible();
 	});
 });
