@@ -41,6 +41,10 @@ const competition: PublicCompetition = {
 					id: 3,
 					number: 1,
 					section: 'main',
+					group_id: null,
+					tie_resolution_id: null,
+					effective_series_mode: 'BEST_OF',
+					resting_entry: null,
 					series_length_override: null,
 					matches: [
 						{
@@ -127,6 +131,7 @@ function doubleElimination(resetStatus: 'CONDITIONAL' | 'PENDING' | 'NOT_REQUIRE
 	});
 	stage.rounds = [
 		{
+			...structuredClone(stage.rounds[0]),
 			id: 21,
 			number: 1,
 			section: 'UPPER',
@@ -134,6 +139,7 @@ function doubleElimination(resetStatus: 'CONDITIONAL' | 'PENDING' | 'NOT_REQUIRE
 			matches: [match(31, 'U1', 'PENDING')]
 		},
 		{
+			...structuredClone(stage.rounds[0]),
 			id: 22,
 			number: 1,
 			section: 'LOWER',
@@ -141,6 +147,7 @@ function doubleElimination(resetStatus: 'CONDITIONAL' | 'PENDING' | 'NOT_REQUIRE
 			matches: [match(32, 'L1', 'PENDING', 31, 'LOSER')]
 		},
 		{
+			...structuredClone(stage.rounds[0]),
 			id: 23,
 			number: 1,
 			section: 'FINALS',
@@ -148,6 +155,7 @@ function doubleElimination(resetStatus: 'CONDITIONAL' | 'PENDING' | 'NOT_REQUIRE
 			matches: [match(33, 'F1', 'PENDING', 31, 'WINNER')]
 		},
 		{
+			...structuredClone(stage.rounds[0]),
 			id: 24,
 			number: 2,
 			section: 'FINALS',
@@ -469,5 +477,158 @@ describe('public bracket page', () => {
 		await expect.element(page.getByRole('heading', { name: 'Valorant · Nhánh đấu' })).toBeVisible();
 		await expect.element(page.getByText('Đang diễn ra', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Đã sửa kết quả trận M1 (Chung kết)')).toBeVisible();
+	});
+});
+
+function roundRobinCompetition() {
+	const value = structuredClone(competition);
+	const stage = value.stages[0];
+	stage.format = 'ROUND_ROBIN';
+	stage.series_mode = 'FIXED_GAMES';
+	stage.default_series_length = 2;
+	stage.status = 'AWAITING';
+	stage.round_robin_rules = {
+		meetings: 1,
+		win_points: '2.50',
+		draw_points: '0.75',
+		loss_points: '0.25',
+		tiebreaks: ['HEAD_TO_HEAD', 'GAME_DIFFERENCE']
+	};
+	const entries = [
+		stage.rounds[0].matches[0].slots[0].entry!,
+		stage.rounds[0].matches[0].slots[1].entry!,
+		{ id: 13, seed: 3, display_name: 'Green Team', display_tag: '' }
+	];
+	stage.entries = entries;
+	stage.groups = [1, 2].map((id) => ({
+		id,
+		number: id,
+		name: id === 1 ? 'Alpha' : 'Beta',
+		qualifying_places: 1,
+		entries:
+			id === 1
+				? entries
+				: [
+						...entries,
+						{ id: 14, seed: 4, display_name: 'Gold Team', display_tag: '' },
+						{ id: 15, seed: 5, display_name: 'Silver Team', display_tag: '' }
+					],
+		round_ids: id === 1 ? [3, 10] : [],
+		standings: entries.map((entry) => ({
+			entry,
+			rank: 1,
+			played: 2,
+			wins: 0,
+			draws: 2,
+			losses: 0,
+			points: '1.50',
+			games_won: 2,
+			game_difference: 0,
+			qualification: 'TIED' as const
+		})),
+		qualifiers: [],
+		qualification_state: 'AWAITING_RESOLUTION' as const,
+		tie_resolutions:
+			id === 1
+				? [
+						{
+							id: 8,
+							parent_id: null,
+							method: 'EXTRA_MATCHES' as const,
+							state: 'SUPERSEDED' as const,
+							tied_entries: entries,
+							places: 1,
+							ordered_entries: [],
+							round_ids: [10]
+						}
+					]
+				: []
+	}));
+	const round = stage.rounds[0];
+	round.group_id = 1;
+	round.effective_series_mode = 'FIXED_GAMES';
+	round.resting_entry = entries[2];
+	Object.assign(round.matches[0], {
+		status: 'FINAL',
+		outcome: 'PLAYED',
+		winner: null,
+		side_one_score: 1,
+		side_two_score: 1,
+		effective_series_mode: 'FIXED_GAMES',
+		effective_series_length: 2
+	});
+	stage.rounds.push({
+		...structuredClone(round),
+		id: 10,
+		section: 'TIEBREAK',
+		tie_resolution_id: 8,
+		resting_entry: null,
+		effective_series_mode: 'BEST_OF',
+		matches: [
+			{
+				...structuredClone(round.matches[0]),
+				id: 99,
+				historical: true,
+				effective_series_mode: 'BEST_OF',
+				effective_series_length: 1,
+				side_one_score: 1,
+				side_two_score: 0,
+				winner: entries[0]
+			}
+		]
+	});
+	return value;
+}
+
+describe('public round robin groups', () => {
+	it.each(['en', 'vi'] as const)(
+		'shows tied ranks, decimal points, fixed draws, rests and retained contests in %s',
+		async (locale) => {
+			overwriteGetLocale(() => locale);
+			const { container } = render(BracketPage, { data: data(roundRobinCompetition()) } as never);
+			await expect.element(page.getByRole('table')).toBeVisible();
+			expect(container.querySelectorAll('tbody tr')).toHaveLength(3);
+			expect(
+				Array.from(container.querySelectorAll('tbody tr td:first-child'), (cell) =>
+					cell.textContent?.trim()
+				)
+			).toEqual(['1', '1', '1']);
+			expect(container.textContent).toContain('1.50');
+			expect(container.textContent).toContain(locale === 'en' ? 'Fixed 2 games' : 'Cố định 2 ván');
+			expect(container.textContent).toContain(
+				locale === 'en' ? 'Rest: Green Team' : 'Nghỉ lượt: Green Team'
+			);
+			expect(container.textContent).toContain(locale === 'en' ? 'Draw' : 'Hòa');
+			expect(container.textContent).toContain(locale === 'en' ? 'Historical' : 'Lịch sử');
+			expect(container.textContent).toContain(
+				locale === 'en' ? 'Awaiting qualification resolution' : 'Chờ phân định suất đi tiếp'
+			);
+			const selector = container.querySelector<HTMLSelectElement>('select')!;
+			expect(selector.options).toHaveLength(2);
+			selector.focus();
+			expect(document.activeElement).toBe(selector);
+		}
+	);
+
+	it('shows an explicit manual qualifier after refreshed data', async () => {
+		const value = roundRobinCompetition();
+		const group = value.stages[0].groups[0];
+		group.qualification_state = 'RESOLVED';
+		group.qualifiers = [group.entries[2]];
+		group.standings[2].qualification = 'QUALIFIED';
+		group.tie_resolutions.push({
+			id: 9,
+			parent_id: null,
+			method: 'MANUAL',
+			state: 'CONFIRMED',
+			tied_entries: group.entries,
+			places: 1,
+			ordered_entries: [group.entries[2], ...group.entries.slice(0, 2)],
+			round_ids: []
+		});
+		render(BracketPage, { data: data(value) } as never);
+		await expect.element(page.getByText('Qualified', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Organizer decision', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Green Team → Blue Team → Red Team')).toBeVisible();
 	});
 });

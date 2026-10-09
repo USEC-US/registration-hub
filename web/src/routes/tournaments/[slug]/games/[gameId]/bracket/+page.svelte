@@ -11,6 +11,9 @@
 		PublicCompetitionRound
 	} from '$lib/api/types';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
+	import * as Alert from '$lib/components/ui/alert';
 	import { localizeInternalHref } from '$lib/navigation';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
@@ -18,6 +21,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let groupId = $state('');
 	const doubleSections = ['UPPER', 'LOWER', 'FINALS'] as const;
 
 	const tournamentHref = $derived(resolve(localizeInternalHref(`/tournaments/${data.slug}`)));
@@ -36,7 +40,9 @@
 			: stage.rounds;
 		for (const round of rounds) {
 			const roundName =
-				!isDouble && round === rounds.at(-1) ? m.bracket_final_round() : roundLabel(round);
+				stage.format === 'SINGLE_ELIMINATION' && round === rounds.at(-1)
+					? m.bracket_final_round()
+					: roundLabel(round);
 			const context =
 				isDouble && round.section !== 'FINALS'
 					? `${sectionLabel(round.section)} ${roundName}`
@@ -103,6 +109,8 @@
 		const label = change.match_id === undefined ? undefined : matchLabels.get(change.match_id);
 		const code = label ? `${label.code} (${label.round})` : (change.match_code ?? '');
 		switch (change.kind) {
+			case 'group_tie_confirmed':
+				return m.bracket_tie_confirmed_change({ group: change.group_name ?? '' });
 			case 'draw_published':
 				return m.bracket_change_draw_published();
 			case 'match_scheduled':
@@ -145,9 +153,12 @@
 	function snapshotSummary(snapshot: PublicCompetitionMatchSnapshot): string {
 		if (!snapshot.winner) {
 			return m.bracket_change_result_no_winner({
-				outcome: snapshot.outcome
-					? outcomeLabel(snapshot.outcome)
-					: matchStatusLabel(snapshot.status),
+				outcome:
+					snapshot.outcome === 'PLAYED' && snapshot.applied_series_mode === 'FIXED_GAMES'
+						? m.bracket_draw()
+						: snapshot.outcome
+							? outcomeLabel(snapshot.outcome)
+							: matchStatusLabel(snapshot.status),
 				sideOne: snapshot.side_one ?? m.bracket_tbd(),
 				sideOneScore: snapshot.side_one_score ?? '—',
 				sideTwoScore: snapshot.side_two_score ?? '—',
@@ -192,6 +203,53 @@
 			case 'NOT_REQUIRED':
 				return m.bracket_match_not_required();
 		}
+	}
+
+	function qualificationLabel(value: string): string {
+		switch (value) {
+			case 'PROVISIONAL':
+				return m.bracket_provisional();
+			case 'TIED':
+				return m.bracket_tied();
+			case 'QUALIFIED':
+				return m.bracket_qualified();
+			case 'NOT_QUALIFIED':
+				return m.bracket_not_qualified();
+			case 'RESOLVED':
+			case 'CONFIRMED':
+				return m.bracket_qualification_resolved();
+			case 'SUPERSEDED':
+				return m.bracket_historical();
+			default:
+				return m.bracket_awaiting_qualification();
+		}
+	}
+
+	function ruleLabel(rule: string): string {
+		switch (rule) {
+			case 'HEAD_TO_HEAD':
+				return m.bracket_head_to_head();
+			case 'MATCH_WINS':
+				return m.bracket_match_wins();
+			case 'GAME_DIFFERENCE':
+				return m.bracket_game_difference();
+			case 'GAMES_WON':
+				return m.bracket_games_won();
+			default:
+				return rule;
+		}
+	}
+	function entryNames(ids: number[]): string {
+		if (data.state !== 'ready') return '';
+		return (
+			ids
+				.map(
+					(id) =>
+						data.competition.stages[0].entries.find((entry) => entry.id === id)?.display_name ?? ''
+				)
+				.filter(Boolean)
+				.join(', ') || m.bracket_awaiting_qualification()
+		);
 	}
 </script>
 
@@ -238,7 +296,14 @@
 			<footer
 				class="flex flex-wrap justify-between gap-2 border-t px-3 py-2 text-xs text-muted-foreground"
 			>
-				<span>{m.bracket_best_of({ count: match.effective_series_length })}</span>
+				<span
+					>{match.effective_series_mode === 'FIXED_GAMES'
+						? m.bracket_fixed_games({ count: match.effective_series_length })
+						: m.bracket_best_of({ count: match.effective_series_length })}</span
+				>
+				{#if match.status === 'FINAL' && match.outcome === 'PLAYED' && !match.winner && match.effective_series_mode === 'FIXED_GAMES'}<Badge
+						variant="secondary">{m.bracket_draw()}</Badge
+					>{/if}
 				{#if match.scheduled_at}
 					<time datetime={match.scheduled_at}>
 						{formatTournamentDateTime(match.scheduled_at, getLocale(), data.displayTimeZone)}
@@ -251,7 +316,7 @@
 	</li>
 {/snippet}
 
-<main class="mx-auto flex max-w-7xl flex-col gap-8">
+<main class="mx-auto flex min-w-0 max-w-7xl flex-col gap-8">
 	<a
 		class="w-fit text-sm font-medium text-primary underline underline-offset-4"
 		href={tournamentHref}
@@ -285,10 +350,15 @@
 				</h1>
 				<p class="mt-2 text-muted-foreground">{stage.name}</p>
 			</div>
-			<Badge variant="outline" class="w-fit">{stageStatusLabel(stage.status)}</Badge>
+			<div class="flex items-center gap-3">
+				<Badge variant="outline" class="w-fit">{stageStatusLabel(stage.status)}</Badge><Button
+					variant="outline"
+					href={bracketHref}>{m.bracket_refresh()}</Button
+				>
+			</div>
 		</header>
 
-		{#if stage.champion || stage.completed_without_champion}
+		{#if stage.format !== 'ROUND_ROBIN' && (stage.champion || stage.completed_without_champion)}
 			<section
 				class="rounded-xl border border-primary/40 bg-primary/5 p-5"
 				aria-labelledby="champion-heading"
@@ -302,44 +372,194 @@
 			</section>
 		{/if}
 
-		<section aria-labelledby="bracket-rounds-heading">
-			<div class="mb-4 flex items-end justify-between gap-4">
-				<h2 id="bracket-rounds-heading" class="font-heading text-2xl font-semibold">
-					{m.bracket_rounds()}
+		{#if stage.format === 'ROUND_ROBIN' && stage.round_robin_rules}
+			{@const rules = stage.round_robin_rules}
+			{@const group = stage.groups.find((g) => String(g.id) === groupId) ?? stage.groups[0]}
+			<section aria-labelledby="group-rules-heading" class="flex flex-col gap-3">
+				<h2 id="group-rules-heading" class="font-heading text-2xl font-semibold">
+					{m.bracket_rules()}
 				</h2>
-				<p class="text-sm text-muted-foreground">
-					{m.bracket_entries({ count: stage.entries.length })}
+				<p>
+					{m.bracket_meetings({ count: rules.meetings })} · {m.bracket_match_points({
+						win: rules.win_points,
+						draw: rules.draw_points,
+						loss: rules.loss_points
+					})}
 				</p>
-			</div>
-
-			{#if stage.format === 'DOUBLE_ELIMINATION'}
-				<p class="mb-6 text-sm text-muted-foreground">
-					{stage.grand_final_policy === 'RESET'
-						? m.bracket_reset_policy()
-						: m.bracket_no_reset_policy()}
+				<p>
+					{rules.tiebreaks.length
+						? rules.tiebreaks.map(ruleLabel).join(' → ')
+						: m.bracket_no_tiebreaks()}
 				</p>
-				{#each doubleSections as section (section)}
-					{@const rounds = stage.rounds.filter((round) => round.section === section)}
-					{#if rounds.length}
-						<section class="mb-8" aria-labelledby={`section-${section.toLowerCase()}`}>
-							<h3
-								id={`section-${section.toLowerCase()}`}
-								class="font-heading mb-4 text-xl font-semibold"
+				<p class="text-sm text-muted-foreground">{m.bracket_rules_help()}</p>
+			</section>
+			{#if stage.status === 'COMPLETE'}<Alert.Root
+					><Alert.Title>{m.bracket_group_complete()}</Alert.Title><Alert.Description
+						>{m.bracket_qualification_resolved()}</Alert.Description
+					></Alert.Root
+				>{/if}
+			<Field.FieldGroup
+				><Field.Field
+					><Field.FieldLabel for="group-select">{m.bracket_group()}</Field.FieldLabel>
+					<select
+						id="group-select"
+						value={String(group?.id ?? '')}
+						onchange={(event) => {
+							groupId = event.currentTarget.value;
+						}}
+						class="w-full rounded-md border bg-background px-3 py-2 sm:max-w-sm"
+						aria-label={m.bracket_group()}
+					>
+						{#each stage.groups as item (item.id)}<option value={String(item.id)}
+								>{item.name} · {m.bracket_entries({ count: item.entries.length })}</option
+							>{/each}
+					</select>
+				</Field.Field></Field.FieldGroup
+			>
+			{#if group}
+				<section class="flex min-w-0 flex-col gap-4" aria-labelledby="group-standings-heading">
+					<h2 id="group-standings-heading" class="font-heading text-2xl font-semibold">
+						{group.name} · {m.bracket_standings()}
+					</h2>
+					<div class="flex flex-wrap gap-3">
+						<Badge variant="outline">{qualificationLabel(group.qualification_state)}</Badge><span
+							>{m.bracket_qualifying_places({ count: group.qualifying_places })}</span
+						>
+					</div>
+					<p class="text-sm text-muted-foreground">{m.bracket_provisional_help()}</p>
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to a wide standings table) -->
+					<div
+						class="max-w-full overflow-x-auto rounded-xl border"
+						role="region"
+						aria-label={m.bracket_standings()}
+						tabindex="0"
+					>
+						<table class="w-full text-left text-sm whitespace-nowrap">
+							<caption class="sr-only">{group.name} · {m.bracket_standings()}</caption>
+							<thead class="border-b bg-muted/30"
+								><tr
+									>{#each [m.bracket_rank(), m.bracket_entrant(), m.bracket_played(), m.bracket_wins(), m.bracket_draws(), m.bracket_losses(), m.bracket_points(), m.bracket_games_won(), m.bracket_game_difference(), m.bracket_qualification()] as label (label)}<th
+											scope="col"
+											class="px-4 py-3">{label}</th
+										>{/each}</tr
+								></thead
 							>
-								{sectionLabel(section)}
+							<tbody
+								>{#each group.standings as row (row.entry.id)}<tr class="border-b last:border-0"
+										><td class="px-4 py-3 font-mono-data">{row.rank}</td><th
+											scope="row"
+											class="px-4 py-3">{row.entry.display_name}</th
+										><td class="px-4 py-3">{row.played}</td><td class="px-4 py-3">{row.wins}</td><td
+											class="px-4 py-3">{row.draws}</td
+										><td class="px-4 py-3">{row.losses}</td><td class="px-4 py-3 font-mono-data"
+											>{row.points}</td
+										><td class="px-4 py-3">{row.games_won}</td><td class="px-4 py-3"
+											>{row.game_difference}</td
+										><td class="px-4 py-3"
+											><Badge variant="outline">{qualificationLabel(row.qualification)}</Badge></td
+										></tr
+									>{/each}</tbody
+							>
+						</table>
+					</div>
+					{#if group.qualifiers.length}<p>
+							{m.bracket_qualifiers({
+								names: group.qualifiers.map((entry) => entry.display_name).join(', ')
+							})}
+						</p>{/if}
+					{#if group.tie_resolutions.length}<p class="text-sm text-muted-foreground">
+							{m.bracket_extra_rules()}
+						</p>
+						<h3 class="font-semibold">{m.bracket_tie_history()}</h3>
+						<ul class="flex flex-col gap-3">
+							{#each group.tie_resolutions as tie (tie.id)}<li>
+									<Badge variant="outline"
+										>{tie.method === 'MANUAL'
+											? m.bracket_organizer_decision()
+											: m.bracket_extra_contests()}</Badge
+									> · {qualificationLabel(tie.state)}
+									<p class="text-sm text-muted-foreground">
+										{tie.tied_entries.map((e) => e.display_name).join(', ')}
+									</p>
+									{#if tie.ordered_entries.length}<p>
+											{tie.ordered_entries.map((e) => e.display_name).join(' → ')}
+										</p>{/if}
+								</li>{/each}
+						</ul>{/if}
+				</section>
+				<section class="flex flex-col gap-6" aria-labelledby="group-rounds-heading">
+					<h2 id="group-rounds-heading" class="font-heading text-2xl font-semibold">
+						{m.bracket_rounds()}
+					</h2>
+					{#each stage.rounds.filter((r) => r.group_id === group.id) as round (round.id)}<section
+							class="flex flex-col gap-3"
+						>
+							<h3 class="font-semibold">
+								{round.section === 'TIEBREAK' ? m.bracket_extra_contests() + ' · ' : ''}{roundLabel(
+									round
+								)}
 							</h3>
-							<!-- svelte-ignore a11y_no_noninteractive_tabindex (scrolling bracket needs keyboard focus) -->
-							<div
-								class="desktop-bracket hidden overflow-x-auto pb-4 md:block"
-								role="region"
-								aria-label={sectionLabel(section)}
-								tabindex="0"
-							>
-								<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
+							{#if round.resting_entry}<p class="text-sm text-muted-foreground">
+									{m.bracket_rest({ name: round.resting_entry.display_name })}
+								</p>{/if}
+							<ol class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+								{#each round.matches as match (match.id)}{@render matchCard(match)}{/each}
+							</ol>
+						</section>{/each}
+				</section>
+			{/if}
+		{:else}
+			<section aria-labelledby="bracket-rounds-heading">
+				<div class="mb-4 flex items-end justify-between gap-4">
+					<h2 id="bracket-rounds-heading" class="font-heading text-2xl font-semibold">
+						{m.bracket_rounds()}
+					</h2>
+					<p class="text-sm text-muted-foreground">
+						{m.bracket_entries({ count: stage.entries.length })}
+					</p>
+				</div>
+
+				{#if stage.format === 'DOUBLE_ELIMINATION'}
+					<p class="mb-6 text-sm text-muted-foreground">
+						{stage.grand_final_policy === 'RESET'
+							? m.bracket_reset_policy()
+							: m.bracket_no_reset_policy()}
+					</p>
+					{#each doubleSections as section (section)}
+						{@const rounds = stage.rounds.filter((round) => round.section === section)}
+						{#if rounds.length}
+							<section class="mb-8" aria-labelledby={`section-${section.toLowerCase()}`}>
+								<h3
+									id={`section-${section.toLowerCase()}`}
+									class="font-heading mb-4 text-xl font-semibold"
+								>
+									{sectionLabel(section)}
+								</h3>
+								<!-- svelte-ignore a11y_no_noninteractive_tabindex (scrolling bracket needs keyboard focus) -->
+								<div
+									class="desktop-bracket hidden overflow-x-auto pb-4 md:block"
+									role="region"
+									aria-label={sectionLabel(section)}
+									tabindex="0"
+								>
+									<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
+										{#each rounds as round (round.id)}
+											<section class="bracket-round flex min-h-[28rem] flex-col">
+												<h4 class="mb-4 text-center font-semibold">{roundLabel(round)}</h4>
+												<ol class="flex flex-1 flex-col justify-around gap-6">
+													{#each round.matches as match (match.id)}
+														{@render matchCard(match)}
+													{/each}
+												</ol>
+											</section>
+										{/each}
+									</div>
+								</div>
+								<div class="mobile-bracket flex flex-col gap-8 md:hidden">
 									{#each rounds as round (round.id)}
-										<section class="bracket-round flex min-h-[28rem] flex-col">
-											<h4 class="mb-4 text-center font-semibold">{roundLabel(round)}</h4>
-											<ol class="flex flex-1 flex-col justify-around gap-6">
+										<section>
+											<h4 class="mb-3 font-semibold">{roundLabel(round)}</h4>
+											<ol class="flex flex-col gap-4">
 												{#each round.matches as match (match.id)}
 													{@render matchCard(match)}
 												{/each}
@@ -347,42 +567,47 @@
 										</section>
 									{/each}
 								</div>
-							</div>
-							<div class="mobile-bracket flex flex-col gap-8 md:hidden">
-								{#each rounds as round (round.id)}
-									<section>
-										<h4 class="mb-3 font-semibold">{roundLabel(round)}</h4>
-										<ol class="flex flex-col gap-4">
-											{#each round.matches as match (match.id)}
-												{@render matchCard(match)}
-											{/each}
-										</ol>
-									</section>
-								{/each}
-							</div>
-						</section>
-					{/if}
-				{/each}
-			{:else}
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (scrolling bracket needs keyboard focus) -->
-				<div
-					class="desktop-bracket hidden overflow-x-auto pb-4 md:block"
-					role="region"
-					aria-label={m.bracket_rounds()}
-					tabindex="0"
-				>
-					<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
+							</section>
+						{/if}
+					{/each}
+				{:else}
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex (scrolling bracket needs keyboard focus) -->
+					<div
+						class="desktop-bracket hidden overflow-x-auto pb-4 md:block"
+						role="region"
+						aria-label={m.bracket_rounds()}
+						tabindex="0"
+					>
+						<div class="grid min-w-max grid-flow-col auto-cols-[18rem] gap-10 pr-8">
+							{#each stage.rounds as round, index (round.id)}
+								<section
+									class="bracket-round flex min-h-[28rem] flex-col"
+									aria-labelledby={`round-${round.id}-desktop`}
+								>
+									<h3 id={`round-${round.id}-desktop`} class="mb-4 text-center font-semibold">
+										{index === stage.rounds.length - 1
+											? m.bracket_final_round()
+											: m.bracket_round({ number: round.number })}
+									</h3>
+									<ol class="flex flex-1 flex-col justify-around gap-6">
+										{#each round.matches as match (match.id)}
+											{@render matchCard(match)}
+										{/each}
+									</ol>
+								</section>
+							{/each}
+						</div>
+					</div>
+
+					<div class="mobile-bracket flex flex-col gap-8 md:hidden">
 						{#each stage.rounds as round, index (round.id)}
-							<section
-								class="bracket-round flex min-h-[28rem] flex-col"
-								aria-labelledby={`round-${round.id}-desktop`}
-							>
-								<h3 id={`round-${round.id}-desktop`} class="mb-4 text-center font-semibold">
+							<section aria-labelledby={`round-${round.id}-mobile`}>
+								<h3 id={`round-${round.id}-mobile`} class="mb-3 font-semibold">
 									{index === stage.rounds.length - 1
 										? m.bracket_final_round()
 										: m.bracket_round({ number: round.number })}
 								</h3>
-								<ol class="flex flex-1 flex-col justify-around gap-6">
+								<ol class="flex flex-col gap-4">
 									{#each round.matches as match (match.id)}
 										{@render matchCard(match)}
 									{/each}
@@ -390,26 +615,9 @@
 							</section>
 						{/each}
 					</div>
-				</div>
-
-				<div class="mobile-bracket flex flex-col gap-8 md:hidden">
-					{#each stage.rounds as round, index (round.id)}
-						<section aria-labelledby={`round-${round.id}-mobile`}>
-							<h3 id={`round-${round.id}-mobile`} class="mb-3 font-semibold">
-								{index === stage.rounds.length - 1
-									? m.bracket_final_round()
-									: m.bracket_round({ number: round.number })}
-							</h3>
-							<ol class="flex flex-col gap-4">
-								{#each round.matches as match (match.id)}
-									{@render matchCard(match)}
-								{/each}
-							</ol>
-						</section>
-					{/each}
-				</div>
-			{/if}
-		</section>
+				{/if}
+			</section>
+		{/if}
 
 		<section class="border-t pt-6" aria-labelledby="bracket-changes-heading">
 			<h2 id="bracket-changes-heading" class="font-heading text-2xl font-semibold">
@@ -463,6 +671,32 @@
 									{/each}
 								</div>
 							{/if}
+							{#if change.ordered_entries?.length}<p class="text-sm">
+									{change.ordered_entries.join(' → ')}
+								</p>{/if}
+							{#if change.group_impact}<p class="text-sm">
+									{m.bracket_qualifier_change({
+										before: entryNames(change.group_impact.before.qualifiers),
+										after: entryNames(change.group_impact.after.qualifiers)
+									})}
+								</p>
+								<p class="text-sm">
+									{m.bracket_group_correction({
+										group: change.group_impact.group_name,
+										before: qualificationLabel(change.group_impact.before.qualification_state),
+										after: qualificationLabel(change.group_impact.after.qualification_state)
+									})}
+								</p>
+								<p class="text-sm text-muted-foreground">
+									{m.bracket_tie_superseded({
+										count: change.group_impact.invalidated_resolution_ids.length
+									})}
+								</p>
+								{#each change.group_impact.historical_matches as snapshot (snapshot.match_id)}<p
+										class="text-xs text-muted-foreground"
+									>
+										{m.bracket_historical()} · {snapshotSummary(snapshot)}
+									</p>{/each}{/if}
 						</li>
 					{/each}
 				</ol>
@@ -475,7 +709,7 @@
 
 <style>
 	@media (min-width: 768px) {
-		.bracket-match::after {
+		.bracket-round .bracket-match::after {
 			position: absolute;
 			top: 50%;
 			left: 100%;
