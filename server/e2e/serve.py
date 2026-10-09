@@ -21,6 +21,7 @@ os.environ["CSRF_ALLOWED_ORIGINS"] = "http://127.0.0.1:4175"
 
 def seed():
     from datetime import timedelta
+    from decimal import Decimal
 
     from django.contrib.auth import get_user_model
     from django.contrib.auth.models import Group
@@ -84,6 +85,52 @@ def seed():
         student_id="E2E-ORGANIZER",
     )
     organizer.groups.add(Group.objects.get(name="Organizers"))
+    from registrations.dev_seed import SeedCatalog, _seed_round_robin
+
+    rr_tournament = Tournament.objects.create(
+        name="Round Robin Journey Test",
+        slug="round-robin-journey-test",
+        students_only=False,
+        is_published=True,
+    )
+    rr_divisions = {}
+    for slug, key in (
+        ("rr-fixed", "round-robin-valorant"),
+        ("rr-double", "round-robin-league-of-legends"),
+        ("rr-workflow", "workflow"),
+    ):
+        division = TournamentGame.objects.create(
+            tournament=rr_tournament,
+            game=Game.objects.create(name=slug, slug=slug),
+            main_roster_size=2,
+            substitute_limit=0,
+            registration_opens_at=timezone.now() - timedelta(days=2),
+            registration_closes_at=timezone.now() - timedelta(days=1),
+            fee_amount=Decimal("0.00"),
+            fee_currency="VND",
+        )
+        rr_divisions[key] = division
+        if key == "workflow":
+            for index in range(1, 4):
+                registration = Registration.objects.create(
+                    tournament_game=division,
+                    team_name=f"RR Team {index}",
+                    status="APPROVED",
+                    fee_amount_snapshot="0.00",
+                    fee_currency_snapshot="VND",
+                )
+                for member in range(1, 3):
+                    RegistrationMember.objects.create(
+                        registration=registration,
+                        gamer_tag_snapshot=f"RR-{index}-Player-{member}",
+                        display_order=member,
+                        is_captain=member == 1,
+                    )
+    _seed_round_robin(
+        now=timezone.now(),
+        organizer=organizer,
+        catalog=SeedCatalog({rr_tournament.slug: rr_tournament}, rr_divisions),
+    )
     double_tournament = Tournament.objects.create(
         name="Double Elimination Journey Test",
         slug="double-elimination-journey-test",

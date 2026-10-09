@@ -241,7 +241,7 @@ test('organizers publish a double bracket, play a reset, and correct its activat
 	await page.getByLabel('Format:').selectOption('DOUBLE_ELIMINATION');
 	await page.getByLabel('Grand final policy').selectOption('RESET');
 	await page.getByLabel('Stage name').fill('Browser reset bracket');
-	await page.getByLabel('Games per match (best of)').fill('1');
+	await page.getByLabel('Games per match:', { exact: true }).fill('1');
 	await page.getByRole('button', { name: 'Save setup' }).click();
 	await page.getByRole('link', { name: /Continue\s*:\s*Choose entrants/ }).click();
 	for (let index = 1; index <= 4; index++)
@@ -301,7 +301,7 @@ test('organizers publish a double bracket, play a reset, and correct its activat
 	await expect(spectator.getByText(/Active → Not required/)).toBeVisible();
 	await expect(
 		spectator.getByText(
-			`${completedReset.code}: Played · ${completedReset.slots[0].entry!.display_name} 1–0 ${completedReset.slots[1].entry!.display_name} · ${completedReset.winner!.display_name} won`,
+			`M7: Played · ${completedReset.slots[0].entry!.display_name} 1–0 ${completedReset.slots[1].entry!.display_name} · ${completedReset.winner!.display_name} won`,
 			{ exact: true }
 		)
 	).toBeVisible();
@@ -320,5 +320,117 @@ test('organizers publish a double bracket, play a reset, and correct its activat
 		expect.objectContaining({ before: 'ACTIVE', after: 'NOT_REQUIRED' })
 	]);
 	expect(JSON.stringify(changes)).not.toContain('Private DE browser correction reason');
+	await spectator.close();
+});
+
+test('organizers publish groups, resolve ties and correct results while spectators retain history', async ({
+	page,
+	context
+}) => {
+	test.setTimeout(120_000);
+	const tournament = await (
+		await page.request.get('http://127.0.0.1:8015/api/tournaments/round-robin-journey-test/')
+	).json();
+	const division = tournament.tournament_games.find(
+		(game: { game_slug: string }) => game.game_slug === 'rr-workflow'
+	);
+	const apiUrl = `http://127.0.0.1:8015/api/tournament-games/${division.id}/competition/`;
+	await page.goto(`http://127.0.0.1:8015/admin/competitions/competition/create/${division.id}/`);
+	await page.getByLabel('Email', { exact: false }).fill('journey-organizer@example.test');
+	await page.getByLabel('Password', { exact: false }).fill('Journey-test-password-2026');
+	await page.getByRole('button', { name: /Log in/ }).click();
+	await page.getByRole('button', { name: 'Continue to setup', exact: true }).click();
+	const workspace = page.url();
+	await page.getByRole('link', { name: /Continue\s*:\s*Set up/ }).click();
+	await page.getByLabel('Format:', { exact: true }).selectOption('ROUND_ROBIN');
+	await page.getByLabel('Stage name').fill('Browser groups');
+	await page.getByLabel('Series mode').selectOption('FIXED_GAMES');
+	await page.getByLabel('Games per match:', { exact: true }).fill('2');
+	for (let i = 1; i <= 4; i++)
+		await page.getByLabel(`Tiebreaker ${i}:`, { exact: true }).selectOption('');
+	await page.getByRole('button', { name: 'Save setup', exact: true }).click();
+	await page.getByRole('link', { name: /Continue\s*:\s*Choose entrants/ }).click();
+	for (let i = 1; i <= 3; i++) await page.getByLabel(`RR Team ${i}`, { exact: true }).check();
+	await page.getByRole('button', { name: 'Save entrants', exact: true }).click();
+	await page.getByRole('link', { name: /Continue\s*:\s*Seed the bracket/ }).click();
+	await page.getByLabel('Groups and qualifying places').fill('Alpha | 1');
+	await page.getByRole('button', { name: 'Save and preview bracket', exact: true }).click();
+	await expect(page.getByText('Private preview', { exact: true })).toBeVisible();
+	expect((await page.request.get(apiUrl)).status()).toBe(404);
+	await page.goto(`${workspace}?tab=setup`);
+	await page.getByRole('link', { name: /Continue\s*:\s*Publish/ }).click();
+	await page.getByRole('button', { name: 'Publish bracket', exact: true }).click();
+	const snapshot = async (): Promise<PublicCompetition> => (await page.request.get(apiUrl)).json();
+	const ordinary = (await snapshot()).stages[0].rounds.flatMap((r) => r.matches);
+	async function score(id: number, first: number, second: number, correction = false) {
+		await page.goto(`http://127.0.0.1:8015/admin/competitions/match/${id}/change/`);
+		await page
+			.getByRole('link', { name: correction ? 'Correct result' : 'Enter result', exact: true })
+			.click();
+		await page.locator('[name="side_one_score"]').fill(String(first));
+		await page.locator('[name="side_two_score"]').fill(String(second));
+		await page
+			.getByRole('button', { name: correction ? 'Preview correction' : 'Save result', exact: true })
+			.click();
+		if (correction) {
+			await expect(page.getByRole('heading', { name: 'Alpha qualification impact' })).toBeVisible();
+			await page.getByLabel('Reason for correction').fill('PRIVATE-RR-BROWSER');
+			await page
+				.getByRole('button', { name: 'Confirm correction and resets', exact: true })
+				.click();
+		}
+	}
+	for (const match of ordinary) await score(match.id, 1, 1);
+	const spectator = await context.newPage();
+	await spectator.goto(`/en/tournaments/round-robin-journey-test/games/${division.id}/bracket`);
+	await expect(
+		spectator.getByText('Awaiting qualification resolution', { exact: true })
+	).toBeVisible();
+	async function choose(method: 'MANUAL' | 'EXTRA_MATCHES') {
+		await page.goto(`${workspace}?tab=standings`);
+		await page.getByRole('link', { name: 'Resolve qualification tie', exact: true }).click();
+		await page.getByLabel('Resolve qualification tie').selectOption(method);
+		if (method === 'EXTRA_MATCHES') await page.getByLabel('Extra contests: best of').fill('1');
+		await page.getByRole('button', { name: 'Preview tie choice', exact: true }).click();
+		await expect(
+			page.getByRole('heading', { name: 'Review qualification tie', exact: true })
+		).toBeVisible();
+		await page.getByLabel('Private organizer reason').fill('PRIVATE-RR-TIE');
+		await page.getByRole('button', { name: 'Confirm qualification tie', exact: true }).click();
+	}
+	await choose('MANUAL');
+	await spectator.reload();
+	await expect(spectator.getByText('Organizer decision', { exact: true })).toBeVisible();
+	await score(ordinary[0].id, 2, 0, true);
+	await score(ordinary[0].id, 1, 1, true);
+	await choose('EXTRA_MATCHES');
+	const extras = (await snapshot()).stages[0].rounds
+		.filter((r) => r.section === 'TIEBREAK')
+		.flatMap((r) => r.matches);
+	for (const match of extras) {
+		const firstWins = match.slots[0].entry!.seed < match.slots[1].entry!.seed;
+		await score(match.id, Number(firstWins), Number(!firstWins));
+	}
+	await spectator.reload();
+	await expect(spectator.getByText('Group stage complete', { exact: true })).toBeVisible();
+	await score(ordinary[0].id, 2, 0, true);
+	await spectator.reload();
+	await expect(spectator.getByText('Historical', { exact: true }).first()).toBeVisible();
+	const final = await snapshot();
+	expect(
+		final.stages[0].rounds
+			.filter((r) => r.section === 'TIEBREAK')
+			.every((r) => r.matches.every((m) => m.historical && m.status === 'FINAL'))
+	).toBeTruthy();
+	expect(JSON.stringify(final)).not.toContain('PRIVATE-RR');
+	expect(await spectator.locator('body').textContent()).not.toContain('PRIVATE-RR');
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto(`${workspace}?tab=standings`);
+	const table = page.getByRole('region', { name: 'Group standings' });
+	await table.focus();
+	await expect(table).toBeFocused();
+	expect(
+		await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+	).toBeTruthy();
 	await spectator.close();
 });

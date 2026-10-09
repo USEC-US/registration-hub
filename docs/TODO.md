@@ -144,7 +144,9 @@ Detailed scope, rule decisions, task dependencies, and completion checks live in
 [the bracket core TODO](BRACKET-TODO.md). Update task progress there.
 Single and double elimination now have organizer/public workflows and focused
 PostgreSQL/browser validation; see the [double-elimination guide](testing/competition-double-elimination.md).
-Round robin, Swiss, handoffs, and realtime remain open.
+Round robin groups, configurable standings rules and qualification ties now have
+organizer/public workflows; see the [round robin guide](testing/competition-round-robin.md).
+Swiss, stage handoffs and realtime remain open.
 
 Inspiration (and future replacement):
 

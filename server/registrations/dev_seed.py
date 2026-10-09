@@ -17,16 +17,26 @@ from PIL import Image, ImageDraw
 from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
 from competitions.commands import (
+    apply_correction,
     configure_elimination,
     create_competition,
     finalize_match,
+    preview_correction,
     publish_draw,
     save_elimination_draw,
     schedule_match,
     select_entrants,
     set_round_series_length,
+    save_match_progress,
 )
 from competitions.models import Competition, Match, Round, Stage, StageDraw
+from competitions.round_robin_commands import (
+    configure_round_robin,
+    save_round_robin_draw,
+    group_standings,
+    preview_group_tie,
+    confirm_group_tie,
+)
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .models import (
@@ -382,6 +392,18 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         },
     )
 
+    round_robin, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-round-robin",
+        defaults={
+            "name": "USEC Synthetic Round Robin",
+            "description": "Fictional group schedules and qualification ties.",
+            "students_only": False,
+            "starts_at": now + timedelta(days=14),
+            "ends_at": now + timedelta(days=15),
+            "is_published": True,
+        },
+    )
+
     tournament_games = {
         "valorant": _upsert_tournament_game(
             tournament=current,
@@ -515,6 +537,17 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             registration_capacity=size,
             fee_amount=Decimal("0.00"),
         )
+    for slug in ("valorant", "league-of-legends"):
+        tournament_games[f"round-robin-{slug}"] = _upsert_tournament_game(
+            tournament=round_robin,
+            game=games[slug],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=8,
+            fee_amount=Decimal("0.00"),
+        )
     return SeedCatalog(
         tournaments={
             current.slug: current,
@@ -525,6 +558,7 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             sponsor_expired.slug: sponsor_expired,
             fpt_shop_uni_tour.slug: fpt_shop_uni_tour,
             double_elimination.slug: double_elimination,
+            round_robin.slug: round_robin,
         },
         tournament_games=tournament_games,
     )
@@ -1209,6 +1243,178 @@ def _seed_double_elimination(*, now: datetime, organizer, catalog: SeedCatalog) 
                 )
 
 
+def _seed_round_robin(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    for slug, meetings, mode, length in (
+        ("valorant", 1, "FIXED_GAMES", 2),
+        ("league-of-legends", 2, "BEST_OF", 3),
+    ):
+        division = catalog.tournament_games[f"round-robin-{slug}"]
+        registrations = [
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="RR",
+                index=index,
+            )
+            for index in range(1, 9)
+        ]
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.stages.filter(draws__state="PUBLISHED").exists():
+                continue
+            raise ValidationError(
+                "The development round robin competition is incomplete."
+            )
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        configure_round_robin(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            name="Synthetic groups",
+            meetings=meetings,
+            series_mode=mode,
+            default_series_length=length,
+            win_points=3,
+            draw_points=1,
+            loss_points=0,
+            tiebreaks=[]
+            if meetings == 1
+            else ["HEAD_TO_HEAD", "GAME_DIFFERENCE", "GAMES_WON"],
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[r.pk for r in registrations],
+        )
+        ids = [e.pk for e in entrants]
+        split = 3 if meetings == 1 else 4
+        competition.refresh_from_db()
+        draw = save_round_robin_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            group_specs=[("Alpha", 1), ("Beta", 2)],
+            ordered_entrant_ids=ids,
+            memberships=[ids[:split], ids[split:]],
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+        )
+        alpha, beta = list(draw.groups.all())
+        for group in (alpha, beta) if meetings == 1 else (alpha,):
+            for match in Match.objects.filter(round__group=group).prefetch_related(
+                "slots__resolved_entry"
+            ):
+                slots = list(match.slots.all())
+                first_wins = slots[0].resolved_entry.seed < slots[1].resolved_entry.seed
+                competition.refresh_from_db()
+                finalize_match(
+                    actor=organizer,
+                    match_id=match.pk,
+                    expected_revision=competition.revision,
+                    outcome="PLAYED",
+                    side_one_score=1 if meetings == 1 else 2 * first_wins,
+                    side_two_score=1 if meetings == 1 else 2 * (not first_wins),
+                )
+        if meetings == 1:
+            competition.refresh_from_db()
+            tie = group_standings(alpha)["cutoff_ties"][0]
+            preview = preview_group_tie(
+                actor=organizer,
+                group_id=alpha.pk,
+                expected_revision=competition.revision,
+                tied_entry_ids=tie["entry_ids"],
+                method="EXTRA_MATCHES",
+            )
+            resolution = confirm_group_tie(actor=organizer, token=preview["token"])
+            extra = Match.objects.filter(round__tie_resolution=resolution).first()
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=extra.pk,
+                expected_revision=competition.revision,
+                outcome="PLAYED",
+                side_one_score=1,
+                side_two_score=0,
+            )
+            target = Match.objects.filter(
+                round__group=alpha, round__section="NORMAL"
+            ).first()
+            for one, two in ((2, 0), (1, 1)):
+                competition.refresh_from_db()
+                preview = preview_correction(
+                    actor=organizer,
+                    match_id=target.pk,
+                    expected_revision=competition.revision,
+                    outcome="PLAYED",
+                    side_one_score=one,
+                    side_two_score=two,
+                )
+                apply_correction(
+                    actor=organizer,
+                    token=preview["token"],
+                    internal_reason="Synthetic score-correction example.",
+                )
+            competition.refresh_from_db()
+            preview = preview_group_tie(
+                actor=organizer,
+                group_id=alpha.pk,
+                expected_revision=competition.revision,
+                tied_entry_ids=tie["entry_ids"],
+                method="MANUAL",
+                ordered_entry_ids=list(reversed(tie["entry_ids"])),
+            )
+            confirm_group_tie(
+                actor=organizer,
+                token=preview["token"],
+                internal_reason="Fictional organizer-decision example.",
+            )
+            competition.refresh_from_db()
+            tie = group_standings(beta)["cutoff_ties"][0]
+            preview = preview_group_tie(
+                actor=organizer,
+                group_id=beta.pk,
+                expected_revision=competition.revision,
+                tied_entry_ids=tie["entry_ids"],
+                method="EXTRA_MATCHES",
+                series_length=3,
+            )
+            resolution = confirm_group_tie(actor=organizer, token=preview["token"])
+            live = Match.objects.filter(round__tie_resolution=resolution).first()
+        else:
+            live = Match.objects.filter(round__group=beta).first()
+            competition.refresh_from_db()
+            set_round_series_length(
+                actor=organizer,
+                round_id=live.round_id,
+                expected_revision=competition.revision,
+                series_length=5,
+            )
+        competition.refresh_from_db()
+        schedule_match(
+            actor=organizer,
+            match_id=live.pk,
+            expected_revision=competition.revision,
+            scheduled_at=now + timedelta(hours=2),
+        )
+        competition.refresh_from_db()
+        save_match_progress(
+            actor=organizer,
+            match_id=live.pk,
+            expected_revision=competition.revision,
+            side_one_score=1,
+            side_two_score=0,
+        )
+
+
 @contextmanager
 def _development_payment_destination():
     """Use fictional snapshots only for this command's fixtures, never public settings.
@@ -1268,6 +1474,7 @@ def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
         catalog=catalog,
     )
     _seed_double_elimination(now=now, organizer=organizer, catalog=catalog)
+    _seed_round_robin(now=now, organizer=organizer, catalog=catalog)
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),

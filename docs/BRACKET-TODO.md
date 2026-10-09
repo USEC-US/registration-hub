@@ -1,6 +1,6 @@
 # Bracket system core TODO
 
-Updated: 2026-09-27. Branch: `feat/tournament-brackets`.
+Updated: 2026-10-09. Branch: `feat/tournament-brackets`.
 
 This is the authoritative competition-core backlog, linked from
 [the project TODO](TODO.md#5-bracket-core). It replaces the scope and task list
@@ -9,8 +9,9 @@ The approved first single-elimination slice is implemented and focused-validated
 Its evidence and operating notes are in
 [the single-elimination testing guide](testing/competition-single-elimination.md).
 Double elimination is also implemented and focused-validated; see
-[its testing guide](testing/competition-double-elimination.md). Round robin, Swiss,
-and cross-stage behavior remain open below.
+[its testing guide](testing/competition-double-elimination.md). Round robin groups
+and qualification ties are implemented; see [the round robin guide](testing/competition-round-robin.md).
+Swiss and cross-stage behavior remain open below.
 
 The delivered second slice is double elimination (E3/E4), including organizer and
 public workflows. Its [implementation plan](superpowers/plans/2026-09-27-double-elimination.md)
@@ -19,6 +20,12 @@ The plan records sanitized
 structural evidence from the supplied tournament workbook and distinguishes
 historical single-elimination results from synthetic double-elimination
 fixtures.
+
+The delivered third slice is round robin groups and standings, including
+qualification-tie resolution and organizer/public views. Its
+[implementation plan](superpowers/plans/2026-10-09-round-robin.md) was approved
+on 2026-10-09. Ordered-stage handoffs follow this slice; Swiss and their shared
+backlog portions remain open.
 
 The approved foundation uses a dedicated `server/competitions` Django app.
 The [detailed design](superpowers/specs/2026-09-23-competition-core-design.md)
@@ -184,13 +191,13 @@ and rules are fixed. Persisted integration follows the shared command path.
 | E2 | [x] Advance single-elimination winners, handle the first-slice played, forfeit, double-forfeit, bye, and empty outcomes, and complete the final. Withdrawal/disqualification flows remain a later slice. | E1 |
 | E3 | [x] Generate double-elimination upper/lower routes and verify loser destinations for small and uneven fields. | E1, C2, R3 |
 | E4 | [x] Advance both brackets and implement the approved grand-final reset/no-reset policies and completion. | E2, E3 |
-| G1 | [ ] Assign round robin groups and generate the chosen single/double schedule, including odd-sized groups; each pair meets exactly once or twice independently of series length. | C1, C2, R3 |
-| G2 | [ ] Calculate group standings, points, ordered tiebreaks, and provisional qualifiers from confirmed results. | G1, R2, R3 |
+| G1 | [x] Assign round robin groups and generate the chosen single/double schedule, including odd-sized groups; each pair meets exactly once or twice independently of series length. | C1, C2, R3 |
+| G2 | [x] Calculate group standings, points, ordered tiebreaks, and provisional qualifiers from confirmed results. | G1, R2, R3 |
 | S1 | [ ] Generate and preview one Swiss round using the agreed pairing rules, normal-win bye handling, and explicit recorded overrides for unavoidable rematches. | C1, C2, R4 |
 | S2 | [ ] Implement fixed-round Swiss progression, standings/tiebreaks, and provisional Top-N qualifiers. | S1, R2, R4 |
 | S3 | [ ] Implement threshold Swiss progression, qualification/elimination, and stage completion. | S1, R2, R4 |
 | H1 | [ ] Preview and confirm qualifiers/seeds entering the next stage of any supported format; validate destination capacity/rules, block unresolved qualification ties, and reject duplicate/cross-division entrants. | C3, C5, applicable source progression/standings and destination setup, H2 when tied |
-| H2 | [ ] Resolve qualification ties through TO-selected extra tiebreak matches or a recorded manual decision; validate tied entrants and available places, preserve history, and recompute when source results change. | C2, C5, R3/R4 tie rules, relevant G2/S2/S3 source |
+| H2 | [ ] Resolve qualification ties through TO-selected extra tiebreak matches or a recorded manual decision; validate tied entrants and available places, preserve history, and recompute when source results change. Round robin is delivered; Swiss remains open. | C2, C5, R3/R4 tie rules, relevant G2/S2/S3 source |
 
 ## 3. Django Unfold organizer tasks
 
@@ -207,8 +214,8 @@ agents work concurrently.
 | A3 | [x] Build manual single/double-elimination seeding, saved random draw, private preview, and explicit publication controls. Group assignment remains with G1. | A2, relevant E1/E3/G1/S1 generators |
 | A4 | [x] Build match-list/detail scheduling, individual series-length overrides before play, and score-entry actions with clear validation and stale-edit feedback. | C2, C4, A1, relevant format progression |
 | A5 | [x] Build correction impact/confirmation screens and the full organizer Changes view, including previous results, downstream reset history, actor, timestamp, and internal reason. | C5, A4 |
-| A6 | [ ] Build standings, Swiss next-round controls, qualifier previews, and confirmed handoffs between ordered stages. | applicable source progression/standings, H1, A1 |
-| A7 | [ ] Build qualification-tie resolution controls: schedule extra tiebreak matches or record a manual decision, with confirmation, validation, and Changes history. | H2, A1, A4, A5 |
+| A6 | [ ] Build standings, Swiss next-round controls, qualifier previews, and confirmed handoffs between ordered stages. Round robin standings and group qualifiers are delivered; Swiss and handoffs remain open. | applicable source progression/standings, H1, A1 |
+| A7 | [ ] Build qualification-tie resolution controls: schedule extra tiebreak matches or record a manual decision, with confirmation, validation, and Changes history. Round robin is delivered; Swiss remains open. | H2, A1, A4, A5 |
 
 One integration owner wires admin modules, URLs, navigation, and shared templates.
 Other agents own specific forms/views/templates and their tests. Add no reusable
@@ -220,7 +227,7 @@ admin framework merely to make these tasks look uniform.
 | --- | --- | --- |
 | P1 | [x] Implement published-only first-slice competition snapshots and privacy tests using the agreed allowlist. | C3, C4, relevant format readers |
 | P2 | [x] Build accessible single/double-elimination bracket views with match IDs, schedules, effective series lengths, scores, winners, and mobile navigation. Includes upper/lower/finals sections and conditional/not-required reset states. | C4 fixtures; connect to P1 before completion |
-| P3 | [ ] Build round robin/Swiss standings, round pairings with effective series lengths, stage navigation, and qualification states. | C4 fixtures; connect to P1 before completion |
+| P3 | [ ] Build round robin/Swiss standings, round pairings with effective series lengths, stage navigation, and qualification states. Round robin groups, pairings and qualification states are delivered; Swiss and ordered-stage navigation remain open. | C4 fixtures; connect to P1 before completion |
 | P4 | [x] Connect single/double-elimination pages to the real API; handle unpublished/missing, ready/live/completed, refresh, time zones, and EN/VI UI. Later-format states remain with P3. | P1–P3 |
 | P5 | [x] Expose and render read-only public Changes for published result revisions and resets; test before/after outcomes and exclusion of actor identities, internal notes, and draft history. | C4, C5, P1 |
 

@@ -201,6 +201,7 @@ class SeedDevDataCommandTests(TestCase):
                 "dev-usec-current",
                 "dev-usec-archive",
                 "dev-usec-double-elimination",
+                "dev-usec-round-robin",
                 "dev-fpt-shop-uni-tour-2026",
                 "dev-sponsor-open",
                 "dev-sponsor-arena",
@@ -782,3 +783,65 @@ class SeedDevDataCommandTests(TestCase):
             ).exists()
         )
         self.assertFalse(Institution.objects.exists())
+
+    def test_round_robin_fixtures_preserve_schedules_results_and_tie_history_on_rerun(
+        self,
+    ):
+        from collections import Counter
+        from competitions.models import TieResolution
+
+        self.run_seed()
+        stages = Stage.objects.filter(
+            competition__tournament_game__tournament__slug="dev-usec-round-robin"
+        ).order_by("pk")
+        self.assertEqual(stages.count(), 2)
+        snapshots = []
+        for stage in stages:
+            draw = stage.draws.get(state="PUBLISHED")
+            groups = list(draw.groups.all())
+            self.assertEqual(
+                [g.entries.count() for g in groups],
+                [3, 5] if stage.round_robin_meetings == 1 else [4, 4],
+            )
+            matches = list(
+                Match.objects.filter(
+                    round__draw=draw, round__section="NORMAL"
+                ).prefetch_related("slots")
+            )
+            pairs = Counter(
+                tuple(sorted(s.entry_id for s in m.slots.all())) for m in matches
+            )
+            self.assertEqual(set(pairs.values()), {stage.round_robin_meetings})
+            self.assertEqual(
+                len(matches), 13 if stage.round_robin_meetings == 1 else 24
+            )
+            snapshots.append(
+                (
+                    draw.pk,
+                    list(
+                        Match.objects.filter(round__draw=draw).values_list(
+                            "pk", "status", "side_one_score", "side_two_score"
+                        )
+                    ),
+                )
+            )
+        self.assertTrue(
+            TieResolution.objects.filter(
+                group__draw__stage__in=stages, method="MANUAL"
+            ).exists()
+        )
+        self.assertTrue(
+            TieResolution.objects.filter(
+                group__draw__stage__in=stages, state="SUPERSEDED"
+            ).exists()
+        )
+        self.run_seed()
+        for draw_id, matches in snapshots:
+            self.assertEqual(
+                list(
+                    Match.objects.filter(round__draw_id=draw_id).values_list(
+                        "pk", "status", "side_one_score", "side_two_score"
+                    )
+                ),
+                matches,
+            )

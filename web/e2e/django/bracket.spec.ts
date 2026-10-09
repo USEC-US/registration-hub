@@ -68,3 +68,61 @@ test('double brackets expose upper, lower and finals sections in EN and VI on mo
 		).toBeTruthy();
 	}
 });
+
+test('round robin groups show unequal standings, rests, qualification and history in EN and VI', async ({
+	page
+}) => {
+	const tournament = await (
+		await page.request.get('http://127.0.0.1:8015/api/tournaments/round-robin-journey-test/')
+	).json();
+	const division = tournament.tournament_games.find(
+		(game: { game_slug: string }) => game.game_slug === 'rr-fixed'
+	);
+	for (const locale of ['en', 'vi']) {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto(`/${locale}/tournaments/round-robin-journey-test/games/${division.id}/bracket`);
+		await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(3);
+		await expect(
+			page.getByText(locale === 'en' ? 'Historical' : 'Lịch sử', { exact: true }).first()
+		).toBeVisible();
+		await expect(
+			page
+				.getByText(locale === 'en' ? 'Organizer decision' : 'Quyết định của ban tổ chức', {
+					exact: true
+				})
+				.first()
+		).toBeVisible();
+		const group = page.getByLabel(locale === 'en' ? 'Group' : 'Bảng', { exact: true });
+		await expect(group).toBeEnabled();
+		await group.focus();
+		await expect(group).toBeFocused();
+		await page.keyboard.press('Space');
+		await page.keyboard.press('End');
+		await page.keyboard.press('Enter');
+		await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(5);
+		const standings = page.getByRole('region', {
+			name: locale === 'en' ? 'Standings' : 'Bảng xếp hạng',
+			exact: true
+		});
+		await standings.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect.poll(() => standings.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+		).toBeTruthy();
+		await expect(
+			page
+				.getByText(
+					locale === 'en' ? 'Awaiting qualification resolution' : 'Chờ phân định suất đi tiếp',
+					{ exact: true }
+				)
+				.first()
+		).toBeVisible();
+		await page
+			.getByRole('link', {
+				name: locale === 'en' ? 'Refresh bracket' : 'Làm mới nhánh đấu',
+				exact: true
+			})
+			.focus();
+	}
+});
