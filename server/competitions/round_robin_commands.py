@@ -6,10 +6,8 @@ from dataclasses import asdict, replace
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
-from django.core import signing
 from django.db import transaction
 from django.utils import timezone
-from itertools import groupby
 
 from config.organizers import require_organizer
 from .command_support import (
@@ -22,6 +20,7 @@ from .command_support import (
     _validate_series_length,
     _stage_for_command,
     _validate_stage_sequence,
+    _persist_stage_draw,
 )
 from .models import (
     CompetitionEntrant,
@@ -89,7 +88,9 @@ def _fingerprint(results, *, points, tiebreaks, source=""):
     ).hexdigest()
 
 
-def group_standings(group: StageGroup, *, replacement=None) -> dict:
+def group_standings(
+    group: StageGroup, *, replacement=None, projected_matches=None
+) -> dict:
     stage = group.draw.stage
     entry_ids = [entry.pk for entry in group.entries.all()]
     matches = getattr(group, "_standings_matches", None)
@@ -99,6 +100,11 @@ def group_standings(group: StageGroup, *, replacement=None) -> dict:
             .select_related("round")
             .prefetch_related("slots")
         )
+    if projected_matches:
+        from .qualification import projected_fixture_matches
+
+        group.draw._qualification_matches = matches
+        matches = projected_fixture_matches(group.draw, projected_matches)
     ordinary = [m for m in matches if m.round.section == Round.Section.NORMAL]
 
     def results_for(items):
@@ -123,90 +129,23 @@ def group_standings(group: StageGroup, *, replacement=None) -> dict:
     fingerprint = _fingerprint(
         ordinary_results, points=points, tiebreaks=stage.tiebreaks
     )
-    states = {}
-    ties = []
+    from .qualification import select_qualifiers
 
-    def select(ranked, cutoff, source, parent=None):
-        selected = []
-        for rank, block in groupby(ranked, key=lambda row: row.rank):
-            ids = [row.entry_id for row in block]
-            if rank <= cutoff:
-                places = cutoff - rank + 1
-                if places < len(ids):
-                    resolution = next(
-                        (
-                            r
-                            for r in resolutions
-                            if r.parent_id == parent
-                            and r.state != TieResolution.State.SUPERSEDED
-                            and r.source_fingerprint == source
-                            and r.places == places
-                            and {e.pk for e in r.contenders.all()} == set(ids)
-                        ),
-                        None,
-                    )
-                    if resolution is None:
-                        ties.append(
-                            {
-                                "entry_ids": ids,
-                                "places": places,
-                                "parent_resolution_id": parent,
-                                "resolution_id": None,
-                                "source_fingerprint": source,
-                            }
-                        )
-                    elif resolution.method == TieResolution.Method.MANUAL:
-                        selected.extend(resolution.decision_order[:places])
-                        states[resolution.pk] = TieResolution.State.CONFIRMED
-                    else:
-                        extra = [
-                            m
-                            for m in matches
-                            if m.round.tie_resolution_id == resolution.pk
-                        ]
-                        if not extra or any(
-                            m.status != Match.Status.FINAL for m in extra
-                        ):
-                            states[resolution.pk] = TieResolution.State.PENDING
-                            ties.append(
-                                {
-                                    "entry_ids": ids,
-                                    "places": places,
-                                    "parent_resolution_id": parent,
-                                    "resolution_id": resolution.pk,
-                                    "source_fingerprint": source,
-                                }
-                            )
-                        else:
-                            extra_results = results_for(extra)
-                            extra_rules = ("HEAD_TO_HEAD", "GAME_DIFFERENCE")
-                            extra_rows = rank_group(
-                                ids,
-                                extra_results,
-                                points=(Decimal(1), Decimal(0), Decimal(0)),
-                                tiebreaks=extra_rules,
-                            )
-                            extra_source = _fingerprint(
-                                extra_results,
-                                points=(1, 0, 0),
-                                tiebreaks=extra_rules,
-                                source=source,
-                            )
-                            count = len(ties)
-                            selected.extend(
-                                select(extra_rows, places, extra_source, resolution.pk)
-                            )
-                            states[resolution.pk] = (
-                                TieResolution.State.CONFIRMED
-                                if len(ties) == count
-                                else TieResolution.State.AWAITING_RESOLUTION
-                            )
-                else:
-                    selected.extend(ids)
-        return selected
+    qualifiers, ties, states = (
+        select_qualifiers(
+            rows,
+            group.qualifying_places,
+            fingerprint,
+            resolutions=resolutions,
+            matches=matches,
+            results_for=results_for,
+        )
+        if complete
+        else ([], [], {})
+    )
 
-    qualifiers = select(rows, group.qualifying_places, fingerprint) if complete else []
     return {
+        "fingerprint": fingerprint,
         "standings": rows,
         "qualifiers": qualifiers,
         "cutoff_ties": ties,
@@ -267,177 +206,21 @@ def update_round_robin_completion(draw: StageDraw) -> None:
 TIE_SALT = "competitions.group_tie"
 
 
-def _tie_payload(
-    group,
-    *,
-    expected_revision,
-    tied_entry_ids,
-    method,
-    ordered_entry_ids=(),
-    series_length=1,
-    parent_resolution_id=None,
-):
-    _check_revision(group.draw.stage.competition, expected_revision)
-    if group.draw.state != StageDraw.State.PUBLISHED:
-        raise ValidationError("Only published groups can resolve qualification ties.")
-    state = group_standings(group)
-    tie = next(
-        (
-            tie
-            for tie in state["cutoff_ties"]
-            if set(tie["entry_ids"]) == set(tied_entry_ids)
-            and tie["parent_resolution_id"] == parent_resolution_id
-            and tie["resolution_id"] is None
-        ),
-        None,
-    )
-    if tie is None or len(set(tied_entry_ids)) != len(tied_entry_ids):
-        raise ValidationError(
-            "This cutoff is not awaiting the submitted tie choice. Reload standings."
-        )
-    if method not in TieResolution.Method.values:
-        raise ValidationError("Choose an organizer decision or extra matches.")
-    if method == TieResolution.Method.MANUAL:
-        if len(ordered_entry_ids) != len(tied_entry_ids) or set(
-            ordered_entry_ids
-        ) != set(tied_entry_ids):
-            raise ValidationError("Order every tied entrant exactly once.")
-    else:
-        if ordered_entry_ids:
-            raise ValidationError("Extra matches do not use a manual order.")
-        _validate_series_length(Stage.SeriesMode.BEST_OF, series_length)
-        count = len(tied_entry_ids) * (len(tied_entry_ids) - 1) // 2
-        existing = Match.objects.filter(
-            round__draw=group.draw, round__section=Round.Section.TIEBREAK
-        ).count()
-        if existing + count > MAX_MATCHES:
-            raise ValidationError(
-                "The extra-match budget is exhausted. Use an organizer decision."
-            )
-    return {
-        "group_id": group.pk,
-        "competition_id": group.draw.stage.competition_id,
-        "revision": expected_revision,
-        "tied_entry_ids": tie["entry_ids"],
-        "places": tie["places"],
-        "source_fingerprint": tie["source_fingerprint"],
-        "method": method,
-        "ordered_entry_ids": list(ordered_entry_ids),
-        "series_length": series_length,
-        "parent_resolution_id": parent_resolution_id,
-    }
+def preview_group_tie(*, actor, group_id, **kwargs):
+    from .qualification import preview_qualification_tie
 
-
-def preview_group_tie(
-    *,
-    actor,
-    group_id,
-    expected_revision,
-    tied_entry_ids,
-    method,
-    ordered_entry_ids=(),
-    series_length=1,
-    parent_resolution_id=None,
-):
-    require_organizer(actor, "competitions.change_competition")
-    group = StageGroup.objects.select_related("draw__stage__competition").get(
-        pk=group_id
+    group = StageGroup.objects.get(pk=group_id)
+    return preview_qualification_tie(
+        actor=actor, draw_id=group.draw_id, group_id=group_id, **kwargs
     )
-    payload = _tie_payload(
-        group,
-        expected_revision=expected_revision,
-        tied_entry_ids=tied_entry_ids,
-        method=method,
-        ordered_entry_ids=ordered_entry_ids,
-        series_length=series_length,
-        parent_resolution_id=parent_resolution_id,
-    )
-    fixtures = (
-        [asdict(r) for r in generate_round_robin(payload["tied_entry_ids"], meetings=1)]
-        if method == TieResolution.Method.EXTRA_MATCHES
-        else []
-    )
-    return {
-        **payload,
-        "fixtures": fixtures,
-        "token": signing.dumps(payload, salt=TIE_SALT, compress=True),
-    }
 
 
 def confirm_group_tie(*, actor, token, internal_reason=""):
-    require_organizer(actor, "competitions.change_competition")
-    try:
-        submitted = signing.loads(token, salt=TIE_SALT, max_age=3600)
-    except signing.BadSignature as error:
-        raise ValidationError("The tie preview is invalid or expired.") from error
-    if (
-        submitted["method"] == TieResolution.Method.MANUAL
-        and not internal_reason.strip()
-    ):
-        raise ValidationError(
-            "An internal reason is required for an organizer decision."
-        )
-    with transaction.atomic():
-        competition = _lock_competition(submitted["competition_id"])
-        group = (
-            StageGroup.objects.select_for_update()
-            .select_related("draw__stage")
-            .get(pk=submitted["group_id"])
-        )
-        group.draw.stage.competition = competition
-        current = _tie_payload(
-            group,
-            expected_revision=submitted["revision"],
-            tied_entry_ids=submitted["tied_entry_ids"],
-            method=submitted["method"],
-            ordered_entry_ids=submitted["ordered_entry_ids"],
-            series_length=submitted["series_length"],
-            parent_resolution_id=submitted["parent_resolution_id"],
-        )
-        if current != submitted:
-            raise ValidationError("The tie impact changed. Preview it again.")
-        resolution = TieResolution.objects.create(
-            draw=group.draw,
-            group=group,
-            parent_id=current["parent_resolution_id"],
-            method=current["method"],
-            state=TieResolution.State.CONFIRMED
-            if current["method"] == TieResolution.Method.MANUAL
-            else TieResolution.State.PENDING,
-            source_fingerprint=current["source_fingerprint"],
-            places=current["places"],
-            decision_order=current["ordered_entry_ids"],
-        )
-        resolution.contenders.set(current["tied_entry_ids"])
-        if resolution.method == TieResolution.Method.EXTRA_MATCHES:
-            _save_group_rounds(
-                group,
-                current["tied_entry_ids"],
-                meetings=1,
-                resolution=resolution,
-                series_length=current["series_length"],
-            )
-        update_round_robin_completion(group.draw)
-        names = dict(group.entries.values_list("pk", "entrant__display_name"))
-        _record_change(
-            competition,
-            actor=actor,
-            kind="group_tie_confirmed",
-            internal_reason=internal_reason,
-            private_data=current,
-            public_data={
-                "kind": "group_tie_confirmed",
-                "group_id": group.pk,
-                "group_name": group.name,
-                "resolution_id": resolution.pk,
-                "method": resolution.method,
-                "places": resolution.places,
-                "tied_entries": [names[pk] for pk in current["tied_entry_ids"]],
-                "ordered_entries": [names[pk] for pk in current["ordered_entry_ids"]],
-            },
-        )
-        resolution.refresh_from_db()
-        return resolution
+    from .qualification import confirm_qualification_tie
+
+    return confirm_qualification_tie(
+        actor=actor, token=token, internal_reason=internal_reason
+    )
 
 
 def _standing_snapshot(state):
@@ -602,13 +385,14 @@ def configure_round_robin(
 
 
 def _save_group_rounds(
-    group, entry_ids, *, meetings, resolution=None, series_length=None
+    group, entry_ids, *, meetings, resolution=None, series_length=None, draw=None
 ):
+    draw = group.draw if group else draw
     generated = generate_round_robin(entry_ids, meetings=meetings)
     section = Round.Section.TIEBREAK if resolution else Round.Section.NORMAL
     offset = (
         (
-            group.rounds.filter(section=section)
+            draw.rounds.filter(group=group, section=section)
             .order_by("-number")
             .values_list("number", flat=True)
             .first()
@@ -617,10 +401,10 @@ def _save_group_rounds(
         if resolution
         else 0
     )
-    ordinal = Match.objects.filter(round__draw=group.draw).count()
+    ordinal = Match.objects.filter(round__draw=draw).count()
     for fixture in generated:
         round_ = Round.objects.create(
-            draw=group.draw,
+            draw=draw,
             group=group,
             number=offset + fixture.number,
             section=section,
@@ -633,7 +417,7 @@ def _save_group_rounds(
                 Match(
                     round=round_,
                     number=number,
-                    code=f"{group.draw.stage.name}-M{ordinal + number}",
+                    code=f"{draw.stage.name}-M{ordinal + number}",
                 )
                 for number, _ in enumerate(fixture.pairings, 1)
             ]
@@ -754,44 +538,9 @@ def save_round_robin_draw(
                     for i, (name, size, quota) in enumerate(actual, 1)
                 ]
             )
-        stage.draws.filter(state=StageDraw.State.DRAFT).update(
-            state=StageDraw.State.SUPERSEDED
+        draw = _persist_stage_draw(
+            stage, ids, randomized=randomize, group_specs=specs, allocations=allocations
         )
-        version = (
-            stage.draws.order_by("-version").values_list("version", flat=True).first()
-            or 0
-        ) + 1
-        draw = StageDraw.objects.create(
-            stage=stage, version=version, randomized=randomize
-        )
-        groups = [
-            StageGroup.objects.create(
-                draw=draw, number=number, name=name, qualifying_places=places
-            )
-            for number, (name, places) in enumerate(specs, 1)
-        ]
-        group_by_entrant = {
-            entrant: group
-            for group, allocation in zip(groups, allocations, strict=True)
-            for entrant in allocation
-        }
-        entries = StageEntry.objects.bulk_create(
-            [
-                StageEntry(
-                    draw=draw,
-                    entrant_id=entrant,
-                    group=group_by_entrant[entrant],
-                    seed=seed,
-                )
-                for seed, entrant in enumerate(ids, 1)
-            ]
-        )
-        for group in groups:
-            _save_group_rounds(
-                group,
-                [entry.pk for entry in entries if entry.group_id == group.pk],
-                meetings=stage.round_robin_meetings,
-            )
         _record_change(
             competition,
             actor=actor,
@@ -803,6 +552,30 @@ def save_round_robin_draw(
             },
         )
         return draw
+
+
+def _persist_round_robin_fixtures(draw, entries, specs, allocations):
+    stage = draw.stage
+    groups = [
+        StageGroup.objects.create(
+            draw=draw, number=number, name=name, qualifying_places=places
+        )
+        for number, (name, places) in enumerate(specs, 1)
+    ]
+    group_by_entrant = {
+        entrant: group
+        for group, allocation in zip(groups, allocations, strict=True)
+        for entrant in allocation
+    }
+    for entry in entries:
+        entry.group = group_by_entrant[entry.entrant_id]
+    StageEntry.objects.bulk_update(entries, ("group",))
+    for group in groups:
+        _save_group_rounds(
+            group,
+            [entry.pk for entry in entries if entry.group_id == group.pk],
+            meetings=stage.round_robin_meetings,
+        )
 
 
 def validate_round_robin_draw(draw):

@@ -216,7 +216,7 @@ class RoundRobinTieTests(TestCase):
         self.tied_group()
         preview = self.preview()
         with patch(
-            "competitions.round_robin_commands._record_change",
+            "competitions.qualification._record_change",
             side_effect=RuntimeError("history unavailable"),
         ):
             with self.assertRaises(RuntimeError):
@@ -243,7 +243,7 @@ class RoundRobinTieTests(TestCase):
             self.result(match)
         with self.assertRaises(ValidationError):
             self.preview(tied_entry_ids=ids[:2], ordered_entry_ids=ids[:2])
-        with patch("competitions.round_robin_commands.MAX_MATCHES", 2):
+        with patch("competitions.qualification.MAX_MATCHES", 2):
             with self.assertRaises(ValidationError):
                 self.preview(method="EXTRA_MATCHES")
             self.preview()

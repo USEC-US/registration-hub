@@ -24,6 +24,7 @@ from .command_support import (
     _stage_for_command,
     _validate_stage_sequence,
     _validate_series_length,
+    _persist_stage_draw,
 )
 from .elimination import (
     LoserSlot,
@@ -262,85 +263,7 @@ def save_elimination_draw(
         generated = _generate_elimination(stage, len(entrants))
         if sum(len(round_.matches) for round_ in generated) > MAX_MATCHES:
             raise ValidationError("The generated draw exceeds the match limit.")
-        current = (
-            StageDraw.objects.select_for_update()
-            .filter(stage=stage, state=StageDraw.State.DRAFT)
-            .first()
-        )
-        next_version = (
-            StageDraw.objects.filter(stage=stage)
-            .order_by("-version")
-            .values_list("version", flat=True)
-            .first()
-            or 0
-        ) + 1
-        if current:
-            current.state = StageDraw.State.SUPERSEDED
-            current.save(update_fields=("state",))
-        draw = StageDraw.objects.create(
-            stage=stage, version=next_version, randomized=randomize
-        )
-        entrants_by_id = {entrant.pk: entrant for entrant in entrants}
-        entries_by_seed = {
-            seed: StageEntry.objects.create(
-                draw=draw, entrant=entrants_by_id[entrant_id], seed=seed
-            )
-            for seed, entrant_id in enumerate(ordered_ids, start=1)
-        }
-        matches: dict[tuple[str, int, int], Match] = {}
-        for generated_round in generated:
-            round_ = Round.objects.create(
-                draw=draw,
-                number=generated_round.number,
-                section=generated_round.section,
-            )
-            for generated_match in generated_round.matches:
-                match = Match.objects.create(
-                    round=round_,
-                    number=generated_match.number,
-                    code=f"{stage.name}-M{len(matches) + 1}",
-                    status=(
-                        Match.Status.CONDITIONAL
-                        if round_.section == Round.Section.FINALS and round_.number == 2
-                        else Match.Status.PENDING
-                    ),
-                )
-                matches[(round_.section, round_.number, match.number)] = match
-        # Persist the whole graph before linking either winner or loser routes.
-        for generated_round in generated:
-            for generated_match in generated_round.matches:
-                match = matches[
-                    (
-                        generated_round.section,
-                        generated_round.number,
-                        generated_match.number,
-                    )
-                ]
-                for position, slot in enumerate(generated_match.slots, start=1):
-                    if isinstance(slot, SeedSlot):
-                        entry = entries_by_seed.get(slot.seed)
-                        MatchSlot.objects.create(
-                            match=match,
-                            position=position,
-                            entry=entry,
-                            is_empty=entry is None,
-                            is_resolved=True,
-                            resolved_entry=entry,
-                        )
-                    else:
-                        MatchSlot.objects.create(
-                            match=match,
-                            position=position,
-                            source_match=matches[
-                                (slot.section, slot.round_number, slot.match_number)
-                            ],
-                            source_outcome=(
-                                MatchSlot.SourceOutcome.LOSER
-                                if isinstance(slot, LoserSlot)
-                                else MatchSlot.SourceOutcome.WINNER
-                            ),
-                        )
-        _resolve_automatic_matches(draw)
+        draw = _persist_stage_draw(stage, ordered_ids, randomized=randomize)
         _record_change(
             competition,
             actor=actor,
@@ -354,6 +277,68 @@ def save_elimination_draw(
         return draw
 
 
+def _persist_elimination_fixtures(draw, entries):
+    stage = draw.stage
+    generated = _generate_elimination(stage, len(entries))
+    if sum(len(r.matches) for r in generated) > MAX_MATCHES:
+        raise ValidationError("The generated draw exceeds the match limit.")
+    entries_by_seed = {entry.seed: entry for entry in entries}
+    matches: dict[tuple[str, int, int], Match] = {}
+    for generated_round in generated:
+        round_ = Round.objects.create(
+            draw=draw,
+            number=generated_round.number,
+            section=generated_round.section,
+        )
+        for generated_match in generated_round.matches:
+            match = Match.objects.create(
+                round=round_,
+                number=generated_match.number,
+                code=f"{stage.name}-M{len(matches) + 1}",
+                status=(
+                    Match.Status.CONDITIONAL
+                    if round_.section == Round.Section.FINALS and round_.number == 2
+                    else Match.Status.PENDING
+                ),
+            )
+            matches[(round_.section, round_.number, match.number)] = match
+    # Persist the whole graph before linking either winner or loser routes.
+    for generated_round in generated:
+        for generated_match in generated_round.matches:
+            match = matches[
+                (
+                    generated_round.section,
+                    generated_round.number,
+                    generated_match.number,
+                )
+            ]
+            for position, slot in enumerate(generated_match.slots, start=1):
+                if isinstance(slot, SeedSlot):
+                    entry = entries_by_seed.get(slot.seed)
+                    MatchSlot.objects.create(
+                        match=match,
+                        position=position,
+                        entry=entry,
+                        is_empty=entry is None,
+                        is_resolved=True,
+                        resolved_entry=entry,
+                    )
+                else:
+                    MatchSlot.objects.create(
+                        match=match,
+                        position=position,
+                        source_match=matches[
+                            (slot.section, slot.round_number, slot.match_number)
+                        ],
+                        source_outcome=(
+                            MatchSlot.SourceOutcome.LOSER
+                            if isinstance(slot, LoserSlot)
+                            else MatchSlot.SourceOutcome.WINNER
+                        ),
+                    )
+    _resolve_automatic_matches(draw)
+
+
 def publish_draw(
     *, actor, competition_id: int, expected_revision: int, stage_id: int | None = None
 ) -> StageDraw:
@@ -362,7 +347,7 @@ def publish_draw(
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
         stage = _stage_for_command(competition, stage_id)
-        if stage.published_at:
+        if stage.draws.filter(state=StageDraw.State.PUBLISHED).exists():
             raise ValidationError("This stage is already published.")
         draw = (
             StageDraw.objects.select_for_update()
@@ -371,11 +356,25 @@ def publish_draw(
         )
         if draw is None:
             raise ValidationError("Save a new draw before publication.")
-        registration_ids = list(
-            competition.entrants.filter(is_selected=True)
-            .order_by("registration_id")
-            .values_list("registration_id", flat=True)
-        )
+        if stage.sequence > 1:
+            from .handoff_commands import validate_draw_source
+
+            validate_draw_source(draw)
+            registration_ids = list(
+                draw.entries.values_list("entrant__registration_id", flat=True)
+            )
+        else:
+            registration_ids = list(
+                competition.entrants.filter(is_selected=True)
+                .order_by("registration_id")
+                .values_list("registration_id", flat=True)
+            )
+            if set(
+                draw.entries.values_list("entrant__registration_id", flat=True)
+            ) != set(registration_ids):
+                raise ValidationError(
+                    "The draw does not contain every selected entrant."
+                )
         registrations = list(
             Registration.objects.select_for_update()
             .filter(pk__in=registration_ids)
@@ -398,13 +397,16 @@ def publish_draw(
         _validate_saved_draw(draw)
         from .stage_commands import validate_stage_plan
 
-        validate_stage_plan(competition)
+        if not competition.stages.filter(
+            sequence=1, published_at__isnull=False
+        ).exists():
+            validate_stage_plan(competition)
         now = timezone.now()
         draw.state = StageDraw.State.PUBLISHED
         draw.published_at = now
         draw.save(update_fields=("state", "published_at"))
         stage.status = Stage.Status.READY
-        stage.published_at = now
+        stage.published_at = stage.published_at or now
         stage.save(update_fields=("status", "published_at"))
         _record_change(
             competition,
@@ -415,6 +417,9 @@ def publish_draw(
                 "kind": "draw_published",
                 "stage_id": stage.pk,
                 "draw_id": draw.pk,
+                "source_stage_id": draw.source_draw.stage_id
+                if draw.source_draw_id
+                else None,
             },
         )
         return draw
@@ -1003,6 +1008,23 @@ def _update_stage_completion(draw: StageDraw) -> None:
         stage.champion = None
         stage.completed_without_champion = False
         stage.completed_at = None
+    if stage.advancement_count is not None:
+        from .qualification import stage_qualification
+
+        qualification = stage_qualification(draw)
+        for resolution_id, status in qualification["resolution_states"].items():
+            TieResolution.objects.filter(pk=resolution_id).update(
+                state=status,
+                confirmed_at=timezone.now() if status == "CONFIRMED" else None,
+            )
+        if qualification["qualification_state"] != "RESOLVED":
+            stage.status = (
+                Stage.Status.AWAITING
+                if qualification["qualification_state"]
+                in ("AWAITING_RESOLUTION", "BLOCKED")
+                else Stage.Status.IN_PROGRESS
+            )
+            stage.completed_at = None
     stage.save(
         update_fields=(
             "status",
@@ -1179,7 +1201,7 @@ def _project_correction(match: Match, *, outcome, winner_id):
                     }
                 )
         projected[item.pk] = state
-    return affected, impacts, reset_changes
+    return affected, impacts, reset_changes, projected
 
 
 def _correction_payload(
@@ -1191,6 +1213,8 @@ def _correction_payload(
     side_two_score: int | None,
     winner_position: int | None,
 ) -> tuple[dict, StageEntry | None, list[Match]]:
+    if match.round.draw.state != StageDraw.State.PUBLISHED:
+        raise ValidationError("Only current published matches can be corrected.")
     _check_current_tie_match(match)
     if match.status != Match.Status.FINAL or match.outcome in (
         Match.Outcome.BYE,
@@ -1215,13 +1239,39 @@ def _correction_payload(
             side_two_score=side_two_score,
             winner_entry_id=winner.pk if winner else None,
         )
-        affected, impacts, reset_changes = [], [], []
+        affected, impacts, reset_changes, projected = [], [], [], {}
     else:
-        affected, impacts, reset_changes = _project_correction(
+        affected, impacts, reset_changes, projected = _project_correction(
             match,
             outcome=outcome,
             winner_id=winner.pk if winner else None,
         )
+    from .qualification import stage_qualification
+    from .handoff_commands import project_handoff_corrections
+
+    projected.setdefault(match.pk, {}).update(
+        status="FINAL",
+        outcome=outcome,
+        side_one_score=side_one_score,
+        side_two_score=side_two_score,
+        winner_id=winner.pk if winner else None,
+    )
+    qualification = stage_qualification(match.round.draw, projected_matches=projected)
+    handoff_impact = project_handoff_corrections(
+        match.round.draw,
+        projected_qualification=qualification,
+        source_needs_replay=qualification["qualification_state"] == "PROVISIONAL",
+    )
+    invalidated_ties = []
+    if match.round.draw.stage.format != Stage.Format.ROUND_ROBIN:
+        active = list(
+            match.round.draw.tie_resolutions.exclude(state="SUPERSEDED").values_list(
+                "pk", flat=True
+            )
+        )
+        invalidated_ties = [
+            pk for pk in active if pk not in qualification["resolution_states"]
+        ]
     payload = {
         "competition_id": match.round.draw.stage.competition_id,
         "revision": competition_revision,
@@ -1235,6 +1285,8 @@ def _correction_payload(
         "match_impacts": impacts,
         "reset_final_changes": reset_changes,
         "group_impact": group_impact,
+        "handoff_impact": handoff_impact,
+        "invalidated_tie_ids": invalidated_ties,
     }
     return payload, winner, affected
 
@@ -1289,6 +1341,7 @@ def _correction_preview_response(
         "match_impacts": payload["match_impacts"],
         "reset_final_changes": payload["reset_final_changes"],
         "group_impact": payload["group_impact"],
+        "handoff_impact": payload["handoff_impact"],
     }
 
 
@@ -1411,6 +1464,12 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
             from .round_robin_commands import apply_group_correction_impact
 
             apply_group_correction_impact(match, current["group_impact"])
+        TieResolution.objects.filter(pk__in=current["invalidated_tie_ids"]).update(
+            state="SUPERSEDED"
+        )
+        from .handoff_commands import apply_handoff_impact, public_handoff_impact
+
+        apply_handoff_impact(current["handoff_impact"])
         _propagate_completed_match(match)
         _resolve_automatic_matches(match.round.draw)
         _update_stage_completion(match.round.draw)
@@ -1426,6 +1485,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "reset_matches": reset_snapshots,
                 "reset_final_changes": current["reset_final_changes"],
                 "group_impact": current["group_impact"],
+                "handoff_impact": current["handoff_impact"],
             },
             public_data={
                 "kind": "result_corrected",
@@ -1436,6 +1496,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "reset_matches": reset_snapshots,
                 "reset_final_changes": current["reset_final_changes"],
                 "group_impact": current["group_impact"],
+                "handoff_impact": public_handoff_impact(current["handoff_impact"]),
             },
         )
         return match

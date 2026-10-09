@@ -122,3 +122,52 @@ def _validate_stage_sequence(competition, sequence):
         raise ValidationError(
             "Configure an existing stage or the next contiguous stage."
         )
+
+
+def _persist_stage_draw(
+    stage,
+    ordered_entrant_ids,
+    *,
+    randomized,
+    source_draw=None,
+    source_fingerprint="",
+    source_entries=None,
+    group_specs=None,
+    allocations=None,
+):
+    from .models import StageDraw, StageEntry
+
+    current = stage.draws.filter(state="DRAFT").first()
+    version = (
+        stage.draws.order_by("-version").values_list("version", flat=True).first() or 0
+    ) + 1
+    if current:
+        current.state = "SUPERSEDED"
+        current.save(update_fields=("state",))
+    draw = StageDraw.objects.create(
+        stage=stage,
+        version=version,
+        randomized=randomized,
+        source_draw=source_draw,
+        source_fingerprint=source_fingerprint,
+    )
+    entries = StageEntry.objects.bulk_create(
+        [
+            StageEntry(
+                draw=draw,
+                entrant_id=entrant_id,
+                seed=seed,
+                source_entry_id=(source_entries or {}).get(entrant_id),
+            )
+            for seed, entrant_id in enumerate(ordered_entrant_ids, 1)
+        ]
+    )
+    if stage.format == Stage.Format.ROUND_ROBIN:
+        from .round_robin_commands import _persist_round_robin_fixtures
+
+        _persist_round_robin_fixtures(draw, entries, group_specs, allocations)
+    else:
+        from .commands import _persist_elimination_fixtures
+
+        _persist_elimination_fixtures(draw, entries)
+    return draw
