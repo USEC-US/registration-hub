@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { SvelteMap } from 'svelte/reactivity';
+	import { onMount } from 'svelte';
 	import type {
 		CompetitionMatchStatus,
 		CompetitionStageStatus,
@@ -22,6 +23,10 @@
 
 	let { data }: PageProps = $props();
 	let groupId = $state('');
+	let hydrated = $state(false);
+	onMount(() => {
+		hydrated = true;
+	});
 	const doubleSections = ['UPPER', 'LOWER', 'FINALS'] as const;
 
 	const tournamentHref = $derived(resolve(localizeInternalHref(`/tournaments/${data.slug}`)));
@@ -403,6 +408,7 @@
 					><Field.FieldLabel for="group-select">{m.bracket_group()}</Field.FieldLabel>
 					<select
 						id="group-select"
+						disabled={!hydrated}
 						value={String(group?.id ?? '')}
 						onchange={(event) => {
 							groupId = event.currentTarget.value;

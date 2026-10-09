@@ -466,6 +466,29 @@ class RoundRobinAdminTests(TestCase):
         self.assertContains(form, "Tiebreaker 4")
         self.assertContains(form, "Head-to-head points")
 
+    def test_saved_draw_preview_includes_standings_rules(self):
+        self.setup_rr(tiebreak_1="MATCH_WINS", tiebreak_4="HEAD_TO_HEAD")
+        self.action("entrants", {"registrations": [r.pk for r in self.registrations]})
+        ids = list(self.competition.entrants.values_list("pk", flat=True))
+        self.action(
+            "draw",
+            {
+                "group_specs": "Alpha | 1",
+                "allocation": "SNAKE",
+                **{f"seed_{i}": pk for i, pk in enumerate(ids, 1)},
+            },
+        )
+        url = reverse(
+            "admin:competitions_competition_change", args=[self.competition.pk]
+        )
+        for tab in ("bracket", "setup"):
+            with self.subTest(tab=tab):
+                response = self.client.get(url, {"tab": tab})
+                self.assertContains(response, "Standings rules")
+                self.assertContains(response, "Meetings per pair")
+                self.assertContains(response, "3.00 / 1.00 / 0.00")
+                self.assertContains(response, "Match wins → Head-to-head points")
+
     def test_publish_fixed_draw_standings_and_confirm_manual_tie(self):
         self.published_rr()
         for match in Match.objects.filter(round__draw=self.draw):

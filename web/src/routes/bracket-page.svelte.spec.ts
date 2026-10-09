@@ -607,6 +607,15 @@ describe('public round robin groups', () => {
 			expect(selector.options).toHaveLength(2);
 			selector.focus();
 			expect(document.activeElement).toBe(selector);
+			selector.value = '2';
+			selector.dispatchEvent(new Event('change', { bubbles: true }));
+			await expect
+				.element(
+					page.getByRole('heading', {
+						name: locale === 'en' ? 'Beta · Standings' : 'Beta · Bảng xếp hạng'
+					})
+				)
+				.toBeVisible();
 		}
 	);
 
