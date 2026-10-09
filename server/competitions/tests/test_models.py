@@ -10,6 +10,48 @@ from tournaments.models import Game, Tournament, TournamentGame
 
 
 class CompetitionModelTests(TestCase):
+    def test_stage_group_plan_and_source_constraints(self):
+        from competitions.models import StageGroupPlan
+
+        self.stage.format = Stage.Format.ROUND_ROBIN
+        self.stage.save()
+        for size, quota in ((1, 1), (2, 0), (2, 3)):
+            with self.subTest(size=size, quota=quota):
+                with self.assertRaises(IntegrityError), transaction.atomic():
+                    StageGroupPlan.objects.create(
+                        stage=self.stage,
+                        number=1,
+                        name="A",
+                        size=size,
+                        qualifying_places=quota,
+                    )
+        StageGroupPlan.objects.create(
+            stage=self.stage, number=1, name="A", size=3, qualifying_places=2
+        )
+        source = StageDraw.objects.create(stage=self.stage, version=1)
+        for source_id, fingerprint in ((None, "a" * 64), (source.pk, "")):
+            with self.assertRaises(IntegrityError), transaction.atomic():
+                StageDraw.objects.create(
+                    stage=self.stage,
+                    version=2,
+                    state="SUPERSEDED",
+                    source_draw_id=source_id,
+                    source_fingerprint=fingerprint,
+                )
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            source.source_draw = source
+            source.source_fingerprint = "a" * 64
+            source.save()
+
+    def test_display_codes_may_repeat_and_accept_full_unicode_prefix(self):
+        draw = StageDraw.objects.create(stage=self.stage, version=1)
+        round_ = Round.objects.create(draw=draw, number=1)
+        code = "Đ" * 100 + "-M16384"
+        first = round_.matches.create(number=1, code=code)
+        second = round_.matches.create(number=2, code=code)
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(Match.objects.get(pk=second.pk).code, code)
+
     def setUp(self):
         game = Game.objects.create(name="Chess", slug="chess")
         tournament = Tournament.objects.create(name="Cup", slug="cup")

@@ -97,6 +97,7 @@ class Stage(models.Model):
     draw_points = models.DecimalField(max_digits=10, decimal_places=2, default=1)
     loss_points = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tiebreaks = models.JSONField(default=default_tiebreaks)
+    advancement_count = models.PositiveSmallIntegerField(null=True, blank=True)
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.DRAFT
     )
@@ -114,6 +115,14 @@ class Stage(models.Model):
     class Meta:
         ordering = ("sequence", "pk")
         constraints = [
+            models.CheckConstraint(
+                condition=Q(advancement_count__isnull=True)
+                | Q(
+                    format__in=("SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"),
+                    advancement_count__gte=1,
+                ),
+                name="stage_valid_advancement",
+            ),
             models.UniqueConstraint(
                 fields=("competition", "sequence"),
                 name="unique_competition_stage_sequence",
@@ -149,6 +158,38 @@ class Stage(models.Model):
         return self.name
 
 
+class StageGroupPlan(models.Model):
+    stage = models.ForeignKey(
+        Stage, on_delete=models.CASCADE, related_name="group_plans"
+    )
+    number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    name = models.CharField(max_length=100)
+    size = models.PositiveSmallIntegerField(validators=[MinValueValidator(2)])
+    qualifying_places = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1)]
+    )
+
+    class Meta:
+        ordering = ("number", "pk")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("stage", "number"), name="unique_stage_group_plan_number"
+            ),
+            models.UniqueConstraint(
+                fields=("stage", "name"), name="unique_stage_group_plan_name"
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    number__gte=1,
+                    size__gte=2,
+                    qualifying_places__gte=1,
+                    qualifying_places__lte=F("size"),
+                ),
+                name="group_plan_valid_partition",
+            ),
+        ]
+
+
 class StageDraw(models.Model):
     class State(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -156,6 +197,14 @@ class StageDraw(models.Model):
         SUPERSEDED = "SUPERSEDED", "Superseded"
 
     stage = models.ForeignKey(Stage, on_delete=models.PROTECT, related_name="draws")
+    source_draw = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="destination_draws",
+    )
+    source_fingerprint = models.CharField(max_length=64, blank=True, default="")
     version = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     state = models.CharField(max_length=16, choices=State.choices, default=State.DRAFT)
     randomized = models.BooleanField(default=False)
@@ -165,6 +214,14 @@ class StageDraw(models.Model):
     class Meta:
         ordering = ("version", "pk")
         constraints = [
+            models.CheckConstraint(
+                condition=Q(source_draw__isnull=True, source_fingerprint="")
+                | (Q(source_draw__isnull=False) & ~Q(source_fingerprint="")),
+                name="draw_source_fingerprint_pair",
+            ),
+            models.CheckConstraint(
+                condition=~Q(source_draw=F("pk")), name="draw_source_not_self"
+            ),
             models.UniqueConstraint(
                 fields=("stage", "version"), name="unique_stage_draw_version"
             ),
@@ -250,8 +307,15 @@ class TieResolution(models.Model):
         CONFIRMED = "CONFIRMED", "Confirmed"
         SUPERSEDED = "SUPERSEDED", "Superseded"
 
+    draw = models.ForeignKey(
+        StageDraw, on_delete=models.PROTECT, related_name="tie_resolutions"
+    )
     group = models.ForeignKey(
-        StageGroup, on_delete=models.PROTECT, related_name="tie_resolutions"
+        StageGroup,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="tie_resolutions",
     )
     parent = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.PROTECT, related_name="children"
@@ -354,7 +418,7 @@ class Match(models.Model):
 
     round = models.ForeignKey(Round, on_delete=models.PROTECT, related_name="matches")
     number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
-    code = models.CharField(max_length=64, unique=True)
+    code = models.CharField(max_length=128)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.PENDING
