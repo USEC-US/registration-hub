@@ -2,6 +2,7 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core import signing
 from django.core.paginator import Paginator
 from django.db.models import Prefetch
 from django.http import Http404, HttpResponseNotAllowed, HttpResponseRedirect
@@ -23,6 +24,7 @@ from .admin_workspace import (
     reset_final_changes_display,
     result_summary,
     round_label,
+    series_label,
     workspace_url,
 )
 
@@ -53,6 +55,9 @@ from .forms import (
     ResultForm,
     ScheduleForm,
     SeriesLengthForm,
+    GroupDrawForm,
+    GroupTieForm,
+    TieReasonForm,
 )
 from .models import (
     ChangeSet,
@@ -64,7 +69,17 @@ from .models import (
     Stage,
     StageDraw,
     StageEntry,
+    StageGroup,
 )
+from .round_robin_commands import (
+    TIE_SALT,
+    configure_round_robin,
+    save_round_robin_draw,
+    group_standings,
+    preview_group_tie,
+    confirm_group_tie,
+)
+from .forms import TIEBREAK_CHOICES
 
 
 class ImmutableInline:
@@ -187,7 +202,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             if stage
             else None
         )
-        entrants = list(competition.entrants.order_by("pk"))
+        entrants = list(competition.entrants.filter(is_selected=True).order_by("pk"))
         published = bool(stage and stage.published_at)
         can_manage = self.has_change_permission(request, competition)
         can_view_matches = admin.site.get_model_admin(Match).has_view_permission(
@@ -199,10 +214,17 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         can_view_changes = request.user.has_perm("competitions.view_changeset")
         url = workspace_url(competition.pk)
         selected_tab = request.GET.get("tab", "bracket" if draw else "setup")
-        if selected_tab not in ("setup", "entrants", "bracket", "changes"):
+        if selected_tab not in ("setup", "entrants", "bracket", "standings", "changes"):
             raise Http404
         if selected_tab == "changes" and not can_view_changes:
             raise PermissionDenied
+        groups = list(draw.groups.all()) if draw else []
+        selected_group = None
+        if groups:
+            requested = request.GET.get("group", str(groups[0].pk))
+            selected_group = next((g for g in groups if str(g.pk) == requested), None)
+            if selected_group is None:
+                raise Http404
         steps = [
             (
                 "Set up",
@@ -284,8 +306,14 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "round__draw__stage"
             ).prefetch_related(Prefetch("slots", queryset=slots))
             draw_rounds = list(
-                draw.rounds.prefetch_related(Prefetch("matches", queryset=matches))
+                draw.rounds.select_related("tie_resolution").prefetch_related(
+                    Prefetch("matches", queryset=matches)
+                )
             )
+            if selected_group:
+                draw_rounds = [
+                    r for r in draw_rounds if r.group_id == selected_group.pk
+                ]
             last_round_numbers = {}
             for round_ in draw_rounds:
                 last_round_numbers[round_.section] = max(
@@ -305,11 +333,38 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                         ),
                         "series_length": round_.series_length_override
                         or stage.default_series_length,
+                        "series_label": series_label(
+                            round_.series_mode_override or stage.series_mode,
+                            round_.series_length_override
+                            or stage.default_series_length,
+                        ),
+                        "resting_entries": [
+                            e.entrant.display_name
+                            for e in (
+                                round_.tie_resolution.contenders.select_related(
+                                    "entrant"
+                                )
+                                if round_.tie_resolution_id
+                                else selected_group.entries.select_related("entrant")
+                            )
+                            if e.pk
+                            not in {
+                                s.resolved_entry_id
+                                for m in round_.matches.all()
+                                for s in m.slots.all()
+                            }
+                        ]
+                        if selected_group
+                        else [],
                         "series_url": reverse(
                             "admin:competitions_round_series_detail", args=[round_.pk]
                         )
                         if can_operate
                         and published
+                        and (
+                            not round_.tie_resolution_id
+                            or round_.tie_resolution.state != "SUPERSEDED"
+                        )
                         and not any(
                             match.started_at and match.series_length_override is None
                             for match in round_.matches.all()
@@ -331,6 +386,40 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     None,
                 )
         changes_page = None
+        group_display = None
+        if selected_group:
+            state = group_standings(selected_group)
+            entry_names = dict(
+                selected_group.entries.values_list("pk", "entrant__display_name")
+            )
+            tied_ids = {pk for tie in state["cutoff_ties"] for pk in tie["entry_ids"]}
+            group_display = {
+                "group": selected_group,
+                "state": state["qualification_state"],
+                "rows": [
+                    {
+                        "row": row,
+                        "name": entry_names[row.entry_id],
+                        "qualification": "Provisional"
+                        if state["qualification_state"] == "PROVISIONAL"
+                        else "Qualified"
+                        if row.entry_id in state["qualifiers"]
+                        else "Tied"
+                        if row.entry_id in tied_ids
+                        else "Not qualified",
+                    }
+                    for row in state["standings"]
+                ],
+                "qualifiers": [entry_names[pk] for pk in state["qualifiers"]],
+                "tie_url": reverse(
+                    "admin:competitions_group_tie_preview", args=[selected_group.pk]
+                )
+                if can_manage
+                and published
+                and any(t["resolution_id"] is None for t in state["cutoff_ties"])
+                else None,
+                "resolutions": selected_group.tie_resolutions.all(),
+            }
         if selected_tab == "changes":
             changes_page = Paginator(
                 competition.changes.select_related("actor").order_by("-revision"), 25
@@ -378,6 +467,19 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "competition": competition,
                 "stage": stage,
                 "grand_final_policy": grand_final_policy_label(stage),
+                "stage_series_label": series_label(
+                    stage.series_mode, stage.default_series_length
+                )
+                if stage
+                else "",
+                "rule_labels": [
+                    dict(TIEBREAK_CHOICES)[rule] for rule in stage.tiebreaks
+                ]
+                if stage
+                else [],
+                "groups": groups,
+                "selected_group": selected_group,
+                "group_display": group_display,
                 "draw": draw,
                 "workspace_url": url,
                 "bracket_url": workspace_url(competition.pk, "bracket"),
@@ -391,11 +493,13 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     }
                     for tab, label in [
                         ("bracket", "Bracket & matches"),
+                        ("standings", "Standings"),
                         ("entrants", "Entrants"),
                         ("setup", "Setup"),
                         ("changes", "Changes"),
                     ]
-                    if tab != "changes" or can_view_changes
+                    if (tab != "changes" or can_view_changes)
+                    and (tab != "standings" or groups)
                 ],
                 "can_manage": can_manage,
                 "can_view_matches": can_view_matches,
@@ -459,11 +563,132 @@ class CompetitionAdmin(OrganizerStaffAdmin):
     def get_urls(self):
         return [
             path(
+                "group/<int:group_id>/tie/preview/",
+                self.admin_site.admin_view(self.group_tie_preview_view),
+                name="competitions_group_tie_preview",
+            ),
+            path(
+                "group/<int:group_id>/tie/confirm/",
+                self.admin_site.admin_view(self.group_tie_confirm_view),
+                name="competitions_group_tie_confirm",
+            ),
+            path(
                 "create/<int:division_id>/",
                 self.admin_site.admin_view(self.create_view),
                 name="competitions_competition_create_for_division",
-            )
+            ),
         ] + super().get_urls()
+
+    def group_tie_preview_view(self, request, group_id):
+        require_organizer(request.user, "competitions.change_competition")
+        if request.method not in ("GET", "POST"):
+            return HttpResponseNotAllowed(["GET", "POST"])
+        group = get_object_or_404(
+            StageGroup.objects.select_related("draw__stage__competition"), pk=group_id
+        )
+        form = GroupTieForm(
+            request.POST if request.method == "POST" else None,
+            group=group,
+            initial={"expected_revision": group.draw.stage.competition.revision},
+        )
+        extra = {
+            "workspace_url": workspace_url(group.draw.stage.competition_id, "standings")
+        }
+        if request.method == "POST" and form.is_valid():
+            try:
+                data = form.cleaned_data
+                preview = preview_group_tie(
+                    actor=request.user,
+                    group_id=group.pk,
+                    **{
+                        key: data[key]
+                        for key in (
+                            "expected_revision",
+                            "tied_entry_ids",
+                            "method",
+                            "ordered_entry_ids",
+                            "series_length",
+                            "parent_resolution_id",
+                        )
+                    },
+                )
+            except ValidationError as error:
+                form.add_error(None, error)
+            else:
+                names = dict(group.entries.values_list("pk", "entrant__display_name"))
+                extra.update(
+                    {
+                        "token": preview["token"],
+                        "form_action": reverse(
+                            "admin:competitions_group_tie_confirm", args=[group.pk]
+                        ),
+                        "tie_preview": {
+                            "group_name": group.name,
+                            "method": preview["method"],
+                            "places": preview["places"],
+                            "ordered_entries": [
+                                names[pk] for pk in preview["ordered_entry_ids"]
+                            ],
+                            "fixtures": [
+                                [names[a], names[b]]
+                                for r in preview["fixtures"]
+                                for a, b in r["pairings"]
+                            ],
+                            "series_length": preview["series_length"],
+                        },
+                        "submit_label": "Confirm qualification tie",
+                    }
+                )
+                return _action_response(
+                    request,
+                    title="Review qualification tie",
+                    form=TieReasonForm(),
+                    opts=self.model._meta,
+                    change_url=extra["workspace_url"],
+                    extra=extra,
+                )
+        return _action_response(
+            request,
+            title="Resolve qualification tie",
+            form=form,
+            opts=self.model._meta,
+            change_url=extra["workspace_url"],
+            extra={**extra, "submit_label": "Preview tie choice"},
+        )
+
+    def group_tie_confirm_view(self, request, group_id):
+        require_organizer(request.user, "competitions.change_competition")
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        group = get_object_or_404(StageGroup, pk=group_id)
+        form = TieReasonForm(request.POST)
+        token = request.POST.get("token", "")
+        if form.is_valid():
+            try:
+                payload = signing.loads(token, salt=TIE_SALT, max_age=3600)
+                if payload["group_id"] != group.pk:
+                    raise ValidationError("The preview belongs to another group.")
+                confirm_group_tie(
+                    actor=request.user,
+                    token=token,
+                    internal_reason=form.cleaned_data["internal_reason"],
+                )
+            except signing.BadSignature:
+                form.add_error(None, "The tie preview is invalid or expired.")
+            except ValidationError as error:
+                form.add_error(None, error)
+            else:
+                return HttpResponseRedirect(
+                    workspace_url(group.draw.stage.competition_id, "standings")
+                )
+        return _action_response(
+            request,
+            title="Review qualification tie",
+            form=form,
+            opts=self.model._meta,
+            change_url=workspace_url(group.draw.stage.competition_id, "standings"),
+            extra={"token": token},
+        )
 
     def create_view(self, request, division_id):
         require_organizer(request.user, "competitions.add_competition")
@@ -532,7 +757,11 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             initial=initial,
             **form_kwargs,
         )
-        if request.method == "POST" and form.is_valid():
+        if (
+            request.method == "POST"
+            and not request.POST.get("preview_groups")
+            and form.is_valid()
+        ):
             try:
                 data = form.cleaned_data.copy()
                 command(competition, data.pop("expected_revision"), data)
@@ -553,10 +782,11 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             ),
             extra={
                 "workspace_url": workspace_url(competition.pk),
+                "group_assignment": isinstance(form, GroupDrawForm),
                 "description": description
                 or f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
                 "submit_label": {
-                    "Configure elimination bracket": "Save setup",
+                    "Stage setup": "Save setup",
                     "Select approved entrants": "Save entrants",
                     "Save bracket draw": "Save and preview bracket",
                     "Publish saved draw": "Publish bracket",
@@ -564,7 +794,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             },
         )
 
-    @action(permissions=["change"], description="Configure elimination bracket")
+    @action(permissions=["change"], description="Stage setup")
     def configure_detail(self, request, object_id):
         competition = self.get_object(request, object_id)
         stage = competition.stages.order_by("sequence").first() if competition else None
@@ -574,6 +804,17 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "format": stage.format,
                 "grand_final_policy": stage.grand_final_policy,
                 "default_series_length": stage.default_series_length,
+                "series_mode": stage.series_mode,
+                "meetings": stage.round_robin_meetings,
+                "win_points": stage.win_points,
+                "draw_points": stage.draw_points,
+                "loss_points": stage.loss_points,
+                **{
+                    f"tiebreak_{i}": stage.tiebreaks[i - 1]
+                    if i <= len(stage.tiebreaks)
+                    else ""
+                    for i in range(1, 5)
+                },
             }
             if stage
             else None
@@ -581,15 +822,35 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         return self._competition_form_view(
             request,
             object_id,
-            title="Configure elimination bracket",
+            title="Stage setup",
             form_class=CompetitionSetupForm,
             form_kwargs={"initial": initial},
-            command=lambda item, expected_revision, data: configure_elimination(
-                actor=request.user,
-                competition_id=item.pk,
-                expected_revision=expected_revision,
-                **data,
+            command=lambda item, expected_revision, data: self._save_setup(
+                request, item, expected_revision, data
             ),
+        )
+
+    def _save_setup(self, request, competition, expected_revision, data):
+        if data["format"] == "ROUND_ROBIN":
+            command = configure_round_robin
+            fields = (
+                "name",
+                "meetings",
+                "series_mode",
+                "default_series_length",
+                "win_points",
+                "draw_points",
+                "loss_points",
+                "tiebreaks",
+            )
+        else:
+            command = configure_elimination
+            fields = ("name", "format", "grand_final_policy", "default_series_length")
+        return command(
+            actor=request.user,
+            competition_id=competition.pk,
+            expected_revision=expected_revision,
+            **{key: data[key] for key in fields},
         )
 
     @action(permissions=["change"], description="Select approved entrants")
@@ -598,7 +859,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         if competition is None:
             raise Http404
         initial = {
-            "registrations": competition.entrants.values_list(
+            "registrations": competition.entrants.filter(is_selected=True).values_list(
                 "registration_id", flat=True
             )
         }
@@ -621,18 +882,25 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         competition = self.get_object(request, object_id)
         if competition is None:
             raise Http404
+        stage = competition.stages.first()
+        is_round_robin = stage and stage.format == "ROUND_ROBIN"
+        command = save_round_robin_draw if is_round_robin else save_elimination_draw
+        fields = (
+            ("group_specs", "ordered_entrant_ids", "memberships", "randomize")
+            if is_round_robin
+            else ("entrant_order", "randomize")
+        )
         return self._competition_form_view(
             request,
             object_id,
             title="Save bracket draw",
-            form_class=DrawForm,
+            form_class=GroupDrawForm if is_round_robin else DrawForm,
             form_kwargs={"competition": competition},
-            command=lambda item, expected_revision, data: save_elimination_draw(
+            command=lambda item, expected_revision, data: command(
                 actor=request.user,
                 competition_id=item.pk,
                 expected_revision=expected_revision,
-                entrant_order=data.get("entrant_order"),
-                randomize=data["randomize"],
+                **{key: data.get(key) for key in fields},
             ),
         )
 
@@ -717,6 +985,7 @@ class RoundAdmin(ReadOnlyCompetitionAdmin):
                 "series_length": round_.series_length_override,
                 "expected_revision": round_.draw.stage.competition.revision,
             },
+            mode=round_.series_mode_override or round_.draw.stage.series_mode,
         )
         if request.method == "POST" and form.is_valid():
             try:
@@ -872,6 +1141,11 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
             return []
         if match.round.draw.state != StageDraw.State.PUBLISHED:
             return []
+        if (
+            match.round.tie_resolution_id
+            and match.round.tie_resolution.state == "SUPERSEDED"
+        ):
+            return []
         valid = {
             Match.Status.PENDING: {
                 "schedule_detail",
@@ -905,6 +1179,11 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
         form = form_class(
             request.POST if request.method == "POST" else None,
             **({"match": match} if issubclass(form_class, ProgressForm) else {}),
+            **(
+                {"mode": match.effective_series_mode}
+                if form_class is SeriesLengthForm
+                else {}
+            ),
             initial={
                 **(initial or {}),
                 "expected_revision": match.round.draw.stage.competition.revision,
@@ -930,7 +1209,11 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
             extra={
                 **self._match_context(request, match),
                 "submit_label": "Save result" if form_class is ResultForm else title,
-                "description": f"Best of {match.effective_series_length}: first to {(match.effective_series_length + 1) // 2} game wins advances."
+                "description": (
+                    f"Fixed {match.effective_series_length} games: final scores total {match.effective_series_length}; equal scores are a draw."
+                    if match.effective_series_mode == "FIXED_GAMES"
+                    else f"Best of {match.effective_series_length}: first to {(match.effective_series_length + 1) // 2} game wins advances."
+                )
                 if issubclass(form_class, ProgressForm)
                 else "",
             },

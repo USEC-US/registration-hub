@@ -2,7 +2,11 @@
 
 from django.urls import reverse
 
-from .models import Match, Round, Stage, StageDraw
+from .models import Match, Round, Stage, StageDraw, StageEntry
+
+
+def series_label(mode, length):
+    return f"Fixed {length} games" if mode == "FIXED_GAMES" else f"Best of {length}"
 
 
 def workspace_url(competition_id, tab=None):
@@ -30,6 +34,8 @@ def grand_final_policy_label(stage):
 
 
 def round_label(round_, *, last_round_number):
+    if round_.draw.stage.format == Stage.Format.ROUND_ROBIN:
+        return f"{'Extra contest round' if round_.section == 'TIEBREAK' else 'Round'} {round_.number}"
     if round_.section == Round.Section.FINALS:
         return "Grand final" if round_.number == 1 else "Reset final"
     if round_.section in (Round.Section.UPPER, Round.Section.LOWER):
@@ -51,7 +57,13 @@ def match_card(match, user):
     ready = len(slots) == 2 and all(
         slot.is_resolved and slot.resolved_entry_id for slot in slots
     )
-    can_operate = user.has_perm("competitions.change_match") and published
+    historical = match.round.draw.state == StageDraw.State.SUPERSEDED or (
+        match.round.tie_resolution_id
+        and match.round.tie_resolution.state == "SUPERSEDED"
+    )
+    can_operate = (
+        user.has_perm("competitions.change_match") and published and not historical
+    )
     automatic = match.outcome in (Match.Outcome.BYE, Match.Outcome.EMPTY)
     inactive_final = match.status in (
         Match.Status.CONDITIONAL,
@@ -107,8 +119,16 @@ def match_card(match, user):
             for slot in slots
         ],
         "status": status,
-        "outcome": match.get_outcome_display(),
+        "outcome": "Draw"
+        if match.status == "FINAL"
+        and match.outcome == "PLAYED"
+        and not match.winner_id
+        and match.effective_series_mode == "FIXED_GAMES"
+        else match.get_outcome_display(),
         "series_length": match.effective_series_length,
+        "series_label": series_label(
+            match.effective_series_mode, match.effective_series_length
+        ),
         "scheduled_at": match.scheduled_at,
         "detail_url": reverse("admin:competitions_match_change", args=[match.pk]),
         "result_url": result_url,
@@ -129,7 +149,7 @@ def match_card(match, user):
             if match.status == Match.Status.NOT_REQUIRED
             else ""
         ),
-        "historical": match.round.draw.state == StageDraw.State.SUPERSEDED,
+        "historical": bool(historical),
     }
 
 
@@ -156,7 +176,30 @@ def result_summary(snapshot):
 
 
 def correction_display(impact):
+    group = impact.get("group_impact")
+    group_display = None
+    if group:
+        ids = [
+            row["entry_id"]
+            for key in ("before", "after")
+            for row in group[key]["standings"]
+        ]
+        names = dict(
+            StageEntry.objects.filter(pk__in=ids).values_list(
+                "pk", "entrant__display_name"
+            )
+        )
+        group_display = {
+            **group,
+            "after_rows": [
+                {**row, "name": names[row["entry_id"]]}
+                for row in group["after"]["standings"]
+            ],
+            "before_qualifiers": [names[pk] for pk in group["before"]["qualifiers"]],
+            "after_qualifiers": [names[pk] for pk in group["after"]["qualifiers"]],
+        }
     return {
+        "group": group_display,
         "before": result_summary(impact.get("before")),
         "after": result_summary(impact.get("after")),
         "matches": [

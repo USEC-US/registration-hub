@@ -185,3 +185,6 @@
   .cw-scoreboard .cw-slot { padding: 1rem; }
   .cw-change-heading { flex-direction: column; gap: .25rem; }
 }
+
+.cw-standings { width: 100%; border-collapse: collapse; white-space: nowrap; }
+.cw-standings th, .cw-standings td { padding: .75rem; text-align: left; border-bottom: 1px solid var(--cw-border); }

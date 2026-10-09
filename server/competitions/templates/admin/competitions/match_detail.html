@@ -5,7 +5,7 @@
 <div class="cw cw-detail">
   <a class="cw-back" href="{{ bracket_url|default:workspace_url }}">&larr; Bracket &amp; matches</a>
   <header class="cw-header">
-    <div><h1>{{ match_card.title }}</h1><div class="cw-meta"><span class="cw-badge">{{ match_card.status }}</span><span>Best of {{ match_card.series_length }}</span>{% if match_card.scheduled_at %}<time datetime="{{ match_card.scheduled_at|date:'c' }}">{{ match_card.scheduled_at|date:"M j, Y, H:i T" }}</time>{% else %}<span>Not scheduled</span>{% endif %}</div></div>
+    <div><h1>{{ match_card.title }}</h1><div class="cw-meta"><span class="cw-badge">{{ match_card.status }}</span><span>{{ match_card.series_label }}</span>{% if match_card.scheduled_at %}<time datetime="{{ match_card.scheduled_at|date:'c' }}">{{ match_card.scheduled_at|date:"M j, Y, H:i T" }}</time>{% else %}<span>Not scheduled</span>{% endif %}</div></div>
     {% if match_card.result_url %}<a class="cw-button cw-button-primary" href="{{ match_card.result_url }}">{{ match_card.result_label }}</a>{% endif %}
   </header>
   {% if match_card.historical %}<p class="cw-notice">This match belongs to an earlier bracket. Its result is kept here for reference.</p>{% endif %}

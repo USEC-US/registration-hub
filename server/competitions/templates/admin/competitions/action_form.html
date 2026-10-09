@@ -7,7 +7,7 @@
   <header class="cw-header"><div><h1>{{ title }}</h1>{% if division %}<p>{{ division.tournament.name }} · {{ division.game.name }}</p>{% endif %}{% if description %}<p class="cw-muted">{{ description }}</p>{% endif %}</div></header>
   {% if match_card %}
     <section class="cw-scoreboard cw-scoreboard-compact" aria-label="{{ match_card.title }}">
-      <header class="cw-match-heading"><strong>{{ match_card.code }}</strong><span>Best of {{ match_card.series_length }}</span></header>
+      <header class="cw-match-heading"><strong>{{ match_card.code }}</strong><span>{{ match_card.series_label }}</span></header>
       <ol class="cw-slots">
         {% for slot in match_card.slots %}<li class="cw-slot{% if slot.is_winner %} cw-slot-winner{% endif %}"><span class="cw-slot-name">{{ slot.label }}{% if slot.is_winner %}<span class="cw-winner-label">Winner</span>{% endif %}</span><strong class="cw-slot-score">{{ slot.score|default_if_none:"—" }}</strong></li>{% endfor %}
       </ol>
@@ -22,6 +22,7 @@
         <p>Their current scores and results will be cleared. Previous results will remain in Changes.</p>
         <ul class="cw-reset-list">{% for item in impact_display.matches %}<li>{% if item.url %}<a href="{{ item.url }}">{{ item.code }} — {{ item.label }}</a>{% else %}{{ item.code }} — {{ item.label }}{% endif %}</li>{% endfor %}</ul>
       {% else %}<p>No other match results need to be cleared.</p>{% endif %}
+      {% if impact_display.group %}<h3>{{ impact_display.group.group_name }} qualification impact</h3><p>Qualifiers: {{ impact_display.group.before_qualifiers|join:", "|default:"Unresolved" }} → {{ impact_display.group.after_qualifiers|join:", "|default:"Unresolved" }}</p><p>Qualification: {{ impact_display.group.before.qualification_state }} → {{ impact_display.group.after.qualification_state }}</p><p>Tie decisions superseded: {{ impact_display.group.invalidated_resolution_ids|length }}. Their extra contests remain historical.</p><table><caption>Projected standings</caption><thead><tr><th>Rank</th><th>Entry</th><th>Points</th><th>Game difference</th></tr></thead><tbody>{% for row in impact_display.group.after_rows %}<tr><td>{{ row.rank }}</td><td>{{ row.name }}</td><td>{{ row.points }}</td><td>{{ row.game_difference }}</td></tr>{% endfor %}</tbody></table>{% endif %}
       {% if impact_display.activation_changes %}
         <h3>Reserved final activation changes</h3>
         <ul class="cw-reset-list">{% for item in impact_display.activation_changes %}<li><a href="{{ item.url }}">{{ item.code }}</a> — {{ item.before }} &rarr; {{ item.after }}</li>{% endfor %}</ul>
@@ -30,11 +31,14 @@
   {% elif impact %}
     <div class="cw-notice cw-notice-warning"><h2>Review this correction</h2><p>Confirm the result correction below. Previous results will remain in Changes.</p></div>
   {% endif %}
-  <form method="post" class="cw-panel cw-form">
+  {% if tie_preview %}<section class="cw-panel"><h2>{{ tie_preview.group_name }} — {{ tie_preview.places }} qualifying place{{ tie_preview.places|pluralize }}</h2>
+    {% if tie_preview.method == 'MANUAL' %}<p>Organizer order: {{ tie_preview.ordered_entries|join:" → " }}</p>{% else %}<p>Extra contests · Best of {{ tie_preview.series_length }}. Ordinary group points stay unchanged.</p><ul>{% for pairing in tie_preview.fixtures %}<li>{{ pairing|join:" vs " }}</li>{% endfor %}</ul>{% endif %}</section>{% endif %}
+  <form method="post"{% if form_action %} action="{{ form_action }}"{% endif %} class="cw-panel cw-form">
     {% csrf_token %}
     {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
     {% if form.non_field_errors %}<div class="cw-form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
     {% for field in form.hidden_fields %}{{ field }}{% if field.errors %}<div class="cw-form-errors" role="alert">{{ field.errors }}</div>{% endif %}{% endfor %}
+    {% if group_assignment %}<p>Define your groups, then update the assignment choices before making manual assignments.</p><button class="cw-button" type="submit" name="preview_groups" value="1">Update group choices</button>{% endif %}
     <div class="cw-form-fields">
       {% for field in form.visible_fields %}
         <div data-field-name="{{ field.name }}" class="cw-field{% if field.field.widget.input_type == 'checkbox' or field.field.widget.input_type == 'radio' or field.field.widget.allow_multiple_selected or field.name == 'outcome' or field.name == 'winner_position' %} cw-field-wide{% endif %}{% if field.errors %} cw-field-invalid{% endif %}">

@@ -46,7 +46,8 @@
             <div><dt>Stage name</dt><dd>{{ stage.name }}</dd></div>
             <div><dt>Format</dt><dd>{{ stage.get_format_display }}</dd></div>
             {% if grand_final_policy %}<div><dt>Grand final policy</dt><dd>{{ grand_final_policy }}</dd></div>{% endif %}
-            <div><dt>Default match length</dt><dd>Best of {{ stage.default_series_length }}</dd></div>
+            <div><dt>Default match length</dt><dd>{{ stage_series_label }}</dd></div>
+            {% if groups %}<div><dt>Meetings per pair</dt><dd>{{ stage.round_robin_meetings }}</dd></div><div><dt>Match points (win / draw / loss)</dt><dd>{{ stage.win_points }} / {{ stage.draw_points }} / {{ stage.loss_points }}</dd></div><div><dt>Tiebreakers in order</dt><dd>{{ rule_labels|join:" → "|default:"No rules" }}</dd></div>{% endif %}
             <div><dt>Bracket visibility</dt><dd>{% if stage.published_at %}Published{% else %}Private until published{% endif %}</dd></div>
           </dl>
         </section>
@@ -64,24 +65,28 @@
         <div class="cw-empty"><h3>No entrants selected yet</h3><p>Select approved registrations to start building the bracket.</p>{% if entrants_url %}<a class="cw-button cw-button-primary" href="{{ entrants_url }}">Select entrants</a>{% endif %}</div>
       {% endif %}
     </section>
+  {% elif tab == "standings" %}
+    {% include "admin/competitions/group_standings.html" %}
   {% elif tab == "bracket" %}
     <section aria-labelledby="cw-bracket-title">
       <div class="cw-section-heading">
         <div><h2 id="cw-bracket-title">Bracket &amp; matches</h2><p class="cw-muted">Open a match to manage its schedule or enter a result.</p></div>
         {% if draw.state == "DRAFT" %}<span class="cw-badge cw-badge-warning">Private preview</span>{% endif %}
       </div>
+      {% if groups %}{% include "admin/competitions/group_assignment.html" %}{% endif %}
       {% if stage.champion %}<div class="cw-notice cw-notice-success"><strong>Champion: {{ stage.champion.display_name }}</strong><p>All matches are complete. Results remain available below.</p></div>{% elif stage.completed_without_champion %}<div class="cw-notice"><strong>Competition complete</strong><p>This competition finished without a champion.</p></div>{% endif %}
       {% if bracket_sections %}
         {% if draw.state == "DRAFT" %}<p class="cw-notice">Check the pairings below, then publish the bracket when you are ready. Results can be entered after publication.</p>{% endif %}
-        <p id="cw-bracket-help" class="cw-muted cw-bracket-help">Rounds run from left to right. Scroll to see later rounds; each upcoming match names its qualifying matches.</p>
+        {% if not groups %}<p id="cw-bracket-help" class="cw-muted cw-bracket-help">Rounds run from left to right. Scroll to see later rounds; each upcoming match names its qualifying matches.</p>
         <p class="cw-bracket-legend cw-muted"><span class="cw-route-winner">Winner advances</span>{% if stage.format == 'DOUBLE_ELIMINATION' %}<span class="cw-route-loser">Loser advances</span>{% endif %}</p>
-        <div class="cw-bracket-scroll" role="region" aria-label="Competition bracket" aria-describedby="cw-bracket-help" tabindex="0">
+        {% endif %}<div class="cw-bracket-scroll" role="region" aria-label="Competition bracket" {% if not groups %}aria-describedby="cw-bracket-help"{% endif %} tabindex="0">
           <div class="cw-bracket{% if stage.format == 'DOUBLE_ELIMINATION' %} cw-bracket-double{% endif %}">
             {% for section in bracket_sections %}
               <div class="cw-bracket-section" data-section="{{ section.kind }}">
               {% for round in section.rounds %}
               <section class="cw-round" aria-labelledby="cw-round-{{ round.id }}">
-                <header class="cw-round-heading"><h3 id="cw-round-{{ round.id }}">{{ round.label }}</h3><div class="cw-meta"><span>Best of {{ round.series_length }}</span>{% if round.series_url %}<a href="{{ round.series_url }}">Edit match length<span class="cw-sr-only"> for {{ round.label }}</span></a>{% endif %}</div></header>
+                <header class="cw-round-heading"><h3 id="cw-round-{{ round.id }}">{{ round.label }}</h3><div class="cw-meta"><span>{{ round.series_label }}</span>{% if round.series_url %}<a href="{{ round.series_url }}">Edit match length<span class="cw-sr-only"> for {{ round.label }}</span></a>{% endif %}</div></header>
+                {% for name in round.resting_entries %}<p class="cw-muted">Rest: {{ name }}</p>{% endfor %}
                 <div class="cw-round-matches">
                   {% for match in round.matches %}
                     <article class="cw-match{% if match.historical %} cw-match-historical{% endif %}" aria-label="{{ match.title }}" data-match-id="{{ match.id }}">
@@ -95,7 +100,7 @@
                           </li>
                         {% endfor %}
                       </ol>
-                      <div class="cw-match-info"><span>Best of {{ match.series_length }}</span>{% if match.scheduled_at %}<time datetime="{{ match.scheduled_at|date:'c' }}">{{ match.scheduled_at|date:"M j, H:i T" }}</time>{% endif %}</div>
+                      <div class="cw-match-info"><span>{{ match.series_label }}</span>{% if match.scheduled_at %}<time datetime="{{ match.scheduled_at|date:'c' }}">{{ match.scheduled_at|date:"M j, H:i T" }}</time>{% endif %}</div>
                       {% if match.outcome %}<p class="cw-match-note">{{ match.outcome }}</p>{% endif %}
                       {% if match.awaiting %}<p class="cw-match-note">Waiting for earlier matches</p>{% endif %}
                       {% if match.inactive_final %}<p class="cw-match-note">{{ match.inactive_final_message }}</p>{% endif %}
@@ -143,5 +148,5 @@
     </section>
   {% endif %}
 </div>
-{% if tab == 'bracket' %}<script src="{% static 'competitions/bracket.js' %}" defer></script>{% endif %}
+{% if tab == 'bracket' and not groups %}<script src="{% static 'competitions/bracket.js' %}" defer></script>{% endif %}
 {% endblock %}

@@ -368,3 +368,260 @@ class CompetitionAdminTests(TestCase):
                     set(model_admin.get_readonly_fields(request, obj)),
                     {field.name for field in model._meta.fields},
                 )
+
+
+class RoundRobinAdminTests(TestCase):
+    setUp = CompetitionAdminTests.setUp
+    _registration = CompetitionAdminTests._registration
+
+    def action(self, name, data=None):
+        self.competition.refresh_from_db()
+        url = reverse(
+            f"admin:competitions_competition_{name}_detail", args=[self.competition.pk]
+        )
+        return self.client.post(
+            url, {"expected_revision": self.competition.revision, **(data or {})}
+        )
+
+    def setup_rr(self, **rules):
+        from competitions.commands import create_competition
+
+        self.competition = create_competition(
+            actor=self.organizer, tournament_game_id=self.division.pk
+        )
+        response = self.action(
+            "configure",
+            {
+                "name": "Groups",
+                "format": "ROUND_ROBIN",
+                "series_mode": "FIXED_GAMES",
+                "default_series_length": 2,
+                "meetings": 1,
+                "win_points": "3.00",
+                "draw_points": "1.00",
+                "loss_points": "0.00",
+                "tiebreak_1": "",
+                "tiebreak_2": "",
+                "tiebreak_3": "",
+                "tiebreak_4": "",
+                **rules,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        return self.competition.stages.get()
+
+    def published_rr(self):
+        self.stage = self.setup_rr()
+        self.assertEqual(
+            self.action(
+                "entrants", {"registrations": [r.pk for r in self.registrations]}
+            ).status_code,
+            302,
+        )
+        ids = list(self.competition.entrants.values_list("pk", flat=True))
+        response = self.action(
+            "draw",
+            {
+                "group_specs": "Alpha | 1",
+                "allocation": "MANUAL",
+                **{f"seed_{i}": pk for i, pk in enumerate(ids, 1)},
+                **{f"group_{pk}": 1 for pk in ids},
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.action("publish").status_code, 302)
+        self.draw = self.stage.draws.get(state="PUBLISHED")
+        self.group = self.draw.groups.get()
+        return ids
+
+    def test_ordered_rule_controls_and_invalid_duplicate_rules(self):
+        stage = self.setup_rr(tiebreak_1="MATCH_WINS", tiebreak_4="HEAD_TO_HEAD")
+        self.assertEqual(stage.tiebreaks, ["MATCH_WINS", "HEAD_TO_HEAD"])
+        self.competition.refresh_from_db()
+        revision = self.competition.revision
+        response = self.action(
+            "configure",
+            {
+                "name": "Groups",
+                "format": "ROUND_ROBIN",
+                "series_mode": "FIXED_GAMES",
+                "default_series_length": 2,
+                "meetings": 1,
+                "win_points": "3",
+                "draw_points": "1",
+                "loss_points": "0",
+                "tiebreak_1": "HEAD_TO_HEAD",
+                "tiebreak_4": "HEAD_TO_HEAD",
+            },
+        )
+        self.assertContains(response, "at most once")
+        self.competition.refresh_from_db()
+        self.assertEqual(self.competition.revision, revision)
+        form = self.client.get(
+            reverse(
+                "admin:competitions_competition_configure_detail",
+                args=[self.competition.pk],
+            )
+        )
+        self.assertContains(form, "Tiebreaker 4")
+        self.assertContains(form, "Head-to-head points")
+
+    def test_publish_fixed_draw_standings_and_confirm_manual_tie(self):
+        self.published_rr()
+        for match in Match.objects.filter(round__draw=self.draw):
+            self.competition.refresh_from_db()
+            url = reverse("admin:competitions_match_finalize_detail", args=[match.pk])
+            form = self.client.get(url)
+            self.assertContains(form, "Fixed 2 games")
+            response = self.client.post(
+                url,
+                {
+                    "expected_revision": self.competition.revision,
+                    "outcome": "PLAYED",
+                    "side_one_score": 1,
+                    "side_two_score": 1,
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+        url = (
+            reverse("admin:competitions_competition_change", args=[self.competition.pk])
+            + "?tab=standings"
+        )
+        response = self.client.get(url)
+        self.assertContains(response, "Awaiting resolution")
+        preview_url = reverse(
+            "admin:competitions_group_tie_preview", args=[self.group.pk]
+        )
+        form = self.client.get(preview_url)
+        self.competition.refresh_from_db()
+        ids = list(self.group.entries.values_list("pk", flat=True))
+        response = self.client.post(
+            preview_url,
+            {
+                "expected_revision": self.competition.revision,
+                "method": "MANUAL",
+                "series_length": 1,
+                **{f"order_{i}": pk for i, pk in enumerate(reversed(ids), 1)},
+            },
+        )
+        self.assertContains(response, "Review qualification tie")
+        token = response.context_data["token"]
+        confirm_url = reverse(
+            "admin:competitions_group_tie_confirm", args=[self.group.pk]
+        )
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.organizer)
+        self.assertEqual(
+            csrf_client.post(
+                confirm_url, {"token": token, "internal_reason": "Choice"}
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                confirm_url, {"token": token, "internal_reason": "PRIVATE-CHOICE"}
+            ).status_code,
+            302,
+        )
+        response = self.client.get(url)
+        self.assertContains(response, "Qualified")
+        self.assertEqual(
+            self.client.post(
+                confirm_url, {"token": token, "internal_reason": "Repeat"}
+            ).status_code,
+            200,
+        )
+        self.assertEqual(self.group.tie_resolutions.count(), 1)
+        self.assertEqual(
+            self.action(
+                "configure",
+                {
+                    "name": "Changed",
+                    "format": "ROUND_ROBIN",
+                    "series_mode": "BEST_OF",
+                    "default_series_length": 3,
+                    "meetings": 2,
+                    "win_points": "3",
+                    "draw_points": "1",
+                    "loss_points": "0",
+                },
+            ).status_code,
+            200,
+        )
+        self.stage.refresh_from_db()
+        self.assertEqual(self.stage.name, "Groups")
+
+    def test_extra_tie_preview_tampering_permissions_and_historical_controls(self):
+        from competitions.commands import (
+            finalize_match,
+            preview_correction,
+            apply_correction,
+        )
+        from competitions.round_robin_commands import (
+            preview_group_tie,
+            confirm_group_tie,
+        )
+
+        self.published_rr()
+        for match in Match.objects.filter(round__draw=self.draw):
+            self.competition.refresh_from_db()
+            finalize_match(
+                actor=self.organizer,
+                match_id=match.pk,
+                expected_revision=self.competition.revision,
+                outcome="PLAYED",
+                side_one_score=1,
+                side_two_score=1,
+            )
+        self.competition.refresh_from_db()
+        ids = list(self.group.entries.values_list("pk", flat=True))
+        preview = preview_group_tie(
+            actor=self.organizer,
+            group_id=self.group.pk,
+            expected_revision=self.competition.revision,
+            tied_entry_ids=ids,
+            method="EXTRA_MATCHES",
+        )
+        confirm_url = reverse(
+            "admin:competitions_group_tie_confirm", args=[self.group.pk]
+        )
+        self.assertEqual(
+            self.client.post(
+                confirm_url, {"token": preview["token"] + "tampered"}
+            ).status_code,
+            200,
+        )
+        self.assertEqual(self.group.tie_resolutions.count(), 0)
+        resolution = confirm_group_tie(actor=self.organizer, token=preview["token"])
+        target = Match.objects.filter(
+            round__draw=self.draw, round__section="NORMAL"
+        ).first()
+        self.competition.refresh_from_db()
+        correction = preview_correction(
+            actor=self.organizer,
+            match_id=target.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=2,
+            side_two_score=0,
+        )
+        apply_correction(
+            actor=self.organizer, token=correction["token"], internal_reason="Typo"
+        )
+        extra = Match.objects.filter(round__tie_resolution=resolution).first()
+        response = self.client.get(
+            reverse("admin:competitions_match_change", args=[extra.pk])
+        )
+        self.assertContains(response, "kept here for reference")
+        self.assertNotContains(response, "Enter result")
+        limited = create_account(
+            email="rr-limited@example.com", password="strong-password", is_staff=True
+        )
+        self.client.force_login(limited)
+        preview_url = reverse(
+            "admin:competitions_group_tie_preview", args=[self.group.pk]
+        )
+        self.assertEqual(self.client.get(preview_url).status_code, 403)
+        self.assertEqual(
+            self.client.post(confirm_url, {"token": preview["token"]}).status_code, 403
+        )
