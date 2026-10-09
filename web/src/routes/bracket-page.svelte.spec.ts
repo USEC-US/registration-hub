@@ -21,6 +21,8 @@ const competition: PublicCompetition = {
 			id: 2,
 			sequence: 1,
 			name: 'Final bracket',
+			draw_state: 'PUBLISHED',
+			qualification: null,
 			format: 'SINGLE_ELIMINATION',
 			grand_final_policy: '',
 			groups: [],
@@ -246,7 +248,7 @@ describe('public bracket page', () => {
 
 		await expect.element(page.getByText('Complete', { exact: true })).toBeVisible();
 		await expect.element(page.getByRole('heading', { name: 'Champion' })).toBeVisible();
-		await expect.element(page.getByText('Match M1 (Final) result corrected')).toBeVisible();
+		await expect.element(page.getByText('Match R1M1 (Final) result corrected')).toBeVisible();
 		await completeRender.unmount();
 
 		complete.stages[0].champion = null;
@@ -269,8 +271,8 @@ describe('public bracket page', () => {
 				.element(page.getByRole('heading', { name: 'Lower bracket' }).last())
 				.toBeVisible();
 			await expect.element(page.getByRole('heading', { name: 'Finals' }).last()).toBeVisible();
-			await expect.element(page.getByText('Loser of M1', { exact: true }).last()).toBeVisible();
-			await expect.element(page.getByText('Winner of M1', { exact: true }).last()).toBeVisible();
+			await expect.element(page.getByText('Loser of U1', { exact: true }).last()).toBeVisible();
+			await expect.element(page.getByText('Winner of U1', { exact: true }).last()).toBeVisible();
 			await expect.element(page.getByText(label, { exact: true }).last()).toBeVisible();
 			await expect
 				.element(
@@ -283,7 +285,7 @@ describe('public bracket page', () => {
 		}
 	});
 
-	it('numbers single-elimination matches across rounds and includes byes', async () => {
+	it('preserves stored single-elimination labels including byes', async () => {
 		const value = structuredClone(competition);
 		const stage = value.stages[0];
 		const firstRound = stage.rounds[0];
@@ -306,17 +308,17 @@ describe('public bracket page', () => {
 				Array.from(container.querySelectorAll(`.${layout}-bracket article h3`), (heading) =>
 					heading.textContent?.trim()
 				)
-			).toEqual(['M1', 'M2', 'M3']);
+			).toEqual(['R1M1', 'R1M2', 'R2M1']);
 		}
-		expect(container.textContent).toContain('Match M1 (Round 1) result corrected');
+		expect(container.textContent).toContain('Match R1M1 (Round 1) result corrected');
 		expect(container.querySelector('article ul')).toHaveAttribute(
 			'aria-label',
-			'Entrants for match M1'
+			'Entrants for match R1M1'
 		);
 	});
 
 	it.each(['en', 'vi'] as const)(
-		'uses one sequence for every double-elimination section and log action in %s',
+		'preserves stored labels across double-elimination sections and Changes in %s',
 		async (locale) => {
 			overwriteGetLocale(() => locale);
 			const value = doubleElimination('CONDITIONAL');
@@ -356,25 +358,25 @@ describe('public bracket page', () => {
 					Array.from(container.querySelectorAll(`.${layout}-bracket article h3`), (heading) =>
 						heading.textContent?.trim()
 					)
-				).toEqual(['M1', 'M2', 'M3', 'M4', 'M5', 'M6']);
+				).toEqual(['U1', 'U2', 'U3', 'L1', 'F1', 'F2']);
 			}
 			const logItems = container.querySelectorAll(
 				'section[aria-labelledby="bracket-changes-heading"] > ol > li'
 			);
 			for (const item of Array.from(logItems).slice(0, 6)) {
 				expect(item.textContent).toContain(
-					locale === 'en' ? 'M1 (Upper bracket Round 1)' : 'M1 (Nhánh thắng Vòng 1)'
+					locale === 'en' ? 'U1 (Upper bracket Round 1)' : 'U1 (Nhánh thắng Vòng 1)'
 				);
 			}
 			expect(logItems[4].textContent).toContain(
 				locale === 'en'
-					? 'Match M1 (Upper bracket Round 1) has ended'
-					: 'Trận M1 (Nhánh thắng Vòng 1) đã kết thúc'
+					? 'Match U1 (Upper bracket Round 1) has ended'
+					: 'Trận U1 (Nhánh thắng Vòng 1) đã kết thúc'
 			);
 			expect(logItems[6].textContent).toContain(
 				locale === 'en'
-					? 'Match M6 (Reset final) has ended'
-					: 'Trận M6 (Chung kết tái đấu) đã kết thúc'
+					? 'Match F2 (Reset final) has ended'
+					: 'Trận F2 (Chung kết tái đấu) đã kết thúc'
 			);
 		}
 	);
@@ -454,18 +456,18 @@ describe('public bracket page', () => {
 				? [
 						'Before: Played · Blue Team 2–0 Red Team · Blue Team won',
 						'After: Double forfeit · Blue Team 1–0 Red Team · No winner',
-						'M4: Played · Blue Team 2–1 Red Team · Blue Team won',
-						'M2: Live · Blue Team 1–— Red Team · No winner',
-						'Affected matches: M4, M2',
-						'M4: If needed → Active'
+						'F2: Played · Blue Team 2–1 Red Team · Blue Team won',
+						'L1: Live · Blue Team 1–— Red Team · No winner',
+						'Affected matches: F2, L1',
+						'F2: If needed → Active'
 					]
 				: [
 						'Trước: Đã thi đấu · Blue Team 2–0 Red Team · Blue Team thắng',
 						'Sau: Cả hai bị xử thua · Blue Team 1–0 Red Team · Không có đội thắng',
-						'M4: Đã thi đấu · Blue Team 2–1 Red Team · Blue Team thắng',
-						'M2: Trực tiếp · Blue Team 1–— Red Team · Không có đội thắng',
-						'Các trận bị ảnh hưởng: M4, M2',
-						'M4: Nếu cần → Đang áp dụng'
+						'F2: Đã thi đấu · Blue Team 2–1 Red Team · Blue Team thắng',
+						'L1: Trực tiếp · Blue Team 1–— Red Team · Không có đội thắng',
+						'Các trận bị ảnh hưởng: F2, L1',
+						'F2: Nếu cần → Đang áp dụng'
 					];
 		for (const summary of expected) expect.soft(container.textContent).toContain(summary);
 	});
@@ -476,7 +478,7 @@ describe('public bracket page', () => {
 
 		await expect.element(page.getByRole('heading', { name: 'Valorant · Nhánh đấu' })).toBeVisible();
 		await expect.element(page.getByText('Đang diễn ra', { exact: true })).toBeVisible();
-		await expect.element(page.getByText('Đã sửa kết quả trận M1 (Chung kết)')).toBeVisible();
+		await expect.element(page.getByText('Đã sửa kết quả trận R1M1 (Chung kết)')).toBeVisible();
 	});
 });
 
@@ -631,7 +633,7 @@ describe('public round robin groups', () => {
 			expect(container.textContent).toContain(
 				locale === 'en' ? 'Awaiting qualification resolution' : 'Chờ phân định suất đi tiếp'
 			);
-			const selector = container.querySelector<HTMLSelectElement>('select')!;
+			const selector = container.querySelector<HTMLSelectElement>('#group-select')!;
 			expect(selector.options).toHaveLength(2);
 			selector.focus();
 			expect(document.activeElement).toBe(selector);
@@ -667,5 +669,40 @@ describe('public round robin groups', () => {
 		await expect.element(page.getByText('Qualified', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Organizer decision', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Green Team → Blue Team → Red Team')).toBeVisible();
+	});
+});
+
+describe('public multi-stage navigation', () => {
+	it('switches stages by identity, resets group selection, and shows replacement state', async () => {
+		const value = roundRobinCompetition();
+		const playoffs = structuredClone(competition.stages[0]);
+		playoffs.id = 22;
+		playoffs.sequence = 2;
+		playoffs.name = 'Playoffs';
+		playoffs.draw_state = 'AWAITING_REPLACEMENT';
+		playoffs.entries = [];
+		playoffs.rounds = [];
+		value.stages.push(playoffs);
+		const { container } = render(BracketPage, {
+			params: { slug: 'summer', gameId: '9' },
+			data: {
+				state: 'ready',
+				slug: 'summer',
+				gameId: 9,
+				competition: value,
+				changes,
+				displayTimeZone,
+				selectedStageId: value.stages[0].id
+			}
+		});
+		await page.getByRole('combobox', { name: 'Stage', exact: true }).selectOptions('22');
+		await expect
+			.element(page.getByText('Awaiting replacement draw', { exact: true }))
+			.toBeVisible();
+		expect(container.querySelector('#group-select')).toBeNull();
+		await page
+			.getByRole('combobox', { name: 'Stage', exact: true })
+			.selectOptions(String(value.stages[0].id));
+		await expect.element(page.getByRole('combobox', { name: 'Group', exact: true })).toBeVisible();
 	});
 });

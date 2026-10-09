@@ -22,6 +22,21 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let stageId = $state<number | undefined>();
+	const selectedStage = $derived.by(() => {
+		if (data.state !== 'ready') return null;
+		const sorted = [...data.competition.stages].sort((a, b) => b.sequence - a.sequence);
+		return (
+			data.competition.stages.find((stage) => stage.id === (stageId ?? data.selectedStageId)) ??
+			sorted.find((stage) => stage.draw_state === 'PUBLISHED') ??
+			sorted[0]
+		);
+	});
+	$effect(() => {
+		stageId = data.state === 'ready' ? data.selectedStageId : undefined;
+		groupId = '';
+		roundId = '';
+	});
 	let groupId = $state('');
 	let roundId = $state('');
 	let hydrated = $state(false);
@@ -32,29 +47,37 @@
 
 	const tournamentHref = $derived(resolve(localizeInternalHref(`/tournaments/${data.slug}`)));
 	const bracketHref = $derived(
-		resolve(localizeInternalHref(`/tournaments/${data.slug}/games/${data.gameId}/bracket`))
+		resolve(
+			localizeInternalHref(
+				`/tournaments/${data.slug}/games/${data.gameId}/bracket${selectedStage ? `?stage=${selectedStage.id}` : ''}`
+			)
+		)
 	);
 	const matchLabels = $derived.by(() => {
 		const labels = new SvelteMap<number, { code: string; round: string }>();
 		if (data.state !== 'ready') return labels;
-		const stage = data.competition.stages[0];
-		const isDouble = stage.format === 'DOUBLE_ELIMINATION';
-		const rounds = isDouble
-			? doubleSections.flatMap((section) =>
-					stage.rounds.filter((round) => round.section === section)
-				)
-			: stage.rounds;
-		for (const round of rounds) {
-			const roundName =
-				stage.format === 'SINGLE_ELIMINATION' && round === rounds.at(-1)
-					? m.bracket_final_round()
-					: roundLabel(round);
-			const context =
-				isDouble && round.section !== 'FINALS'
-					? `${sectionLabel(round.section)} ${roundName}`
-					: roundName;
-			for (const match of round.matches) {
-				labels.set(match.id, { code: `M${labels.size + 1}`, round: context });
+		for (const stage of data.competition.stages) {
+			const isDouble = stage.format === 'DOUBLE_ELIMINATION';
+			const rounds = isDouble
+				? doubleSections.flatMap((section) =>
+						stage.rounds.filter((round) => round.section === section)
+					)
+				: stage.rounds;
+			for (const round of rounds) {
+				const roundName =
+					stage.format === 'SINGLE_ELIMINATION' && round === rounds.at(-1)
+						? m.bracket_final_round()
+						: roundLabel(round);
+				const context =
+					isDouble && round.section !== 'FINALS'
+						? `${sectionLabel(round.section)} ${roundName}`
+						: roundName;
+				for (const match of round.matches) {
+					labels.set(match.id, {
+						code: match.code,
+						round: data.competition.stages.length > 1 ? `${stage.name} · ${context}` : context
+					});
+				}
 			}
 		}
 		return labels;
@@ -115,6 +138,7 @@
 		const label = change.match_id === undefined ? undefined : matchLabels.get(change.match_id);
 		const code = label ? `${label.code} (${label.round})` : (change.match_code ?? '');
 		switch (change.kind) {
+			case 'qualification_tie_confirmed':
 			case 'group_tie_confirmed':
 				return m.bracket_tie_confirmed_change({ group: change.group_name ?? '' });
 			case 'draw_published':
@@ -251,7 +275,9 @@
 			ids
 				.map(
 					(id) =>
-						data.competition.stages[0].entries.find((entry) => entry.id === id)?.display_name ?? ''
+						data.competition.stages
+							.flatMap((stage) => stage.entries)
+							.find((entry) => entry.id === id)?.display_name ?? ''
 				)
 				.filter(Boolean)
 				.join(', ') || m.bracket_awaiting_qualification()
@@ -347,7 +373,7 @@
 			</a>
 		</section>
 	{:else}
-		{@const stage = data.competition.stages[0]}
+		{@const stage = selectedStage ?? data.competition.stages[0]}
 		<header class="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
 			<div>
 				<p class="text-sm font-medium text-muted-foreground">{data.competition.tournament_name}</p>
@@ -364,6 +390,84 @@
 			</div>
 		</header>
 
+		<Field.FieldGroup
+			><Field.Field>
+				<Field.FieldLabel for="stage-select">{m.bracket_stage_selection()}</Field.FieldLabel>
+				<select
+					id="stage-select"
+					disabled={!hydrated}
+					value={String(stage.id)}
+					class="h-10 rounded-md border bg-background px-3"
+					onchange={(event) => {
+						stageId = Number(event.currentTarget.value);
+						groupId = '';
+						roundId = '';
+					}}
+				>
+					{#each data.competition.stages as item (item.id)}<option value={String(item.id)}
+							>{item.sequence}. {item.name}</option
+						>{/each}
+				</select>
+			</Field.Field></Field.FieldGroup
+		>
+		{#if stage.draw_state === 'AWAITING_REPLACEMENT'}<Alert.Root
+				><Alert.Title>{m.bracket_awaiting_replacement()}</Alert.Title><Alert.Description
+					>{m.bracket_replacement_help()}</Alert.Description
+				></Alert.Root
+			>{/if}
+		{#if stage.qualification && stage.format !== 'ROUND_ROBIN'}
+			{@const qualification = stage.qualification}
+			<section class="flex flex-col gap-4" aria-labelledby="qualification-heading">
+				<h2 id="qualification-heading" class="font-heading text-2xl font-semibold">
+					{m.bracket_top_n({ count: qualification.advance_count ?? 0 })}
+				</h2>
+				<Badge variant="outline" class="w-fit">{qualificationLabel(qualification.state)}</Badge>
+				{#if qualification.block_reason}<Alert.Root
+						><Alert.Title>{m.bracket_awaiting_qualification()}</Alert.Title><Alert.Description
+							>{qualification.block_reason}</Alert.Description
+						></Alert.Root
+					>{/if}
+				{#if qualification.qualifiers.length}<p>
+						{m.bracket_qualifiers({
+							names: qualification.qualifiers.map((entry) => entry.display_name).join(', ')
+						})}
+					</p>{/if}
+				{#if qualification.placement_bands.length}<div class="overflow-x-auto">
+						<table class="w-full text-sm">
+							<thead
+								><tr
+									><th scope="col" class="px-4 py-3 text-left">{m.bracket_placement()}</th><th
+										scope="col"
+										class="px-4 py-3 text-left">{m.bracket_entrant()}</th
+									></tr
+								></thead
+							><tbody
+								>{#each qualification.placement_bands as band, index (band[0].id)}<tr class="border-t"
+										><th scope="row" class="px-4 py-3 text-left"
+											>{qualification.placement_bands
+												.slice(0, index)
+												.reduce((count, prior) => count + prior.length, 1)}</th
+										><td class="px-4 py-3">{band.map((entry) => entry.display_name).join(', ')}</td
+										></tr
+									>{/each}</tbody
+							>
+						</table>
+					</div>{/if}
+				{#each qualification.cutoff_ties as tie, index (tie.resolution_id ?? `pending-${index}`)}<Alert.Root
+						><Alert.Title
+							>{tie.method === 'MANUAL'
+								? m.bracket_organizer_decision()
+								: tie.method === 'EXTRA_MATCHES'
+									? m.bracket_extra_contests()
+									: m.bracket_awaiting_qualification()}</Alert.Title
+						><Alert.Description
+							>{tie.tied_entries.map((entry) => entry.display_name).join(', ')} · {m.bracket_qualifying_places(
+								{ count: tie.places }
+							)} · {qualificationLabel(tie.state)}</Alert.Description
+						></Alert.Root
+					>{/each}
+			</section>
+		{/if}
 		{#if stage.format !== 'ROUND_ROBIN' && (stage.champion || stage.completed_without_champion)}
 			<section
 				class="rounded-xl border border-primary/40 bg-primary/5 p-5"
@@ -704,6 +808,14 @@
 							{#if change.ordered_entries?.length}<p class="text-sm">
 									{change.ordered_entries.join(' → ')}
 								</p>{/if}
+							{#if change.handoff_impact?.retired_draws.length}<p class="text-sm">
+									{m.bracket_retired_draws({ count: change.handoff_impact.retired_draws.length })}
+								</p>
+								{#each change.handoff_impact.reset_matches as snapshot (snapshot.match_id)}<p
+										class="text-xs text-muted-foreground"
+									>
+										{m.bracket_historical()} · {snapshotSummary(snapshot)}
+									</p>{/each}{/if}
 							{#if change.group_impact}<p class="text-sm">
 									{m.bracket_qualifier_change({
 										before: entryNames(change.group_impact.before.qualifiers),

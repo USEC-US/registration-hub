@@ -437,5 +437,11 @@
 	"bracket_tie_confirmed_change": "{group}: qualification tie choice confirmed",
 	"bracket_match_wins": "Match wins",
 	"bracket_extra_rules": "Extra contests rank by match wins, then head-to-head wins, then game difference. They do not change ordinary group points.",
-	"bracket_qualifier_change": "Qualifiers: {before} → {after}"
+	"bracket_qualifier_change": "Qualifiers: {before} → {after}",
+	"bracket_stage_selection": "Stage",
+	"bracket_awaiting_replacement": "Awaiting replacement draw",
+	"bracket_replacement_help": "The previous draw is historical. Its results remain in Changes while a replacement is prepared.",
+	"bracket_top_n": "Top {count} advance",
+	"bracket_placement": "Finishing place",
+	"bracket_retired_draws": "{count} downstream draws became historical; recorded results are preserved."
 }

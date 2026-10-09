@@ -11,6 +11,9 @@ const snapshot = {
 		game_name: 'Valorant',
 		stages: [
 			{
+				id: 2,
+				sequence: 1,
+				draw_state: 'PUBLISHED',
 				format: 'DOUBLE_ELIMINATION',
 				grand_final_policy: 'NO_RESET',
 				groups: [],
@@ -51,7 +54,13 @@ describe('public bracket loader', () => {
 
 		await expect(
 			load({ fetch: fetcher, params: { slug: 'summer', gameId: '9' } } as never)
-		).resolves.toEqual({ state: 'ready', slug: 'summer', gameId: 9, ...snapshot });
+		).resolves.toEqual({
+			state: 'ready',
+			slug: 'summer',
+			gameId: 9,
+			selectedStageId: 2,
+			...snapshot
+		});
 		expect(fetcher).toHaveBeenCalledTimes(2);
 	});
 
@@ -137,4 +146,35 @@ describe('public bracket loader', () => {
 		).resolves.toEqual({ state: 'refresh', slug: 'summer', gameId: 9 });
 		expect(fetcher).toHaveBeenCalledTimes(4);
 	});
+});
+
+it('selects a requested published stage and otherwise the latest active stage', async () => {
+	const multi = structuredClone(snapshot);
+	multi.competition.stages = [
+		{ ...multi.competition.stages[0], id: 11, sequence: 1, draw_state: 'PUBLISHED' },
+		{ ...multi.competition.stages[0], id: 22, sequence: 2, draw_state: 'PUBLISHED' }
+	];
+	const fetcher = vi
+		.fn<typeof fetch>()
+		.mockImplementation(async (url) =>
+			Response.json(String(url).endsWith('/changes/') ? multi.changes : multi.competition)
+		);
+	const selected = await load({
+		fetch: fetcher,
+		params: { slug: 'summer', gameId: '9' },
+		url: new URL('https://example.test/bracket?stage=11')
+	} as never);
+	expect(selected).toMatchObject({ state: 'ready', selectedStageId: 11 });
+	const latest = await load({
+		fetch: fetcher,
+		params: { slug: 'summer', gameId: '9' },
+		url: new URL('https://example.test/bracket')
+	} as never);
+	expect(latest).toMatchObject({ state: 'ready', selectedStageId: 22 });
+	const invalid = await load({
+		fetch: fetcher,
+		params: { slug: 'summer', gameId: '9' },
+		url: new URL('https://example.test/bracket?stage=99')
+	} as never);
+	expect(invalid).toMatchObject({ state: 'unavailable' });
 });

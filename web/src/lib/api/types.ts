@@ -119,7 +119,28 @@ export interface PublicCompetitionRound {
 	matches: PublicCompetitionMatch[];
 }
 
+export interface PublicCompetitionQualification {
+	state: 'PROVISIONAL' | 'AWAITING_RESOLUTION' | 'RESOLVED' | 'BLOCKED';
+	advance_count: number | null;
+	qualifiers: PublicCompetitionEntry[];
+	placement_bands: PublicCompetitionEntry[][];
+	block_reason: string | null;
+	cutoff_ties: Array<{
+		group_id: number | null;
+		places: number;
+		tied_entries: PublicCompetitionEntry[];
+		resolution_id: number | null;
+		parent_id: number | null;
+		method: 'MANUAL' | 'EXTRA_MATCHES' | null;
+		state: string;
+		ordered_entries: PublicCompetitionEntry[];
+		round_ids: number[];
+	}>;
+}
+
 export interface PublicCompetitionStage {
+	draw_state: 'PUBLISHED' | 'AWAITING_REPLACEMENT';
+	qualification: PublicCompetitionQualification | null;
 	id: number;
 	sequence: number;
 	name: string;
@@ -190,6 +211,13 @@ export interface PublicCompetition {
 }
 
 export interface PublicCompetitionChange {
+	stage_id?: number;
+	source_stage_id?: number | null;
+	draw_id?: number;
+	handoff_impact?: {
+		retired_draws: Array<{ stage_id: number; draw_id: number }>;
+		reset_matches: Array<PublicCompetitionMatchSnapshot & { stage_id: number; draw_id: number }>;
+	};
 	revision: number;
 	created_at: string;
 	kind: string;

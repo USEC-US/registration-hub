@@ -437,5 +437,11 @@
 	"bracket_tie_confirmed_change": "{group}: đã xác nhận cách phân định suất đi tiếp",
 	"bracket_match_wins": "Số trận thắng",
 	"bracket_extra_rules": "Trận phân định xếp theo số trận thắng, số trận thắng đối đầu, rồi hiệu số ván. Điểm vòng bảng không thay đổi.",
-	"bracket_qualifier_change": "Đi tiếp: {before} → {after}"
+	"bracket_qualifier_change": "Đi tiếp: {before} → {after}",
+	"bracket_stage_selection": "Giai đoạn",
+	"bracket_awaiting_replacement": "Đang chờ nhánh đấu thay thế",
+	"bracket_replacement_help": "Nhánh đấu trước được lưu trong lịch sử. Kết quả vẫn có trong Thay đổi trong khi chuẩn bị nhánh đấu thay thế.",
+	"bracket_top_n": "Top {count} đi tiếp",
+	"bracket_placement": "Thứ hạng chung cuộc",
+	"bracket_retired_draws": "{count} nhánh đấu tiếp theo đã được lưu vào lịch sử; kết quả được giữ nguyên."
 }
