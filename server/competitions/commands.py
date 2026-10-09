@@ -13,6 +13,16 @@ from config.organizers import require_organizer
 from registrations.models import Registration
 from tournaments.models import TournamentGame
 
+from .command_support import (
+    MAX_ENTRANTS,
+    MAX_MATCHES,
+    _lock_competition,
+    _check_revision,
+    _record_change,
+    _match_snapshot,
+    _validate_best_of,
+    _validate_series_length,
+)
 from .elimination import (
     LoserSlot,
     SeedSlot,
@@ -20,7 +30,6 @@ from .elimination import (
     generate_single_elimination,
 )
 from .models import (
-    ChangeSet,
     Competition,
     CompetitionEntrant,
     Match,
@@ -32,50 +41,6 @@ from .models import (
 )
 
 CORRECTION_SALT = "competitions.correction"
-MAX_ENTRANTS = 256
-MAX_MATCHES = 16_384
-
-
-def _lock_competition(competition_id: int) -> Competition:
-    division_id = Competition.objects.values_list(
-        "tournament_game_id", flat=True
-    ).get(pk=competition_id)
-    # ponytail: one division lock serializes competition and registration writes;
-    # use finer locks only if measured event throughput requires them.
-    TournamentGame.objects.select_for_update().get(pk=division_id)
-    return Competition.objects.select_for_update().select_related(
-        "tournament_game", "tournament_game__tournament", "tournament_game__game"
-    ).get(pk=competition_id)
-
-
-def _check_revision(competition: Competition, expected_revision: int) -> None:
-    if competition.revision != expected_revision:
-        raise ValidationError(
-            f"Competition changed from revision {expected_revision} "
-            f"to {competition.revision}. Reload and try again."
-        )
-
-
-def _record_change(
-    competition: Competition,
-    *,
-    actor,
-    kind: str,
-    private_data: dict | None = None,
-    public_data: dict | None = None,
-    internal_reason: str = "",
-) -> ChangeSet:
-    competition.revision += 1
-    competition.save(update_fields=("revision", "updated_at"))
-    return ChangeSet.objects.create(
-        competition=competition,
-        revision=competition.revision,
-        kind=kind,
-        actor=actor,
-        internal_reason=internal_reason.strip(),
-        private_data=private_data or {},
-        public_data=public_data or {},
-    )
 
 
 def create_competition(*, actor, tournament_game_id: int) -> Competition:
@@ -136,6 +101,7 @@ def configure_elimination(
                     stage=stage, state=StageDraw.State.DRAFT
                 ).update(state=StageDraw.State.SUPERSEDED)
             stage.format = format
+            stage.series_mode = Stage.SeriesMode.BEST_OF
             stage.grand_final_policy = grand_final_policy
             stage.name = name
             stage.default_series_length = default_series_length
@@ -144,6 +110,7 @@ def configure_elimination(
                     "name",
                     "default_series_length",
                     "format",
+                    "series_mode",
                     "grand_final_policy",
                 )
             )
@@ -192,8 +159,10 @@ def select_entrants(
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
-        if StageDraw.objects.filter(stage__competition=competition).exists():
-            raise ValidationError("Entrants cannot change after a draw is saved.")
+        if Stage.objects.filter(
+            competition=competition, published_at__isnull=False
+        ).exists():
+            raise ValidationError("Published entrants cannot change directly.")
         registrations = list(
             Registration.objects.select_for_update()
             .filter(pk__in=unique_ids)
@@ -209,18 +178,24 @@ def select_entrants(
                 raise ValidationError("Every entrant must belong to this division.")
             if registration.status != Registration.Status.APPROVED:
                 raise ValidationError("Only approved registrations can enter a draw.")
-        competition.entrants.all().delete()
+        StageDraw.objects.filter(
+            stage__competition=competition, state=StageDraw.State.DRAFT
+        ).update(state=StageDraw.State.SUPERSEDED)
+        competition.entrants.update(is_selected=False)
         entrants = []
         for registration_id in unique_ids:
             registration = by_id[registration_id]
             display_name, display_tag = _entrant_label(registration)
             entrants.append(
-                CompetitionEntrant.objects.create(
+                CompetitionEntrant.objects.update_or_create(
                     competition=competition,
                     registration=registration,
-                    display_name=display_name,
-                    display_tag=display_tag,
-                )
+                    defaults={
+                        "display_name": display_name,
+                        "display_tag": display_tag,
+                        "is_selected": True,
+                    },
+                )[0]
             )
         _record_change(
             competition,
@@ -254,7 +229,11 @@ def save_elimination_draw(
             raise ValidationError("The published draw cannot be replaced directly.")
         entrants = list(
             CompetitionEntrant.objects.select_for_update()
-            .filter(competition=competition, status=CompetitionEntrant.Status.ACTIVE)
+            .filter(
+                competition=competition,
+                is_selected=True,
+                status=CompetitionEntrant.Status.ACTIVE,
+            )
             .order_by("pk")
         )
         if not 2 <= len(entrants) <= MAX_ENTRANTS:
@@ -372,9 +351,7 @@ def save_elimination_draw(
         return draw
 
 
-def publish_draw(
-    *, actor, competition_id: int, expected_revision: int
-) -> StageDraw:
+def publish_draw(*, actor, competition_id: int, expected_revision: int) -> StageDraw:
     require_organizer(actor, "competitions.change_competition")
     with transaction.atomic():
         competition = _lock_competition(competition_id)
@@ -384,15 +361,17 @@ def publish_draw(
         )
         if stage.published_at:
             raise ValidationError("This stage is already published.")
-        draw = StageDraw.objects.select_for_update().filter(
-            stage=stage, state=StageDraw.State.DRAFT
-        ).first()
+        draw = (
+            StageDraw.objects.select_for_update()
+            .filter(stage=stage, state=StageDraw.State.DRAFT)
+            .first()
+        )
         if draw is None:
             raise ValidationError("Save a new draw before publication.")
         registration_ids = list(
-            competition.entrants.order_by("registration_id").values_list(
-                "registration_id", flat=True
-            )
+            competition.entrants.filter(is_selected=True)
+            .order_by("registration_id")
+            .values_list("registration_id", flat=True)
         )
         registrations = list(
             Registration.objects.select_for_update()
@@ -404,7 +383,9 @@ def publish_draw(
             or registration.tournament_game_id != competition.tournament_game_id
             for registration in registrations
         ):
-            raise ValidationError("Every entrant must still be approved for this division.")
+            raise ValidationError(
+                "Every entrant must still be approved for this division."
+            )
         if draw.entries.count() != len(registration_ids):
             raise ValidationError("The draw does not contain every selected entrant.")
         match_count = Match.objects.filter(round__draw=draw).count()
@@ -433,11 +414,6 @@ def publish_draw(
         return draw
 
 
-def _validate_best_of(length: int) -> None:
-    if length < 1 or length % 2 == 0:
-        raise ValidationError("Best-of length must be a positive odd number.")
-
-
 def _validate_elimination_setup(format: str, grand_final_policy: str) -> None:
     if format not in (Stage.Format.SINGLE_ELIMINATION, Stage.Format.DOUBLE_ELIMINATION):
         raise ValidationError("Choose a supported elimination format.")
@@ -445,7 +421,9 @@ def _validate_elimination_setup(format: str, grand_final_policy: str) -> None:
         if grand_final_policy not in Stage.GrandFinalPolicy.values:
             raise ValidationError({"grand_final_policy": "Choose reset or no reset."})
     elif grand_final_policy:
-        raise ValidationError({"grand_final_policy": "Single elimination has no final policy."})
+        raise ValidationError(
+            {"grand_final_policy": "Single elimination has no final policy."}
+        )
 
 
 def _generate_elimination(stage: Stage, count: int):
@@ -482,6 +460,14 @@ def _ordered_matches(draw: StageDraw) -> list[Match]:
 
 
 def _validate_saved_draw(draw: StageDraw) -> None:
+    if draw.stage.format == Stage.Format.ROUND_ROBIN:
+        seeds = list(draw.entries.order_by("seed").values_list("seed", flat=True))
+        if seeds != list(range(1, len(seeds) + 1)):
+            raise ValidationError("The saved draw has invalid seeds.")
+        from .round_robin_commands import validate_round_robin_draw
+
+        validate_round_robin_draw(draw)
+        return
     entries = list(draw.entries.order_by("seed"))
     if [entry.seed for entry in entries] != list(range(1, len(entries) + 1)):
         raise ValidationError("The saved draw has invalid seeds.")
@@ -529,7 +515,9 @@ def _validate_saved_draw(draw: StageDraw) -> None:
                         and not slot.is_empty
                     )
                 if not valid:
-                    raise ValidationError("The saved draw routing does not match the stage format and policy.")
+                    raise ValidationError(
+                        "The saved draw routing does not match the stage format and policy."
+                    )
 
 
 def _reset_final_status(
@@ -658,9 +646,11 @@ def _match_competition_id(match_id: int) -> int:
 
 def _lock_match(match_id: int) -> tuple[Competition, Match]:
     competition = _lock_competition(_match_competition_id(match_id))
-    match = Match.objects.select_for_update().select_related(
-        "round__draw__stage"
-    ).get(pk=match_id)
+    match = (
+        Match.objects.select_for_update()
+        .select_related("round__draw__stage")
+        .get(pk=match_id)
+    )
     list(MatchSlot.objects.select_for_update().filter(match=match).order_by("position"))
     if match.round.draw.state != StageDraw.State.PUBLISHED:
         raise ValidationError("Only published matches can be operated.")
@@ -701,24 +691,32 @@ def set_round_series_length(
     *, actor, round_id: int, expected_revision: int, series_length: int | None
 ) -> Round:
     require_organizer(actor, "competitions.change_match")
-    if series_length is not None:
-        _validate_best_of(series_length)
     competition_id = Round.objects.values_list(
         "draw__stage__competition_id", flat=True
     ).get(pk=round_id)
     with transaction.atomic():
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
-        round_ = Round.objects.select_for_update().select_related("draw__stage").get(
-            pk=round_id
+        round_ = (
+            Round.objects.select_for_update()
+            .select_related("draw__stage")
+            .get(pk=round_id)
         )
         if round_.draw.state != StageDraw.State.PUBLISHED:
             raise ValidationError("Only a published round can be changed.")
+        _validate_series_length(
+            round_.series_mode_override or round_.draw.stage.series_mode,
+            series_length or round_.draw.stage.default_series_length,
+        )
         inherited_length = series_length or round_.draw.stage.default_series_length
-        if round_.matches.filter(
-            started_at__isnull=False,
-            series_length_override__isnull=True,
-        ).exclude(applied_series_length=inherited_length).exists():
+        if (
+            round_.matches.filter(
+                started_at__isnull=False,
+                series_length_override__isnull=True,
+            )
+            .exclude(applied_series_length=inherited_length)
+            .exists()
+        ):
             raise ValidationError("This change would reinterpret a started match.")
         round_.series_length_override = series_length
         round_.save(update_fields=("series_length_override",))
@@ -740,13 +738,18 @@ def set_match_series_length(
     *, actor, match_id: int, expected_revision: int, series_length: int | None
 ) -> Match:
     require_organizer(actor, "competitions.change_match")
-    if series_length is not None:
-        _validate_best_of(series_length)
     with transaction.atomic():
         competition, match = _lock_match(match_id)
         _check_revision(competition, expected_revision)
         if match.started_at is not None:
             raise ValidationError("A started match keeps its applied series length.")
+        _validate_series_length(
+            match.effective_series_mode,
+            series_length
+            if series_length is not None
+            else match.round.series_length_override
+            or match.round.draw.stage.default_series_length,
+        )
         match.series_length_override = series_length
         match.save(update_fields=("series_length_override",))
         _record_change(
@@ -788,10 +791,9 @@ def start_match(*, actor, match_id: int, expected_revision: int) -> Match:
         now = timezone.now()
         match.status = Match.Status.LIVE
         match.started_at = now
+        match.applied_series_mode = match.effective_series_mode
         match.applied_series_length = match.effective_series_length
-        match.save(
-            update_fields=("status", "started_at", "applied_series_length")
-        )
+        match.save(update_fields=("status", "started_at", "applied_series_length"))
         stage = match.round.draw.stage
         stage.status = Stage.Status.IN_PROGRESS
         stage.save(update_fields=("status",))
@@ -826,13 +828,18 @@ def save_match_progress(
         _playable_slots(match)
         length = match.applied_series_length or match.effective_series_length
         target = length // 2 + 1
-        if min(side_one_score, side_two_score) < 0:
-            raise ValidationError("Scores cannot be negative.")
-        if max(side_one_score, side_two_score) >= target:
+        _validate_scores(side_one_score, side_two_score)
+        terminal = (
+            side_one_score + side_two_score >= length
+            if match.effective_series_mode == Stage.SeriesMode.FIXED_GAMES
+            else max(side_one_score, side_two_score) >= target
+        )
+        if terminal:
             raise ValidationError("A terminal score must be finalized.")
         now = timezone.now()
         match.status = Match.Status.LIVE
         match.started_at = match.started_at or now
+        match.applied_series_mode = match.effective_series_mode
         match.applied_series_length = length
         match.side_one_score = side_one_score
         match.side_two_score = side_two_score
@@ -841,6 +848,7 @@ def save_match_progress(
                 "status",
                 "started_at",
                 "applied_series_length",
+                "applied_series_mode",
                 "side_one_score",
                 "side_two_score",
             )
@@ -864,6 +872,16 @@ def save_match_progress(
         return match
 
 
+def _validate_scores(one, two, *, allow_empty=False):
+    for score in (one, two):
+        if score is None and allow_empty:
+            continue
+        if type(score) is not int or not 0 <= score <= 32767:
+            raise ValidationError(
+                "Scores must be nonnegative integers within the supported range."
+            )
+
+
 def _validate_result(
     match: Match,
     *,
@@ -874,28 +892,37 @@ def _validate_result(
 ) -> tuple[StageEntry | None, int | None, int | None]:
     slots = _playable_slots(match)
     if outcome == Match.Outcome.PLAYED:
-        if side_one_score is None or side_two_score is None:
-            raise ValidationError("Played results require both scores.")
-        if min(side_one_score, side_two_score) < 0:
-            raise ValidationError("Scores cannot be negative.")
-        length = match.applied_series_length or match.effective_series_length
-        target = length // 2 + 1
-        if sorted((side_one_score, side_two_score), reverse=True)[0] != target:
-            raise ValidationError("A final best-of score must reach the win target.")
-        if side_one_score == side_two_score or min(side_one_score, side_two_score) >= target:
-            raise ValidationError("A final best-of score must have one winner.")
-        winner_position = 1 if side_one_score > side_two_score else 2
+        _validate_scores(side_one_score, side_two_score)
+        length = match.effective_series_length
+        if match.effective_series_mode == Stage.SeriesMode.FIXED_GAMES:
+            if side_one_score + side_two_score != length:
+                raise ValidationError(
+                    "A fixed-game final must contain exactly the configured games."
+                )
+            winner_position = (
+                None
+                if side_one_score == side_two_score
+                else 1
+                if side_one_score > side_two_score
+                else 2
+            )
+        else:
+            target = length // 2 + 1
+            if (
+                max(side_one_score, side_two_score) != target
+                or min(side_one_score, side_two_score) >= target
+            ):
+                raise ValidationError(
+                    "A final best-of score must have one winner at the win target."
+                )
+            winner_position = 1 if side_one_score > side_two_score else 2
     elif outcome == Match.Outcome.FORFEIT:
         if winner_position not in (1, 2):
             raise ValidationError("Choose the forfeit winner.")
-        for score in (side_one_score, side_two_score):
-            if score is not None and score < 0:
-                raise ValidationError("Scores cannot be negative.")
+        _validate_scores(side_one_score, side_two_score, allow_empty=True)
     elif outcome == Match.Outcome.DOUBLE_FORFEIT:
         winner_position = None
-        for score in (side_one_score, side_two_score):
-            if score is not None and score < 0:
-                raise ValidationError("Scores cannot be negative.")
+        _validate_scores(side_one_score, side_two_score, allow_empty=True)
     else:
         raise ValidationError("Choose a supported final outcome.")
     winner = slots[winner_position - 1].resolved_entry if winner_position else None
@@ -903,6 +930,11 @@ def _validate_result(
 
 
 def _update_stage_completion(draw: StageDraw) -> None:
+    if draw.stage.format == Stage.Format.ROUND_ROBIN:
+        from .round_robin_commands import update_round_robin_completion
+
+        update_round_robin_completion(draw)
+        return
     stage = draw.stage
     finals = Match.objects.filter(round__draw=draw)
     if stage.format == Stage.Format.DOUBLE_ELIMINATION:
@@ -973,6 +1005,7 @@ def finalize_match(
         match.status = Match.Status.FINAL
         match.started_at = match.started_at or now
         match.completed_at = now
+        match.applied_series_mode = match.effective_series_mode
         match.applied_series_length = (
             match.applied_series_length or match.effective_series_length
         )
@@ -986,6 +1019,7 @@ def finalize_match(
                 "started_at",
                 "completed_at",
                 "applied_series_length",
+                "applied_series_mode",
                 "side_one_score",
                 "side_two_score",
                 "outcome",
@@ -1011,34 +1045,6 @@ def finalize_match(
             },
         )
         return match
-
-
-def _match_snapshot(match: Match) -> dict:
-    slots = list(
-        match.slots.select_related("resolved_entry__entrant").order_by("position")
-    )
-    return {
-        "match_id": match.pk,
-        "match_code": match.code,
-        "status": match.status,
-        "outcome": match.outcome,
-        "side_one": (
-            slots[0].resolved_entry.entrant.display_name
-            if len(slots) > 0 and slots[0].resolved_entry_id
-            else None
-        ),
-        "side_two": (
-            slots[1].resolved_entry.entrant.display_name
-            if len(slots) > 1 and slots[1].resolved_entry_id
-            else None
-        ),
-        "side_one_score": match.side_one_score,
-        "side_two_score": match.side_two_score,
-        "winner": match.winner.entrant.display_name if match.winner_id else None,
-        "applied_series_length": match.applied_series_length,
-        "started_at": match.started_at.isoformat() if match.started_at else None,
-        "completed_at": match.completed_at.isoformat() if match.completed_at else None,
-    }
 
 
 def _project_correction(match: Match, *, outcome, winner_id):
@@ -1239,7 +1245,9 @@ def _load_correction_token(token: str) -> dict:
     try:
         return signing.loads(token, salt=CORRECTION_SALT, max_age=3600)
     except signing.BadSignature as error:
-        raise ValidationError("The correction preview is invalid or expired.") from error
+        raise ValidationError(
+            "The correction preview is invalid or expired."
+        ) from error
 
 
 def _submitted_winner_position(match: Match, submitted: dict) -> int | None:
@@ -1274,9 +1282,7 @@ def review_correction_preview(*, actor, token: str) -> dict:
     )
     if current != submitted:
         raise ValidationError("The correction impact changed. Preview it again.")
-    return _correction_preview_response(
-        match, current, winner, affected, token=token
-    )
+    return _correction_preview_response(match, current, winner, affected, token=token)
 
 
 def apply_correction(*, actor, token: str, internal_reason: str) -> Match:

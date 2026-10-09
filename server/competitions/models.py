@@ -1,7 +1,11 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
+
+
+def default_tiebreaks():
+    return ["HEAD_TO_HEAD", "GAME_DIFFERENCE", "GAMES_WON"]
 
 
 class Competition(models.Model):
@@ -38,6 +42,7 @@ class CompetitionEntrant(models.Model):
         max_length=16, choices=Status.choices, default=Status.ACTIVE
     )
     selected_at = models.DateTimeField(auto_now_add=True)
+    is_selected = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
@@ -87,6 +92,11 @@ class Stage(models.Model):
     default_series_length = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1)]
     )
+    round_robin_meetings = models.PositiveSmallIntegerField(default=1)
+    win_points = models.DecimalField(max_digits=10, decimal_places=2, default=3)
+    draw_points = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    loss_points = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tiebreaks = models.JSONField(default=default_tiebreaks)
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.DRAFT
     )
@@ -113,6 +123,17 @@ class Stage(models.Model):
                 name="stage_series_length_positive",
             ),
             models.CheckConstraint(
+                condition=Q(round_robin_meetings__in=(1, 2)), name="stage_rr_meetings"
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    win_points__gt=F("draw_points"),
+                    draw_points__gte=F("loss_points"),
+                    loss_points__gte=0,
+                ),
+                name="stage_point_order",
+            ),
+            models.CheckConstraint(
                 condition=(
                     Q(
                         format="DOUBLE_ELIMINATION",
@@ -136,9 +157,7 @@ class StageDraw(models.Model):
 
     stage = models.ForeignKey(Stage, on_delete=models.PROTECT, related_name="draws")
     version = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    state = models.CharField(
-        max_length=16, choices=State.choices, default=State.DRAFT
-    )
+    state = models.CharField(max_length=16, choices=State.choices, default=State.DRAFT)
     randomized = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     published_at = models.DateTimeField(null=True, blank=True)
@@ -160,6 +179,30 @@ class StageDraw(models.Model):
         return f"{self.stage} draw v{self.version}"
 
 
+class StageGroup(models.Model):
+    draw = models.ForeignKey(StageDraw, on_delete=models.PROTECT, related_name="groups")
+    number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    name = models.CharField(max_length=100)
+    qualifying_places = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1)]
+    )
+
+    class Meta:
+        ordering = ("number", "pk")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("draw", "number"), name="unique_draw_group"
+            ),
+            models.CheckConstraint(
+                condition=Q(number__gte=1, qualifying_places__gte=1),
+                name="group_positive_places",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class StageEntry(models.Model):
     draw = models.ForeignKey(
         StageDraw, on_delete=models.PROTECT, related_name="entries"
@@ -168,6 +211,13 @@ class StageEntry(models.Model):
         CompetitionEntrant, on_delete=models.PROTECT, related_name="stage_entries"
     )
     seed = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    group = models.ForeignKey(
+        StageGroup,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="entries",
+    )
     source_entry = models.ForeignKey(
         "self",
         null=True,
@@ -189,6 +239,41 @@ class StageEntry(models.Model):
         return f"#{self.seed} {self.entrant}"
 
 
+class TieResolution(models.Model):
+    class Method(models.TextChoices):
+        MANUAL = "MANUAL", "Organizer decision"
+        EXTRA_MATCHES = "EXTRA_MATCHES", "Extra matches"
+
+    class State(models.TextChoices):
+        PENDING = "PENDING", "Pending extra matches"
+        AWAITING_RESOLUTION = "AWAITING_RESOLUTION", "Awaiting another tie resolution"
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        SUPERSEDED = "SUPERSEDED", "Superseded"
+
+    group = models.ForeignKey(
+        StageGroup, on_delete=models.PROTECT, related_name="tie_resolutions"
+    )
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="children"
+    )
+    method = models.CharField(max_length=16, choices=Method.choices)
+    state = models.CharField(max_length=24, choices=State.choices)
+    source_fingerprint = models.CharField(max_length=64)
+    contenders = models.ManyToManyField(StageEntry, related_name="tie_resolutions")
+    places = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    decision_order = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("created_at", "pk")
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(places__gte=1), name="tie_positive_places"
+            )
+        ]
+
+
 class Round(models.Model):
     class Section(models.TextChoices):
         NORMAL = "NORMAL", "Normal"
@@ -198,6 +283,23 @@ class Round(models.Model):
         TIEBREAK = "TIEBREAK", "Tiebreak"
 
     draw = models.ForeignKey(StageDraw, on_delete=models.PROTECT, related_name="rounds")
+    group = models.ForeignKey(
+        StageGroup,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="rounds",
+    )
+    tie_resolution = models.ForeignKey(
+        TieResolution,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="rounds",
+    )
+    series_mode_override = models.CharField(
+        max_length=16, blank=True, default="", choices=Stage.SeriesMode.choices
+    )
     number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
     section = models.CharField(
         max_length=16, choices=Section.choices, default=Section.NORMAL
@@ -210,7 +312,19 @@ class Round(models.Model):
         ordering = ("number", "pk")
         constraints = [
             models.UniqueConstraint(
-                fields=("draw", "section", "number"), name="unique_draw_round"
+                fields=("draw", "section", "number"),
+                condition=Q(group__isnull=True),
+                name="unique_draw_round",
+            ),
+            models.UniqueConstraint(
+                fields=("draw", "group", "section", "number"),
+                condition=Q(group__isnull=False),
+                name="unique_group_round",
+            ),
+            models.CheckConstraint(
+                condition=Q(series_mode_override="")
+                | Q(section="TIEBREAK", series_mode_override="BEST_OF"),
+                name="round_decisive_tiebreak_mode",
             ),
             models.CheckConstraint(
                 condition=Q(series_length_override__isnull=True)
@@ -251,6 +365,9 @@ class Match(models.Model):
     applied_series_length = models.PositiveSmallIntegerField(
         null=True, blank=True, validators=[MinValueValidator(1)]
     )
+    applied_series_mode = models.CharField(
+        max_length=16, blank=True, default="", choices=Stage.SeriesMode.choices
+    )
     side_one_score = models.PositiveSmallIntegerField(null=True, blank=True)
     side_two_score = models.PositiveSmallIntegerField(null=True, blank=True)
     outcome = models.CharField(max_length=20, choices=Outcome.choices, blank=True)
@@ -281,6 +398,14 @@ class Match(models.Model):
                 name="match_applied_series_positive",
             ),
         ]
+
+    @property
+    def effective_series_mode(self) -> str:
+        return (
+            self.applied_series_mode
+            or self.round.series_mode_override
+            or self.round.draw.stage.series_mode
+        )
 
     @property
     def effective_series_length(self) -> int:
