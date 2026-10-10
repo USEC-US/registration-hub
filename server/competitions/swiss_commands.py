@@ -787,9 +787,22 @@ def generate_swiss_round(
 def _swiss_public_round(round_):
     from .command_support import _match_snapshot
 
+    prior = _swiss_results(round_.draw, before_number=round_.number)
+    prior_pairs = {
+        frozenset((result.side_one_id, result.side_two_id))
+        for result in prior
+        if result.side_two_id is not None
+    }
+    prior_byes = {
+        result.side_one_id for result in prior if result.outcome == Match.Outcome.BYE
+    }
+    saved = _swiss_round_payload(round_)
     return {
         "round_id": round_.pk,
         "round_number": round_.number,
+        "match_ids": list(round_.matches.values_list("pk", flat=True)),
+        "rematch_count": sum(frozenset(pair) in prior_pairs for pair in saved["pairs"]),
+        "repeated_bye": saved["bye_entry_id"] in prior_byes,
         "automatic_results": [
             _match_snapshot(m)
             for m in round_.matches.filter(outcome=Match.Outcome.BYE).select_related(

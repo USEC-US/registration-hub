@@ -140,6 +140,8 @@ class PublicCompetitionApiTests(APITestCase):
         )
         self.assertEqual(response.data["stages"][0]["name"], "Final bracket")
         self.assertEqual(response.data["stages"][0]["grand_final_policy"], "")
+        self.assertIsNone(response.data["stages"][0]["swiss_rules"])
+        self.assertEqual(response.data["stages"][0]["swiss_standings"], [])
         self.assertEqual(
             response.data["stages"][0]["rounds"][0]["matches"][0]["code"],
             "Final bracket-M1",
@@ -152,6 +154,7 @@ class PublicCompetitionApiTests(APITestCase):
         old_match = self.draw.rounds.get(number=1).matches.get(number=1)
         self.draw.published_at = timezone.now()
         self.draw.save(update_fields=("published_at",))
+        self.draw.rounds.update(state="PUBLISHED", published_at=self.draw.published_at)
         draw = self._double_elimination()
         self._publish()
 

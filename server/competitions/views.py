@@ -45,17 +45,21 @@ def _published_match_queryset():
 
 
 def _published_round_queryset():
-    return Round.objects.select_related(
-        "draw__stage__competition", "group", "tie_resolution"
-    ).prefetch_related(
-        "group__entries__entrant",
-        "tie_resolution__contenders__entrant",
-        Prefetch("matches", queryset=_published_match_queryset()),
+    return (
+        Round.objects.filter(state=Round.State.PUBLISHED, published_at__isnull=False)
+        .select_related("draw__stage__competition", "group", "tie_resolution")
+        .prefetch_related(
+            "group__entries__entrant",
+            "tie_resolution__contenders__entrant",
+            Prefetch("matches", queryset=_published_match_queryset()),
+        )
     )
 
 
 def _published_stage_queryset():
-    draws = StageDraw.objects.filter(state=StageDraw.State.PUBLISHED).prefetch_related(
+    draws = StageDraw.objects.filter(
+        state=StageDraw.State.PUBLISHED, published_at__isnull=False
+    ).prefetch_related(
         "entries__entrant",
         "groups__entries__entrant",
         "groups__tie_resolutions__contenders",
@@ -117,6 +121,7 @@ class PublicRoundView(APIView):
             round_ = get_object_or_404(
                 _published_round_queryset().filter(
                     draw__state=StageDraw.State.PUBLISHED,
+                    draw__published_at__isnull=False,
                     draw__stage__published_at__isnull=False,
                     draw__stage__competition__tournament_game__tournament__is_published=True,
                 ),
@@ -133,6 +138,8 @@ class PublicMatchView(APIView):
         with consistent_public_read():
             match = get_object_or_404(
                 _published_match_queryset().filter(
+                    round__state__in=(Round.State.PUBLISHED, Round.State.SUPERSEDED),
+                    round__published_at__isnull=False,
                     round__draw__state__in=(
                         StageDraw.State.PUBLISHED,
                         StageDraw.State.SUPERSEDED,
@@ -177,6 +184,7 @@ class PublicCompetitionChangesView(APIView):
                 match_ids = list(
                     Match.objects.filter(
                         round__draw__stage=stage,
+                        round__published_at__isnull=False,
                         round__draw__published_at__isnull=False,
                     ).values_list("pk", flat=True)
                 )

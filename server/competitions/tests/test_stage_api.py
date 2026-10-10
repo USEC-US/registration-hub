@@ -42,6 +42,8 @@ class StageApiTests(TestCase):
         self.assertEqual(response.data["draw_state"], "AWAITING_REPLACEMENT")
         self.assertEqual(response.data["entries"], [])
         self.assertEqual(response.data["rounds"], [])
+        self.assertIsNone(response.data["swiss_rules"])
+        self.assertEqual(response.data["swiss_standings"], [])
         detail = self.client.get(f"/api/competition-matches/{old_match.pk}/")
         self.assertEqual(detail.status_code, 200)
         self.assertTrue(detail.data["historical"])

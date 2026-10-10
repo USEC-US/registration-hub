@@ -46,9 +46,13 @@ class PublicMatchSerializer(serializers.Serializer):
     slots = PublicMatchSlotSerializer(many=True, read_only=True)
 
     def get_historical(self, obj: Match) -> bool:
-        return obj.round.draw.state == obj.round.draw.State.SUPERSEDED or (
-            obj.round.tie_resolution_id is not None
-            and obj.round.tie_resolution.state == TieResolution.State.SUPERSEDED
+        return (
+            obj.round.state == Round.State.SUPERSEDED
+            or obj.round.draw.state == obj.round.draw.State.SUPERSEDED
+            or (
+                obj.round.tie_resolution_id is not None
+                and obj.round.tie_resolution.state == TieResolution.State.SUPERSEDED
+            )
         )
 
     def get_winner(self, obj: Match) -> dict | None:
@@ -103,6 +107,8 @@ class PublicStageSerializer(serializers.Serializer):
     rounds = serializers.SerializerMethodField()
     groups = serializers.SerializerMethodField()
     round_robin_rules = serializers.SerializerMethodField()
+    swiss_rules = serializers.SerializerMethodField()
+    swiss_standings = serializers.SerializerMethodField()
     qualification = serializers.SerializerMethodField()
     draw_state = serializers.SerializerMethodField()
 
@@ -110,7 +116,10 @@ class PublicStageSerializer(serializers.Serializer):
         return "PUBLISHED" if self._draw(obj) else "AWAITING_REPLACEMENT"
 
     def get_qualification(self, obj):
-        if obj.format != Stage.Format.ROUND_ROBIN and obj.advancement_count is None:
+        if (
+            obj.format not in (Stage.Format.ROUND_ROBIN, Stage.Format.SWISS_THRESHOLD)
+            and obj.advancement_count is None
+        ):
             return None
         draw = self._draw(obj)
         result = {
@@ -126,11 +135,11 @@ class PublicStageSerializer(serializers.Serializer):
         from .qualification import stage_qualification
 
         draw._qualification_matches = [
-            m for r in draw.rounds.all() for m in r.matches.all()
+            m for r in self._rounds(draw) for m in r.matches.all()
         ]
         state = stage_qualification(draw)
         entries = {e.pk: PublicEntrySerializer(e).data for e in draw.entries.all()}
-        rounds = list(draw.rounds.all())
+        rounds = self._rounds(draw)
         resolutions = {r.pk: r for r in draw.tie_resolutions.all()}
         ties = []
         for cutoff in state["cutoffs"]:
@@ -187,6 +196,54 @@ class PublicStageSerializer(serializers.Serializer):
             "block_reason": state["block_reason"],
         }
 
+    def get_swiss_rules(self, obj):
+        if obj.format not in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+            return None
+        draw = self._draw(obj)
+        return {
+            "round_policy": "THRESHOLD"
+            if obj.format == Stage.Format.SWISS_THRESHOLD
+            else "CUSTOM"
+            if obj.swiss_round_count is not None
+            else "AUTOMATIC",
+            "round_limit": draw.swiss_round_limit if draw else None,
+            "win_target": obj.swiss_win_target,
+            "loss_limit": obj.swiss_loss_limit,
+            "win_points": str(obj.win_points),
+            "draw_points": str(obj.draw_points),
+            "loss_points": str(obj.loss_points),
+            "tiebreaks": obj.tiebreaks,
+        }
+
+    def get_swiss_standings(self, obj):
+        draw = self._draw(obj)
+        if not draw or obj.format not in (
+            Stage.Format.SWISS_FIXED,
+            Stage.Format.SWISS_THRESHOLD,
+        ):
+            return []
+        from .swiss_commands import swiss_standings
+
+        entries = {e.pk: PublicEntrySerializer(e).data for e in draw.entries.all()}
+        matches = [m for r in self._rounds(draw) for m in r.matches.all()]
+        return [
+            {
+                "entry": entries[row.entry_id],
+                "rank": row.rank,
+                "played": row.played,
+                "wins": row.wins,
+                "draws": row.draws,
+                "losses": row.losses,
+                "points": f"{row.points:.2f}",
+                "games_won": row.games_won,
+                "game_difference": row.game_difference,
+                "opponent_points": f"{row.opponent_points:.2f}",
+                "bye_count": row.bye_count,
+                "status": row.status,
+            }
+            for row in swiss_standings(draw, projected_matches=matches)
+        ]
+
     def get_round_robin_rules(self, obj):
         if obj.format != Stage.Format.ROUND_ROBIN:
             return None
@@ -202,7 +259,7 @@ class PublicStageSerializer(serializers.Serializer):
         draw = self._draw(obj)
         if not draw or obj.format != Stage.Format.ROUND_ROBIN:
             return []
-        rounds = list(draw.rounds.all())
+        rounds = self._rounds(draw)
         result = []
         for group in draw.groups.all():
             group_rounds = [r for r in rounds if r.group_id == group.pk]
@@ -274,7 +331,10 @@ class PublicStageSerializer(serializers.Serializer):
         )
 
     def get_champion(self, obj: Stage) -> dict | None:
-        if obj.champion_id is None:
+        if (
+            obj.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD)
+            or obj.champion_id is None
+        ):
             return None
         return {
             "id": obj.champion_id,
@@ -288,7 +348,14 @@ class PublicStageSerializer(serializers.Serializer):
 
     def get_rounds(self, obj: Stage) -> list[dict]:
         draw = self._draw(obj)
-        return PublicRoundSerializer(draw.rounds.all(), many=True).data if draw else []
+        return PublicRoundSerializer(self._rounds(draw), many=True).data if draw else []
+
+    def _rounds(self, draw):
+        return [
+            r
+            for r in draw.rounds.all()
+            if r.state == Round.State.PUBLISHED and r.published_at is not None
+        ]
 
 
 class PublicCompetitionSerializer(serializers.Serializer):
@@ -360,6 +427,17 @@ class PublicChangeSerializer(serializers.Serializer):
         child=serializers.JSONField(), read_only=True, required=False
     )
 
+    round_number = serializers.IntegerField(read_only=True, required=False)
+    match_ids = serializers.ListField(
+        child=serializers.IntegerField(), read_only=True, required=False
+    )
+    rematch_count = serializers.IntegerField(read_only=True, required=False)
+    repeated_bye = serializers.BooleanField(read_only=True, required=False)
+    automatic_results = serializers.ListField(
+        child=serializers.JSONField(), read_only=True, required=False
+    )
+    swiss_impact = serializers.JSONField(read_only=True, required=False)
+
     def to_representation(self, instance: ChangeSet) -> dict:
         allowed = {
             "kind",
@@ -367,6 +445,10 @@ class PublicChangeSerializer(serializers.Serializer):
             "draw_id",
             "source_stage_id",
             "round_id",
+            "round_number",
+            "match_ids",
+            "rematch_count",
+            "repeated_bye",
             "match_id",
             "match_code",
             "scheduled_at",
@@ -408,14 +490,16 @@ class PublicChangeSerializer(serializers.Serializer):
                     for field, value in instance.public_data[key].items()
                     if field in snapshot_fields
                 }
-        if "reset_matches" in instance.public_data:
-            public_data["reset_matches"] = [
+        for key in ("reset_matches", "automatic_results"):
+            if key not in instance.public_data:
+                continue
+            public_data[key] = [
                 {
                     field: value
                     for field, value in snapshot.items()
                     if field in snapshot_fields
                 }
-                for snapshot in instance.public_data["reset_matches"]
+                for snapshot in instance.public_data[key]
             ]
         if "reset_final_changes" in instance.public_data:
             public_data["reset_final_changes"] = [
@@ -461,6 +545,13 @@ class PublicChangeSerializer(serializers.Serializer):
                 {k: v for k, v in snapshot.items() if k in snapshot_fields}
                 for snapshot in impact["historical_matches"]
             ]
+        swiss = instance.public_data.get("swiss_impact")
+        if swiss is not None:
+            public_data["swiss_impact"] = {
+                key: swiss[key]
+                for key in ("retired_round_ids", "retired_match_ids")
+                if key in swiss
+            }
         handoff = instance.public_data.get("handoff_impact")
         if handoff:
             public_data["handoff_impact"] = {
