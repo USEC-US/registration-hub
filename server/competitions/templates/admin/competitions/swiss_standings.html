@@ -1,0 +1,9 @@
+<section class="cw-panel" aria-labelledby="cw-swiss-standings-title">
+  <h2 id="cw-swiss-standings-title">Swiss standings</h2>
+  {% include "admin/competitions/group_rules.html" %}
+  <div class="cw-bracket-scroll" role="region" aria-label="Swiss standings" tabindex="0">
+    <table class="cw-table"><caption>Current published ordinary rounds</caption><thead><tr><th scope="col">Rank</th><th scope="col">Entrant</th><th scope="col">Played</th><th scope="col">W / D / L</th><th scope="col">Points</th><th scope="col">Opponent points</th><th scope="col">Game difference</th><th scope="col">Games won</th><th scope="col">Bye count</th><th scope="col">Status</th></tr></thead><tbody>
+      {% for item in swiss_display.rows %}<tr><td>{{ item.row.rank }}</td><th scope="row">{{ item.name }}</th><td>{{ item.row.played }}</td><td>{{ item.row.wins }} / {{ item.row.draws }} / {{ item.row.losses }}</td><td>{{ item.row.points }}</td><td>{{ item.row.opponent_points }}</td><td>{{ item.row.game_difference }}</td><td>{{ item.row.games_won }}</td><td>{{ item.row.bye_count }}</td><td>{{ item.row.status|title }}</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</section>

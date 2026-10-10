@@ -41,7 +41,11 @@ def grand_final_policy_label(stage):
 
 
 def round_label(round_, *, last_round_number):
-    if round_.draw.stage.format == Stage.Format.ROUND_ROBIN:
+    if round_.draw.stage.format in (
+        Stage.Format.ROUND_ROBIN,
+        Stage.Format.SWISS_FIXED,
+        Stage.Format.SWISS_THRESHOLD,
+    ):
         return f"{'Extra contest round' if round_.section == 'TIEBREAK' else 'Round'} {round_.number}"
     if round_.section == Round.Section.FINALS:
         return "Grand final" if round_.number == 1 else "Reset final"
@@ -60,13 +64,20 @@ def round_label(round_, *, last_round_number):
 
 def match_card(match, user):
     slots = list(match.slots.all())
-    published = match.round.draw.state == StageDraw.State.PUBLISHED
+    published = (
+        match.round.draw.state == StageDraw.State.PUBLISHED
+        and match.round.state == Round.State.PUBLISHED
+    )
     ready = len(slots) == 2 and all(
         slot.is_resolved and slot.resolved_entry_id for slot in slots
     )
-    historical = match.round.draw.state == StageDraw.State.SUPERSEDED or (
-        match.round.tie_resolution_id
-        and match.round.tie_resolution.state == "SUPERSEDED"
+    historical = (
+        match.round.state == Round.State.SUPERSEDED
+        or match.round.draw.state == StageDraw.State.SUPERSEDED
+        or (
+            match.round.tie_resolution_id
+            and match.round.tie_resolution.state == "SUPERSEDED"
+        )
     )
     can_operate = (
         user.has_perm("competitions.change_match") and published and not historical
@@ -157,6 +168,9 @@ def match_card(match, user):
             else ""
         ),
         "historical": bool(historical),
+        "private": match.round.state == Round.State.DRAFT
+        or match.round.draw.state == StageDraw.State.DRAFT,
+        "can_operate": can_operate,
     }
 
 
@@ -216,7 +230,41 @@ def correction_display(impact):
                 for item in group["historical_matches"]
             ],
         }
+    swiss = impact.get("swiss_impact")
+    swiss_display = None
+    if swiss:
+        rounds = (
+            Round.objects.filter(pk__in=swiss["retired_round_ids"])
+            .select_related("draw__stage")
+            .order_by("number", "version")
+        )
+        matches = (
+            Match.objects.filter(pk__in=swiss["played_match_ids"])
+            .select_related("round__draw__stage", "winner__entrant")
+            .prefetch_related("slots__resolved_entry__entrant")
+        )
+        swiss_display = {
+            "rounds": [
+                {
+                    "id": r.pk,
+                    "label": f"{r.draw.stage.name} · Round {r.number}, version {r.version}",
+                    "state": r.get_state_display(),
+                }
+                for r in rounds
+            ],
+            "retired_match_count": len(swiss["retired_match_ids"]),
+            "played_matches": [
+                {
+                    "code": m.code,
+                    "title": " vs ".join(slot_label(slot) for slot in m.slots.all()),
+                    "scores": f"{m.side_one_score if m.side_one_score is not None else '—'}–{m.side_two_score if m.side_two_score is not None else '—'}",
+                    "url": reverse("admin:competitions_match_change", args=[m.pk]),
+                }
+                for m in matches
+            ],
+        }
     return {
+        "swiss": swiss_display,
         "group": group_display,
         "handoff": impact.get("handoff_impact"),
         "retired_results": [
@@ -257,3 +305,55 @@ def reset_final_changes_display(changes):
         }
         for item in changes
     ]
+
+
+def swiss_workspace(draw):
+    """Read saved fixtures and current standings; never validate by solving on GET."""
+    from .swiss_commands import swiss_standings, _rank, _swiss_results
+
+    rows = swiss_standings(draw)
+    names = dict(draw.entries.values_list("pk", "entrant__display_name"))
+    current = (
+        draw.rounds.filter(section="NORMAL")
+        .exclude(state="SUPERSEDED")
+        .order_by("-number")
+        .first()
+    )
+    published = draw.rounds.filter(section="NORMAL", state="PUBLISHED")
+    change = (
+        draw.stage.competition.changes.filter(
+            private_data__swiss_round__round_id=current.pk
+        ).first()
+        if current
+        else None
+    )
+    audit = change.private_data if change else {}
+    bye_id = audit.get("swiss_round", {}).get("bye_entry_id")
+    previous_rows = (
+        _rank(draw, _swiss_results(draw, before_number=current.number))
+        if current
+        else []
+    )
+    return {
+        "round": current,
+        "limit": draw.swiss_round_limit,
+        "rows": [{"row": row, "name": names[row.entry_id]} for row in rows],
+        "bye": names.get(bye_id),
+        "repeated_bye": any(
+            row.entry_id == bye_id and row.bye_count for row in previous_rows
+        ),
+        "repeat_pairs": [
+            [names[a], names[b]] for a, b in audit.get("repeat_pairs", [])
+        ],
+        "cross_group_pairs": [
+            [names[a], names[b]] for a, b in audit.get("cross_group_pairs", [])
+        ],
+        "can_generate": bool(
+            draw.state == "PUBLISHED"
+            and current
+            and current.state == "PUBLISHED"
+            and not current.matches.exclude(status="FINAL").exists()
+            and draw.stage.status != "COMPLETE"
+            and published.count() < draw.swiss_round_limit
+        ),
+    }

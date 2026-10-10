@@ -91,6 +91,12 @@ def configure_elimination(
             .filter(competition=competition, sequence=stage_sequence)
             .first()
         )
+        fixture_rules_changed = bool(
+            stage
+            and (
+                stage.format != format or stage.grand_final_policy != grand_final_policy
+            )
+        )
         if stage and stage.published_at:
             raise ValidationError("Published stage setup is locked.")
         if stage is None:
@@ -131,7 +137,8 @@ def configure_elimination(
             )
         from .stage_commands import _invalidate_drafts
 
-        _invalidate_drafts(stage)
+        if fixture_rules_changed:
+            _invalidate_drafts(stage)
         _record_change(
             competition,
             actor=actor,

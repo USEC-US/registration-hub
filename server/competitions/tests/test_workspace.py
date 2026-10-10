@@ -340,6 +340,8 @@ class CompetitionWorkspaceTests(TestCase):
                 (Stage.Format.SINGLE_ELIMINATION, "Single elimination"),
                 (Stage.Format.DOUBLE_ELIMINATION, "Double elimination"),
                 (Stage.Format.ROUND_ROBIN, "Round robin"),
+                (Stage.Format.SWISS_FIXED, "Fixed Swiss"),
+                (Stage.Format.SWISS_THRESHOLD, "Threshold Swiss"),
             ],
         )
         self.assertEqual(

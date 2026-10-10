@@ -9,6 +9,7 @@
     {% if match_card.result_url %}<a class="cw-button cw-button-primary" href="{{ match_card.result_url }}">{{ match_card.result_label }}</a>{% endif %}
   </header>
   {% if match_card.historical %}<p class="cw-notice">This match belongs to an earlier bracket. Its result is kept here for reference.</p>{% endif %}
+  {% if match_card.private %}<p class="cw-notice">Private preview. Publish this saved round before managing its matches.</p>{% endif %}
   <section class="cw-scoreboard" aria-label="Match score">
     <ol class="cw-slots">
       {% for slot in match_card.slots %}

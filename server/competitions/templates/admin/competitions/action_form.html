@@ -22,6 +22,8 @@
         <p>Their current scores and results will be cleared. Previous results will remain in Changes.</p>
         <ul class="cw-reset-list">{% for item in impact_display.matches %}<li>{% if item.url %}<a href="{{ item.url }}">{{ item.code }} — {{ item.label }}</a>{% else %}{{ item.code }} — {{ item.label }}{% endif %}</li>{% endfor %}</ul>
       {% else %}<p>No other match results need to be cleared.</p>{% endif %}
+      {% if impact_display.swiss.rounds %}<h3>Swiss rounds becoming historical</h3><p>{{ impact_display.swiss.retired_match_count }} fixtures will leave current standings. Their recorded scores and results are preserved.</p><ul>{% for round in impact_display.swiss.rounds %}<li>{{ round.label }} · {{ round.state }}</li>{% endfor %}</ul>{% endif %}
+      {% if impact_display.swiss.played_matches %}<h3>Played Swiss results preserved as history</h3><ul class="cw-reset-list">{% for match in impact_display.swiss.played_matches %}<li><a href="{{ match.url }}">{{ match.code }} — {{ match.title }} · {{ match.scores }}</a></li>{% endfor %}</ul>{% endif %}
       {% if impact_display.group %}<h3>{{ impact_display.group.group_name }} qualification impact</h3><p>Qualifiers: {{ impact_display.group.before_qualifiers|join:", "|default:"Unresolved" }} → {{ impact_display.group.after_qualifiers|join:", "|default:"Unresolved" }}</p><p>Qualification: {{ impact_display.group.before.qualification_state }} → {{ impact_display.group.after.qualification_state }}</p><p>Tie decisions superseded: {{ impact_display.group.invalidated_resolution_ids|length }}. Their extra contests remain historical.</p><table><caption>Projected standings</caption><thead><tr><th>Rank</th><th>Entry</th><th>Points</th><th>Game difference</th></tr></thead><tbody>{% for row in impact_display.group.after_rows %}<tr><td>{{ row.rank }}</td><td>{{ row.name }}</td><td>{{ row.points }}</td><td>{{ row.game_difference }}</td></tr>{% endfor %}</tbody></table>{% endif %}
       {% if impact_display.group.historical_matches %}<h3>Extra contests becoming historical</h3><p>Their records and scores will remain available as history.</p><ul class="cw-reset-list">{% for item in impact_display.group.historical_matches %}<li><a href="{{ item.url }}">{{ item.code }}</a> · {{ item.status }} · {{ item.label }}</li>{% endfor %}</ul>{% endif %}
       {% if impact_display.activation_changes %}
@@ -35,6 +37,7 @@
   {% if tie_preview %}<section class="cw-panel"><h2>{{ tie_preview.group_name }} — {{ tie_preview.places }} qualifying place{{ tie_preview.places|pluralize }}</h2>
     {% if tie_preview.method == 'MANUAL' %}<p>Organizer order: {{ tie_preview.ordered_entries|join:" → " }}</p>{% else %}<p>Extra contests · Best of {{ tie_preview.series_length }}. Ordinary group points stay unchanged.</p><ul>{% for pairing in tie_preview.fixtures %}<li>{{ pairing|join:" vs " }}</li>{% endfor %}</ul>{% endif %}</section>{% endif %}
   {% if impact_display.handoff.superseded_draw_ids %}<section class="cw-panel"><h2>Downstream draws leaving the active competition</h2><p>{{ impact_display.handoff.superseded_draw_ids|length }} draw{{ impact_display.handoff.superseded_draw_ids|length|pluralize }} will become historical. Their recorded results are preserved.</p><ul>{% for result in impact_display.retired_results %}<li>{{ result }}</li>{% endfor %}</ul></section>{% endif %}
+  {% if rematch_url %}<p class="cw-notice cw-notice-warning">A complete round without rematches could not be found. <a class="cw-button" href="{{ rematch_url }}">Allow required rematches</a></p>{% endif %}
   <form method="post"{% if form_action %} action="{{ form_action }}"{% endif %} class="cw-panel cw-form">
     {% csrf_token %}
     {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
@@ -51,6 +54,7 @@
         <div data-stage-elimination>{% include "admin/competitions/form_field.html" with field=form.advancement_count %}</div>
         <div data-stage-groups data-incoming-count="{{ form.incoming_count|default_if_none:'' }}">
           {% include "admin/competitions/form_field.html" with field=form.group_count %}
+          {% include "admin/competitions/form_field.html" with field=form.group_size_policy %}
           <noscript><button class="cw-button" type="submit" name="preview_groups" value="1" formnovalidate>Update group rows</button></noscript>
           <div data-group-rows>{% for row in form.group_rows %}<div class="cw-group-plan-row">{% for field in row %}{% include "admin/competitions/form_field.html" %}{% endfor %}</div>{% endfor %}</div>
           <p class="cw-help" data-group-summary aria-live="polite"></p>

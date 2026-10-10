@@ -423,3 +423,35 @@ class StageWorkspaceTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Waiting for previous stage")
+
+    def test_name_and_default_series_edits_retain_draw_but_format_change_retires_rounds(
+        self,
+    ):
+        from competitions.commands import configure_elimination
+
+        source, _ = self._chain(publish=False)
+        round_ids = list(source.rounds.values_list("pk", flat=True))
+        configure_elimination(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            name="Renamed",
+            format="SINGLE_ELIMINATION",
+            default_series_length=3,
+        )
+        source.refresh_from_db()
+        self.assertEqual(source.state, "DRAFT")
+        self.competition.refresh_from_db()
+        configure_elimination(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            name="Double",
+            format="DOUBLE_ELIMINATION",
+            grand_final_policy="RESET",
+            default_series_length=3,
+        )
+        source.refresh_from_db()
+        self.assertEqual(source.state, "SUPERSEDED")
+        self.assertEqual(list(source.rounds.values_list("pk", flat=True)), round_ids)
+        self.assertFalse(source.rounds.exclude(state="SUPERSEDED").exists())

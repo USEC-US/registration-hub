@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
@@ -27,6 +29,7 @@ from .admin_workspace import (
     round_label,
     series_label,
     workspace_url,
+    swiss_workspace,
 )
 
 from .commands import (
@@ -61,6 +64,8 @@ from .forms import (
     QualificationTieForm,
     StageOrderForm,
     NextStageDrawForm,
+    SwissRoundForm,
+    SwissRematchForm,
 )
 from .models import (
     ChangeSet,
@@ -87,6 +92,14 @@ from .stage_commands import (
     reorder_stages,
     remove_stage,
     validate_stage_plan,
+    validate_stage_field,
+    _configured_incoming_count,
+)
+from .swiss_commands import (
+    configure_swiss,
+    save_swiss_draw,
+    generate_swiss_round,
+    publish_swiss_round,
 )
 from .handoff_commands import generate_next_stage_draw
 from .qualification import (
@@ -253,6 +266,11 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             raise Http404
         if selected_tab == "changes" and not can_view_changes:
             raise PermissionDenied
+        is_swiss = bool(
+            stage
+            and stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD)
+        )
+        swiss_display = swiss_workspace(draw) if draw and is_swiss else None
         groups = list(draw.groups.all()) if draw else []
         selected_group = None
         if groups:
@@ -408,11 +426,13 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                         ]
                         if selected_group
                         else [],
+                        "state": round_.get_state_display(),
                         "series_url": reverse(
                             "admin:competitions_round_series_detail", args=[round_.pk]
                         )
                         if can_operate
                         and published
+                        and round_.state == Round.State.PUBLISHED
                         and (
                             not round_.tie_resolution_id
                             or round_.tie_resolution.state != "SUPERSEDED"
@@ -512,16 +532,34 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         plan_locked = bool(stages and stages[0].published_at)
         plan_error = None
         plan_rows = []
-        incoming = competition.entrants.filter(is_selected=True).count()
         for item in stages:
+            saved_draw = item.draws.exclude(state="SUPERSEDED").first()
+            incoming = (
+                saved_draw.entries.count()
+                if saved_draw
+                else (_configured_incoming_count(competition, item.sequence) or None)
+            )
+            saved_groups = list(saved_draw.groups.all()) if saved_draw else []
             outgoing = (
                 sum(p.qualifying_places for p in item.group_plans.all())
                 if item.format == "ROUND_ROBIN"
+                else None
+                if item.format == Stage.Format.SWISS_THRESHOLD
                 else item.advancement_count
             )
             plan_rows.append(
                 {
                     "stage": item,
+                    "groups": [
+                        {
+                            "name": group.name,
+                            "size": group.entries.count(),
+                            "qualifying_places": group.qualifying_places,
+                        }
+                        for group in saved_groups
+                    ]
+                    if saved_groups
+                    else list(item.group_plans.all()),
                     "incoming_count": incoming,
                     "outgoing_count": outgoing if item.sequence < len(stages) else None,
                     "configure_url": _stage_action_url(
@@ -574,18 +612,22 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 source_qualification
                 and source_qualification["qualification_state"] == "RESOLVED"
             ):
-                waiting_reason = "Ready for a saved random draw"
+                try:
+                    validate_stage_field(
+                        stage, len(source_qualification["qualifier_entry_ids"])
+                    )
+                except ValidationError as error:
+                    waiting_reason = " ".join(error.messages)
+                    primary_action = None
+                else:
+                    waiting_reason = "Ready for a saved random draw"
             else:
                 waiting_reason = (
                     source_qualification["block_reason"]
                     if source_qualification
                     else None
                 ) or "Waiting for previous stage"
-            if (
-                can_manage
-                and source_qualification
-                and source_qualification["qualification_state"] == "RESOLVED"
-            ):
+            if can_manage and waiting_reason == "Ready for a saved random draw":
                 primary_action = {
                     "url": reverse(
                         "admin:competitions_stage_generate",
@@ -621,6 +663,26 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 ),
                 "label": "Publish saved draw",
             }
+        if swiss_display and can_manage and draw.state == StageDraw.State.PUBLISHED:
+            if (
+                swiss_display["round"]
+                and swiss_display["round"].state == Round.State.DRAFT
+            ):
+                primary_action = {
+                    "label": "Publish saved Swiss round",
+                    "url": reverse(
+                        "admin:competitions_swiss_publish",
+                        args=[competition.pk, stage.pk],
+                    ),
+                }
+            elif swiss_display["can_generate"]:
+                primary_action = {
+                    "label": "Generate next Swiss round",
+                    "url": reverse(
+                        "admin:competitions_swiss_generate",
+                        args=[competition.pk, stage.pk],
+                    ),
+                }
         return TemplateResponse(
             request,
             "admin/competitions/workspace.html",
@@ -631,6 +693,12 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "title": f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
                 "competition": competition,
                 "stage": stage,
+                "swiss_display": swiss_display,
+                "swiss_generate_url": reverse(
+                    "admin:competitions_swiss_generate", args=[competition.pk, stage.pk]
+                )
+                if is_swiss and can_manage and draw and draw.state == "PUBLISHED"
+                else None,
                 "selected_stage_id": selected_stage_id,
                 "stages": stages,
                 "plan_rows": plan_rows,
@@ -704,6 +772,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     and (
                         tab != "standings"
                         or groups
+                        or is_swiss
                         or (stage and stage.advancement_count)
                     )
                 ],
@@ -817,6 +886,137 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             },
         )
 
+    def swiss_generate_view(self, request, competition_id, stage_id):
+        return self._swiss_round_view(
+            request, competition_id, stage_id, action="generate"
+        )
+
+    def swiss_publish_view(self, request, competition_id, stage_id):
+        return self._swiss_round_view(
+            request, competition_id, stage_id, action="publish"
+        )
+
+    def swiss_rematch_view(self, request, competition_id, stage_id):
+        return self._swiss_round_view(
+            request, competition_id, stage_id, action="rematch"
+        )
+
+    def _swiss_round_view(self, request, competition_id, stage_id, *, action):
+        competition, stage = self._plan_stage(request, competition_id, stage_id)
+        if stage.format not in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+            raise Http404
+        if request.method not in ("GET", "POST"):
+            return HttpResponseNotAllowed(["GET", "POST"])
+        token = (
+            request.POST.get("token", "")
+            if request.method == "POST"
+            else request.GET.get("token", "")
+        )
+        intent = None
+        if action == "rematch":
+            try:
+                intent = signing.loads(
+                    token, salt="competitions.swiss_rematch", max_age=3600
+                )
+            except signing.BadSignature as error:
+                raise PermissionDenied(
+                    "Generate a round without rematches first."
+                ) from error
+            if (
+                intent.get("stage_id") != stage.pk
+                or intent.get("revision") != competition.revision
+                or intent.get("actor_id") != request.user.pk
+            ):
+                raise PermissionDenied(
+                    "This rematch review expired. Refresh and generate without rematches again."
+                )
+        form_class = (
+            SwissRematchForm
+            if action == "rematch"
+            else SwissRoundForm
+            if action == "generate"
+            else RevisionForm
+        )
+        form = form_class(
+            request.POST if request.method == "POST" else None,
+            initial={"expected_revision": competition.revision},
+        )
+        extra = {"token": token if intent else None}
+        if request.method == "POST" and form.is_valid():
+            try:
+                revision = form.cleaned_data["expected_revision"]
+                if action == "publish":
+                    round_ = Round.objects.filter(
+                        draw__stage=stage,
+                        draw__state="PUBLISHED",
+                        state="DRAFT",
+                        section="NORMAL",
+                    ).first()
+                    if not round_:
+                        raise ValidationError(
+                            "Generate a private Swiss preview before publishing it."
+                        )
+                    publish_swiss_round(
+                        actor=request.user,
+                        round_id=round_.pk,
+                        expected_revision=revision,
+                    )
+                else:
+                    generate_swiss_round(
+                        actor=request.user,
+                        stage_id=stage.pk,
+                        expected_revision=revision,
+                        regenerate=intent["regenerate"]
+                        if intent
+                        else form.cleaned_data["regenerate"],
+                        allow_rematches=action == "rematch",
+                        internal_reason=form.cleaned_data.get("internal_reason", ""),
+                    )
+            except ValidationError as error:
+                form.add_error(None, error)
+                if action == "generate" and error.messages == [
+                    "No complete Swiss round is possible without a confirmed rematch exception."
+                ]:
+                    rematch_token = signing.dumps(
+                        {
+                            "stage_id": stage.pk,
+                            "revision": revision,
+                            "actor_id": request.user.pk,
+                            "regenerate": form.cleaned_data["regenerate"],
+                        },
+                        salt="competitions.swiss_rematch",
+                    )
+                    extra.update(
+                        rematch_token=rematch_token,
+                        rematch_url=reverse(
+                            "admin:competitions_swiss_rematch",
+                            args=[competition.pk, stage.pk],
+                        )
+                        + "?"
+                        + urlencode({"token": rematch_token}),
+                    )
+            else:
+                return HttpResponseRedirect(
+                    workspace_url(competition.pk, "bracket", stage_id=stage.pk)
+                )
+        title = {
+            "generate": "Generate next Swiss round",
+            "publish": "Publish saved Swiss round",
+            "rematch": "Allow required rematches",
+        }[action]
+        return _action_response(
+            request,
+            title=title,
+            form=form,
+            opts=self.model._meta,
+            change_url=workspace_url(competition.pk, "bracket", stage_id=stage.pk),
+            extra={
+                **extra,
+                "description": "Review the saved private pairings, then publish separately. Publication validates the recorded rematch authorization.",
+                "submit_label": title,
+            },
+        )
+
     def stage_remove_view(self, request, competition_id, stage_id):
         competition, stage = self._plan_stage(request, competition_id, stage_id)
         return self._competition_form_view(
@@ -861,6 +1061,21 @@ class CompetitionAdmin(OrganizerStaffAdmin):
 
     def get_urls(self):
         return [
+            path(
+                "<int:competition_id>/stage/<int:stage_id>/swiss/generate/",
+                self.admin_site.admin_view(self.swiss_generate_view),
+                name="competitions_swiss_generate",
+            ),
+            path(
+                "<int:competition_id>/stage/<int:stage_id>/swiss/publish/",
+                self.admin_site.admin_view(self.swiss_publish_view),
+                name="competitions_swiss_publish",
+            ),
+            path(
+                "<int:competition_id>/stage/<int:stage_id>/swiss/rematch/",
+                self.admin_site.admin_view(self.swiss_rematch_view),
+                name="competitions_swiss_rematch",
+            ),
             path(
                 "<int:competition_id>/stage/<int:stage_id>/rules/",
                 self.admin_site.admin_view(self.stage_rules_view),
@@ -1181,6 +1396,12 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "draw_points": stage.draw_points,
                 "loss_points": stage.loss_points,
                 "advancement_count": stage.advancement_count,
+                "round_policy": "CUSTOM"
+                if stage.swiss_round_count is not None
+                else "AUTOMATIC",
+                "round_count": stage.swiss_round_count,
+                "win_target": stage.swiss_win_target,
+                "loss_limit": stage.swiss_loss_limit,
                 **{
                     f"tiebreak_{i}": stage.tiebreaks[i - 1]
                     if i <= len(stage.tiebreaks)
@@ -1193,23 +1414,11 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         )
         raw_sequence = str(initial["stage_sequence"])
         sequence = int(raw_sequence) if raw_sequence.isdecimal() else 1
-        predecessor = (
-            competition.stages.filter(sequence=sequence - 1).first()
+        incoming = (
+            _configured_incoming_count(competition, sequence) or None
             if competition
             else None
         )
-        incoming = None
-        if predecessor:
-            incoming = (
-                sum(p.qualifying_places for p in predecessor.group_plans.all()) or None
-                if predecessor.format == "ROUND_ROBIN"
-                else predecessor.advancement_count
-            )
-        elif competition and sequence == 1:
-            incoming = (
-                competition.entrants.filter(is_selected=True, status="ACTIVE").count()
-                or None
-            )
         return self._competition_form_view(
             request,
             object_id,
@@ -1232,7 +1441,23 @@ class CompetitionAdmin(OrganizerStaffAdmin):
 
     @transaction.atomic
     def _save_setup(self, request, competition, expected_revision, data):
-        if data["format"] == "ROUND_ROBIN":
+        if data["format"] in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+            command = configure_swiss
+            fields = (
+                "name",
+                "format",
+                "series_mode",
+                "default_series_length",
+                "round_count",
+                "win_target",
+                "loss_limit",
+                "advancement_count",
+                "win_points",
+                "draw_points",
+                "loss_points",
+                "tiebreaks",
+            )
+        elif data["format"] == "ROUND_ROBIN":
             command = configure_round_robin
             fields = (
                 "name",
@@ -1266,7 +1491,11 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     expected_revision=competition.revision,
                     group_specs=data["group_specs"],
                 )
-        elif stage.advancement_count != data["advancement_count"]:
+        elif (
+            data["format"]
+            not in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD)
+            and stage.advancement_count != data["advancement_count"]
+        ):
             set_stage_advancement(
                 actor=request.user,
                 stage_id=stage.pk,
@@ -1308,7 +1537,17 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         if stage and stage.sequence > 1:
             return self.stage_generate_view(request, competition.pk, stage.pk)
         is_round_robin = stage and stage.format == "ROUND_ROBIN"
-        command = save_round_robin_draw if is_round_robin else save_elimination_draw
+        is_swiss = stage and stage.format in (
+            Stage.Format.SWISS_FIXED,
+            Stage.Format.SWISS_THRESHOLD,
+        )
+        command = (
+            save_round_robin_draw
+            if is_round_robin
+            else save_swiss_draw
+            if is_swiss
+            else save_elimination_draw
+        )
         fields = (
             ("group_specs", "ordered_entrant_ids", "memberships", "randomize")
             if is_round_robin
@@ -1324,7 +1563,15 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 actor=request.user,
                 competition_id=item.pk,
                 expected_revision=expected_revision,
-                **{key: data.get(key) for key in fields},
+                **(
+                    {
+                        "ordered_entrant_ids": data.get("entrant_order"),
+                        "randomized": data["randomize"],
+                        "stage_id": stage.pk,
+                    }
+                    if is_swiss
+                    else {key: data.get(key) for key in fields}
+                ),
             ),
         )
 
@@ -1523,8 +1770,12 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
         )
 
     def _match_context(self, request, match):
-        actions = self.get_actions_detail(request, str(match.pk))
         card = match_card(match, request.user)
+        actions = (
+            self.get_actions_detail(request, str(match.pk))
+            if card["can_operate"]
+            else []
+        )
         return {
             "workspace_url": workspace_url(
                 match.round.draw.stage.competition_id,

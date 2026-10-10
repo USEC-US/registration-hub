@@ -193,3 +193,6 @@
 
 .cw-stage-select { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
 .cw-stage-select select { max-width: 100%; min-width: 0; }
+
+.cw-table caption { text-align: left; padding-block: .5rem; }
+.cw-table th[scope="row"] { text-align: left; font-weight: 600; }

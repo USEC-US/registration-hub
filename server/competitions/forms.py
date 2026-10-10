@@ -10,10 +10,12 @@ from .models import CompetitionEntrant, Match, Stage, StageDraw, TieResolution
 from .command_support import MAX_ENTRANTS, _validate_series_length
 from .round_robin import DEFAULT_TIEBREAKS
 from .round_robin_commands import group_standings
+from .swiss import DEFAULT_TIEBREAKS as SWISS_DEFAULT_TIEBREAKS
 
 TIEBREAK_CHOICES = (
     ("", "No rule"),
     ("HEAD_TO_HEAD", "Head-to-head points"),
+    ("OPPONENT_POINTS", "Opponent points"),
     ("MATCH_WINS", "Match wins"),
     ("GAME_DIFFERENCE", "Game difference"),
     ("GAMES_WON", "Games won"),
@@ -56,6 +58,8 @@ class CompetitionSetupForm(RevisionForm):
             (Stage.Format.SINGLE_ELIMINATION, "Single elimination"),
             (Stage.Format.DOUBLE_ELIMINATION, "Double elimination"),
             (Stage.Format.ROUND_ROBIN, "Round robin"),
+            (Stage.Format.SWISS_FIXED, "Fixed Swiss"),
+            (Stage.Format.SWISS_THRESHOLD, "Threshold Swiss"),
         ),
         initial=Stage.Format.SINGLE_ELIMINATION,
     )
@@ -92,18 +96,49 @@ class CompetitionSetupForm(RevisionForm):
         required=False, decimal_places=2, max_digits=10, min_value=0, initial=0
     )
 
+    round_policy = forms.ChoiceField(
+        label="Round policy",
+        required=False,
+        choices=(("AUTOMATIC", "Recommended rounds"), ("CUSTOM", "Custom rounds")),
+        initial="AUTOMATIC",
+    )
+    round_count = forms.IntegerField(
+        label="Custom rounds", required=False, min_value=1, max_value=64
+    )
+    win_target = forms.IntegerField(
+        label="Wins to qualify", required=False, min_value=1, max_value=64
+    )
+    loss_limit = forms.IntegerField(
+        label="Losses to eliminate", required=False, min_value=1, max_value=64
+    )
+
     def __init__(
         self, *args, incoming_count=None, is_final=True, group_plans=(), **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.incoming_count = incoming_count
         self.is_final = is_final
+        values = self.data if self.is_bound else self.initial
+        format_ = values.get("format", Stage.Format.SINGLE_ELIMINATION)
+        swiss = format_ in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD)
+        self.recommended_rounds = (
+            (incoming_count - 1).bit_length() if incoming_count else None
+        )
+        self.fields["round_policy"].help_text = (
+            f"Recommended rounds: {self.recommended_rounds}. This does not guarantee distinct final positions."
+            if incoming_count
+            else "Pending ceil(log2(actual N)); the actual incoming field resolves this saved automatic policy."
+        )
+        if not self.is_bound:
+            if self.initial.get("round_count") is None:
+                self.initial["round_count"] = self.recommended_rounds
+        defaults = SWISS_DEFAULT_TIEBREAKS if swiss else DEFAULT_TIEBREAKS
         for index in range(1, 5):
             self.fields[f"tiebreak_{index}"] = forms.ChoiceField(
                 label=f"Tiebreaker {index}",
                 required=False,
                 choices=TIEBREAK_CHOICES,
-                initial=DEFAULT_TIEBREAKS[index - 1] if index <= 3 else "",
+                initial=defaults[index - 1] if index <= 3 else "",
             )
         self.fields[
             "tiebreak_1"
@@ -114,6 +149,10 @@ class CompetitionSetupForm(RevisionForm):
         self.fields[
             "tiebreak_3"
         ].help_text = "Games won counts completed played games. Live and partial forfeit scores do not count."
+        if swiss:
+            self.fields[
+                "tiebreak_1"
+            ].help_text = "Opponent points sums current ordinary-round opponents' points. Byes have no opponent."
         self.setup_fields = [
             self[name]
             for name in self.fields
@@ -127,13 +166,49 @@ class CompetitionSetupForm(RevisionForm):
             label="Entrants advancing to the next stage",
             coerce=int,
             empty_value=None,
-            required=not is_final and not grouped,
+            required=(
+                format_ == Stage.Format.SWISS_FIXED
+                or (not is_final and not grouped and not swiss)
+            ),
             choices=[
                 ("", "None (final stage)"),
-                *((n, f"Top {n}") for n in range(1, limit + 1)),
+                *(
+                    (n, f"Top {n}")
+                    for n in range(
+                        2 if format_ == Stage.Format.SWISS_FIXED else 1, limit + 1
+                    )
+                ),
             ],
             help_text="Choose how many qualify. Leave empty for the final stage. Cutoff ties require Extra Matches or Manual Decision.",
-            disabled=self.is_bound and grouped,
+            disabled=self.is_bound
+            and (grouped or format_ == Stage.Format.SWISS_THRESHOLD),
+        )
+        if format_ == Stage.Format.SWISS_FIXED:
+            self.fields["advancement_count"].label = "Top-N qualifying places"
+            self.fields[
+                "advancement_count"
+            ].help_text = "Choose 2 through the actual field size. Complete every ordinary round and cutoff decision before handoff."
+        automatic_groups = (
+            values.get(
+                "group_size_policy",
+                "EXACT"
+                if self.is_bound
+                else "AUTOMATIC"
+                if (group_plans and group_plans[0].size is None) or not incoming_count
+                else "EXACT",
+            )
+            == "AUTOMATIC"
+        )
+        self.fields["group_size_policy"] = forms.ChoiceField(
+            label="Group sizes",
+            required=False,
+            choices=(
+                ("EXACT", "Exact sizes"),
+                ("AUTOMATIC", "Automatic sizes from the actual field"),
+            ),
+            initial="AUTOMATIC" if automatic_groups else "EXACT",
+            disabled=self.is_bound and not grouped,
+            help_text="Automatic sizes fill each quota, then balance the remaining entrants. Locked quotas never change.",
         )
         self.fields["group_count"] = forms.TypedChoiceField(
             label="Number of groups",
@@ -165,14 +240,17 @@ class CompetitionSetupForm(RevisionForm):
             self.fields[f"group_size_{index}"] = forms.TypedChoiceField(
                 label=f"Group {index} entrants",
                 coerce=int,
-                required=grouped,
-                choices=[(n, n) for n in range(2, limit + 1)],
-                initial=plan.size
+                required=grouped and not automatic_groups,
+                choices=[("", "Automatic"), *((n, n) for n in range(2, limit + 1))],
+                initial=None
+                if automatic_groups
+                else plan.size
                 if plan
                 else (limit // count + (index <= limit % count))
                 if incoming_count
                 else 2,
-                disabled=self.is_bound and not grouped,
+                disabled=self.is_bound and (not grouped or automatic_groups),
+                empty_value=None,
             )
             self.fields[f"group_quota_{index}"] = forms.TypedChoiceField(
                 label=f"Group {index} qualifiers",
@@ -185,6 +263,17 @@ class CompetitionSetupForm(RevisionForm):
             self.group_rows.append(
                 [self[f"group_{part}_{index}"] for part in ("name", "size", "quota")]
             )
+        for name in ("round_policy", "round_count", "win_target", "loss_limit"):
+            enabled = (
+                name in ("win_target", "loss_limit")
+                and format_ == Stage.Format.SWISS_THRESHOLD
+            ) or (
+                name in ("round_policy", "round_count")
+                and format_ == Stage.Format.SWISS_FIXED
+            )
+            if name == "round_count" and values.get("round_policy") != "CUSTOM":
+                enabled = False
+            self.fields[name].disabled = self.is_bound and not enabled
         # Disabled fields still validate initial values, which may contain stale rules.
         for name, field in self.fields.items():
             if self.is_bound and field.disabled and name != "stage_sequence":
@@ -193,11 +282,13 @@ class CompetitionSetupForm(RevisionForm):
     def clean(self):
         cleaned = super().clean()
         format_ = cleaned.get("format") or Stage.Format.SINGLE_ELIMINATION
+        if format_ == Stage.Format.ROUND_ROBIN:
+            cleaned["group_size_policy"] = cleaned.get("group_size_policy") or "EXACT"
         policy = cleaned.get("grand_final_policy", "")
         cleaned["format"] = format_
         mode = (
             (cleaned.get("series_mode") or "BEST_OF")
-            if format_ == "ROUND_ROBIN"
+            if format_ in ("ROUND_ROBIN", "SWISS_FIXED")
             else "BEST_OF"
         )
         cleaned["series_mode"] = mode
@@ -215,6 +306,24 @@ class CompetitionSetupForm(RevisionForm):
         cleaned["tiebreaks"] = rules
         if len(set(rules)) != len(rules):
             self.add_error(None, "Choose each supported tiebreaker at most once.")
+        if format_ in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+            for field in ("win_points", "draw_points", "loss_points"):
+                if cleaned.get(field) is None:
+                    self.add_error(field, "Enter the points for this result.")
+            if format_ == Stage.Format.SWISS_FIXED:
+                if (
+                    cleaned.get("round_policy") == "CUSTOM"
+                    and cleaned.get("round_count") is None
+                ):
+                    self.add_error("round_count", "Enter your custom round count.")
+                if cleaned.get("round_policy") != "CUSTOM":
+                    cleaned["round_count"] = None
+                cleaned["win_target"] = cleaned["loss_limit"] = None
+            else:
+                cleaned["round_count"] = cleaned["advancement_count"] = None
+                for field in ("win_target", "loss_limit"):
+                    if cleaned.get(field) is None:
+                        self.add_error(field, "Enter a positive target.")
         if format_ == "ROUND_ROBIN":
             for field in ("win_points", "draw_points", "loss_points"):
                 if cleaned.get(field) is None:
@@ -232,11 +341,22 @@ class CompetitionSetupForm(RevisionForm):
                     self.add_error(
                         f"group_quota_{index}", "The quota cannot exceed group size."
                     )
-                if name and size and quota:
+                if (
+                    name
+                    and quota
+                    and (size or cleaned.get("group_size_policy") == "AUTOMATIC")
+                ):
                     specs.append((name, size, quota))
             if len(specs) == len(self.group_rows):
-                total = sum(size for _, size, _ in specs)
-                if self.incoming_count and total != self.incoming_count:
+                total = sum(
+                    size if size is not None else max(2, quota)
+                    for _, size, quota in specs
+                )
+                if (
+                    cleaned.get("group_size_policy") != "AUTOMATIC"
+                    and self.incoming_count
+                    and total != self.incoming_count
+                ):
                     self.add_error(
                         "group_count",
                         f"Group sizes must total the incoming field of {self.incoming_count}; they total {total}.",
@@ -249,6 +369,7 @@ class CompetitionSetupForm(RevisionForm):
             cleaned["group_specs"] = specs
         elif (
             not self.is_final
+            and format_ not in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD)
             and cleaned.get("advancement_count") is None
             and "advancement_count" not in self.errors
         ):
@@ -260,6 +381,25 @@ class CompetitionSetupForm(RevisionForm):
                 "grand_final_policy", "Single elimination has no final policy."
             )
         return cleaned
+
+
+class SwissRoundForm(RevisionForm):
+    regenerate = forms.BooleanField(
+        label="Regenerate the private preview",
+        required=False,
+        help_text="Explicitly replace an outdated private preview. Earlier previews remain historical.",
+    )
+
+
+class SwissRematchForm(RevisionForm):
+    confirm_rematches = forms.BooleanField(
+        label="I confirm required rematches for this round"
+    )
+    internal_reason = forms.CharField(
+        label="Private organizer reason",
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Explain the exception. Only authorized organizers can see this note.",
+    )
 
 
 class EntrantChoiceField(forms.ModelMultipleChoiceField):
