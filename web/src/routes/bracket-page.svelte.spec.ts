@@ -27,6 +27,8 @@ const competition: PublicCompetition = {
 			grand_final_policy: '',
 			groups: [],
 			round_robin_rules: null,
+			swiss_rules: null,
+			swiss_standings: [],
 			series_mode: 'BEST_OF',
 			default_series_length: 3,
 			status: 'IN_PROGRESS',
@@ -720,4 +722,398 @@ describe('public multi-stage navigation', () => {
 			.selectOptions(String(value.stages[0].id));
 		await expect.element(page.getByRole('combobox', { name: 'Group', exact: true })).toBeVisible();
 	});
+});
+
+function swissCompetition(threshold = false) {
+	const value = structuredClone(competition);
+	const stage = value.stages[0];
+	stage.name = 'Swiss qualification';
+	stage.format = threshold ? 'SWISS_THRESHOLD' : 'SWISS_FIXED';
+	stage.swiss_rules = {
+		round_policy: threshold ? 'THRESHOLD' : 'AUTOMATIC',
+		round_limit: 3,
+		win_target: threshold ? 2 : null,
+		loss_limit: threshold ? 2 : null,
+		win_points: '3.00',
+		draw_points: '1.00',
+		loss_points: '0.00',
+		tiebreaks: ['OPPONENT_POINTS', 'GAME_DIFFERENCE', 'GAMES_WON']
+	};
+	stage.entries.push({ id: 13, seed: 3, display_name: 'Green Team', display_tag: '' });
+	const [blue, red, green] = stage.entries;
+	stage.swiss_standings = stage.entries.map((entry, index) => ({
+		entry,
+		rank: index === 2 ? 2 : 1,
+		played: threshold ? 2 : 1,
+		wins: threshold ? [2, 0, 1][index] : 1,
+		draws: 0,
+		losses: threshold ? [0, 2, 0][index] : 0,
+		points: threshold ? ['6.00', '0.00', '3.00'][index] : '3.00',
+		games_won: index === 0 ? 4 : 0,
+		game_difference: index === 0 ? 4 : 0,
+		opponent_points: index === 2 ? '0.00' : '3.00',
+		bye_count: index === 2 ? 1 : 0,
+		status: threshold ? (['QUALIFIED', 'ELIMINATED', 'ACTIVE'] as const)[index] : 'ACTIVE'
+	}));
+	stage.qualification = {
+		state: threshold ? 'PROVISIONAL' : 'AWAITING_RESOLUTION',
+		advance_count: threshold ? null : 2,
+		qualifiers: threshold ? [blue] : [],
+		placement_bands: [],
+		block_reason: null,
+		cutoff_ties: threshold
+			? []
+			: [
+					{
+						group_id: null,
+						places: 1,
+						tied_entries: [red, green],
+						resolution_id: null,
+						parent_id: null,
+						method: null,
+						state: 'AWAITING_RESOLUTION',
+						ordered_entries: [],
+						round_ids: []
+					}
+				]
+	};
+	const round = stage.rounds[0];
+	round.section = 'NORMAL';
+	const match = round.matches[0];
+	Object.assign(match, {
+		code: 'Swiss qualification-M1',
+		status: 'FINAL',
+		outcome: 'PLAYED',
+		winner: blue,
+		side_one_score: 2,
+		side_two_score: 0,
+		completed_at: '2026-09-25T09:00:00Z'
+	});
+	const bye = structuredClone(match);
+	Object.assign(bye, {
+		id: 5,
+		code: 'Swiss qualification-M2',
+		number: 2,
+		outcome: 'BYE',
+		winner: green,
+		side_one_score: null,
+		side_two_score: null
+	});
+	bye.slots[0].entry = green;
+	Object.assign(bye.slots[1], { is_empty: true, entry: null });
+	round.matches.push(bye);
+	stage.rounds.push({
+		...structuredClone(round),
+		id: 6,
+		number: 2,
+		matches: [
+			{
+				...structuredClone(match),
+				id: 7,
+				code: 'Swiss qualification-M3',
+				status: 'PENDING',
+				outcome: '',
+				winner: null,
+				side_one_score: null,
+				side_two_score: null,
+				started_at: null,
+				completed_at: null,
+				slots: match.slots.map((slot, index) => ({ ...slot, entry: index === 0 ? blue : green }))
+			}
+		]
+	});
+	const playoffs = structuredClone(competition.stages[0]);
+	Object.assign(playoffs, {
+		id: 22,
+		sequence: 2,
+		name: 'Playoffs',
+		draw_state: 'AWAITING_REPLACEMENT',
+		entries: [],
+		rounds: []
+	});
+	value.stages.push(playoffs);
+	return value;
+}
+
+describe('public Swiss qualification', () => {
+	it.each(['en', 'vi'] as const)(
+		'renders fixed rounds, standings and cutoff state in %s',
+		async (locale) => {
+			overwriteGetLocale(() => locale);
+			const { container } = render(BracketPage, { data: data(swissCompetition()) } as never);
+			await expect.element(page.getByRole('table')).toBeVisible();
+			const standings = container.querySelector('table')!;
+			container.style.width = '390px';
+			const scroll = container.querySelector<HTMLElement>('.cw-bracket-scroll')!;
+			expect(scroll).toHaveAttribute('tabindex', '0');
+			expect(scroll.clientWidth).toBeLessThanOrEqual(390);
+			expect(scroll.scrollWidth).toBeGreaterThan(scroll.clientWidth);
+			const main = container.querySelector('main')!;
+			expect(main.scrollWidth).toBeLessThanOrEqual(main.clientWidth);
+
+			expect(standings.textContent).toContain(locale === 'en' ? 'Opponent points' : 'Điểm đối thủ');
+			expect(standings.textContent).toContain('3.00');
+			expect(standings.textContent).toContain('0.00');
+			expect(container.textContent).toContain(
+				locale === 'en' ? 'Current round: 2 / 3' : 'Vòng hiện tại: 2 / 3'
+			);
+			expect(container.textContent).toContain(
+				locale === 'en' ? 'Automatic round limit' : 'Số vòng tự động'
+			);
+			expect(container.textContent).toContain(locale === 'en' ? 'Top 2 advance' : 'Top 2 đi tiếp');
+			expect(container.textContent).toContain(
+				locale === 'en' ? 'Awaiting qualification resolution' : 'Chờ phân định suất đi tiếp'
+			);
+			expect(container.querySelectorAll('article')).toHaveLength(1);
+			expect(container.querySelector('article h3')?.textContent).toContain(
+				'Swiss qualification-M3'
+			);
+			await page
+				.getByRole('combobox', { name: locale === 'en' ? 'Round' : 'Vòng đấu', exact: true })
+				.selectOptions('3');
+			await expect
+				.element(page.getByText(locale === 'en' ? 'Bye' : 'Miễn đấu', { exact: true }))
+				.toBeVisible();
+			expect(container.querySelectorAll('article')).toHaveLength(2);
+			const byeScores = container
+				.querySelectorAll('article')[1]
+				.querySelectorAll('ul li > span:last-child');
+			expect(Array.from(byeScores, (score) => score.textContent?.trim())).toEqual(['—', '—']);
+			await expect
+				.element(page.getByRole('heading', { name: locale === 'en' ? 'Champion' : 'Nhà vô địch' }))
+				.not.toBeInTheDocument();
+		}
+	);
+
+	it.each(['en', 'vi'] as const)(
+		'shows threshold W/L and status without irrelevant point columns in %s',
+		async (locale) => {
+			overwriteGetLocale(() => locale);
+			const value = swissCompetition(true);
+			// Even malformed legacy champion state must not turn qualification into a title.
+			value.stages[0].champion = value.stages[0].entries[0];
+			value.stages[0].completed_without_champion = true;
+			const { container } = render(BracketPage, { data: data(value) } as never);
+			await expect.element(page.getByRole('table')).toBeVisible();
+			for (const label of locale === 'en'
+				? ['Qualified', 'Eliminated', 'Active']
+				: ['Đã đi tiếp', 'Bị loại', 'Đang thi đấu'])
+				await expect.element(page.getByText(label, { exact: true }).first()).toBeVisible();
+			expect(container.textContent).toContain(
+				locale === 'en'
+					? 'Qualify at 2 wins; eliminated at 2 losses.'
+					: 'Đi tiếp khi đạt 2 trận thắng; bị loại khi thua 2 trận.'
+			);
+			expect(container.querySelectorAll('thead th')).toHaveLength(6);
+			expect(container.querySelector('thead')?.textContent).not.toContain(
+				locale === 'en' ? 'Points' : 'Điểm'
+			);
+			expect(
+				Array.from(container.querySelectorAll('table tbody tr:first-child td'))
+					.slice(1, 3)
+					.map((cell) => cell.textContent?.trim())
+			).toEqual(['2', '0']);
+			expect(container.textContent).not.toContain('Top 0');
+			await expect
+				.element(page.getByRole('heading', { name: locale === 'en' ? 'Champion' : 'Nhà vô địch' }))
+				.not.toBeInTheDocument();
+		}
+	);
+
+	it('shows resolved Swiss qualification as completion without a champion', async () => {
+		const value = swissCompetition(true);
+		const stage = value.stages[0];
+		stage.status = 'COMPLETE';
+		stage.completed_without_champion = true;
+		stage.qualification!.state = 'RESOLVED';
+		stage.qualification!.qualifiers = [stage.entries[0], stage.entries[2]];
+		stage.swiss_standings[2].status = 'QUALIFIED';
+		render(BracketPage, { data: data(value) } as never);
+		await expect
+			.element(page.getByText('Swiss qualification complete', { exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByText('Qualification resolved', { exact: true }).first())
+			.toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Champion' })).not.toBeInTheDocument();
+	});
+
+	it('resets dependent round filters across stages and retires stale round selections on refresh', async () => {
+		const value = swissCompetition();
+		const nextSwiss = structuredClone(value.stages[0]);
+		nextSwiss.id = 23;
+		nextSwiss.sequence = 2;
+		nextSwiss.name = 'Second Swiss';
+		nextSwiss.rounds = nextSwiss.rounds.slice(0, 1);
+		nextSwiss.rounds[0].id = 13;
+		nextSwiss.rounds[0].matches.forEach((match, index) => {
+			match.id = 31 + index;
+			match.code = `Second Swiss-M${index + 1}`;
+		});
+		value.stages.splice(1, 0, nextSwiss);
+		value.stages[2].sequence = 3;
+		const props = {
+			params: { slug: 'summer', gameId: '9' },
+			data: { ...data(value), selectedStageId: 2 }
+		};
+		const { container, rerender } = render(BracketPage, props);
+		await expect
+			.element(page.getByRole('combobox', { name: 'Round', exact: true }))
+			.toHaveValue('6');
+		await page.getByRole('combobox', { name: 'Stage', exact: true }).selectOptions('23');
+		await expect
+			.element(page.getByRole('combobox', { name: 'Round', exact: true }))
+			.toHaveValue('13');
+		await page.getByRole('combobox', { name: 'Stage', exact: true }).selectOptions('2');
+		await expect
+			.element(page.getByRole('combobox', { name: 'Round', exact: true }))
+			.toHaveValue('6');
+		value.stages[0].rounds = value.stages[0].rounds.slice(0, 1);
+		await rerender({ ...props, data: { ...data(structuredClone(value)), selectedStageId: 2 } });
+		await expect
+			.element(page.getByRole('combobox', { name: 'Round', exact: true }))
+			.toHaveValue('3');
+		expect(container.querySelector('article h3')?.textContent).toContain('Swiss qualification-M1');
+	});
+
+	it.each(['en', 'vi'] as const)(
+		'uses safe publication and retirement metadata for Changes and historical links in %s',
+		async (locale) => {
+			overwriteGetLocale(() => locale);
+			const value = swissCompetition();
+			const log: PublicCompetitionChangesPage = {
+				...structuredClone(changes),
+				results: [
+					{
+						revision: 9,
+						created_at: '2026-09-25T10:00:00Z',
+						kind: 'swiss_round_published',
+						stage_id: 2,
+						round_id: 6,
+						round_number: 2,
+						match_ids: [7],
+						rematch_count: 1,
+						repeated_bye: true,
+						automatic_results: []
+					},
+					{
+						revision: 8,
+						created_at: '2026-09-25T09:00:00Z',
+						kind: 'result_corrected',
+						stage_id: 2,
+						match_id: 4,
+						match_code: 'Swiss qualification-M1',
+						swiss_impact: { retired_round_ids: [6], retired_match_ids: [7, 8] },
+						reset_matches: [
+							{
+								match_id: 7,
+								match_code: 'Swiss qualification-M3',
+								status: 'FINAL',
+								outcome: 'PLAYED',
+								side_one: 'Blue Team',
+								side_two: 'Green Team',
+								side_one_score: 2,
+								side_two_score: 0,
+								winner: 'Blue Team',
+								applied_series_length: 3,
+								started_at: null,
+								completed_at: '2026-09-25T08:00:00Z'
+							}
+						]
+					},
+					{
+						revision: 1,
+						created_at: '2026-09-25T01:00:00Z',
+						kind: 'draw_published',
+						stage_id: 2,
+						draw_id: 1,
+						round_id: 3,
+						round_number: 1,
+						match_ids: [4, 5],
+						rematch_count: 0,
+						repeated_bye: false,
+						automatic_results: [
+							{
+								match_id: 5,
+								match_code: 'Swiss qualification-M2',
+								status: 'FINAL',
+								outcome: 'BYE',
+								side_one: 'Green Team',
+								side_two: null,
+								side_one_score: null,
+								side_two_score: null,
+								winner: 'Green Team',
+								applied_series_length: null,
+								started_at: null,
+								completed_at: null
+							}
+						]
+					}
+				]
+			};
+			const stage = value.stages[0];
+			stage.draw_state = 'AWAITING_REPLACEMENT';
+			stage.rounds = [];
+			stage.entries = [];
+			stage.swiss_standings = [];
+			stage.swiss_rules!.round_limit = null;
+			stage.qualification!.state = 'PROVISIONAL';
+			stage.qualification!.cutoff_ties = [];
+			const { container } = render(BracketPage, {
+				data: { ...data(value), changes: log, selectedStageId: 2 }
+			} as never);
+			await expect
+				.element(
+					page.getByText(
+						locale === 'en' ? 'Awaiting replacement draw' : 'Đang chờ nhánh đấu thay thế',
+						{ exact: true }
+					)
+				)
+				.toBeVisible();
+			expect(container.textContent).toContain(
+				locale === 'en' ? 'Swiss round 2 published' : 'Đã công bố vòng Swiss 2'
+			);
+			expect(container.textContent).toContain(
+				locale === 'en'
+					? '1 rematches in this published round.'
+					: 'Vòng đã công bố này có 1 cặp tái đấu.'
+			);
+			expect(container.textContent).toContain(
+				locale === 'en'
+					? 'A repeat bye was needed in this published round.'
+					: 'Vòng đã công bố này cần miễn đấu lặp lại.'
+			);
+			expect(container.textContent).toContain(
+				locale === 'en'
+					? '1 rounds became historical; recorded results are preserved.'
+					: '1 vòng đấu đã được lưu vào lịch sử; kết quả được giữ nguyên.'
+			);
+			const historicalLabel =
+				locale === 'en'
+					? 'Historical match Swiss qualification-M3'
+					: 'Trận lịch sử Swiss qualification-M3';
+			await expect
+				.element(page.getByRole('link', { name: historicalLabel, exact: true }))
+				.toHaveAttribute('href', '#change-8-match-7');
+			await expect
+				.element(
+					page.getByRole('link', {
+						name: locale === 'en' ? 'Historical match #8' : 'Trận lịch sử #8',
+						exact: true
+					})
+				)
+				.toHaveAttribute('href', '#change-8');
+			expect(container.querySelector('#change-8-match-7')?.textContent).toContain('2–0');
+			expect(container.querySelector('#change-1-match-5')?.textContent).toContain(
+				locale === 'en' ? 'Bye' : 'Miễn đấu'
+			);
+			expect(container.querySelector('#change-1-match-5')?.textContent).not.toMatch(/\b0–0\b/);
+			expect(container.textContent).not.toContain('OPPONENT_POINTS');
+			expect(container.textContent).not.toContain('fingerprint');
+			expect(container.querySelector('#round-select')).toBeNull();
+			expect(container.textContent).not.toContain(
+				locale === 'en' ? 'Current round:' : 'Vòng hiện tại:'
+			);
+		}
+	);
 });

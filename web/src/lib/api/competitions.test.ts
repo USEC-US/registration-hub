@@ -18,6 +18,8 @@ const competition = {
 			grand_final_policy: 'RESET',
 			groups: [],
 			round_robin_rules: null,
+			swiss_rules: null,
+			swiss_standings: [],
 			rounds: [
 				{
 					section: 'LOWER',
@@ -83,6 +85,8 @@ describe('public competition API wrappers', () => {
 			grand_final_policy: 'RESET',
 			groups: [],
 			round_robin_rules: null,
+			swiss_rules: null,
+			swiss_standings: [],
 			rounds: [
 				{
 					section: 'LOWER',

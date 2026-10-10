@@ -138,6 +138,32 @@ export interface PublicCompetitionQualification {
 	}>;
 }
 
+export interface PublicCompetitionSwissRules {
+	round_policy: 'AUTOMATIC' | 'CUSTOM' | 'THRESHOLD';
+	round_limit: number | null;
+	win_target: number | null;
+	loss_limit: number | null;
+	win_points: string;
+	draw_points: string;
+	loss_points: string;
+	tiebreaks: string[];
+}
+
+export interface PublicCompetitionSwissStanding {
+	entry: PublicCompetitionEntry;
+	rank: number;
+	played: number;
+	wins: number;
+	draws: number;
+	losses: number;
+	points: string;
+	games_won: number;
+	game_difference: number;
+	opponent_points: string;
+	bye_count: number;
+	status: 'ACTIVE' | 'QUALIFIED' | 'ELIMINATED';
+}
+
 export interface PublicCompetitionStage {
 	draw_state: 'PUBLISHED' | 'AWAITING_REPLACEMENT';
 	qualification: PublicCompetitionQualification | null;
@@ -156,6 +182,8 @@ export interface PublicCompetitionStage {
 	entries: PublicCompetitionEntry[];
 	rounds: PublicCompetitionRound[];
 	groups: PublicCompetitionGroup[];
+	swiss_rules: PublicCompetitionSwissRules | null;
+	swiss_standings: PublicCompetitionSwissStanding[];
 	round_robin_rules: {
 		meetings: 1 | 2;
 		win_points: string;
@@ -214,6 +242,16 @@ export interface PublicCompetitionChange {
 	stage_id?: number;
 	source_stage_id?: number | null;
 	draw_id?: number;
+	round_id?: number;
+	round_number?: number;
+	match_ids?: number[];
+	rematch_count?: number;
+	repeated_bye?: boolean;
+	automatic_results?: PublicCompetitionMatchSnapshot[];
+	swiss_impact?: {
+		retired_round_ids: number[];
+		retired_match_ids: number[];
+	};
 	handoff_impact?: {
 		retired_draws: Array<{ stage_id: number; draw_id: number }>;
 		reset_matches: Array<PublicCompetitionMatchSnapshot & { stage_id: number; draw_id: number }>;

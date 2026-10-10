@@ -32,6 +32,9 @@
 			sorted[0]
 		);
 	});
+	const isSwiss = $derived(
+		selectedStage?.format === 'SWISS_FIXED' || selectedStage?.format === 'SWISS_THRESHOLD'
+	);
 	const requestedStageId = $derived(data.state === 'ready' ? data.selectedStageId : undefined);
 	$effect(() => {
 		stageId = requestedStageId;
@@ -142,6 +145,8 @@
 			case 'qualification_tie_confirmed':
 			case 'group_tie_confirmed':
 				return m.bracket_tie_confirmed_change({ group: change.group_name ?? '' });
+			case 'swiss_round_published':
+				return m.bracket_swiss_round_published({ number: change.round_number ?? '' });
 			case 'draw_published':
 				return m.bracket_change_draw_published();
 			case 'match_scheduled':
@@ -182,6 +187,11 @@
 	}
 
 	function snapshotSummary(snapshot: PublicCompetitionMatchSnapshot): string {
+		if (snapshot.outcome === 'BYE') {
+			return m.bracket_swiss_bye_result({
+				name: snapshot.winner ?? snapshot.side_one ?? snapshot.side_two ?? m.bracket_tbd()
+			});
+		}
 		if (!snapshot.winner) {
 			return m.bracket_change_result_no_winner({
 				outcome:
@@ -244,6 +254,10 @@
 				return m.bracket_tied();
 			case 'QUALIFIED':
 				return m.bracket_qualified();
+			case 'ACTIVE':
+				return m.bracket_swiss_active();
+			case 'ELIMINATED':
+				return m.bracket_swiss_eliminated();
 			case 'NOT_QUALIFIED':
 				return m.bracket_not_qualified();
 			case 'RESOLVED':
@@ -258,6 +272,8 @@
 
 	function ruleLabel(rule: string): string {
 		switch (rule) {
+			case 'OPPONENT_POINTS':
+				return m.bracket_opponent_points();
 			case 'HEAD_TO_HEAD':
 				return m.bracket_head_to_head();
 			case 'MATCH_WINS':
@@ -349,6 +365,47 @@
 	</li>
 {/snippet}
 
+{#snippet roundSelector(
+	rounds: PublicCompetitionRound[],
+	selectedRound: PublicCompetitionRound | undefined
+)}
+	<Field.Field
+		><Field.FieldLabel for="round-select">{m.bracket_round_selection()}</Field.FieldLabel>
+		<select
+			id="round-select"
+			aria-label={m.bracket_round_selection()}
+			disabled={!hydrated}
+			value={String(selectedRound?.id ?? '')}
+			onchange={(event) => {
+				roundId = event.currentTarget.value;
+			}}
+			class="w-full rounded-md border bg-background px-3 py-2 sm:max-w-sm"
+		>
+			{#each rounds as item (item.id)}<option value={String(item.id)}
+					>{item.section === 'TIEBREAK' ? m.bracket_extra_contests() + ' · ' : ''}{roundLabel(
+						item
+					)}{item.matches.some((match) => match.historical)
+						? ' · ' + m.bracket_historical()
+						: ''}</option
+				>{/each}
+		</select></Field.Field
+	>
+{/snippet}
+
+{#snippet roundPairings(round: PublicCompetitionRound)}
+	<section class="flex flex-col gap-3">
+		<h3 class="font-semibold">
+			{round.section === 'TIEBREAK' ? m.bracket_extra_contests() + ' · ' : ''}{roundLabel(round)}
+		</h3>
+		{#if round.resting_entry}<p class="text-sm text-muted-foreground">
+				{m.bracket_rest({ name: round.resting_entry.display_name })}
+			</p>{/if}
+		<ol class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			{#each round.matches as match (match.id)}{@render matchCard(match)}{/each}
+		</ol>
+	</section>
+{/snippet}
+
 <main class="mx-auto flex min-w-0 max-w-7xl flex-col gap-8">
 	<a
 		class="w-fit text-sm font-medium text-primary underline underline-offset-4"
@@ -420,7 +477,9 @@
 			{@const qualification = stage.qualification}
 			<section class="flex flex-col gap-4" aria-labelledby="qualification-heading">
 				<h2 id="qualification-heading" class="font-heading text-2xl font-semibold">
-					{m.bracket_top_n({ count: qualification.advance_count ?? 0 })}
+					{qualification.advance_count === null
+						? m.bracket_qualification()
+						: m.bracket_top_n({ count: qualification.advance_count })}
 				</h2>
 				<Badge variant="outline" class="w-fit">{qualificationLabel(qualification.state)}</Badge>
 				{#if qualification.block_reason}<Alert.Root
@@ -470,7 +529,7 @@
 					>{/each}
 			</section>
 		{/if}
-		{#if stage.format !== 'ROUND_ROBIN' && (stage.champion || stage.completed_without_champion)}
+		{#if stage.format !== 'ROUND_ROBIN' && !isSwiss && (stage.champion || stage.completed_without_champion)}
 			<section
 				class="rounded-xl border border-primary/40 bg-primary/5 p-5"
 				aria-labelledby="champion-heading"
@@ -484,7 +543,138 @@
 			</section>
 		{/if}
 
-		{#if stage.format === 'ROUND_ROBIN' && stage.round_robin_rules}
+		{#if isSwiss && stage.swiss_rules}
+			{@const rules = stage.swiss_rules}
+			{@const threshold = stage.format === 'SWISS_THRESHOLD'}
+			{@const selectedRound =
+				stage.rounds.find((round) => String(round.id) === roundId) ?? stage.rounds.at(-1)}
+			{@const currentRound = Math.max(
+				0,
+				...stage.rounds.filter((round) => round.section === 'NORMAL').map((round) => round.number)
+			)}
+			<section class="flex flex-col gap-3" aria-labelledby="swiss-rules-heading">
+				<h2 id="swiss-rules-heading" class="font-heading text-2xl font-semibold">
+					{m.bracket_rules()}
+				</h2>
+				{#if threshold}
+					<p>
+						{m.bracket_swiss_threshold_rules({
+							wins: rules.win_target ?? '',
+							losses: rules.loss_limit ?? ''
+						})}
+					</p>
+					<p class="text-sm text-muted-foreground">{m.bracket_swiss_threshold_help()}</p>
+				{:else}
+					<p>
+						{rules.round_policy === 'AUTOMATIC'
+							? m.bracket_swiss_automatic()
+							: m.bracket_swiss_custom()}
+					</p>
+					<p>
+						{m.bracket_match_points({
+							win: rules.win_points,
+							draw: rules.draw_points,
+							loss: rules.loss_points
+						})}
+					</p>
+					<p>
+						{rules.tiebreaks.length
+							? rules.tiebreaks.map(ruleLabel).join(' → ')
+							: m.bracket_no_tiebreaks()}
+					</p>
+					<p class="text-sm text-muted-foreground">{m.bracket_swiss_fixed_help()}</p>
+				{/if}
+				{#if rules.round_limit !== null}<p>
+						{m.bracket_swiss_current_round({ current: currentRound, limit: rules.round_limit })}
+					</p>{/if}
+			</section>
+			{#if stage.status === 'COMPLETE'}<Alert.Root>
+					<Alert.Title>{m.bracket_swiss_complete()}</Alert.Title>
+					<Alert.Description>{m.bracket_qualification_resolved()}</Alert.Description>
+				</Alert.Root>{/if}
+			<section class="flex min-w-0 flex-col gap-4" aria-labelledby="swiss-standings-heading">
+				<h2 id="swiss-standings-heading" class="font-heading text-2xl font-semibold">
+					{m.bracket_standings()}
+				</h2>
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to a wide standings table) -->
+				<div
+					class="cw-bracket-scroll max-w-full overflow-x-auto rounded-xl border"
+					role="region"
+					aria-labelledby="swiss-standings-heading"
+					tabindex="0"
+				>
+					<table class="w-full text-left text-sm whitespace-nowrap">
+						<caption class="sr-only">{stage.name} · {m.bracket_standings()}</caption>
+						<thead class="border-b bg-muted/30"
+							><tr>
+								<th scope="col" class="px-4 py-3">{m.bracket_rank()}</th>
+								<th scope="col" class="px-4 py-3">{m.bracket_entrant()}</th>
+								{#if !threshold}<th scope="col" class="px-4 py-3">{m.bracket_played()}</th>{/if}
+								<th scope="col" class="px-4 py-3">{m.bracket_wins()}</th>
+								{#if !threshold && stage.series_mode === 'FIXED_GAMES'}<th
+										scope="col"
+										class="px-4 py-3">{m.bracket_draws()}</th
+									>{/if}
+								<th scope="col" class="px-4 py-3">{m.bracket_losses()}</th>
+								{#if !threshold}
+									<th scope="col" class="px-4 py-3">{m.bracket_points()}</th>
+									<th scope="col" class="px-4 py-3">{m.bracket_opponent_points()}</th>
+									{#if rules.tiebreaks.includes('GAME_DIFFERENCE')}<th scope="col" class="px-4 py-3"
+											>{m.bracket_game_difference()}</th
+										>{/if}
+									{#if rules.tiebreaks.includes('GAMES_WON')}<th scope="col" class="px-4 py-3"
+											>{m.bracket_games_won()}</th
+										>{/if}
+								{/if}
+								<th scope="col" class="px-4 py-3">{m.bracket_swiss_byes()}</th>
+								{#if threshold}<th scope="col" class="px-4 py-3">{m.bracket_qualification()}</th
+									>{/if}
+							</tr></thead
+						>
+						<tbody
+							>{#each stage.swiss_standings as row (row.entry.id)}<tr
+									class="border-b last:border-0"
+								>
+									<td class="px-4 py-3 font-mono-data">{row.rank}</td><th
+										scope="row"
+										class="px-4 py-3">{row.entry.display_name}</th
+									>
+									{#if !threshold}<td class="px-4 py-3">{row.played}</td>{/if}
+									<td class="px-4 py-3">{row.wins}</td>
+									{#if !threshold && stage.series_mode === 'FIXED_GAMES'}<td class="px-4 py-3"
+											>{row.draws}</td
+										>{/if}
+									<td class="px-4 py-3">{row.losses}</td>
+									{#if !threshold}
+										<td class="px-4 py-3 font-mono-data">{row.points}</td><td
+											class="px-4 py-3 font-mono-data">{row.opponent_points}</td
+										>
+										{#if rules.tiebreaks.includes('GAME_DIFFERENCE')}<td class="px-4 py-3"
+												>{row.game_difference}</td
+											>{/if}
+										{#if rules.tiebreaks.includes('GAMES_WON')}<td class="px-4 py-3"
+												>{row.games_won}</td
+											>{/if}
+									{/if}
+									<td class="px-4 py-3">{row.bye_count}</td>
+									{#if threshold}<td class="px-4 py-3"
+											><Badge variant="outline">{qualificationLabel(row.status)}</Badge></td
+										>{/if}
+								</tr>{/each}</tbody
+						>
+					</table>
+				</div>
+			</section>
+			<section class="flex min-w-0 flex-col gap-4" aria-labelledby="swiss-rounds-heading">
+				<h2 id="swiss-rounds-heading" class="font-heading text-2xl font-semibold">
+					{m.bracket_swiss_pairings()}
+				</h2>
+				{#if stage.rounds.length}
+					<Field.FieldGroup>{@render roundSelector(stage.rounds, selectedRound)}</Field.FieldGroup>
+					{#if selectedRound}{@render roundPairings(selectedRound)}{/if}
+				{/if}
+			</section>
+		{:else if stage.format === 'ROUND_ROBIN' && stage.round_robin_rules}
 			{@const rules = stage.round_robin_rules}
 			{@const group = stage.groups.find((g) => String(g.id) === groupId) ?? stage.groups[0]}
 			{@const groupRounds = stage.rounds.filter((r) => r.group_id === group?.id)}
@@ -607,41 +797,8 @@
 					<h2 id="group-rounds-heading" class="font-heading text-2xl font-semibold">
 						{m.bracket_rounds()}
 					</h2>
-					<Field.Field
-						><Field.FieldLabel for="round-select">{m.bracket_round_selection()}</Field.FieldLabel>
-						<select
-							id="round-select"
-							aria-label={m.bracket_round_selection()}
-							disabled={!hydrated}
-							value={String(selectedRound?.id ?? '')}
-							onchange={(event) => {
-								roundId = event.currentTarget.value;
-							}}
-							class="w-full rounded-md border bg-background px-3 py-2 sm:max-w-sm"
-						>
-							{#each groupRounds as item (item.id)}<option value={String(item.id)}
-									>{item.section === 'TIEBREAK'
-										? m.bracket_extra_contests() + ' · '
-										: ''}{roundLabel(item)}{item.matches.some((match) => match.historical)
-										? ' · ' + m.bracket_historical()
-										: ''}</option
-								>{/each}
-						</select></Field.Field
-					>
-					{#if selectedRound}{@const round = selectedRound}
-						<section class="flex flex-col gap-3">
-							<h3 class="font-semibold">
-								{round.section === 'TIEBREAK' ? m.bracket_extra_contests() + ' · ' : ''}{roundLabel(
-									round
-								)}
-							</h3>
-							{#if round.resting_entry}<p class="text-sm text-muted-foreground">
-									{m.bracket_rest({ name: round.resting_entry.display_name })}
-								</p>{/if}
-							<ol class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-								{#each round.matches as match (match.id)}{@render matchCard(match)}{/each}
-							</ol>
-						</section>{/if}
+					{@render roundSelector(groupRounds, selectedRound)}
+					{#if selectedRound}{@render roundPairings(selectedRound)}{/if}
 				</section>
 			{/if}
 		{:else}
@@ -762,7 +919,7 @@
 			{#if data.changes.results.length}
 				<ol class="mt-4 divide-y rounded-xl border">
 					{#each data.changes.results as change (change.revision)}
-						<li class="flex flex-col gap-2 px-4 py-3">
+						<li id={`change-${change.revision}`} class="flex flex-col gap-2 px-4 py-3">
 							<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
 								<span class="text-sm">{changeLabel(change)}</span>
 								<time
@@ -772,6 +929,37 @@
 									{formatTournamentDateTime(change.created_at, getLocale(), data.displayTimeZone)}
 								</time>
 							</div>
+							{#if change.kind === 'swiss_round_published' || (change.kind === 'draw_published' && change.round_number !== undefined)}
+								{#if change.rematch_count}<p class="text-sm text-muted-foreground">
+										{m.bracket_swiss_rematches({ count: change.rematch_count })}
+									</p>{/if}
+								{#if change.repeated_bye}<p class="text-sm text-muted-foreground">
+										{m.bracket_swiss_repeated_bye()}
+									</p>{/if}
+								{#each change.automatic_results ?? [] as snapshot (snapshot.match_id)}
+									<p id={`change-${change.revision}-match-${snapshot.match_id}`} class="text-sm">
+										{snapshotSummary(snapshot)}
+									</p>
+								{/each}
+							{/if}
+							{#if change.swiss_impact}
+								{#if change.swiss_impact.retired_round_ids.length}<p class="text-sm">
+										{m.bracket_swiss_retired_rounds({
+											count: change.swiss_impact.retired_round_ids.length
+										})}
+									</p>{/if}
+								{#each change.swiss_impact.retired_match_ids as id (id)}
+									{@const snapshot = change.reset_matches?.find((match) => match.match_id === id)}
+									<a
+										class="w-fit text-sm text-primary underline underline-offset-4"
+										href={snapshot
+											? `#change-${change.revision}-match-${id}`
+											: `#change-${change.revision}`}
+									>
+										{m.bracket_swiss_historical_match({ code: snapshot?.match_code ?? `#${id}` })}
+									</a>
+								{/each}
+							{/if}
 							{#if change.kind === 'result_corrected'}
 								<div class="space-y-1 text-xs text-muted-foreground">
 									{#if change.before}
@@ -790,7 +978,7 @@
 										</p>
 									{/if}
 									{#each change.reset_matches ?? [] as snapshot (snapshot.match_id)}
-										<p>
+										<p id={`change-${change.revision}-match-${snapshot.match_id}`}>
 											{matchLabels.get(snapshot.match_id)?.code ?? snapshot.match_code}: {snapshotSummary(
 												snapshot
 											)}

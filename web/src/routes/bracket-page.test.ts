@@ -18,6 +18,8 @@ const snapshot = {
 				grand_final_policy: 'NO_RESET',
 				groups: [],
 				round_robin_rules: null,
+				swiss_rules: null,
+				swiss_standings: [],
 				rounds: [
 					{
 						section: 'FINALS',
@@ -84,6 +86,8 @@ describe('public bracket loader', () => {
 						grand_final_policy: 'NO_RESET',
 						groups: [],
 						round_robin_rules: null,
+						swiss_rules: null,
+						swiss_standings: [],
 						rounds: [
 							{
 								section: 'FINALS',
