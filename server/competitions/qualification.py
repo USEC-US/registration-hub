@@ -10,6 +10,7 @@ from itertools import groupby
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
 from config.organizers import require_organizer
 from .command_support import (
@@ -452,6 +453,9 @@ def confirm_qualification_tie(*, actor, token, internal_reason=""):
                 meetings=1,
                 resolution=resolution,
                 series_length=current["series_length"],
+            )
+            resolution.rounds.filter(state=Round.State.DRAFT).update(
+                state=Round.State.PUBLISHED, published_at=timezone.now()
             )
         from .commands import _update_stage_completion
 

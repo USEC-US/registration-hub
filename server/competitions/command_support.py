@@ -142,8 +142,7 @@ def _persist_stage_draw(
         stage.draws.order_by("-version").values_list("version", flat=True).first() or 0
     ) + 1
     if current:
-        current.state = "SUPERSEDED"
-        current.save(update_fields=("state",))
+        _supersede_draws(stage.draws.filter(pk=current.pk))
     draw = StageDraw.objects.create(
         stage=stage,
         version=version,
@@ -171,3 +170,17 @@ def _persist_stage_draw(
 
         _persist_elimination_fixtures(draw, entries)
     return draw
+
+
+def _supersede_draws(draws):
+    from .models import Round, StageDraw
+
+    Round.objects.filter(draw__in=draws).update(state=Round.State.SUPERSEDED)
+    draws.update(state=StageDraw.State.SUPERSEDED)
+
+
+def _supersede_ties(ties):
+    from .models import Round, TieResolution
+
+    Round.objects.filter(tie_resolution__in=ties).update(state=Round.State.SUPERSEDED)
+    ties.update(state=TieResolution.State.SUPERSEDED)

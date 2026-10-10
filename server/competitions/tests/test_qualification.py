@@ -174,6 +174,8 @@ class QualificationTests(TestCase):
         resolution = confirm_qualification_tie(actor=self.actor, token=preview["token"])
         extra = Match.objects.get(round__tie_resolution=resolution)
         self.assertEqual(extra.code, "Playoffs-M8")
+        self.assertEqual(extra.round.state, "PUBLISHED")
+        self.assertIsNotNone(extra.round.published_at)
         self.competition.refresh_from_db()
         finalize_match(
             actor=self.actor,

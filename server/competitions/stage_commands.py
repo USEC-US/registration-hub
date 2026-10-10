@@ -13,6 +13,7 @@ from .command_support import (
     _lock_competition,
     _record_change,
     _require_plan_editable,
+    _supersede_draws,
 )
 from .models import Stage, StageDraw, StageGroupPlan
 
@@ -28,11 +29,13 @@ def _locked_stage(stage_id, revision):
 
 
 def _invalidate_drafts(stage):
-    StageDraw.objects.filter(
-        stage__competition=stage.competition,
-        stage__sequence__gte=stage.sequence,
-        state="DRAFT",
-    ).update(state="SUPERSEDED")
+    _supersede_draws(
+        StageDraw.objects.filter(
+            stage__competition=stage.competition,
+            stage__sequence__gte=stage.sequence,
+            state="DRAFT",
+        )
+    )
 
 
 def set_stage_advancement(
@@ -145,8 +148,8 @@ def reorder_stages(
         if len(stage_ids) != len(stages) or set(stage_ids) != set(stages):
             raise ValidationError("Include every stage exactly once.")
         ordered = [stages[i] for i in stage_ids]
-        StageDraw.objects.filter(stage__competition=competition, state="DRAFT").update(
-            state="SUPERSEDED"
+        _supersede_draws(
+            StageDraw.objects.filter(stage__competition=competition, state="DRAFT")
         )
         _resequence(ordered)
         _record_change(

@@ -21,6 +21,8 @@ from .command_support import (
     _stage_for_command,
     _validate_stage_sequence,
     _persist_stage_draw,
+    _supersede_draws,
+    _supersede_ties,
 )
 from .models import (
     CompetitionEntrant,
@@ -273,8 +275,8 @@ def project_group_correction(
 
 
 def apply_group_correction_impact(match, impact):
-    TieResolution.objects.filter(pk__in=impact["invalidated_resolution_ids"]).update(
-        state=TieResolution.State.SUPERSEDED
+    _supersede_ties(
+        TieResolution.objects.filter(pk__in=impact["invalidated_resolution_ids"])
     )
 
 
@@ -345,9 +347,7 @@ def configure_round_robin(
         if stage and stage.published_at:
             raise ValidationError("Published stage setup is locked.")
         if stage:
-            stage.draws.filter(state=StageDraw.State.DRAFT).update(
-                state=StageDraw.State.SUPERSEDED
-            )
+            _supersede_draws(stage.draws.filter(state=StageDraw.State.DRAFT))
         values = {
             "name": name.strip(),
             "advancement_count": None,

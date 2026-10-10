@@ -233,9 +233,9 @@ def apply_handoff_impact(impact):
         StageDraw.objects.filter(pk=retained["draw_id"]).update(
             source_fingerprint=retained["source_fingerprint"]
         )
-    StageDraw.objects.filter(pk__in=impact["superseded_draw_ids"]).update(
-        state="SUPERSEDED"
-    )
+    from .command_support import _supersede_draws
+
+    _supersede_draws(StageDraw.objects.filter(pk__in=impact["superseded_draw_ids"]))
     for retired in impact["retired_draws"]:
         Stage.objects.filter(pk=retired["stage_id"]).update(
             status="AWAITING" if retired["was_published"] else "DRAFT",

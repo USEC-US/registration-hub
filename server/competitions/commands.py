@@ -25,6 +25,8 @@ from .command_support import (
     _validate_stage_sequence,
     _validate_series_length,
     _persist_stage_draw,
+    _supersede_draws,
+    _supersede_ties,
 )
 from .elimination import (
     LoserSlot,
@@ -103,9 +105,9 @@ def configure_elimination(
             )
         else:
             if (stage.format, stage.grand_final_policy) != (format, grand_final_policy):
-                StageDraw.objects.filter(
-                    stage=stage, state=StageDraw.State.DRAFT
-                ).update(state=StageDraw.State.SUPERSEDED)
+                _supersede_draws(
+                    StageDraw.objects.filter(stage=stage, state=StageDraw.State.DRAFT)
+                )
             if stage.format != format:
                 stage.group_plans.all().delete()
             stage.format = format
@@ -186,9 +188,11 @@ def select_entrants(
                 raise ValidationError("Every entrant must belong to this division.")
             if registration.status != Registration.Status.APPROVED:
                 raise ValidationError("Only approved registrations can enter a draw.")
-        StageDraw.objects.filter(
-            stage__competition=competition, state=StageDraw.State.DRAFT
-        ).update(state=StageDraw.State.SUPERSEDED)
+        _supersede_draws(
+            StageDraw.objects.filter(
+                stage__competition=competition, state=StageDraw.State.DRAFT
+            )
+        )
         first = competition.stages.filter(
             sequence=1, format=Stage.Format.ROUND_ROBIN
         ).first()
@@ -405,6 +409,9 @@ def publish_draw(
         draw.state = StageDraw.State.PUBLISHED
         draw.published_at = now
         draw.save(update_fields=("state", "published_at"))
+        draw.rounds.filter(state=Round.State.DRAFT).update(
+            state=Round.State.PUBLISHED, published_at=now
+        )
         stage.status = Stage.Status.READY
         stage.published_at = stage.published_at or now
         stage.save(update_fields=("status", "published_at"))
@@ -1464,8 +1471,8 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
             from .round_robin_commands import apply_group_correction_impact
 
             apply_group_correction_impact(match, current["group_impact"])
-        TieResolution.objects.filter(pk__in=current["invalidated_tie_ids"]).update(
-            state="SUPERSEDED"
+        _supersede_ties(
+            TieResolution.objects.filter(pk__in=current["invalidated_tie_ids"])
         )
         from .handoff_commands import apply_handoff_impact, public_handoff_impact
 

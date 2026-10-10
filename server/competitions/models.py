@@ -98,6 +98,9 @@ class Stage(models.Model):
     loss_points = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tiebreaks = models.JSONField(default=default_tiebreaks)
     advancement_count = models.PositiveSmallIntegerField(null=True, blank=True)
+    swiss_round_count = models.PositiveSmallIntegerField(null=True, blank=True)
+    swiss_win_target = models.PositiveSmallIntegerField(null=True, blank=True)
+    swiss_loss_limit = models.PositiveSmallIntegerField(null=True, blank=True)
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.DRAFT
     )
@@ -120,8 +123,46 @@ class Stage(models.Model):
                 | Q(
                     format__in=("SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"),
                     advancement_count__gte=1,
+                )
+                | Q(
+                    format="SWISS_FIXED",
+                    advancement_count__gte=2,
+                    advancement_count__lte=256,
                 ),
                 name="stage_valid_advancement",
+            ),
+            models.CheckConstraint(
+                condition=Q(swiss_round_count__isnull=True)
+                | Q(
+                    format="SWISS_FIXED",
+                    swiss_round_count__gte=1,
+                    swiss_round_count__lte=64,
+                ),
+                name="stage_swiss_round_count",
+            ),
+            models.CheckConstraint(
+                condition=Q(swiss_win_target__isnull=True)
+                | Q(
+                    format="SWISS_THRESHOLD",
+                    swiss_win_target__gte=1,
+                    swiss_win_target__lte=64,
+                ),
+                name="stage_swiss_win_target",
+            ),
+            models.CheckConstraint(
+                condition=Q(swiss_loss_limit__isnull=True)
+                | Q(
+                    format="SWISS_THRESHOLD",
+                    swiss_loss_limit__gte=1,
+                    swiss_loss_limit__lte=64,
+                ),
+                name="stage_swiss_loss_limit",
+            ),
+            models.CheckConstraint(
+                condition=Q(swiss_win_target__isnull=True)
+                | Q(swiss_loss_limit__isnull=True)
+                | Q(swiss_win_target__lte=65 - F("swiss_loss_limit")),
+                name="stage_swiss_threshold_ceiling",
             ),
             models.UniqueConstraint(
                 fields=("competition", "sequence"),
@@ -164,7 +205,9 @@ class StageGroupPlan(models.Model):
     )
     number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
     name = models.CharField(max_length=100)
-    size = models.PositiveSmallIntegerField(validators=[MinValueValidator(2)])
+    size = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(2)]
+    )
     qualifying_places = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1)]
     )
@@ -180,10 +223,11 @@ class StageGroupPlan(models.Model):
             ),
             models.CheckConstraint(
                 condition=Q(
-                    number__gte=1,
-                    size__gte=2,
-                    qualifying_places__gte=1,
-                    qualifying_places__lte=F("size"),
+                    number__gte=1, qualifying_places__gte=1, qualifying_places__lte=256
+                )
+                & (
+                    Q(size__isnull=True)
+                    | Q(size__gte=2, size__lte=256, qualifying_places__lte=F("size"))
                 ),
                 name="group_plan_valid_partition",
             ),
@@ -208,12 +252,18 @@ class StageDraw(models.Model):
     version = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     state = models.CharField(max_length=16, choices=State.choices, default=State.DRAFT)
     randomized = models.BooleanField(default=False)
+    swiss_round_limit = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("version", "pk")
         constraints = [
+            models.CheckConstraint(
+                condition=Q(swiss_round_limit__isnull=True)
+                | Q(swiss_round_limit__gte=1, swiss_round_limit__lte=64),
+                name="draw_swiss_round_limit",
+            ),
             models.CheckConstraint(
                 condition=Q(source_draw__isnull=True, source_fingerprint="")
                 | (Q(source_draw__isnull=False) & ~Q(source_fingerprint="")),
@@ -339,6 +389,11 @@ class TieResolution(models.Model):
 
 
 class Round(models.Model):
+    class State(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        PUBLISHED = "PUBLISHED", "Published"
+        SUPERSEDED = "SUPERSEDED", "Superseded"
+
     class Section(models.TextChoices):
         NORMAL = "NORMAL", "Normal"
         UPPER = "UPPER", "Upper"
@@ -347,6 +402,11 @@ class Round(models.Model):
         TIEBREAK = "TIEBREAK", "Tiebreak"
 
     draw = models.ForeignKey(StageDraw, on_delete=models.PROTECT, related_name="rounds")
+    version = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    state = models.CharField(max_length=16, choices=State.choices, default=State.DRAFT)
+    published_at = models.DateTimeField(null=True, blank=True)
+    source_fingerprint = models.CharField(max_length=64, blank=True, default="")
+    rematches_authorized = models.BooleanField(default=False)
     group = models.ForeignKey(
         StageGroup,
         null=True,
@@ -376,14 +436,33 @@ class Round(models.Model):
         ordering = ("number", "pk")
         constraints = [
             models.UniqueConstraint(
-                fields=("draw", "section", "number"),
+                fields=("draw", "section", "number", "version"),
                 condition=Q(group__isnull=True),
-                name="unique_draw_round",
+                name="unique_draw_round_version",
+            ),
+            models.UniqueConstraint(
+                fields=("draw", "group", "section", "number", "version"),
+                condition=Q(group__isnull=False),
+                name="unique_group_round_version",
+            ),
+            models.UniqueConstraint(
+                fields=("draw", "section", "number"),
+                condition=Q(group__isnull=True) & ~Q(state="SUPERSEDED"),
+                name="one_current_draw_round",
             ),
             models.UniqueConstraint(
                 fields=("draw", "group", "section", "number"),
-                condition=Q(group__isnull=False),
-                name="unique_group_round",
+                condition=Q(group__isnull=False) & ~Q(state="SUPERSEDED"),
+                name="one_current_group_round",
+            ),
+            models.CheckConstraint(
+                condition=Q(version__gte=1), name="round_positive_version"
+            ),
+            models.CheckConstraint(
+                condition=Q(state="SUPERSEDED")
+                | Q(state="DRAFT", published_at__isnull=True)
+                | Q(state="PUBLISHED", published_at__isnull=False),
+                name="round_publication_state",
             ),
             models.CheckConstraint(
                 condition=Q(series_mode_override="")
