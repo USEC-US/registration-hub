@@ -2,7 +2,7 @@
 
 Date: 2026-10-10. Branch: `feat/tournament-brackets`.
 
-Status: **Design draft for written review; no implementation authorized.**
+Status: **Design approved on 2026-10-10; implementation planning only.**
 The decisions below consolidate the current planning conversation. Technical
 details describe proposed behavior, not features already delivered.
 
@@ -12,6 +12,8 @@ delivered [multi-stage design](2026-10-09-multi-stage-competition-design.md).
 It replaces the older Swiss upper/lower-half pairing preference and proposed
 ranking-based handoff order. Existing non-Swiss stage plans retain their rules.
 Delivery remains tracked in [BRACKET-TODO](../../BRACKET-TODO.md).
+The [implementation plan](../plans/2026-10-10-swiss-stages.md) is the next
+review artifact; implementation has not been authorized.
 
 ## 1. Purpose and placement
 
@@ -55,8 +57,8 @@ it **Recommended rounds**, not a guarantee of distinct final positions.
 Updating the field before publication updates the recommendation and revalidates
 the saved choice; it must not silently overwrite a saved custom value.
 
-Proposed handling for review when a later Swiss stage's incoming count is
-outcome-dependent: lock either the automatic `ceil(log2(actual N))` rule or an
+When a later Swiss stage's incoming count is outcome-dependent, lock either
+the automatic `ceil(log2(actual N))` rule or an
 explicit custom count before the competition's first publication. Show the
 formula with its count pending until the field is known. Resolving the locked
 formula at handoff gives the organizer no new round-count choice. Save the
@@ -314,5 +316,5 @@ Pairing and handoff commands must still reject ineligible entrants. If a stage
 cannot continue under its published rules, retain the blocked state and history;
 do not invent an automatic competition-ending decision.
 
-After written design review, produce a separate implementation plan. This
-document does not authorize implementation or mark any Swiss delivery task done.
+Design review is complete. Review the separate implementation plan before
+execution; this document does not mark any Swiss delivery task done.

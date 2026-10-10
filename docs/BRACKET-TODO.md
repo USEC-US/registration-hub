@@ -34,8 +34,9 @@ and its initial defaults are approved. The
 is approved.
 
 Swiss planning decisions are consolidated in the
-[Swiss qualification-stage draft](superpowers/specs/2026-10-10-swiss-stages-design.md).
-Written review and an implementation plan are still required; S1–S3 remain open.
+[approved Swiss qualification-stage design](superpowers/specs/2026-10-10-swiss-stages-design.md).
+The [implementation plan](superpowers/plans/2026-10-10-swiss-stages.md) awaits
+review and execution-method selection; S1–S3 remain open.
 
 ## Agreed scope
 
