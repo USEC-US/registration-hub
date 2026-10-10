@@ -139,6 +139,17 @@ def _persist_stage_draw(
     from .stage_commands import validate_stage_field
 
     validate_stage_field(stage, len(ordered_entrant_ids))
+    swiss_limit = None
+    if stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+        from .swiss import resolve_round_limit
+
+        swiss_limit = resolve_round_limit(
+            len(ordered_entrant_ids),
+            format=stage.format,
+            round_count=stage.swiss_round_count,
+            win_target=stage.swiss_win_target,
+            loss_limit=stage.swiss_loss_limit,
+        )
 
     current = stage.draws.filter(state="DRAFT").first()
     version = (
@@ -152,6 +163,7 @@ def _persist_stage_draw(
         randomized=randomized,
         source_draw=source_draw,
         source_fingerprint=source_fingerprint,
+        swiss_round_limit=swiss_limit,
     )
     entries = StageEntry.objects.bulk_create(
         [
@@ -168,6 +180,10 @@ def _persist_stage_draw(
         from .round_robin_commands import _persist_round_robin_fixtures
 
         _persist_round_robin_fixtures(draw, entries, group_specs, allocations)
+    elif stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+        from .swiss_commands import _persist_swiss_fixtures
+
+        _persist_swiss_fixtures(draw, entries)
     else:
         from .commands import _persist_elimination_fixtures
 

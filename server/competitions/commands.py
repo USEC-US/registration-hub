@@ -435,6 +435,14 @@ def publish_draw(
         stage.status = Stage.Status.READY
         stage.published_at = stage.published_at or now
         stage.save(update_fields=("status", "published_at"))
+        swiss_public = {}
+        if stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+            from .swiss_commands import _swiss_public_round
+
+            _resolve_automatic_matches(draw)
+            swiss_public = _swiss_public_round(
+                draw.rounds.get(state=Round.State.PUBLISHED)
+            )
         _record_change(
             competition,
             actor=actor,
@@ -442,6 +450,7 @@ def publish_draw(
             private_data={"draw_id": draw.pk},
             public_data={
                 "kind": "draw_published",
+                **swiss_public,
                 "stage_id": stage.pk,
                 "draw_id": draw.pk,
                 "source_stage_id": draw.source_draw.stage_id
@@ -475,11 +484,16 @@ def _generate_elimination(stage: Stage, count: int):
     return generate_single_elimination(count)
 
 
-def _ordered_matches(draw: StageDraw) -> list[Match]:
+def _ordered_matches(draw: StageDraw, *, include_drafts=False) -> list[Match]:
+    queryset = Match.objects.filter(round__draw=draw).exclude(
+        round__state=Round.State.SUPERSEDED
+    )
+    if not include_drafts:
+        queryset = queryset.filter(round__state=Round.State.PUBLISHED)
     matches = list(
-        Match.objects.filter(round__draw=draw)
-        .select_related("round__draw__stage")
-        .order_by("round__section", "round__number", "number", "pk")
+        queryset.select_related("round__draw__stage").order_by(
+            "round__section", "round__number", "number", "pk"
+        )
     )
     by_id = {match.pk: match for match in matches}
     graph = {match.pk: [] for match in matches}
@@ -498,6 +512,11 @@ def _ordered_matches(draw: StageDraw) -> list[Match]:
 
 
 def _validate_saved_draw(draw: StageDraw) -> None:
+    if draw.stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+        from .swiss_commands import validate_swiss_draw
+
+        validate_swiss_draw(draw)
+        return
     if draw.stage.format == Stage.Format.ROUND_ROBIN:
         seeds = list(draw.entries.order_by("seed").values_list("seed", flat=True))
         if seeds != list(range(1, len(seeds) + 1)):
@@ -510,7 +529,7 @@ def _validate_saved_draw(draw: StageDraw) -> None:
     if [entry.seed for entry in entries] != list(range(1, len(entries) + 1)):
         raise ValidationError("The saved draw has invalid seeds.")
     expected = _generate_elimination(draw.stage, len(entries))
-    matches = _ordered_matches(draw)
+    matches = _ordered_matches(draw, include_drafts=True)
     by_key = {(m.round.section, m.round.number, m.number): m for m in matches}
     expected_keys = {
         (r.section, r.number, m.number) for r in expected for m in r.matches
@@ -623,7 +642,11 @@ def _resolve_automatic_matches(draw: StageDraw) -> None:
     if draw.stage.format == Stage.Format.ROUND_ROBIN:
         return
     now = timezone.now()
-    for match in _ordered_matches(draw):
+    is_swiss = draw.stage.format in (
+        Stage.Format.SWISS_FIXED,
+        Stage.Format.SWISS_THRESHOLD,
+    )
+    for match in _ordered_matches(draw, include_drafts=not is_swiss):
         _reconcile_reset_final(match)
         result = _automatic_result(
             match.status,
@@ -695,10 +718,22 @@ def _lock_match(match_id: int) -> tuple[Competition, Match]:
     if match.round.draw.state != StageDraw.State.PUBLISHED:
         raise ValidationError("Only published matches can be operated.")
     _check_current_tie_match(match)
+    _validate_threshold_match(match)
     return competition, match
 
 
+def _validate_threshold_match(match):
+    if match.round.draw.stage.format == Stage.Format.SWISS_THRESHOLD:
+        if match.effective_series_mode != Stage.SeriesMode.BEST_OF:
+            raise ValidationError("Threshold Swiss requires decisive best-of matches.")
+        _validate_series_length(
+            match.effective_series_mode, match.effective_series_length
+        )
+
+
 def _check_current_tie_match(match):
+    if match.round.state != Round.State.PUBLISHED:
+        raise ValidationError("Only current published rounds can be operated.")
     if (
         match.round.tie_resolution_id
         and match.round.tie_resolution.state == TieResolution.State.SUPERSEDED
@@ -753,7 +788,10 @@ def set_round_series_length(
             .select_related("draw__stage")
             .get(pk=round_id)
         )
-        if round_.draw.state != StageDraw.State.PUBLISHED:
+        if (
+            round_.draw.state != StageDraw.State.PUBLISHED
+            or round_.state != Round.State.PUBLISHED
+        ):
             raise ValidationError("Only a published round can be changed.")
         if (
             round_.tie_resolution_id
@@ -765,6 +803,12 @@ def set_round_series_length(
             if series_length is not None
             else round_.draw.stage.default_series_length
         )
+        if (
+            round_.draw.stage.format == Stage.Format.SWISS_THRESHOLD
+            and (round_.series_mode_override or round_.draw.stage.series_mode)
+            != Stage.SeriesMode.BEST_OF
+        ):
+            raise ValidationError("Threshold Swiss requires decisive best-of matches.")
         _validate_series_length(
             round_.series_mode_override or round_.draw.stage.series_mode,
             inherited_length,
@@ -957,6 +1001,7 @@ def _validate_result(
     side_two_score: int | None,
     winner_position: int | None,
 ) -> tuple[StageEntry | None, int | None, int | None]:
+    _validate_threshold_match(match)
     slots = _playable_slots(match)
     if outcome == Match.Outcome.PLAYED:
         _validate_scores(side_one_score, side_two_score)
@@ -997,6 +1042,11 @@ def _validate_result(
 
 
 def _update_stage_completion(draw: StageDraw) -> None:
+    if draw.stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+        from .swiss_commands import update_swiss_completion
+
+        update_swiss_completion(draw.stage, draw)
+        return
     if draw.stage.format == Stage.Format.ROUND_ROBIN:
         from .round_robin_commands import update_round_robin_completion
 
