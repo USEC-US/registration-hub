@@ -124,6 +124,7 @@ def projected_fixture_matches(draw, projected_matches=None):
             .select_related("round")
             .prefetch_related("slots")
         )
+    matches = [m for m in matches if m.round.state == Round.State.PUBLISHED]
     if not projected_matches:
         return matches
     projected = []
@@ -182,6 +183,52 @@ def stage_qualification(draw, *, projected_matches=None):
             )
             inputs.append([group.pk, group.qualifying_places, state["fingerprint"]])
         complete = complete and bool(group_states) and "PROVISIONAL" not in group_states
+    elif stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+        from .swiss_commands import _swiss_source_fingerprint, swiss_standings
+
+        rounds = list(
+            draw.rounds.filter(
+                state=Round.State.PUBLISHED, section=Round.Section.NORMAL
+            ).order_by("number")
+        )
+        rows = swiss_standings(draw, projected_matches=matches)
+        source = _swiss_source_fingerprint(
+            draw, (draw.swiss_round_limit or 0) + 1, projected_matches=matches
+        )
+        extra = [m for m in matches if m.round.section == Round.Section.TIEBREAK]
+        inputs = [
+            source,
+            [[r.pk, r.number, r.version] for r in rounds],
+            [[m.pk, m.status] for m in ordinary],
+            [asdict(r) for r in _results(extra)],
+        ]
+        bands = [
+            [row.entry_id for row in band]
+            for _, band in groupby(rows, key=lambda row: row.rank)
+        ]
+        if stage.format == Stage.Format.SWISS_FIXED:
+            complete = complete and [r.number for r in rounds] == list(
+                range(1, (draw.swiss_round_limit or 0) + 1)
+            )
+            if complete:
+                resolutions = list(
+                    draw.tie_resolutions.filter(group__isnull=True).prefetch_related(
+                        "contenders"
+                    )
+                )
+                qualifiers, ties, states = select_qualifiers(
+                    rows,
+                    stage.advancement_count,
+                    source,
+                    resolutions=resolutions,
+                    matches=matches,
+                    results_for=_results,
+                )
+                cutoffs = [{"group_id": None, **tie} for tie in ties]
+        else:
+            complete = complete and not any(row.status == "ACTIVE" for row in rows)
+            if complete:
+                qualifiers = [row.entry_id for row in rows if row.status == "QUALIFIED"]
     else:
         entry_ids = [e.pk for e in draw.entries.all()]
         results = []
@@ -298,7 +345,7 @@ def _tie_payload(
         if group is None or group.draw_id != draw.pk:
             raise ValidationError("Choose a group belonging to this draw.")
     elif group is not None:
-        raise ValidationError("Elimination cutoff decisions have no group scope.")
+        raise ValidationError("Draw cutoff decisions have no group scope.")
     state = stage_qualification(draw)
     tie = next(
         (

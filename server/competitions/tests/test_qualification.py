@@ -202,3 +202,185 @@ class QualificationTests(TestCase):
         self.assertEqual(state["qualification_state"], "BLOCKED")
         self.assertEqual(state["qualifier_entry_ids"], [])
         self.assertIn("terminal", state["block_reason"].lower())
+
+
+class SwissQualificationTests(TestCase):
+    from competitions.tests.test_swiss_commands import (
+        SwissCommandTests as command_fixture,
+    )
+
+    setUp = command_fixture.setUp
+    _registration = command_fixture._registration
+    _competition = command_fixture._competition
+    _swiss = command_fixture._swiss
+    _elimination = command_fixture._elimination
+    _revision = command_fixture._revision
+    _draw = command_fixture._draw
+    _finish = command_fixture._finish
+    _generate = command_fixture._generate
+    _publish = command_fixture._publish
+
+    def test_fixed_requires_every_published_configured_ordinary_round(self):
+        from competitions.qualification import stage_qualification
+
+        draw = self._draw(8, advancement_count=8, round_count=3)
+        for number in range(1, 4):
+            round_ = draw.rounds.get(number=1) if number == 1 else self._generate()
+            if number > 1:
+                self._publish(round_)
+            self._finish(round_)
+            state = stage_qualification(draw)
+            draw.stage.refresh_from_db()
+            self.assertEqual(
+                state["qualification_state"],
+                "RESOLVED" if number == 3 else "PROVISIONAL",
+            )
+            self.assertEqual(
+                draw.stage.status, "COMPLETE" if number == 3 else "IN_PROGRESS"
+            )
+            self.assertIsNone(draw.stage.champion_id)
+        self.assertEqual(
+            set(state["qualifier_entry_ids"]),
+            set(draw.entries.values_list("pk", flat=True)),
+        )
+
+    def test_fixed_cutoff_uses_manual_or_extra_match_workflow_without_ordinary_credit(
+        self,
+    ):
+        from competitions.qualification import (
+            stage_qualification,
+            preview_qualification_tie,
+            confirm_qualification_tie,
+        )
+        from competitions.swiss_commands import swiss_standings
+        from django.db import transaction
+
+        for method in ("MANUAL", "EXTRA_MATCHES"):
+            with self.subTest(method=method), transaction.atomic():
+                draw = self._draw(8, advancement_count=2, round_count=1, tiebreaks=[])
+                self._finish(draw.rounds.get())
+                state = stage_qualification(draw)
+                # The four winners share ordinary points; seeds cannot choose the cutoff.
+                self.assertEqual(state["qualification_state"], "AWAITING_RESOLUTION")
+                self.assertEqual([len(band) for band in state["bands"]], [4, 4])
+                draw.stage.refresh_from_db()
+                self.assertEqual(draw.stage.status, "AWAITING")
+                self.assertEqual(draw.swiss_round_limit, 1)
+                with self.assertRaises(ValidationError):
+                    self._generate()
+                before = [
+                    (r.entry_id, r.wins, r.losses, r.points, r.bye_count)
+                    for r in swiss_standings(draw)
+                ]
+                tie = state["cutoffs"][0]
+                preview = preview_qualification_tie(
+                    actor=self.actor,
+                    draw_id=draw.pk,
+                    expected_revision=self._revision(),
+                    tied_entry_ids=tie["entry_ids"],
+                    method=method,
+                    ordered_entry_ids=tie["entry_ids"] if method == "MANUAL" else (),
+                )
+                resolution = confirm_qualification_tie(
+                    actor=self.actor,
+                    token=preview["token"],
+                    internal_reason="Cutoff ruling",
+                )
+                if method == "EXTRA_MATCHES":
+                    self.assertEqual(
+                        stage_qualification(draw)["qualification_state"],
+                        "AWAITING_RESOLUTION",
+                    )
+                    for match in Match.objects.filter(
+                        round__tie_resolution=resolution
+                    ).order_by("pk"):
+                        slots = list(
+                            match.slots.select_related("resolved_entry").order_by(
+                                "position"
+                            )
+                        )
+                        first_wins = (
+                            slots[0].resolved_entry.seed < slots[1].resolved_entry.seed
+                        )
+                        finalize_match(
+                            actor=self.actor,
+                            match_id=match.pk,
+                            expected_revision=self._revision(),
+                            outcome="PLAYED",
+                            side_one_score=int(first_wins),
+                            side_two_score=int(not first_wins),
+                        )
+                after = [
+                    (r.entry_id, r.wins, r.losses, r.points, r.bye_count)
+                    for r in swiss_standings(draw)
+                ]
+                self.assertEqual(before, after)
+                self.assertEqual(
+                    stage_qualification(draw)["qualification_state"], "RESOLVED"
+                )
+                self.assertEqual(
+                    len(stage_qualification(draw)["qualifier_entry_ids"]), 2
+                )
+                draw.stage.refresh_from_db()
+                self.assertEqual(draw.stage.status, "COMPLETE")
+                self.assertIsNone(draw.stage.champion_id)
+                transaction.set_rollback(True)
+
+    def test_threshold_waits_until_no_active_entries_and_advances_actual_qualified_set(
+        self,
+    ):
+        from competitions.qualification import stage_qualification
+        from competitions.swiss_commands import swiss_standings
+
+        draw = self._draw(
+            9,
+            format="SWISS_THRESHOLD",
+            advancement_count=None,
+            win_target=2,
+            loss_limit=2,
+        )
+        for number in range(1, 4):
+            round_ = draw.rounds.get(number=1) if number == 1 else self._generate()
+            if number > 1:
+                self._publish(round_)
+            self._finish(round_)
+            rows = swiss_standings(draw)
+            active = any(r.status == "ACTIVE" for r in rows)
+            state = stage_qualification(draw)
+            self.assertEqual(
+                state["qualification_state"], "PROVISIONAL" if active else "RESOLVED"
+            )
+            if not active:
+                self.assertEqual(
+                    set(state["qualifier_entry_ids"]),
+                    {r.entry_id for r in rows if r.status == "QUALIFIED"},
+                )
+                break
+        self.assertFalse(active)
+        draw.stage.refresh_from_db()
+        self.assertEqual(draw.stage.status, "COMPLETE")
+        self.assertIsNone(draw.stage.champion_id)
+
+    def test_private_and_superseded_fixture_results_do_not_enter_qualification_projection(
+        self,
+    ):
+        from competitions.qualification import stage_qualification
+
+        draw = self._draw(8, advancement_count=8, round_count=2)
+        self._finish(draw.rounds.get())
+        old = self._generate()
+        old_matches = list(old.matches.all())
+        new = self._generate(regenerate=True)
+        private = list(new.matches.all())
+        snapshot = stage_qualification(draw)
+        Match.objects.filter(pk__in=[m.pk for m in old_matches + private]).update(
+            status="FINAL", outcome="DOUBLE_FORFEIT"
+        )
+        projected = {
+            m.pk: {"status": "FINAL", "outcome": "DOUBLE_FORFEIT"}
+            for m in old_matches + private
+        }
+        self.assertEqual(
+            stage_qualification(draw, projected_matches=projected), snapshot
+        )
+        self.assertEqual(snapshot["qualification_state"], "PROVISIONAL")

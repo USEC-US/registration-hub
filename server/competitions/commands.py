@@ -522,7 +522,21 @@ def _validate_saved_draw(draw: StageDraw) -> None:
         if seeds != list(range(1, len(seeds) + 1)):
             raise ValidationError("The saved draw has invalid seeds.")
         from .round_robin_commands import validate_round_robin_draw
+        from .stage_commands import resolve_group_sizes
 
+        plans = list(draw.stage.group_plans.all())
+        sizes = resolve_group_sizes(
+            [(p.name, p.size, p.qualifying_places) for p in plans], len(seeds)
+        )
+        if [
+            (g.name, g.entries.count(), g.qualifying_places) for g in draw.groups.all()
+        ] != [
+            (p.name, size, p.qualifying_places)
+            for p, size in zip(plans, sizes, strict=True)
+        ]:
+            raise ValidationError(
+                "The saved groups do not match the locked stage plan."
+            )
         validate_round_robin_draw(draw)
         return
     entries = list(draw.entries.order_by("seed"))

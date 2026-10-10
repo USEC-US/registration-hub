@@ -37,16 +37,21 @@ def _source_field(stage):
         .order_by("pk")
     )
     expected = (
-        sum(p.size for p in stage.group_plans.all())
-        if stage.format == "ROUND_ROBIN"
+        sum(p.qualifying_places for p in previous.group_plans.all())
+        if previous.format == Stage.Format.ROUND_ROBIN
         else previous.advancement_count
-        if previous.format != "ROUND_ROBIN"
-        else sum(p.qualifying_places for p in previous.group_plans.all())
     )
-    if not 2 <= len(entries) <= 256 or len(entries) != expected:
+    if (
+        len(entries) != len(snapshot["qualifier_entry_ids"])
+        or expected is not None
+        and len(entries) != expected
+    ):
         raise ValidationError(
             "The qualified field does not fit the locked destination plan."
         )
+    from .stage_commands import validate_stage_field
+
+    validate_stage_field(stage, len(entries))
     registrations = list(
         Registration.objects.select_for_update()
         .filter(pk__in=[e.entrant.registration_id for e in entries])
@@ -112,15 +117,30 @@ def generate_next_stage_draw(
         current = stage.draws.filter(state="DRAFT").first()
         if current and not regenerate:
             validate_draw_source(current)
+            if stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+                from .swiss_commands import validate_swiss_round
+
+                validate_swiss_round(
+                    current.rounds.get(state="DRAFT"), verify_pairing=False
+                )
             return current
         order = [e.entrant_id for e in entries]
         secrets.SystemRandom().shuffle(order)
         plans = list(stage.group_plans.all())
+        from .stage_commands import resolve_group_sizes
+
+        sizes = (
+            resolve_group_sizes(
+                [(p.name, p.size, p.qualifying_places) for p in plans], len(order)
+            )
+            if plans
+            else []
+        )
         allocations = []
         offset = 0
-        for plan in plans:
-            allocations.append(order[offset : offset + plan.size])
-            offset += plan.size
+        for size in sizes:
+            allocations.append(order[offset : offset + size])
+            offset += size
         draw = _persist_stage_draw(
             stage,
             order,
@@ -131,18 +151,23 @@ def generate_next_stage_draw(
             group_specs=[(p.name, p.qualifying_places) for p in plans],
             allocations=allocations,
         )
+        private_data = {
+            "stage_id": stage.pk,
+            "draw_id": draw.pk,
+            "source_draw_id": source.pk,
+            "source_fingerprint": snapshot["fingerprint"],
+            "entrant_order": order,
+            "regenerated": regenerate,
+        }
+        if stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+            from .swiss_commands import _swiss_round_payload
+
+            private_data["swiss_round"] = _swiss_round_payload(draw.rounds.get())
         _record_change(
             competition,
             actor=actor,
             kind="successor_draw_saved",
-            private_data={
-                "stage_id": stage.pk,
-                "draw_id": draw.pk,
-                "source_draw_id": source.pk,
-                "source_fingerprint": snapshot["fingerprint"],
-                "entrant_order": order,
-                "regenerated": regenerate,
-            },
+            private_data=private_data,
         )
         return draw
 

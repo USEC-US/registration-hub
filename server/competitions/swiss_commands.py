@@ -22,7 +22,15 @@ from .command_support import (
     _validate_series_length,
     _validate_stage_sequence,
 )
-from .models import CompetitionEntrant, Match, MatchSlot, Round, Stage, StageDraw
+from .models import (
+    CompetitionEntrant,
+    Match,
+    MatchSlot,
+    Round,
+    Stage,
+    StageDraw,
+    TieResolution,
+)
 from .round_robin_commands import _points
 from .stage_commands import _configured_incoming_count, _invalidate_drafts
 from .swiss import (
@@ -830,15 +838,28 @@ def publish_swiss_round(*, actor, round_id: int, expected_revision: int) -> Roun
 
 
 def update_swiss_completion(stage: Stage, draw: StageDraw) -> None:
-    # Task 5 adds cutoff/completion decisions; publication never creates a Swiss champion.
+    from .qualification import stage_qualification
+
+    qualification = stage_qualification(draw)
+    now = timezone.now()
+    for resolution_id, status in qualification["resolution_states"].items():
+        TieResolution.objects.filter(pk=resolution_id).update(
+            state=status,
+            confirmed_at=now if status == TieResolution.State.CONFIRMED else None,
+        )
+    state = qualification["qualification_state"]
     stage.status = (
-        Stage.Status.IN_PROGRESS
+        Stage.Status.COMPLETE
+        if state == "RESOLVED"
+        else Stage.Status.AWAITING
+        if state in ("AWAITING_RESOLUTION", "BLOCKED")
+        else Stage.Status.IN_PROGRESS
         if any(m.started_at for m in _swiss_matches(draw))
         else Stage.Status.READY
     )
     stage.champion = None
     stage.completed_without_champion = False
-    stage.completed_at = None
+    stage.completed_at = (stage.completed_at or now) if state == "RESOLVED" else None
     stage.save(
         update_fields=(
             "status",
