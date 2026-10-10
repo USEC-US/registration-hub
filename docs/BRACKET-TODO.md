@@ -1,6 +1,6 @@
 # Bracket system core TODO
 
-Updated: 2026-10-09. Branch: `feat/tournament-brackets`.
+Updated: 2026-10-10. Branch: `feat/tournament-brackets`.
 
 This is the authoritative competition-core backlog, linked from
 [the project TODO](TODO.md#5-bracket-core). It replaces the scope and task list
@@ -33,6 +33,10 @@ and its initial defaults are approved. The
 [first-slice implementation plan](superpowers/plans/2026-09-25-competition-core-single-elimination.md)
 is approved.
 
+Swiss planning decisions are consolidated in the
+[Swiss qualification-stage draft](superpowers/specs/2026-10-10-swiss-stages-design.md).
+Written review and an implementation plan are still required; S1–S3 remain open.
+
 ## Agreed scope
 
 - [x] Include single elimination, double elimination, single/double round robin
@@ -41,6 +45,9 @@ is approved.
   series length.
 - [x] Support both Swiss presets: fixed rounds followed by Top-N qualification,
   and win/loss thresholds such as three wins to qualify or three losses to exit.
+- [x] Restrict both Swiss presets to the first stage of a competition with at
+  least two stages. Swiss qualifies entrants; it cannot be standalone or crown
+  the competition champion.
 - [x] Support decisive best-of series and fixed-game series that can draw, such
   as Bo2 ending 1–1, for round robin and fixed-round Swiss.
 - [x] Keep organizer controls in Django Unfold admin. Build new admin forms,
