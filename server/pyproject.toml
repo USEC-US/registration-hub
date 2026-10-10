@@ -3,7 +3,7 @@ name = "server"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,!=3.14.1"
 dependencies = [
     "django>=6.0.7",
     "django-cors-headers>=4.9.0",
@@ -19,6 +19,7 @@ dependencies = [
     "djangorestframework-simplejwt[crypto]>=5.5.1",
     "drf-spectacular>=0.30.0",
     "markdown>=3.10.2",
+    "networkx==3.7",
     "pillow>=12.3.0",
     "psycopg>=3.3.4",
     "python-dotenv>=1.2.2",
