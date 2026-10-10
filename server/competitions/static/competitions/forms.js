@@ -78,7 +78,7 @@ document.querySelectorAll('.cw-form').forEach((form) => {
         (format && ['round_policy', 'round_count'].includes(name) && format.value !== 'SWISS_FIXED') ||
         (name === 'round_count' && roundPolicy && roundPolicy.value !== 'CUSTOM') ||
         (format && ['win_target', 'loss_limit'].includes(name) && format.value !== 'SWISS_THRESHOLD') ||
-        (name.startsWith('group_size_') && groupSizePolicy?.value === 'AUTOMATIC') ||
+        (/^group_size_\d+$/.test(name) && groupSizePolicy?.value === 'AUTOMATIC') ||
         (format && name === 'grand_final_policy' && format.value !== 'DOUBLE_ELIMINATION') ||
         (allocation && name.startsWith('group_') && name !== 'group_specs' && allocation.value !== 'MANUAL') ||
         (method && name.startsWith('order_') && method.value !== 'MANUAL') ||
