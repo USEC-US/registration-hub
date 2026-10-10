@@ -40,20 +40,24 @@
     {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
     {% if form.non_field_errors %}<div class="cw-form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
     {% for field in form.hidden_fields %}{{ field }}{% if field.errors %}<div class="cw-form-errors" role="alert">{{ field.errors }}</div>{% endif %}{% endfor %}
-    {% if group_assignment %}<p>Define your groups, then update the assignment choices before making manual assignments.</p><button class="cw-button" type="submit" name="preview_groups" value="1">Update group choices</button>{% endif %}
+    {% if group_plans %}<p class="cw-help">Groups and quotas are configured in Stage Add/Edit. Assign entrants to the saved groups below.</p><ul>{% for group in group_plans %}<li>{{ group.name }}: {{ group.size }} entrants, {{ group.qualifying_places }} qualify</li>{% endfor %}</ul>{% endif %}
     <div class="cw-form-fields">
-      {% for field in form.visible_fields %}
-        <div data-field-name="{{ field.name }}" class="cw-field{% if field.field.widget.input_type == 'checkbox' or field.field.widget.input_type == 'radio' or field.field.widget.allow_multiple_selected or field.name == 'outcome' or field.name == 'winner_position' %} cw-field-wide{% endif %}{% if field.errors %} cw-field-invalid{% endif %}">
-          {% if field.field.widget.allow_multiple_selected %}
-            <fieldset><legend>{{ field.label }}{% if field.field.required %}<span class="cw-required" aria-hidden="true"> *</span>{% endif %}</legend>{{ field }}{% if field.help_text %}<p class="cw-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</p>{% endif %}{{ field.errors }}</fieldset>
-          {% elif field.field.widget.input_type == 'checkbox' %}
-            <div class="cw-checkbox">{{ field }}{{ field.label_tag }}</div>{% if field.help_text %}<p class="cw-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</p>{% endif %}{{ field.errors }}
-          {% else %}
-            {{ field.label_tag }}{{ field }}{% if field.help_text %}<p class="cw-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</p>{% endif %}{{ field.errors }}
-          {% endif %}
-        </div>
-      {% endfor %}
+      {% for field in form.setup_fields|default:form.visible_fields %}{% include "admin/competitions/form_field.html" %}{% endfor %}
     </div>
+    {% if stage_setup %}
+      <section class="cw-stage-rules" aria-labelledby="cw-stage-rules-title">
+        <h2 id="cw-stage-rules-title">Groups &amp; advancement</h2>
+        {% if form.incoming_count %}<p class="cw-help">Incoming field: {{ form.incoming_count }} entrants.</p>{% else %}<p class="cw-help">The incoming total will be checked once entrants or the previous stage's quota are set.</p>{% endif %}
+        <div data-stage-elimination>{% include "admin/competitions/form_field.html" with field=form.advancement_count %}</div>
+        <div data-stage-groups data-incoming-count="{{ form.incoming_count|default_if_none:'' }}">
+          {% include "admin/competitions/form_field.html" with field=form.group_count %}
+          <noscript><button class="cw-button" type="submit" name="preview_groups" value="1" formnovalidate>Update group rows</button></noscript>
+          <div data-group-rows>{% for row in form.group_rows %}<div class="cw-group-plan-row">{% for field in row %}{% include "admin/competitions/form_field.html" %}{% endfor %}</div>{% endfor %}</div>
+          <p class="cw-help" data-group-summary aria-live="polite"></p>
+          <p class="cw-help">Each group needs at least two entrants. Everyone may qualify, but all required matches must finish. Cutoff ties require Extra Matches or Manual Decision.</p>
+        </div>
+      </section>
+    {% endif %}
     <div class="cw-form-actions"><button type="submit" class="cw-button cw-button-primary">{{ submit_label|default:"Confirm" }}</button><a class="cw-button" href="{{ change_url }}">Cancel</a></div>
   </form>
 </div>

@@ -147,6 +147,8 @@
 .cw-reset-list li + li { margin-top: .375rem; }
 .cw-pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.25rem; font-size: .8125rem; }
 .cw-form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.cw-stage-rules { border-top: 1px solid var(--cw-border); margin-top: 1.5rem; padding-top: 1.5rem; }
+.cw-group-plan-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem; margin-top: 1rem; }
 .cw-field { min-width: 0; }
 .cw-field-wide { grid-column: 1 / -1; }
 .cw-field label, .cw-field legend { display: block; font-weight: 600; margin-bottom: .375rem; }
@@ -181,7 +183,7 @@
   .cw-bracket { --cw-bracket-gap: 1.5rem; }
   .cw-round { flex-basis: min(18rem, 82vw); }
   .cw-round:not(:last-child) .cw-round-heading::after { right: -1.125rem; }
-  .cw-form-fields, .cw-comparison { grid-template-columns: 1fr; }
+  .cw-form-fields, .cw-comparison, .cw-group-plan-row { grid-template-columns: 1fr; }
   .cw-scoreboard .cw-slot { padding: 1rem; }
   .cw-change-heading { flex-direction: column; gap: .25rem; }
 }

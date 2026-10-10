@@ -404,6 +404,10 @@ class RoundRobinAdminTests(TestCase):
                 "tiebreak_2": "",
                 "tiebreak_3": "",
                 "tiebreak_4": "",
+                "group_count": 1,
+                "group_name_1": "Alpha",
+                "group_size_1": len(self.registrations),
+                "group_quota_1": 1,
                 **rules,
             },
         )
@@ -422,7 +426,6 @@ class RoundRobinAdminTests(TestCase):
         response = self.action(
             "draw",
             {
-                "group_specs": "Alpha | 1",
                 "allocation": "MANUAL",
                 **{f"seed_{i}": pk for i, pk in enumerate(ids, 1)},
                 **{f"group_{pk}": 1 for pk in ids},
@@ -473,7 +476,6 @@ class RoundRobinAdminTests(TestCase):
         self.action(
             "draw",
             {
-                "group_specs": "Alpha | 1",
                 "allocation": "SNAKE",
                 **{f"seed_{i}": pk for i, pk in enumerate(ids, 1)},
             },
@@ -489,18 +491,27 @@ class RoundRobinAdminTests(TestCase):
                 self.assertContains(response, "3.00 / 1.00 / 0.00")
                 self.assertContains(response, "Match wins → Head-to-head points")
 
-    def test_blank_lines_keep_manual_choices_and_memberships_consistent(self):
-        self.setup_rr()
+    def test_manual_choices_and_memberships_use_the_saved_group_plan(self):
         self.registrations.append(self._registration(4))
+        self.setup_rr(
+            group_count=2,
+            group_size_1=2,
+            group_name_2="Beta",
+            group_size_2=2,
+            group_quota_2=1,
+        )
         self.action("entrants", {"registrations": [r.pk for r in self.registrations]})
         ids = list(self.competition.entrants.values_list("pk", flat=True))
         data = {
-            "group_specs": "Alpha | 1\n\nBeta | 1",
             "allocation": "MANUAL",
             **{f"seed_{i}": pk for i, pk in enumerate(ids, 1)},
             **{f"group_{pk}": 1 if i < 2 else 2 for i, pk in enumerate(ids)},
         }
-        choices = self.action("draw", {**data, "preview_groups": "1"})
+        choices = self.client.get(
+            reverse(
+                "admin:competitions_competition_draw_detail", args=[self.competition.pk]
+            )
+        )
         self.assertEqual(
             list(choices.context["form"].fields[f"group_{ids[-1]}"].choices),
             [(1, "Alpha"), (2, "Beta")],

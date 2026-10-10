@@ -4,6 +4,7 @@ from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core import signing
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Prefetch
 from django.http import Http404, HttpResponseNotAllowed, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
@@ -58,8 +59,6 @@ from .forms import (
     GroupDrawForm,
     TieReasonForm,
     QualificationTieForm,
-    StageGroupsForm,
-    StageAdvancementForm,
     StageOrderForm,
     NextStageDrawForm,
 )
@@ -532,9 +531,6 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                         ),
                         item.pk,
                     ),
-                    "rules_url": reverse(
-                        "admin:competitions_stage_rules", args=[competition.pk, item.pk]
-                    ),
                     "remove_url": reverse(
                         "admin:competitions_stage_remove",
                         args=[competition.pk, item.pk],
@@ -778,44 +774,16 @@ class CompetitionAdmin(OrganizerStaffAdmin):
 
     def stage_rules_view(self, request, competition_id, stage_id):
         competition, stage = self._plan_stage(request, competition_id, stage_id)
-        grouped = stage.format == "ROUND_ROBIN"
-        return self._competition_form_view(
-            request,
-            competition_id,
-            title="Stage advancement rules",
-            stage=stage,
-            form_class=StageGroupsForm if grouped else StageAdvancementForm,
-            form_kwargs={
-                "initial": {
-                    "group_specs": "\n".join(
-                        f"{p.name} | {p.size} | {p.qualifying_places}"
-                        for p in stage.group_plans.all()
-                    )
-                }
-                if grouped
-                else {"advancement_count": stage.advancement_count},
-                **(
-                    {}
-                    if grouped
-                    else {
-                        "is_final": not competition.stages.filter(
-                            sequence__gt=stage.sequence
-                        ).exists()
-                    }
+        if request.method != "GET":
+            return HttpResponseNotAllowed(["GET"])
+        return HttpResponseRedirect(
+            _stage_action_url(
+                reverse(
+                    "admin:competitions_competition_configure_detail",
+                    args=[competition.pk],
                 ),
-            },
-            command=lambda item, revision, data: (
-                set_stage_groups if grouped else set_stage_advancement
-            )(
-                actor=request.user,
-                stage_id=stage.pk,
-                expected_revision=revision,
-                **{
-                    ("group_specs" if grouped else "advancement_count"): data.get(
-                        "group_specs" if grouped else "advancement_count"
-                    )
-                },
-            ),
+                stage.pk,
+            )
         )
 
     def stage_generate_view(self, request, competition_id, stage_id):
@@ -1179,7 +1147,10 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "workspace_url": workspace_url(
                     competition.pk, stage_id=selected_stage_id
                 ),
-                "group_assignment": isinstance(form, GroupDrawForm),
+                "stage_setup": isinstance(form, CompetitionSetupForm),
+                "group_plans": form.group_plans
+                if isinstance(form, GroupDrawForm)
+                else None,
                 "description": description
                 or f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
                 "submit_label": {
@@ -1209,6 +1180,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "win_points": stage.win_points,
                 "draw_points": stage.draw_points,
                 "loss_points": stage.loss_points,
+                "advancement_count": stage.advancement_count,
                 **{
                     f"tiebreak_{i}": stage.tiebreaks[i - 1]
                     if i <= len(stage.tiebreaks)
@@ -1219,17 +1191,46 @@ class CompetitionAdmin(OrganizerStaffAdmin):
             if stage
             else {"stage_sequence": request.GET.get("sequence", 1)}
         )
+        raw_sequence = str(initial["stage_sequence"])
+        sequence = int(raw_sequence) if raw_sequence.isdecimal() else 1
+        predecessor = (
+            competition.stages.filter(sequence=sequence - 1).first()
+            if competition
+            else None
+        )
+        incoming = None
+        if predecessor:
+            incoming = (
+                sum(p.qualifying_places for p in predecessor.group_plans.all()) or None
+                if predecessor.format == "ROUND_ROBIN"
+                else predecessor.advancement_count
+            )
+        elif competition and sequence == 1:
+            incoming = (
+                competition.entrants.filter(is_selected=True, status="ACTIVE").count()
+                or None
+            )
         return self._competition_form_view(
             request,
             object_id,
             title="Stage setup",
             form_class=CompetitionSetupForm,
-            form_kwargs={"initial": initial},
+            form_kwargs={
+                "initial": initial,
+                "incoming_count": incoming,
+                "is_final": not competition.stages.filter(
+                    sequence__gt=sequence
+                ).exists()
+                if competition
+                else True,
+                "group_plans": list(stage.group_plans.all()) if stage else [],
+            },
             command=lambda item, expected_revision, data: self._save_setup(
                 request, item, expected_revision, data
             ),
         )
 
+    @transaction.atomic
     def _save_setup(self, request, competition, expected_revision, data):
         if data["format"] == "ROUND_ROBIN":
             command = configure_round_robin
@@ -1246,18 +1247,33 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         else:
             command = configure_elimination
             fields = ("name", "format", "grand_final_policy", "default_series_length")
-        return command(
+        stage = command(
             actor=request.user,
             competition_id=competition.pk,
             expected_revision=expected_revision,
-            stage_sequence=data.get("stage_sequence")
-            or (
-                _selected_stage(request, competition).sequence
-                if _selected_stage(request, competition)
-                else 1
-            ),
+            stage_sequence=data["stage_sequence"] or 1,
             **{key: data[key] for key in fields},
         )
+        competition.refresh_from_db(fields=("revision",))
+        if data["format"] == "ROUND_ROBIN":
+            saved = list(
+                stage.group_plans.values_list("name", "size", "qualifying_places")
+            )
+            if saved != data["group_specs"]:
+                set_stage_groups(
+                    actor=request.user,
+                    stage_id=stage.pk,
+                    expected_revision=competition.revision,
+                    group_specs=data["group_specs"],
+                )
+        elif stage.advancement_count != data["advancement_count"]:
+            set_stage_advancement(
+                actor=request.user,
+                stage_id=stage.pk,
+                expected_revision=competition.revision,
+                advancement_count=data["advancement_count"],
+            )
+        return stage
 
     @action(permissions=["change"], description="Select approved entrants")
     def entrants_detail(self, request, object_id):

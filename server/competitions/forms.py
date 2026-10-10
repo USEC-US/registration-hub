@@ -7,7 +7,7 @@ from tournaments.models import TournamentGame
 from .admin_workspace import slot_label
 from .commands import _entrant_label
 from .models import CompetitionEntrant, Match, Stage, StageDraw, TieResolution
-from .command_support import _validate_series_length
+from .command_support import MAX_ENTRANTS, _validate_series_length
 from .round_robin import DEFAULT_TIEBREAKS
 from .round_robin_commands import group_standings
 
@@ -47,6 +47,7 @@ class CompetitionSetupForm(RevisionForm):
         required=False,
         widget=forms.HiddenInput,
         initial=1,
+        disabled=True,
     )
     name = forms.CharField(label="Stage name", max_length=100, initial="Final bracket")
     format = forms.ChoiceField(
@@ -91,8 +92,12 @@ class CompetitionSetupForm(RevisionForm):
         required=False, decimal_places=2, max_digits=10, min_value=0, initial=0
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self, *args, incoming_count=None, is_final=True, group_plans=(), **kwargs
+    ):
         super().__init__(*args, **kwargs)
+        self.incoming_count = incoming_count
+        self.is_final = is_final
         for index in range(1, 5):
             self.fields[f"tiebreak_{index}"] = forms.ChoiceField(
                 label=f"Tiebreaker {index}",
@@ -109,6 +114,81 @@ class CompetitionSetupForm(RevisionForm):
         self.fields[
             "tiebreak_3"
         ].help_text = "Games won counts completed played games. Live and partial forfeit scores do not count."
+        self.setup_fields = [
+            self[name]
+            for name in self.fields
+            if name != "expected_revision" and name != "stage_sequence"
+        ]
+        limit = incoming_count or MAX_ENTRANTS
+        grouped = (self.data if self.is_bound else self.initial).get(
+            "format"
+        ) == "ROUND_ROBIN"
+        self.fields["advancement_count"] = forms.TypedChoiceField(
+            label="Entrants advancing to the next stage",
+            coerce=int,
+            empty_value=None,
+            required=not is_final and not grouped,
+            choices=[
+                ("", "None (final stage)"),
+                *((n, f"Top {n}") for n in range(1, limit + 1)),
+            ],
+            help_text="Choose how many qualify. Leave empty for the final stage. Cutoff ties require Extra Matches or Manual Decision.",
+            disabled=self.is_bound and grouped,
+        )
+        self.fields["group_count"] = forms.TypedChoiceField(
+            label="Number of groups",
+            coerce=int,
+            required=grouped,
+            choices=[(n, n) for n in range(1, limit // 2 + 1)],
+            initial=len(group_plans) or 1,
+            disabled=self.is_bound and not grouped,
+        )
+        raw_count = (
+            self.data.get("group_count", 1) if self.is_bound else len(group_plans) or 1
+        )
+        try:
+            count = int(raw_count)
+        except (ValueError, TypeError):
+            count = 1
+        if not 1 <= count <= limit // 2:
+            count = 1
+        self.group_rows = []
+        for index in range(1, count + 1):
+            plan = group_plans[index - 1] if index <= len(group_plans) else None
+            self.fields[f"group_name_{index}"] = forms.CharField(
+                label=f"Group {index} name",
+                max_length=100,
+                required=grouped,
+                initial=plan.name if plan else f"Group {index}",
+                disabled=self.is_bound and not grouped,
+            )
+            self.fields[f"group_size_{index}"] = forms.TypedChoiceField(
+                label=f"Group {index} entrants",
+                coerce=int,
+                required=grouped,
+                choices=[(n, n) for n in range(2, limit + 1)],
+                initial=plan.size
+                if plan
+                else (limit // count + (index <= limit % count))
+                if incoming_count
+                else 2,
+                disabled=self.is_bound and not grouped,
+            )
+            self.fields[f"group_quota_{index}"] = forms.TypedChoiceField(
+                label=f"Group {index} qualifiers",
+                coerce=int,
+                required=grouped,
+                choices=[(n, n) for n in range(1, limit + 1)],
+                initial=plan.qualifying_places if plan else 1,
+                disabled=self.is_bound and not grouped,
+            )
+            self.group_rows.append(
+                [self[f"group_{part}_{index}"] for part in ("name", "size", "quota")]
+            )
+        # Disabled fields still validate initial values, which may contain stale rules.
+        for name, field in self.fields.items():
+            if self.is_bound and field.disabled and name != "stage_sequence":
+                self.initial[name] = None
 
     def clean(self):
         cleaned = super().clean()
@@ -139,6 +219,40 @@ class CompetitionSetupForm(RevisionForm):
             for field in ("win_points", "draw_points", "loss_points"):
                 if cleaned.get(field) is None:
                     self.add_error(field, "Enter the points for this result.")
+            specs = []
+            names = set()
+            for index in range(1, len(self.group_rows) + 1):
+                name = cleaned.get(f"group_name_{index}")
+                size = cleaned.get(f"group_size_{index}")
+                quota = cleaned.get(f"group_quota_{index}")
+                if name in names:
+                    self.add_error(f"group_name_{index}", "Use a unique group name.")
+                names.add(name)
+                if size and quota and quota > size:
+                    self.add_error(
+                        f"group_quota_{index}", "The quota cannot exceed group size."
+                    )
+                if name and size and quota:
+                    specs.append((name, size, quota))
+            if len(specs) == len(self.group_rows):
+                total = sum(size for _, size, _ in specs)
+                if self.incoming_count and total != self.incoming_count:
+                    self.add_error(
+                        "group_count",
+                        f"Group sizes must total the incoming field of {self.incoming_count}; they total {total}.",
+                    )
+                elif total > MAX_ENTRANTS:
+                    self.add_error(
+                        "group_count",
+                        "Group sizes cannot total more than 256 entrants.",
+                    )
+            cleaned["group_specs"] = specs
+        elif (
+            not self.is_final
+            and cleaned.get("advancement_count") is None
+            and "advancement_count" not in self.errors
+        ):
+            self.add_error("advancement_count", "Choose how many entrants advance.")
         if format_ == Stage.Format.DOUBLE_ELIMINATION and not policy:
             self.add_error("grand_final_policy", "Choose reset or no reset.")
         elif format_ == Stage.Format.SINGLE_ELIMINATION and policy:
@@ -229,12 +343,6 @@ class DrawForm(RevisionForm):
 
 
 class GroupDrawForm(DrawForm):
-    group_specs = forms.CharField(
-        label="Groups and qualifying places",
-        widget=forms.Textarea(attrs={"rows": 4}),
-        help_text="One group per line: name | qualifying places. Every group needs at least two entrants.",
-        initial="Group A | 1",
-    )
     allocation = forms.ChoiceField(
         label="Group allocation",
         choices=(
@@ -248,28 +356,8 @@ class GroupDrawForm(DrawForm):
         super().__init__(*args, competition=competition, **kwargs)
         stage = competition.stages.first()
         draw = stage.draws.exclude(state="SUPERSEDED").first() if stage else None
-        groups = (
-            list(stage.group_plans.all())
-            if stage and stage.group_plans.exists()
-            else list(draw.groups.all())
-            if draw
-            else []
-        )
-        specs = (
-            self.data.get("group_specs", "")
-            if self.is_bound
-            else (
-                "\n".join(f"{g.name} | {g.qualifying_places}" for g in groups)
-                or "Group A | 1"
-            )
-        )
-        self.initial.setdefault("group_specs", specs)
-        choices = [
-            (index, line.split("|")[0].strip() or f"Group {index}")
-            for index, line in enumerate(
-                (line for line in specs.splitlines() if line.strip()), 1
-            )
-        ]
+        self.group_plans = list(stage.group_plans.all()) if stage else []
+        choices = [(p.number, p.name) for p in self.group_plans]
         saved = (
             dict(draw.entries.values_list("entrant_id", "group__number"))
             if draw
@@ -286,14 +374,11 @@ class GroupDrawForm(DrawForm):
 
     def clean(self):
         cleaned = super().clean()
-        specs = []
-        try:
-            for line in cleaned.get("group_specs", "").splitlines():
-                if line.strip():
-                    name, places = line.rsplit("|", 1)
-                    specs.append((name.strip(), int(places.strip())))
-        except ValueError:
-            self.add_error("group_specs", "Use one name | qualifying places per line.")
+        specs = [(p.name, p.qualifying_places) for p in self.group_plans]
+        if not specs:
+            self.add_error(
+                None, "Configure groups in Stage Add/Edit before saving the draw."
+            )
         cleaned["group_specs"] = specs
         cleaned["ordered_entrant_ids"] = cleaned.pop(
             "entrant_order", [entry.pk for entry in self.entrants]
@@ -490,72 +575,6 @@ class CorrectionReasonForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         min_length=1,
         help_text="Only authorized organizers can see this note.",
-    )
-
-
-class StageGroupPlanForm(forms.Form):
-    name = forms.CharField(max_length=100)
-    size = forms.IntegerField(min_value=2, max_value=256)
-    qualifying_places = forms.IntegerField(min_value=1, max_value=256)
-
-    def clean(self):
-        data = super().clean()
-        if (
-            data.get("size") is not None
-            and data.get("qualifying_places", 0) > data["size"]
-        ):
-            self.add_error("qualifying_places", "The quota cannot exceed group size.")
-        return data
-
-
-class StageGroupsForm(RevisionForm):
-    group_specs = forms.CharField(
-        label="Planned groups",
-        widget=forms.Textarea(attrs={"rows": 5}),
-        help_text="One group per line: name | size | qualifying places. Sizes may be unequal.",
-    )
-
-    def clean_group_specs(self):
-        specs = []
-        try:
-            for line in self.cleaned_data["group_specs"].splitlines():
-                if not line.strip():
-                    continue
-                name, size, quota = line.rsplit("|", 2)
-                row = StageGroupPlanForm(
-                    {
-                        "name": name.strip(),
-                        "size": size.strip(),
-                        "qualifying_places": quota.strip(),
-                    }
-                )
-                if not row.is_valid():
-                    raise ValueError
-                specs.append(
-                    (
-                        row.cleaned_data["name"],
-                        row.cleaned_data["size"],
-                        row.cleaned_data["qualifying_places"],
-                    )
-                )
-        except ValueError as error:
-            raise forms.ValidationError(
-                "Use name | size | qualifying places with valid integer sizes and quotas."
-            ) from error
-        return specs
-
-
-class StageAdvancementForm(RevisionForm):
-    def __init__(self, *args, is_final=True, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["advancement_count"].required = not is_final
-
-    advancement_count = forms.IntegerField(
-        label="Entrants advancing to the next stage",
-        min_value=1,
-        max_value=256,
-        required=False,
-        help_text="Set Top N for an elimination stage; leave empty for the final stage.",
     )
 
 

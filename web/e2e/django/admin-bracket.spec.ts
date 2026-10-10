@@ -350,6 +350,8 @@ test('organizers publish groups, resolve ties and correct results while spectato
 	await page.getByRole('link', { name: /Continue\s*:\s*Set up/ }).click();
 	await page.getByLabel('Format:', { exact: true }).selectOption('ROUND_ROBIN');
 	await page.getByLabel('Stage name').fill('Browser groups');
+	await page.getByLabel('Group 1 name').fill('Alpha');
+	await page.getByLabel('Group 1 entrants').selectOption('3');
 	await page.getByLabel('Series mode').selectOption('FIXED_GAMES');
 	await page.getByLabel('Games per match:', { exact: true }).fill('2');
 	for (let i = 1; i <= 4; i++)
@@ -359,7 +361,6 @@ test('organizers publish groups, resolve ties and correct results while spectato
 	for (let i = 1; i <= 3; i++) await page.getByLabel(`RR Team ${i}`, { exact: true }).check();
 	await page.getByRole('button', { name: 'Save entrants', exact: true }).click();
 	await page.getByRole('link', { name: /Continue\s*:\s*Seed the bracket/ }).click();
-	await page.getByLabel('Groups and qualifying places').fill('Alpha | 1');
 	await page.getByRole('button', { name: 'Save and preview bracket', exact: true }).click();
 	await expect(page.getByText('Private preview', { exact: true })).toBeVisible();
 	expect((await page.request.get(apiUrl)).status()).toBe(404);
@@ -466,6 +467,22 @@ test('multi-stage organizers lock groups, publish a saved draw and retire played
 	await page.getByRole('link', { name: /Continue\s*:\s*Set up/ }).click();
 	await page.getByLabel('Format:', { exact: true }).selectOption('ROUND_ROBIN');
 	await page.getByLabel('Stage name').fill('Groups1');
+	await page.getByLabel('Number of groups').selectOption('3');
+	for (const [index, name, size] of [
+		[1, 'Alpha', '3'],
+		[2, 'Beta', '3'],
+		[3, 'Gamma', '2']
+	] as const) {
+		await page.getByLabel(`Group ${index} name`).fill(name);
+		await page.getByLabel(`Group ${index} entrants`).selectOption(size);
+		await page.getByLabel(`Group ${index} qualifiers`).selectOption('2');
+	}
+	await expect(page.locator('[data-group-summary]')).toHaveText('8 entrants · 6 qualify');
+	await expect(page.getByLabel('Group 3 qualifiers').locator('option[value="3"]')).toBeDisabled();
+	await page.setViewportSize({ width: 390, height: 844 });
+	expect(
+		await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+	).toBeTruthy();
 	await page.getByLabel('Series mode').selectOption('FIXED_GAMES');
 	await page.getByLabel('Games per match:', { exact: true }).fill('2');
 	for (let i = 1; i <= 4; i++)
@@ -473,12 +490,15 @@ test('multi-stage organizers lock groups, publish a saved draw and retire played
 	await page.getByRole('button', { name: 'Save setup', exact: true }).click();
 	const groupStageId = await page.getByLabel('Stage', { exact: true }).inputValue();
 	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
-	await page.getByRole('link', { name: 'Advancement rules', exact: true }).click();
-	await page.getByLabel('Planned groups').fill('Alpha | 3 | 2\nBeta | 3 | 2\nGamma | 2 | 2');
-	await page.getByRole('button', { name: 'Stage advancement rules', exact: true }).click();
+	await expect(page.getByRole('link', { name: 'Advancement rules', exact: true })).toHaveCount(0);
+	await page.getByRole('link', { name: 'Edit stage', exact: true }).click();
+	await expect(page.getByLabel('Number of groups')).toHaveValue('3');
+	await expect(page.getByLabel('Group 3 entrants')).toHaveValue('2');
+	await expect(page.getByLabel('Group 3 qualifiers')).toHaveValue('2');
 	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
 	await page.getByRole('link', { name: 'Add stage', exact: true }).click();
 	await page.getByLabel('Stage name').fill('Playoffs');
+	await expect(page.getByLabel('Entrants advancing to the next stage')).toHaveValue('');
 	await page.getByLabel('Games per match:', { exact: true }).fill('1');
 	await page.getByRole('button', { name: 'Save setup', exact: true }).click();
 	await expect(page.getByLabel('Stage', { exact: true }).locator('option')).toHaveCount(2);
@@ -493,6 +513,12 @@ test('multi-stage organizers lock groups, publish a saved draw and retire played
 	await page.getByRole('link', { name: /Continue\s*:\s*Choose entrants/ }).click();
 	for (let i = 1; i <= 8; i++) await page.getByLabel(`MS Team ${i}`, { exact: true }).check();
 	await page.getByRole('button', { name: 'Save entrants', exact: true }).click();
+	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
+	await page.getByRole('link', { name: 'Edit stage', exact: true }).first().click();
+	await page.getByLabel('Group 1 entrants').selectOption('2');
+	await expect(page.locator('[data-group-summary]')).toContainText('must total 8');
+	await page.getByLabel('Group 1 entrants').selectOption('3');
+	await expect(page.locator('[data-group-summary]')).toHaveText('8 entrants · 6 qualify');
 	await page.goto(`${workspace}?tab=setup&stage=${groupStageId}`);
 	await page.getByRole('link', { name: /Continue\s*:\s*Seed the bracket/ }).click();
 	await page.getByLabel('Group allocation').selectOption('MANUAL');

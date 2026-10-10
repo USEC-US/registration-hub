@@ -1,3 +1,6 @@
+from unittest.mock import patch
+
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -18,6 +21,197 @@ class StageWorkspaceTests(TestCase):
     _registration = fixtures.HandoffTests._registration
     _chain = fixtures.HandoffTests._chain
     _finish = fixtures.HandoffTests._finish
+
+    def _setup_url(self, stage):
+        return (
+            reverse(
+                "admin:competitions_competition_configure_detail",
+                args=[self.competition.pk],
+            )
+            + f"?stage={stage.pk}"
+        )
+
+    def _setup_data(self, **overrides):
+        return {
+            "expected_revision": self.competition.revision,
+            "stage_sequence": 1,
+            "name": "Groups1",
+            "format": "ROUND_ROBIN",
+            "default_series_length": 1,
+            "series_mode": "BEST_OF",
+            "meetings": 1,
+            "win_points": 3,
+            "draw_points": 1,
+            "loss_points": 0,
+            "group_count": 3,
+            "group_name_1": "Alpha",
+            "group_size_1": 3,
+            "group_quota_1": 2,
+            "group_name_2": "Beta",
+            "group_size_2": 2,
+            "group_quota_2": 2,
+            "group_name_3": "Gamma",
+            "group_size_3": 2,
+            "group_quota_3": 1,
+            **overrides,
+        }
+
+    def test_setup_saves_unequal_groups_and_preserves_dropdown_values(self):
+        source, _ = self._chain(size=7, publish=False)
+        self.client.force_login(self.actor)
+        url = self._setup_url(source.stage)
+        response = self.client.post(url, self._setup_data())
+        self.assertEqual(response.status_code, 302)
+        stage = self.competition.stages.get(sequence=1)
+        self.assertEqual(stage.format, "ROUND_ROBIN")
+        self.assertEqual(
+            list(stage.group_plans.values_list("name", "size", "qualifying_places")),
+            [("Alpha", 3, 2), ("Beta", 2, 2), ("Gamma", 2, 1)],
+        )
+        response = self.client.get(url)
+        self.assertContains(response, '<select name="group_count"')
+        form = response.context_data["form"]
+        self.assertEqual(form["group_count"].value(), 3)
+        self.assertEqual(form["group_size_2"].value(), 2)
+        self.assertEqual(form["group_quota_2"].value(), 2)
+        self.assertEqual(form["group_name_3"].value(), "Gamma")
+        workspace = self.client.get(workspace_url(self.competition.pk, "setup"))
+        self.assertNotContains(workspace, "Advancement rules</a>")
+        draw_form = self.client.get(
+            reverse(
+                "admin:competitions_competition_draw_detail", args=[self.competition.pk]
+            )
+        )
+        self.assertNotIn("group_specs", draw_form.context_data["form"].fields)
+
+    def test_setup_rejects_invalid_group_rules_without_changing_the_plan(self):
+        source, _ = self._chain(size=7, publish=False)
+        self.client.force_login(self.actor)
+        for changes, field in (
+            ({"group_quota_2": 3}, "group_quota_2"),
+            ({"group_size_1": 2}, "group_count"),
+            ({"group_name_3": "Alpha"}, "group_name_3"),
+            ({"group_count": 4}, "group_count"),
+            ({"group_count": 999999}, "group_count"),
+        ):
+            with self.subTest(changes=changes):
+                response = self.client.post(
+                    self._setup_url(source.stage), self._setup_data(**changes)
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(field, response.context_data["form"].errors)
+                source.stage.refresh_from_db()
+                self.assertEqual(source.stage.format, "SINGLE_ELIMINATION")
+                self.assertFalse(source.stage.group_plans.exists())
+                source.refresh_from_db()
+                self.assertEqual(source.state, "DRAFT")
+
+    def test_setup_rolls_back_format_and_draw_when_rule_save_fails(self):
+        source, _ = self._chain(size=7, publish=False)
+        self.client.force_login(self.actor)
+        revision = self.competition.revision
+        with patch(
+            "competitions.admin.set_stage_groups",
+            side_effect=ValidationError("Rule save failed"),
+        ):
+            response = self.client.post(
+                self._setup_url(source.stage), self._setup_data()
+            )
+        self.assertContains(response, "Rule save failed")
+        self.competition.refresh_from_db()
+        source.stage.refresh_from_db()
+        source.refresh_from_db()
+        self.assertEqual(self.competition.revision, revision)
+        self.assertEqual(source.stage.name, "Stage1")
+        self.assertEqual(source.stage.format, "SINGLE_ELIMINATION")
+        self.assertEqual(source.state, "DRAFT")
+
+    def test_setup_checks_successor_incoming_count(self):
+        source, destination = self._chain(size=7, advance_count=4, publish=False)
+        self.client.force_login(self.actor)
+        response = self.client.post(
+            self._setup_url(destination),
+            self._setup_data(
+                stage_sequence=2, group_count=1, group_size_1=5, group_quota_1=2
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("group_size_1", response.context_data["form"].errors)
+        destination.refresh_from_db()
+        self.assertEqual(destination.format, "SINGLE_ELIMINATION")
+
+    def test_setup_cannot_change_locked_plan(self):
+        source, _ = self._chain(size=7)
+        self.client.force_login(self.actor)
+        response = self.client.post(self._setup_url(source.stage), self._setup_data())
+        self.assertEqual(response.status_code, 200)
+        source.stage.refresh_from_db()
+        self.assertEqual(source.stage.format, "SINGLE_ELIMINATION")
+        self.assertFalse(source.stage.group_plans.exists())
+
+    def test_setup_target_comes_from_stage_context(self):
+        source, destination = self._chain(size=7, advance_count=4, publish=False)
+        self.client.force_login(self.actor)
+        response = self.client.post(
+            self._setup_url(destination),
+            self._setup_data(
+                stage_sequence=1, format="SINGLE_ELIMINATION", advancement_count=3
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        source.stage.refresh_from_db()
+        destination.refresh_from_db()
+        self.assertEqual(source.stage.advancement_count, 4)
+        self.assertEqual(destination.advancement_count, 3)
+
+    def test_format_switch_ignores_outdated_group_sizes(self):
+        from competitions.stage_commands import set_stage_advancement
+
+        source, destination = self._chain(
+            destination_format="ROUND_ROBIN", size=7, publish=False
+        )
+        set_stage_advancement(
+            actor=self.actor,
+            stage_id=source.stage_id,
+            expected_revision=self.competition.revision,
+            advancement_count=4,
+        )
+        self.competition.refresh_from_db()
+        self.client.force_login(self.actor)
+        response = self.client.post(
+            self._setup_url(destination),
+            self._setup_data(
+                stage_sequence=2, format="SINGLE_ELIMINATION", advancement_count=""
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        destination.refresh_from_db()
+        self.assertEqual(destination.format, "SINGLE_ELIMINATION")
+        self.assertFalse(destination.group_plans.exists())
+
+    def test_format_switch_ignores_outdated_elimination_quota(self):
+        from competitions.commands import select_entrants
+
+        source, _ = self._chain(size=7, publish=False)
+        select_entrants(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            registration_ids=list(
+                self.competition.entrants.values_list("registration_id", flat=True)
+            )[:4],
+        )
+        self.competition.refresh_from_db()
+        self.client.force_login(self.actor)
+        response = self.client.post(
+            self._setup_url(source.stage),
+            self._setup_data(group_count=1, group_size_1=4, group_quota_1=2),
+        )
+        self.assertEqual(response.status_code, 302)
+        source.stage.refresh_from_db()
+        self.assertEqual(source.stage.format, "ROUND_ROBIN")
+        self.assertIsNone(source.stage.advancement_count)
+        self.assertEqual(source.stage.group_plans.get().size, 4)
 
     def test_stage_context_survives_tabs_and_return_links(self):
         source, destination = self._chain()
@@ -66,24 +260,41 @@ class StageWorkspaceTests(TestCase):
     def test_nonfinal_elimination_rules_require_a_quota(self):
         source, final = self._chain(publish=False)
         self.client.force_login(self.actor)
-        url = reverse(
-            "admin:competitions_stage_rules",
-            args=[self.competition.pk, source.stage_id],
-        )
+        url = self._setup_url(source.stage)
         response = self.client.post(
             url,
-            {"expected_revision": self.competition.revision, "advancement_count": ""},
+            self._setup_data(format="SINGLE_ELIMINATION", advancement_count=""),
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("advancement_count", response.context_data["form"].errors)
-        final_url = reverse(
-            "admin:competitions_stage_rules", args=[self.competition.pk, final.pk]
-        )
+        final_url = self._setup_url(final)
         response = self.client.post(
             final_url,
-            {"expected_revision": self.competition.revision, "advancement_count": ""},
+            self._setup_data(
+                stage_sequence=2, format="SINGLE_ELIMINATION", advancement_count=""
+            ),
         )
         self.assertEqual(response.status_code, 302)
+
+    def test_setup_saves_elimination_quota_and_keeps_unchanged_draw(self):
+        source, _ = self._chain(size=7, publish=False)
+        self.client.force_login(self.actor)
+        url = self._setup_url(source.stage)
+        response = self.client.post(
+            url, self._setup_data(format="SINGLE_ELIMINATION", advancement_count=7)
+        )
+        self.assertEqual(response.status_code, 302)
+        source.refresh_from_db()
+        self.assertEqual(source.state, "DRAFT")
+        self.competition.refresh_from_db()
+        response = self.client.post(
+            url, self._setup_data(format="SINGLE_ELIMINATION", advancement_count=3)
+        )
+        self.assertEqual(response.status_code, 302)
+        source.stage.refresh_from_db()
+        self.assertEqual(source.stage.advancement_count, 3)
+        source.refresh_from_db()
+        self.assertEqual(source.state, "SUPERSEDED")
 
     def test_round_action_preserves_destination_stage(self):
         from competitions.handoff_commands import generate_next_stage_draw

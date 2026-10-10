@@ -5,7 +5,7 @@ A competition can contain any ordered combination of Round Robin, single elimina
 ## Organizer workflow
 
 1. Choose approved entrants for stage 1. Add and order the stages in Setup.
-2. For each Round Robin stage, enter groups as `name | size | qualifying places`. Arbitrary partitions are supported, including `3/3/2`, `3/2/2`, and `2/5/3` with quotas `1/4/2`. Each group needs at least two entrants; a quota may equal its size. For an elimination stage preceding another stage, set its Top-N quota.
+2. Set groups and advancement in **Stage Add/Edit**. For Round Robin, choose the number of groups, then name each group and choose its entrant count and qualifiers from dropdowns. Arbitrary partitions are supported, including `3/3/2`, `3/2/2`, and `2/5/3` with quotas `1/4/2`. Each group needs at least two entrants; a quota may equal its size. The form checks quotas, unique names and the incoming total when known. For an elimination stage preceding another stage, choose its Top-N quota; leave it empty for the final stage. The draw form only assigns entrants to the saved groups.
 3. Save and preview stage 1, then publish. The entire chain must be valid before publication.
 4. Finish every required source match, including groups advancing everyone. An unfinished two-team group still blocks generation even when both teams qualify.
 5. Resolve a tie crossing a qualification cutoff using **Extra Matches** or **Manual Decision**. Harmless ties within an advancing band require no extra contest. Decisions belong to their source draw and are invalidated when their source changes. Undefined upper-bracket double-forfeit placement blocks any cutoff depending on that placement.
@@ -50,6 +50,8 @@ The Django browser harness creates a unique disposable database and temporary me
 - Django checks, migration drift and backend Ruff checks passed. Tests used a disposable PostgreSQL 18 instance and synthetic data, not the configured live database.
 
 A fresh whole-feature reviewer found a future-stage workspace crash when the predecessor has no published draw. Regressions cover stage 1's private preview, an unpublished stage 2, and a retired predecessor; the waiting view now handles these states.
+
+The Stage Add/Edit dropdown refinement passed 48 focused PostgreSQL organizer tests and both affected browser journeys, including 390px containment, saved dropdown values and live quota/total checks. Regressions cover unequal groups, atomic rollback, locked plans, route-owned stage targeting and format changes after incoming counts shrink. Django checks, migration drift, Ruff and changed-file ESLint passed; the full suites above were not rerun for this refinement.
 
 Deferred minor: `Changes?stage=<id>` currently omits round-level series changes. The unfiltered Changes endpoint retains them; stored history is preserved.
 
