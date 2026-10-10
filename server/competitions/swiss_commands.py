@@ -183,6 +183,19 @@ def _is_swiss(stage):
 
 
 def _swiss_matches(draw, *, before_number=None, projected_matches=None):
+    """A supplied sequence is the complete current fixture set, including result edits."""
+    if projected_matches is not None:
+        return sorted(
+            (
+                m
+                for m in projected_matches
+                if m.round.draw_id == draw.pk
+                and m.round.state == Round.State.PUBLISHED
+                and m.round.section == Round.Section.NORMAL
+                and (before_number is None or m.round.number < before_number)
+            ),
+            key=lambda m: (m.round.number, m.number, m.pk),
+        )
     queryset = Match.objects.filter(
         round__draw=draw,
         round__draw__state=StageDraw.State.PUBLISHED,
@@ -196,8 +209,7 @@ def _swiss_matches(draw, *, before_number=None, projected_matches=None):
         .prefetch_related("slots")
         .order_by("round__number", "number", "pk")
     )
-    replacements = {m.pk: m for m in projected_matches or ()}
-    return [replacements.get(m.pk, m) for m in matches]
+    return matches
 
 
 def _swiss_results(draw, *, before_number=None, projected_matches=None):
@@ -245,6 +257,7 @@ def _rank(draw, results):
 def swiss_standings(
     draw: StageDraw, *, projected_matches: Sequence[Match] | None = None
 ) -> list[SwissStanding]:
+    """Current ordinary standings; a supplied projection replaces the full fixture set."""
     return _rank(draw, _swiss_results(draw, projected_matches=projected_matches))
 
 

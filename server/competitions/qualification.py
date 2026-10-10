@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections.abc import Mapping
 from copy import copy
 from dataclasses import asdict
 from decimal import Decimal
@@ -117,6 +118,13 @@ def select_qualifiers(rows, cutoff, fingerprint, *, resolutions, matches, result
 
 
 def projected_fixture_matches(draw, projected_matches=None):
+    # A sequence is the complete projected current set; a mapping overrides results.
+    if projected_matches is not None and not isinstance(projected_matches, Mapping):
+        return [
+            m
+            for m in projected_matches
+            if m.round.draw_id == draw.pk and m.round.state == Round.State.PUBLISHED
+        ]
     matches = getattr(draw, "_qualification_matches", None)
     if matches is None:
         matches = list(
@@ -186,10 +194,8 @@ def stage_qualification(draw, *, projected_matches=None):
     elif stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
         from .swiss_commands import _swiss_source_fingerprint, swiss_standings
 
-        rounds = list(
-            draw.rounds.filter(
-                state=Round.State.PUBLISHED, section=Round.Section.NORMAL
-            ).order_by("number")
+        rounds = sorted(
+            {m.round_id: m.round for m in ordinary}.values(), key=lambda r: r.number
         )
         rows = swiss_standings(draw, projected_matches=matches)
         source = _swiss_source_fingerprint(

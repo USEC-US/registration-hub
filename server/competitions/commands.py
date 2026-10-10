@@ -1320,6 +1320,11 @@ def _correction_payload(
         winner_position=winner_position,
     )
     group_impact = None
+    swiss_impact = None
+    is_swiss = match.round.draw.stage.format in (
+        Stage.Format.SWISS_FIXED,
+        Stage.Format.SWISS_THRESHOLD,
+    )
     if match.round.draw.stage.format == Stage.Format.ROUND_ROBIN:
         from .round_robin_commands import project_group_correction
 
@@ -1330,6 +1335,8 @@ def _correction_payload(
             side_two_score=side_two_score,
             winner_entry_id=winner.pk if winner else None,
         )
+        affected, impacts, reset_changes, projected = [], [], [], {}
+    elif is_swiss:
         affected, impacts, reset_changes, projected = [], [], [], {}
     else:
         affected, impacts, reset_changes, projected = _project_correction(
@@ -1347,6 +1354,16 @@ def _correction_payload(
         side_two_score=side_two_score,
         winner_id=winner.pk if winner else None,
     )
+    if is_swiss:
+        from .qualification import projected_fixture_matches
+        from .swiss_corrections import project_swiss_correction
+
+        projected = projected_fixture_matches(match.round.draw, projected)
+        swiss_impact = project_swiss_correction(
+            match.round.draw, projected_matches=projected
+        )
+        current_ids = set(swiss_impact["current_match_ids"])
+        projected = [m for m in projected if m.pk in current_ids]
     qualification = stage_qualification(match.round.draw, projected_matches=projected)
     handoff_impact = project_handoff_corrections(
         match.round.draw,
@@ -1376,6 +1393,7 @@ def _correction_payload(
         "match_impacts": impacts,
         "reset_final_changes": reset_changes,
         "group_impact": group_impact,
+        "swiss_impact": swiss_impact,
         "handoff_impact": handoff_impact,
         "invalidated_tie_ids": invalidated_ties,
     }
@@ -1432,6 +1450,7 @@ def _correction_preview_response(
         "match_impacts": payload["match_impacts"],
         "reset_final_changes": payload["reset_final_changes"],
         "group_impact": payload["group_impact"],
+        "swiss_impact": payload["swiss_impact"],
         "handoff_impact": payload["handoff_impact"],
     }
 
@@ -1515,6 +1534,34 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
             for item in affected
             if item.status in (Match.Status.LIVE, Match.Status.FINAL)
         ]
+        public_swiss_impact = None
+        if current["swiss_impact"]:
+            published_round_ids = list(
+                Round.objects.filter(
+                    pk__in=current["swiss_impact"]["retired_round_ids"],
+                    published_at__isnull=False,
+                    draw__published_at__isnull=False,
+                )
+                .order_by("number", "pk")
+                .values_list("pk", flat=True)
+            )
+            public_swiss_impact = {
+                "retired_round_ids": published_round_ids,
+                "retired_match_ids": list(
+                    Match.objects.filter(round_id__in=published_round_ids)
+                    .order_by("pk")
+                    .values_list("pk", flat=True)
+                ),
+            }
+            reset_snapshots.extend(
+                _match_snapshot(item)
+                for item in Match.objects.filter(
+                    pk__in=current["swiss_impact"]["played_match_ids"],
+                    round_id__in=published_round_ids,
+                )
+                .select_related("winner__entrant")
+                .order_by("pk")
+            )
         affected_ids = [item.pk for item in affected]
         if affected_ids:
             Match.objects.filter(pk__in=affected_ids).update(
@@ -1555,6 +1602,10 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
             from .round_robin_commands import apply_group_correction_impact
 
             apply_group_correction_impact(match, current["group_impact"])
+        if current["swiss_impact"]:
+            from .swiss_corrections import apply_swiss_correction
+
+            apply_swiss_correction(match.round.draw, current["swiss_impact"])
         _supersede_ties(
             TieResolution.objects.filter(pk__in=current["invalidated_tie_ids"])
         )
@@ -1576,6 +1627,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "reset_matches": reset_snapshots,
                 "reset_final_changes": current["reset_final_changes"],
                 "group_impact": current["group_impact"],
+                "swiss_impact": current["swiss_impact"],
                 "handoff_impact": current["handoff_impact"],
             },
             public_data={
@@ -1588,6 +1640,11 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "reset_final_changes": current["reset_final_changes"],
                 "group_impact": current["group_impact"],
                 "handoff_impact": public_handoff_impact(current["handoff_impact"]),
+                **(
+                    {"swiss_impact": public_swiss_impact}
+                    if public_swiss_impact is not None
+                    else {}
+                ),
             },
         )
         return match

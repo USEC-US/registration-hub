@@ -306,3 +306,73 @@ class StageCorrectionTests(TestCase):
         self.assertEqual(set(preview["group_impact"]["after"]["qualifiers"]), before)
         self.assertEqual(preview["handoff_impact"]["superseded_draw_ids"], [draw.pk])
         self.assertEqual(preview["handoff_impact"]["retained_draw_ids"], [])
+
+    def test_unchanged_membership_refreshes_chain_and_preserves_played_history(self):
+        from competitions.handoff_commands import (
+            generate_next_stage_draw,
+            validate_draw_source,
+        )
+        from competitions.qualification import stage_qualification
+
+        source, second = self._chain(
+            formats=("SINGLE_ELIMINATION", "SINGLE_ELIMINATION", "SINGLE_ELIMINATION"),
+            advance_count=2,
+        )
+        self._finish(source)
+        draws = []
+        for stage in (second, self.competition.stages.get(sequence=3)):
+            draw = generate_next_stage_draw(
+                actor=self.actor,
+                stage_id=stage.pk,
+                expected_revision=self.competition.revision,
+            )
+            self.competition.refresh_from_db()
+            publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                stage_id=stage.pk,
+                expected_revision=self.competition.revision,
+            )
+            self._finish(draw)
+            draws.append(draw)
+        saved = list(
+            Match.objects.filter(round__draw__in=draws)
+            .order_by("pk")
+            .values_list("pk", "side_one_score", "side_two_score", "winner_id")
+        )
+        before = [d.source_fingerprint for d in draws]
+        preview = preview_correction(
+            actor=self.actor,
+            match_id=Match.objects.filter(round__draw=source)
+            .order_by("-pk")
+            .first()
+            .pk,
+            expected_revision=self.competition.revision,
+            outcome="FORFEIT",
+            winner_position=2,
+        )
+        self.assertEqual(
+            preview["handoff_impact"]["retained_draw_ids"], [d.pk for d in draws]
+        )
+        apply_correction(
+            actor=self.actor,
+            token=preview["token"],
+            internal_reason="Correct terminal result",
+        )
+        for draw in draws:
+            draw.refresh_from_db()
+            self.assertEqual(draw.state, "PUBLISHED")
+            validate_draw_source(draw)
+        self.assertNotEqual(draws[0].source_fingerprint, before[0])
+        self.assertEqual(draws[1].source_fingerprint, before[1])
+        self.assertEqual(
+            draws[0].source_fingerprint, stage_qualification(source)["fingerprint"]
+        )
+        self.assertEqual(
+            list(
+                Match.objects.filter(round__draw__in=draws)
+                .order_by("pk")
+                .values_list("pk", "side_one_score", "side_two_score", "winner_id")
+            ),
+            saved,
+        )
