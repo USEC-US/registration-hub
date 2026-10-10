@@ -15,17 +15,28 @@ Delivery remains tracked in [BRACKET-TODO](../../BRACKET-TODO.md).
 
 ## 1. Purpose and placement
 
-Swiss reduces the initial field to qualifiers for later competition stages.
-Both fixed-round and win/loss-threshold Swiss are supported exclusively as
-stage 1 of a competition containing at least two stages.
+Swiss reduces its incoming field to qualifiers for later competition stages.
+Both fixed-round and win/loss-threshold Swiss are supported as the first or
+an intermediate stage of a competition containing at least two stages.
 
-- A Swiss stage cannot be standalone, intermediate, or final.
+- A Swiss stage cannot be standalone or final. Every Swiss stage must have a
+  successor; it never declares the competition's champion.
+- Consecutive Swiss stages are supported, including different Swiss presets
+  in the same chain. A Swiss stage may follow or precede any supported format
+  when their locked advancement rules and actual fields are compatible.
 - The complete stage chain must be configured before the first fixtures become
   public. An incomplete private setup may be saved, but cannot be published.
-- Later stages use the existing supported non-Swiss formats. Swiss never
-  declares the competition's champion.
+- The final stage must use a supported non-Swiss format.
 - Format availability, stage reordering, direct command calls, and publication
   validation must all enforce this placement rule.
+
+Examples include Swiss → playoffs, Swiss → Swiss → playoffs, three Swiss
+stages → playoffs, and double-elimination play-ins → Swiss → playoffs.
+These describe supported format ordering, not a promise to reproduce every
+CS Major or Worlds entrant-admission and seeding rule. The existing chain
+still takes a later stage's entrants exclusively from the immediately preceding
+stage's eligible qualifiers; direct invitations into later stages are separate
+from this scope.
 
 Organizer operations stay in Django Unfold; public views remain read-only.
 Reuse the existing competition, entrants, stages, draws, rounds, matches,
@@ -33,14 +44,23 @@ results, qualification, Changes, and correction boundaries.
 
 ## 2. Setup, suggested rounds, and limits
 
-`N` is the actual selected stage field: one team or one solo player is one
-entrant. Retain the existing support limits of 2–256 entrants, 64 Swiss rounds,
-and the competition core's match budget.
+`N` is the actual incoming field of this Swiss stage: selected entrants for
+stage 1, or confirmed eligible qualifiers from its predecessor for a later
+stage. One team or one solo player is one entrant. Retain the existing support
+limits of 2–256 entrants, 64 Swiss rounds, and the competition core's match budget.
 
-For fixed-round Swiss, prefill `ceil(log2(N))`. The organizer may change it
-before first publication. Label it **Recommended rounds**, not a guarantee of
-distinct final positions. Updating the field updates the recommendation and
-revalidates the saved choice; it must not silently overwrite a saved value.
+For fixed-round Swiss with a known incoming count, prefill `ceil(log2(N))`.
+The organizer may change it before the competition's first publication. Label
+it **Recommended rounds**, not a guarantee of distinct final positions.
+Updating the field before publication updates the recommendation and revalidates
+the saved choice; it must not silently overwrite a saved custom value.
+
+Proposed handling for review when a later Swiss stage's incoming count is
+outcome-dependent: lock either the automatic `ceil(log2(actual N))` rule or an
+explicit custom count before the competition's first publication. Show the
+formula with its count pending until the field is known. Resolving the locked
+formula at handoff gives the organizer no new round-count choice. Save the
+resolved count with that draw; it cannot drift while that draw is in use.
 
 Use this agreed configuration bound:
 
@@ -61,11 +81,18 @@ Neither these bounds nor the logarithmic recommendation prove that a particular
 result history admits a complete next round. Pairing validation is still
 required at every generation. A rematch override does not bypass setup limits.
 
+Revalidate a later Swiss stage's round count or W/L targets, Top-N quota where
+applicable, and match budget against its actual incoming field before generating
+or publishing its draw. An incompatible custom count, threshold, or quota blocks
+the handoff; never shorten it or change the target after seeing qualifiers.
+
 Before publishing the competition's first fixtures, lock stage order, formats,
-the field and starting seeds, round count or W/L targets, points and tiebreaks,
-qualification policies, group counts, group advancement quotas, and allocation
-rules. Existing valid scheduling and before-play series overrides remain
-available through their established controls.
+the first-stage field and starting seeds, each stage's round-count policy or
+W/L targets, points and tiebreaks, qualification policies, group counts, group
+advancement quotas, and allocation rules. Later fields follow those qualification
+policies; their starting seeds are saved at the handoff and fixed before that
+stage's publication. Existing valid scheduling and before-play series overrides
+remain available through their established controls.
 
 ## 3. Results, standings, and qualification
 
@@ -84,7 +111,8 @@ esports preset, not a claim to federation-specific adjusted Buchholz rules.
 
 Configure Top-N advancement before publication, with an integer quota between
 2 and the entrant count. Since another stage must follow, the quota must also
-fit the destination's requirements. Finish all configured rounds before resolving qualification.
+fit the destination's requirements. Finish all configured rounds before
+resolving qualification.
 Use existing explicit extra-match or recorded manual-decision workflows for
 a tie crossing the cutoff. Do not use starting seeds to silently select a
 qualifier. Tiebreak contests are separate from the ordinary Swiss round budget
@@ -110,9 +138,16 @@ qualified field for the next stage.
 
 ## 4. Starting seeds and folding
 
-Save the initial manual seed order or random draw once. These starting seeds
-remain the ordering within score groups throughout Swiss; standings tiebreaks
-do not reseed entrants between rounds.
+Save the stage's initial manual seed order or random draw once. Later Swiss
+stages use the existing saved random handoff to assign their own starting seeds.
+These seeds remain the ordering within score groups throughout that stage;
+standings tiebreaks do not reseed entrants between rounds.
+
+Every new Swiss stage starts with fresh points, W/D/L, bye counts, and opponent
+history. A qualifier from an earlier stage starts as an active entrant in the
+new stage. Earlier results remain visible as history but do not count toward
+the new stage's standings, exit targets, or rematch restrictions. Meeting an
+opponent from another stage does not require the within-stage rematch override.
 
 Fixed-round mode groups entrants by match points. Threshold mode groups them
 by win/loss record. Within a group, prefer folding: best starting seed versus
@@ -137,9 +172,9 @@ and inactive, qualified, or eliminated entrants are invalid.
 
 Preserve the existing bye-fairness priority: minimize prior bye count, then
 prefer the entrant with the fewest points (fixed rounds) or fewest wins and
-most losses (threshold mode), then the worst starting seed. A repeated bye is allowed only when no
-complete legal matching can use an entrant with fewer prior byes, and the
-preview must identify it.
+most losses (threshold mode), then the worst starting seed. A repeated bye is
+allowed only when no complete legal matching can use an entrant with fewer
+prior byes, and the preview must identify it.
 
 Among complete legal solutions under that bye policy, minimize cross-group
 pairings, then score/record distance, then deviations from folding. Try
@@ -195,6 +230,11 @@ publication, and show that the threshold handoff still needs its actual field
 validated. Do not promise a guaranteed qualifier count for arbitrary outcomes.
 
 An elimination successor uses that actual field and the existing bye rules.
+A Swiss successor consumes the actual qualified set, validates its own locked
+settings against that field, and starts a fresh stage as specified above.
+Another threshold Swiss stage produces another outcome-dependent outgoing
+count; do not assume uncertainty ends after the first handoff.
+
 For a round-robin successor whose incoming count is outcome-dependent, lock
 the group count, group order, per-group qualifying places, and the following
 allocation rule before any fixtures become public:
@@ -212,12 +252,17 @@ For two groups advancing two entrants each, fields of 7, 8, and 9 produce
 4+3, 4+4, and 5+4 respectively. Unequal quotas may require unequal minima;
 the published allocation rule still applies deterministically.
 
-Once those group quotas supply a known outgoing count, subsequent stages use
-the existing fixed-count plan validation. Recompute automatic sizes when a
-source correction requires a replacement draw, preserving the old allocation
-and results in history. Never reduce locked quotas, discard qualifiers, or
-add replacement entrants to make a handoff fit. Invalid eligibility or too few
-qualifiers blocks advancement with an explanation.
+Round-robin quotas, elimination quotas, and fixed-round Swiss Top-N quotas
+supply known configured outgoing counts. Validate the next stage against that
+count; a later threshold Swiss stage can make its own successor's incoming
+count outcome-dependent again. Apply this distinction through the entire chain.
+
+Recompute automatic group sizes and any formula-based Swiss round count when
+a source correction requires a replacement draw, using the same locked rules
+and preserving the old draw's resolved settings and results in history. Never
+reduce locked quotas, discard qualifiers, or add replacement entrants to make
+a handoff fit. Invalid eligibility or too few qualifiers blocks advancement
+with an explanation.
 
 This extends the current exact-incoming-count assumptions in
 `stage_commands.validate_stage_plan` and `handoff_commands._source_field`.
@@ -236,10 +281,14 @@ than creating a separate Swiss application.
 
 Required focused evidence includes:
 
-- Reject standalone, later-stage, and final-stage Swiss, including direct
-  requests and invalid stage reordering; reject publication without a successor.
+- Accept first and intermediate Swiss, consecutive Swiss presets, three Swiss
+  stages followed by playoffs, and elimination → Swiss → playoffs. Reject
+  standalone and final-stage Swiss, including direct requests and invalid
+  stage reordering; reject publication without a successor.
 - Verify suggested counts, integer validation, odd/even bounds, W/L bounds,
-  field changes, and whole-plan publication locking.
+  field changes, and whole-plan publication locking. Cover a later-stage
+  automatic count resolving from the actual field, incompatible locked custom
+  settings blocking handoff, and recomputation only for a replacement draw.
 - Verify folding and saved seed ordering, a greedy-pairing counterexample,
   adjacent and distant group moves, complete coverage, forfeit history,
   no-rematch dead ends, minimum-rematch overrides, and bye fairness.
@@ -247,8 +296,12 @@ Required focused evidence includes:
   deterministic fixtures under different hash seeds.
 - Exercise both termination modes, drawn fixed-game matches, qualifying byes,
   double forfeits, cutoff decisions, and exclusion after threshold exit.
+- Verify stage-local starting seeds, points, records, bye counts, opponent
+  history, and active status after advancement. Prior-stage opponents are legal
+  in the new stage, while within-stage repeats still require authorization.
 - Verify fixed and variable incoming fields, the 7/8/9 allocation examples,
-  unequal quotas, insufficient fields, and unchanged locked quotas.
+  unequal quotas, insufficient fields, unchanged locked quotas, and repeated
+  transitions between known and outcome-dependent counts in longer chains.
 - Cover stale and concurrent round generation, correction of earlier rounds
   after later play, cutoff invalidation, downstream retirement, and private
   preview/history boundaries.

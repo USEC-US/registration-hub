@@ -45,9 +45,9 @@ Written review and an implementation plan are still required; S1–S3 remain ope
   series length.
 - [x] Support both Swiss presets: fixed rounds followed by Top-N qualification,
   and win/loss thresholds such as three wins to qualify or three losses to exit.
-- [x] Restrict both Swiss presets to the first stage of a competition with at
-  least two stages. Swiss qualifies entrants; it cannot be standalone or crown
-  the competition champion.
+- [x] Allow both Swiss presets as the first or an intermediate stage, including
+  consecutive Swiss stages, in a competition with at least two stages. Swiss
+  qualifies entrants; it cannot be standalone, final, or crown the champion.
 - [x] Support decisive best-of series and fixed-game series that can draw, such
   as Bo2 ending 1–1, for round robin and fixed-round Swiss.
 - [x] Keep organizer controls in Django Unfold admin. Build new admin forms,
