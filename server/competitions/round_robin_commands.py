@@ -21,7 +21,6 @@ from .command_support import (
     _stage_for_command,
     _validate_stage_sequence,
     _persist_stage_draw,
-    _supersede_draws,
     _supersede_ties,
 )
 from .models import (
@@ -346,11 +345,12 @@ def configure_round_robin(
         )
         if stage and stage.published_at:
             raise ValidationError("Published stage setup is locked.")
-        if stage:
-            _supersede_draws(stage.draws.filter(state=StageDraw.State.DRAFT))
         values = {
             "name": name.strip(),
             "advancement_count": None,
+            "swiss_round_count": None,
+            "swiss_win_target": None,
+            "swiss_loss_limit": None,
             "format": Stage.Format.ROUND_ROBIN,
             "grand_final_policy": "",
             "series_mode": series_mode,
@@ -369,6 +369,9 @@ def configure_round_robin(
             stage = Stage.objects.create(
                 competition=competition, sequence=stage_sequence, **values
             )
+        from .stage_commands import _invalidate_drafts
+
+        _invalidate_drafts(stage)
         _record_change(
             competition,
             actor=actor,
@@ -481,6 +484,9 @@ def save_round_robin_draw(
         planned = [
             (p.name, p.size, p.qualifying_places) for p in stage.group_plans.all()
         ]
+        from .stage_commands import resolve_group_sizes
+
+        planned_sizes = resolve_group_sizes(planned, len(ids)) if planned else None
         try:
             specs = [(name.strip(), places) for name, places in group_specs]
             if not specs or any(
@@ -496,7 +502,7 @@ def save_round_robin_draw(
                 else allocate_snake_groups(
                     ids,
                     len(specs),
-                    group_sizes=[size for _, size, _ in planned] if planned else None,
+                    group_sizes=planned_sizes,
                 )
             )
             if len(allocations) != len(specs):
@@ -525,7 +531,11 @@ def save_round_robin_draw(
             (name, len(group), quota)
             for (name, quota), group in zip(specs, allocations, strict=True)
         ]
-        if planned and actual != planned:
+        resolved_plan = [
+            (name, size, quota)
+            for (name, _, quota), size in zip(planned, planned_sizes or [], strict=True)
+        ]
+        if planned and actual != resolved_plan:
             raise ValidationError(
                 "Saved group membership must match the configured group plan."
             )

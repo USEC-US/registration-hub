@@ -297,3 +297,54 @@ class StagePlanTests(TestCase):
         self.assertEqual(
             [group.entries.count() for group in draw.groups.all()], [2, 5, 3]
         )
+
+    def test_final_swiss_rejected_before_first_and_later_publication(self):
+        from competitions.swiss_commands import configure_swiss
+
+        source, destination, entrants = self._configure((3, 3, 2), (2, 2, 2))
+        configure_swiss(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            stage_sequence=2,
+            name="Swiss",
+            format="SWISS_FIXED",
+            series_mode="BEST_OF",
+            default_series_length=1,
+            round_count=None,
+            win_target=None,
+            loss_limit=None,
+            advancement_count=2,
+            win_points=3,
+            draw_points=1,
+            loss_points=0,
+            tiebreaks=["OPPONENT_POINTS"],
+        )
+        self.competition.refresh_from_db()
+        save_round_robin_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self.competition.revision,
+            group_specs=[("Group 1", 2), ("Group 2", 2), ("Group 3", 2)],
+            ordered_entrant_ids=[e.pk for e in entrants],
+        )
+        self.competition.refresh_from_db()
+        revision = self.competition.revision
+        with self.assertRaisesMessage(ValidationError, "successor"):
+            publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                expected_revision=revision,
+            )
+        from django.utils import timezone
+
+        Stage.objects.filter(pk=source.pk).update(published_at=timezone.now())
+        with self.assertRaisesMessage(ValidationError, "successor"):
+            publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                expected_revision=revision,
+                stage_id=destination.pk,
+            )
+        self.competition.refresh_from_db()
+        self.assertEqual(self.competition.revision, revision)

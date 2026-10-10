@@ -136,6 +136,9 @@ def _persist_stage_draw(
     allocations=None,
 ):
     from .models import StageDraw, StageEntry
+    from .stage_commands import validate_stage_field
+
+    validate_stage_field(stage, len(ordered_entrant_ids))
 
     current = stage.draws.filter(state="DRAFT").first()
     version = (

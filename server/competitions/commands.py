@@ -104,12 +104,13 @@ def configure_elimination(
                 default_series_length=default_series_length,
             )
         else:
-            if (stage.format, stage.grand_final_policy) != (format, grand_final_policy):
-                _supersede_draws(
-                    StageDraw.objects.filter(stage=stage, state=StageDraw.State.DRAFT)
-                )
             if stage.format != format:
                 stage.group_plans.all().delete()
+            stage.swiss_round_count = None
+            stage.swiss_win_target = None
+            stage.swiss_loss_limit = None
+            if stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
+                stage.advancement_count = None
             stage.format = format
             stage.series_mode = Stage.SeriesMode.BEST_OF
             stage.grand_final_policy = grand_final_policy
@@ -122,8 +123,15 @@ def configure_elimination(
                     "format",
                     "series_mode",
                     "grand_final_policy",
+                    "swiss_round_count",
+                    "swiss_win_target",
+                    "swiss_loss_limit",
+                    "advancement_count",
                 )
             )
+        from .stage_commands import _invalidate_drafts
+
+        _invalidate_drafts(stage)
         _record_change(
             competition,
             actor=actor,
@@ -196,8 +204,14 @@ def select_entrants(
         first = competition.stages.filter(
             sequence=1, format=Stage.Format.ROUND_ROBIN
         ).first()
-        if first and sum(p.size for p in first.group_plans.all()) != len(unique_ids):
-            first.group_plans.all().delete()
+        if first:
+            plans = list(first.group_plans.all())
+            if (
+                plans
+                and all(p.size is not None for p in plans)
+                and sum(p.size for p in plans) != len(unique_ids)
+            ):
+                first.group_plans.all().delete()
         competition.entrants.update(is_selected=False)
         entrants = []
         for registration_id in unique_ids:
@@ -351,6 +365,9 @@ def publish_draw(
         competition = _lock_competition(competition_id)
         _check_revision(competition, expected_revision)
         stage = _stage_for_command(competition, stage_id)
+        from .stage_commands import _require_swiss_successor
+
+        _require_swiss_successor(list(competition.stages.all()))
         if stage.draws.filter(state=StageDraw.State.PUBLISHED).exists():
             raise ValidationError("This stage is already published.")
         draw = (
@@ -394,6 +411,9 @@ def publish_draw(
             )
         if draw.entries.count() != len(registration_ids):
             raise ValidationError("The draw does not contain every selected entrant.")
+        from .stage_commands import validate_stage_field
+
+        validate_stage_field(stage, draw.entries.count())
         match_count = Match.objects.filter(round__draw=draw).count()
         slot_count = MatchSlot.objects.filter(match__round__draw=draw).count()
         if match_count == 0 or slot_count != match_count * 2:
