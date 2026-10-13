@@ -128,6 +128,38 @@ class SwissWorkspaceTests(TestCase):
             response.context_data["form"]["group_size_policy"].value(), "AUTOMATIC"
         )
 
+    def test_saved_exact_rr_sizes_survive_edit_before_incoming_field_is_known(self):
+        self._competition(8)
+        self.stage = self._swiss(
+            format="SWISS_THRESHOLD", win_target=2, loss_limit=2, advancement_count=None
+        )
+        later = self._swiss(2, advancement_count=2)
+        self._elimination(3)
+        self.client.force_login(self.actor)
+        response = self.client.post(
+            self._setup_url(later),
+            self._data(
+                format="ROUND_ROBIN",
+                tiebreak_1="HEAD_TO_HEAD",
+                group_size_policy="EXACT",
+                group_count=2,
+                group_name_1="A",
+                group_size_1=3,
+                group_quota_1=1,
+                group_name_2="B",
+                group_size_2=3,
+                group_quota_2=1,
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(list(later.group_plans.values_list("size", flat=True)), [3, 3])
+        response = self.client.get(self._setup_url(later))
+        form = response.context_data["form"]
+        self.assertIsNone(form.incoming_count)
+        self.assertEqual(form["group_size_policy"].value(), "EXACT")
+        self.assertEqual(form["group_size_1"].value(), 3)
+        self.assertEqual(form["group_size_2"].value(), 3)
+
     def test_fixed_and_threshold_ignore_irrelevant_fields(self):
         self._draw(publish=False)
         self.client.force_login(self.actor)

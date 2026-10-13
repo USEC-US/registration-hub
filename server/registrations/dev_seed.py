@@ -30,6 +30,17 @@ from competitions.commands import (
     save_match_progress,
 )
 from competitions.handoff_commands import generate_next_stage_draw
+from competitions.swiss_commands import (
+    configure_swiss,
+    generate_swiss_round,
+    publish_swiss_round,
+    save_swiss_draw,
+)
+from competitions.qualification import (
+    stage_qualification,
+    preview_qualification_tie,
+    confirm_qualification_tie,
+)
 from competitions.stage_commands import set_stage_groups
 from competitions.models import Competition, Match, Round, Stage, StageDraw
 from competitions.round_robin_commands import (
@@ -111,6 +122,7 @@ SCENARIO_SUMMARY = (
     "FPT Shop Uni Tour 2026: synthetic 16-team LQM bracket (BO1 early, BO3 finals)",
     "Double elimination: ready 16-team reset / completed 5-team no-reset brackets",
     "Multi-stage: 3/3/2, 3/2/2 and 2/5/3 groups feeding saved random playoffs",
+    "Swiss: 9-entry fixed Top-4 playoffs / 16-entry threshold to fixed Swiss playoffs",
 )
 
 
@@ -417,6 +429,16 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         },
     )
 
+    swiss, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-swiss",
+        defaults={
+            "name": "USEC Synthetic Swiss",
+            "description": "Fictional fixed and consecutive Swiss workflows.",
+            "students_only": False,
+            "is_published": True,
+        },
+    )
+
     tournament_games = {
         "valorant": _upsert_tournament_game(
             tournament=current,
@@ -572,6 +594,17 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             registration_capacity=size,
             fee_amount=Decimal("0.00"),
         )
+    for slug, count in (("chess", 9), ("valorant", 16)):
+        tournament_games[f"swiss-{slug}"] = _upsert_tournament_game(
+            tournament=swiss,
+            game=games[slug],
+            main_roster_size=1 if slug == "chess" else 2,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=count,
+            fee_amount=Decimal("0.00"),
+        )
     return SeedCatalog(
         tournaments={
             current.slug: current,
@@ -584,6 +617,7 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             double_elimination.slug: double_elimination,
             round_robin.slug: round_robin,
             multi_stage.slug: multi_stage,
+            swiss.slug: swiss,
         },
         tournament_games=tournament_games,
     )
@@ -1604,6 +1638,174 @@ def _seed_multi_stage(*, now: datetime, organizer, catalog: SeedCatalog) -> None
         )
 
 
+def _seed_swiss(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    for slug, count in (("chess", 9), ("valorant", 16)):
+        division = catalog.tournament_games[f"swiss-{slug}"]
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.stages.filter(draws__state="PUBLISHED").exists():
+                continue
+            raise ValidationError("The development Swiss competition is incomplete.")
+        registrations = [
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="SW",
+                index=i,
+            )
+            for i in range(1, count + 1)
+        ]
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        stages = []
+        formats = ["SWISS_FIXED"] if count == 9 else ["SWISS_THRESHOLD", "SWISS_FIXED"]
+        for sequence, format in enumerate(formats, 1):
+            competition.refresh_from_db()
+            stages.append(
+                configure_swiss(
+                    actor=organizer,
+                    competition_id=competition.pk,
+                    expected_revision=competition.revision,
+                    stage_sequence=sequence,
+                    name=f"Swiss{sequence}",
+                    format=format,
+                    series_mode="FIXED_GAMES" if count == 9 else "BEST_OF",
+                    default_series_length=2 if count == 9 else 1,
+                    round_count=4 if count == 9 else None,
+                    win_target=3 if format == "SWISS_THRESHOLD" else None,
+                    loss_limit=3 if format == "SWISS_THRESHOLD" else None,
+                    advancement_count=None if format == "SWISS_THRESHOLD" else 4,
+                    win_points=Decimal(3),
+                    draw_points=Decimal(1),
+                    loss_points=Decimal(0),
+                    tiebreaks=["OPPONENT_POINTS", "GAME_DIFFERENCE", "GAMES_WON"],
+                )
+            )
+        competition.refresh_from_db()
+        playoffs = configure_elimination(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            stage_sequence=len(stages) + 1,
+            name="Playoffs",
+            format="SINGLE_ELIMINATION",
+            default_series_length=1,
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[r.pk for r in registrations],
+        )
+        for stage in stages:
+            competition.refresh_from_db()
+            if stage.sequence == 1:
+                draw = save_swiss_draw(
+                    actor=organizer,
+                    competition_id=competition.pk,
+                    expected_revision=competition.revision,
+                    ordered_entrant_ids=[e.pk for e in entrants],
+                )
+            else:
+                draw = generate_next_stage_draw(
+                    actor=organizer,
+                    stage_id=stage.pk,
+                    expected_revision=competition.revision,
+                )
+            competition.refresh_from_db()
+            publish_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                stage_id=stage.pk,
+                expected_revision=competition.revision,
+            )
+            round_ = draw.rounds.get(number=1)
+            while True:
+                for match in round_.matches.exclude(status="FINAL").prefetch_related(
+                    "slots__resolved_entry"
+                ):
+                    slots = list(match.slots.all())
+                    first_wins = (
+                        slots[0].resolved_entry.seed < slots[1].resolved_entry.seed
+                    )
+                    competition.refresh_from_db()
+                    finalize_match(
+                        actor=organizer,
+                        match_id=match.pk,
+                        expected_revision=competition.revision,
+                        outcome="PLAYED",
+                        side_one_score=(2 if count == 9 else 1) * int(first_wins),
+                        side_two_score=(2 if count == 9 else 1) * int(not first_wins),
+                    )
+                state = stage_qualification(draw)
+                if state["qualification_state"] != "PROVISIONAL":
+                    for tie in state["cutoffs"]:
+                        competition.refresh_from_db()
+                        preview = preview_qualification_tie(
+                            actor=organizer,
+                            draw_id=draw.pk,
+                            expected_revision=competition.revision,
+                            tied_entry_ids=tie["entry_ids"],
+                            method="MANUAL",
+                            ordered_entry_ids=tie["entry_ids"],
+                        )
+                        confirm_qualification_tie(
+                            actor=organizer,
+                            token=preview["token"],
+                            internal_reason="Synthetic Swiss cutoff decision",
+                        )
+                    break
+                competition.refresh_from_db()
+                try:
+                    round_ = generate_swiss_round(
+                        actor=organizer,
+                        stage_id=stage.pk,
+                        expected_revision=competition.revision,
+                    )
+                except ValidationError as error:
+                    if "No complete Swiss round is possible" not in str(error):
+                        raise
+                    round_ = generate_swiss_round(
+                        actor=organizer,
+                        stage_id=stage.pk,
+                        expected_revision=competition.revision,
+                        allow_rematches=True,
+                        internal_reason="Synthetic Swiss confirmed repeat exception",
+                    )
+                competition.refresh_from_db()
+                publish_swiss_round(
+                    actor=organizer,
+                    round_id=round_.pk,
+                    expected_revision=competition.revision,
+                )
+        competition.refresh_from_db()
+        draw = generate_next_stage_draw(
+            actor=organizer,
+            stage_id=playoffs.pk,
+            expected_revision=competition.revision,
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            stage_id=playoffs.pk,
+            expected_revision=competition.revision,
+        )
+        match = Match.objects.filter(round__draw=draw, status="PENDING").first()
+        competition.refresh_from_db()
+        finalize_match(
+            actor=organizer,
+            match_id=match.pk,
+            expected_revision=competition.revision,
+            outcome="PLAYED",
+            side_one_score=1,
+            side_two_score=0,
+        )
+
+
 def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
     player, organizer, admin = _seed_accounts()
     catalog = _seed_catalog(now=now)
@@ -1634,6 +1836,7 @@ def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
     _seed_double_elimination(now=now, organizer=organizer, catalog=catalog)
     _seed_round_robin(now=now, organizer=organizer, catalog=catalog)
     _seed_multi_stage(now=now, organizer=organizer, catalog=catalog)
+    _seed_swiss(now=now, organizer=organizer, catalog=catalog)
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),

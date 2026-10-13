@@ -46,7 +46,19 @@ def _published_match_queryset():
 
 def _published_round_queryset():
     return (
-        Round.objects.filter(state=Round.State.PUBLISHED, published_at__isnull=False)
+        Round.objects.filter(
+            Q(state=Round.State.PUBLISHED)
+            | (
+                Q(state=Round.State.SUPERSEDED, section=Round.Section.TIEBREAK)
+                & ~Q(
+                    draw__stage__format__in=(
+                        Stage.Format.SWISS_FIXED,
+                        Stage.Format.SWISS_THRESHOLD,
+                    )
+                )
+            ),
+            published_at__isnull=False,
+        )
         .select_related("draw__stage__competition", "group", "tie_resolution")
         .prefetch_related(
             "group__entries__entrant",

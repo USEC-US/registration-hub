@@ -1,6 +1,6 @@
 # Bracket system core TODO
 
-Updated: 2026-10-10. Branch: `feat/tournament-brackets`.
+Updated: 2026-10-13. Branch: `feat/swiss-stages`.
 
 This is the authoritative competition-core backlog, linked from
 [the project TODO](TODO.md#5-bracket-core). It replaces the scope and task list
@@ -11,7 +11,9 @@ Its evidence and operating notes are in
 Double elimination is also implemented and focused-validated; see
 [its testing guide](testing/competition-double-elimination.md). Round robin groups
 and qualification ties are implemented; see [the round robin guide](testing/competition-round-robin.md).
-Swiss and cross-stage behavior remain open below.
+Ordered-stage handoffs and both Swiss presets are implemented and workflow-validated; see
+[the multi-stage guide](testing/competition-multi-stage.md) and
+[the Swiss guide](testing/competition-swiss.md).
 
 The delivered second slice is double elimination (E3/E4), including organizer and
 public workflows. Its [implementation plan](superpowers/plans/2026-09-27-double-elimination.md)
@@ -24,8 +26,8 @@ fixtures.
 The delivered third slice is round robin groups and standings, including
 qualification-tie resolution and organizer/public views. Its
 [implementation plan](superpowers/plans/2026-10-09-round-robin.md) was approved
-on 2026-10-09. Ordered-stage handoffs follow this slice; Swiss and their shared
-backlog portions remain open.
+on 2026-10-09. Ordered-stage handoffs and Swiss qualification stages are now
+delivered, including consecutive Swiss and correction through played successors.
 
 The approved foundation uses a dedicated `server/competitions` Django app.
 The [detailed design](superpowers/specs/2026-09-23-competition-core-design.md)
@@ -35,8 +37,11 @@ is approved.
 
 Swiss planning decisions are consolidated in the
 [approved Swiss qualification-stage design](superpowers/specs/2026-10-10-swiss-stages-design.md).
-The [implementation plan](superpowers/plans/2026-10-10-swiss-stages.md) awaits
-review and execution-method selection; S1–S3 remain open.
+The [implementation plan](superpowers/plans/2026-10-10-swiss-stages.md) was approved
+for execution on 2026-10-10. S1–S3 are delivered. PostgreSQL proof covers 335
+competition/development-seed tests; both complete bracket browser files pass
+12 journeys, including three Swiss journeys. See the Swiss guide for exact
+evidence and the unmeasured maximum-field publication stress limit.
 
 ## Agreed scope
 
@@ -83,7 +88,7 @@ These are confirmed requirements, not completed implementation tasks.
 ### Confirmed stage structure
 
 - [x] Allow an ordered sequence of stages within a division, using the supported
-  formats. A division may also have a single standalone stage.
+  formats. A division may also have a single standalone non-Swiss stage.
 - [x] Let TOs confirm advancement between stages, including groups → another
   qualifying stage → playoffs. Handoffs are not limited to a single qualifying
   stage followed by an elimination bracket.
@@ -201,11 +206,11 @@ and rules are fixed. Persisted integration follows the shared command path.
 | E4 | [x] Advance both brackets and implement the approved grand-final reset/no-reset policies and completion. | E2, E3 |
 | G1 | [x] Assign round robin groups and generate the chosen single/double schedule, including odd-sized groups; each pair meets exactly once or twice independently of series length. | C1, C2, R3 |
 | G2 | [x] Calculate group standings, points, ordered tiebreaks, and provisional qualifiers from confirmed results. | G1, R2, R3 |
-| S1 | [ ] Generate and preview one Swiss round using the agreed pairing rules, normal-win bye handling, and explicit recorded overrides for unavoidable rematches. | C1, C2, R4 |
-| S2 | [ ] Implement fixed-round Swiss progression, standings/tiebreaks, and provisional Top-N qualifiers. | S1, R2, R4 |
-| S3 | [ ] Implement threshold Swiss progression, qualification/elimination, and stage completion. | S1, R2, R4 |
-| H1 | [x] Generate, preview and publish saved random handoffs between ordered Round Robin, single-elimination and double-elimination stages; validate the whole locked plan and exact eligible qualifier membership, block pending play/cutoff ties, and preserve or retire dependent draws during corrections. | C3, C5, applicable source progression/standings and destination setup, H2 when tied |
-| H2 | [ ] Resolve qualification ties through TO-selected extra tiebreak matches or a recorded manual decision; validate tied entrants and available places, preserve history, and recompute when source results change. Round robin and elimination cutoffs are delivered; Swiss remains open. | C2, C5, R3/R4 tie rules, relevant G2/S2/S3 source |
+| S1 | [x] Generate and preview one Swiss round using the agreed pairing rules, normal-win bye handling, and explicit recorded overrides for unavoidable rematches. | C1, C2, R4 |
+| S2 | [x] Implement fixed-round Swiss progression, standings/tiebreaks, and provisional Top-N qualifiers. | S1, R2, R4 |
+| S3 | [x] Implement threshold Swiss progression, qualification/elimination, and stage completion. | S1, R2, R4 |
+| H1 | [x] Generate, preview and publish saved random handoffs between ordered Round Robin, fixed/threshold Swiss, single-elimination and double-elimination stages; validate the whole locked plan and exact eligible qualifier membership, block pending play/cutoff ties, and preserve or retire dependent draws during corrections. | C3, C5, applicable source progression/standings and destination setup, H2 when tied |
+| H2 | [x] Resolve qualification ties through TO-selected extra tiebreak matches or a recorded manual decision; validate tied entrants and available places, preserve history, and recompute when source results change. Round robin, elimination and fixed Swiss cutoffs are delivered; threshold Swiss advances every W-qualified entrant. | C2, C5, R3/R4 tie rules, relevant G2/S2/S3 source |
 
 ## 3. Django Unfold organizer tasks
 
@@ -222,8 +227,8 @@ agents work concurrently.
 | A3 | [x] Build manual single/double-elimination seeding, saved random draw, private preview, and explicit publication controls. Group assignment remains with G1. | A2, relevant E1/E3/G1/S1 generators |
 | A4 | [x] Build match-list/detail scheduling, individual series-length overrides before play, and score-entry actions with clear validation and stale-edit feedback. | C2, C4, A1, relevant format progression |
 | A5 | [x] Build correction impact/confirmation screens and the full organizer Changes view, including previous results, downstream reset history, actor, timestamp, and internal reason. | C5, A4 |
-| A6 | [ ] Build standings, Swiss next-round controls, qualifier previews, and confirmed handoffs between ordered stages. Round robin standings, elimination placement bands, qualifier previews and ordered-stage handoffs are delivered; Swiss remains open. | applicable source progression/standings, H1, A1 |
-| A7 | [ ] Build qualification-tie resolution controls: schedule extra tiebreak matches or record a manual decision, with confirmation, validation, and Changes history. Round robin and elimination cutoffs are delivered; Swiss remains open. | H2, A1, A4, A5 |
+| A6 | [x] Build standings, Swiss next-round controls, qualifier previews, and confirmed handoffs between ordered stages. Round robin/Swiss standings, elimination placement bands, qualifier previews and ordered-stage handoffs are delivered, including private Swiss round generation and explicit publication. | applicable source progression/standings, H1, A1 |
+| A7 | [x] Build qualification-tie resolution controls: schedule extra tiebreak matches or record a manual decision, with confirmation, validation, and Changes history. Round robin, elimination and fixed Swiss cutoffs are delivered; threshold Swiss advances every W-qualified entrant. | H2, A1, A4, A5 |
 
 One integration owner wires admin modules, URLs, navigation, and shared templates.
 Other agents own specific forms/views/templates and their tests. Add no reusable
@@ -235,7 +240,7 @@ admin framework merely to make these tasks look uniform.
 | --- | --- | --- |
 | P1 | [x] Implement published-only first-slice competition snapshots and privacy tests using the agreed allowlist. | C3, C4, relevant format readers |
 | P2 | [x] Build accessible single/double-elimination bracket views with match IDs, schedules, effective series lengths, scores, winners, and mobile navigation. Includes upper/lower/finals sections and conditional/not-required reset states. | C4 fixtures; connect to P1 before completion |
-| P3 | [ ] Build round robin/Swiss standings, round pairings with effective series lengths, stage navigation, and qualification states. Round robin groups, pairings, qualification states and ordered-stage navigation are delivered; Swiss remains open. | C4 fixtures; connect to P1 before completion |
+| P3 | [x] Build round robin/Swiss standings, round pairings with effective series lengths, stage navigation, and qualification states. Round robin/Swiss standings, pairings, qualification states and ordered-stage navigation are delivered, including published current Swiss rounds and correction-history links. | C4 fixtures; connect to P1 before completion |
 | P4 | [x] Connect single/double-elimination pages to the real API; handle unpublished/missing, ready/live/completed, refresh, time zones, and EN/VI UI. Later-format states remain with P3. | P1–P3 |
 | P5 | [x] Expose and render read-only public Changes for published result revisions and resets; test before/after outcomes and exclusion of actor identities, internal notes, and draft history. | C4, C5, P1 |
 
@@ -295,9 +300,15 @@ deterministic uneven draws and result rules for V1; PostgreSQL revision,
 finalization, correction, and publication races for V2; permission and public
 allowlist checks for V3; Django admin integration plus a real localized,
 responsive public browser journey for V4; and repeatable fixtures, operating
-notes, migration guidance, and recorded results for V5. The V1–V5 gates remain
-open because their text also requires later formats, ordered-stage handoffs, and
-a complete organizer browser journey.
+notes, migration guidance, and recorded results for V5. Swiss evidence adds fixed/threshold/consecutive stages, complete no-rematch pairing
+and explicit exceptions, odd byes, cutoff decisions, PostgreSQL generation and
+publication/correction races, private previews, played-suffix history, and real
+organizer/public EN/VI journeys at 390px. Supported formats and ordered-stage
+workflows are covered. The broad V1–V5 gates remain open for deferred
+withdrawal/disqualification, exceptional chain-ending paths and broader delivery
+hardening. Realtime retains its separate gate. Maximum-field/64-round persisted
+publication stress remains unmeasured; pure solver timings are not a latency
+guarantee.
 
 Core is complete when an authorized TO can run all agreed formats and ordered
 stage handoffs through Django Unfold admin, and spectators can follow published

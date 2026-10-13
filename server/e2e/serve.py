@@ -85,6 +85,9 @@ def seed():
         student_id="E2E-ORGANIZER",
     )
     organizer.groups.add(Group.objects.get(name="Organizers"))
+    from e2e.fixtures import seed_swiss_browser_fixtures
+
+    seed_swiss_browser_fixtures(organizer=organizer)
     from registrations.dev_seed import SeedCatalog, _seed_round_robin, _seed_multi_stage
 
     rr_tournament = Tournament.objects.create(

@@ -203,6 +203,7 @@ class SeedDevDataCommandTests(TestCase):
                 "dev-usec-double-elimination",
                 "dev-usec-round-robin",
                 "dev-usec-multi-stage",
+                "dev-usec-swiss",
                 "dev-fpt-shop-uni-tour-2026",
                 "dev-sponsor-open",
                 "dev-sponsor-arena",
@@ -881,3 +882,92 @@ class SeedDevDataCommandTests(TestCase):
             ),
             before,
         )
+
+    def test_swiss_seed_preserves_complete_chains_rounds_limits_and_scores(self):
+        self.run_seed()
+        competitions = list(
+            Competition.objects.filter(
+                tournament_game__tournament__slug="dev-usec-swiss"
+            ).order_by("tournament_game__game__slug")
+        )
+        self.assertEqual(len(competitions), 2)
+        snapshots = []
+        for competition in competitions:
+            stages = list(competition.stages.all())
+            self.assertEqual(stages[-1].format, "SINGLE_ELIMINATION")
+            self.assertEqual(stages[0].status, "COMPLETE")
+            source = stages[0].draws.get(state="PUBLISHED")
+            if stages[0].format == "SWISS_FIXED":
+                self.assertEqual(source.entries.count(), 9)
+                self.assertEqual(source.swiss_round_limit, 4)
+                self.assertEqual(stages[0].series_mode, "FIXED_GAMES")
+                self.assertEqual(stages[0].default_series_length, 2)
+                self.assertEqual(source.rounds.filter(state="PUBLISHED").count(), 4)
+                self.assertEqual(stages[0].advancement_count, 4)
+                self.assertEqual(
+                    Match.objects.filter(round__draw=source, outcome="BYE").count(), 4
+                )
+            else:
+                self.assertEqual(source.entries.count(), 16)
+                self.assertEqual(
+                    (stages[0].swiss_win_target, stages[0].swiss_loss_limit), (3, 3)
+                )
+                self.assertEqual(len(stages), 3)
+                self.assertEqual(stages[1].format, "SWISS_FIXED")
+                self.assertIsNone(stages[1].swiss_round_count)
+                self.assertEqual(stages[1].status, "COMPLETE")
+                self.assertEqual(stages[1].advancement_count, 4)
+            for stage in stages[1:]:
+                draw = stage.draws.get(state="PUBLISHED")
+                self.assertFalse(
+                    draw.entries.filter(source_entry__isnull=True).exists()
+                )
+            self.assertEqual(stages[-1].draws.get(state="PUBLISHED").entries.count(), 4)
+            snapshots.append(
+                (
+                    competition.pk,
+                    list(
+                        StageDraw.objects.filter(
+                            stage__competition=competition
+                        ).values_list("pk", "swiss_round_limit")
+                    ),
+                    list(
+                        Round.objects.filter(
+                            draw__stage__competition=competition
+                        ).values_list("pk", "state", "version")
+                    ),
+                    list(
+                        Match.objects.filter(
+                            round__draw__stage__competition=competition
+                        ).values_list(
+                            "pk", "status", "side_one_score", "side_two_score"
+                        )
+                    ),
+                )
+            )
+        self.run_seed()
+        for competition_id, draws, rounds, matches in snapshots:
+            self.assertEqual(
+                list(
+                    StageDraw.objects.filter(
+                        stage__competition_id=competition_id
+                    ).values_list("pk", "swiss_round_limit")
+                ),
+                draws,
+            )
+            self.assertEqual(
+                list(
+                    Round.objects.filter(
+                        draw__stage__competition_id=competition_id
+                    ).values_list("pk", "state", "version")
+                ),
+                rounds,
+            )
+            self.assertEqual(
+                list(
+                    Match.objects.filter(
+                        round__draw__stage__competition_id=competition_id
+                    ).values_list("pk", "status", "side_one_score", "side_two_score")
+                ),
+                matches,
+            )

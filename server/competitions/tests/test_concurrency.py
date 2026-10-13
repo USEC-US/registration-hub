@@ -573,3 +573,99 @@ class StageHandoffConcurrencyTests(TransactionTestCase):
                 stage_id=destination.pk,
                 expected_revision=self.competition.revision,
             )
+
+
+class SwissConcurrencyTests(TransactionTestCase):
+    setUp = CompetitionConcurrencyTests.setUp
+    _registration = CompetitionConcurrencyTests._registration
+    _race = CompetitionConcurrencyTests._race
+
+    def _swiss_round(self):
+        from competitions.tests import test_swiss_commands as fixtures
+
+        for name in (
+            "_competition",
+            "_swiss",
+            "_elimination",
+            "_revision",
+            "_draw",
+            "_finish",
+        ):
+            setattr(self, name, getattr(fixtures.SwissCommandTests, name).__get__(self))
+        self.draw = self._draw(5)
+        self._finish(self.draw.rounds.get())
+        return self.draw
+
+    def test_concurrent_swiss_generation_saves_one_current_round(self):
+        from competitions.swiss_commands import generate_swiss_round
+
+        draw = self._swiss_round()
+        revision = self._revision()
+        original_seed_match_ids = list(
+            draw.rounds.get().matches.values_list("pk", flat=True)
+        )
+        results = self._race(
+            *(
+                lambda: generate_swiss_round(
+                    actor=self.actor, stage_id=self.stage.pk, expected_revision=revision
+                )
+                for _ in range(2)
+            )
+        )
+        self.assertEqual(sorted(results), ["denied", "ok"])
+        self.competition.refresh_from_db()
+        self.assertEqual(draw.rounds.filter(state="DRAFT", number=2).count(), 1)
+        self.assertEqual(self.competition.revision, revision + 1)
+        self.assertEqual(
+            self.competition.changes.filter(kind="swiss_round_saved").count(), 1
+        )
+        self.assertEqual(
+            list(draw.rounds.get(number=1).matches.values_list("pk", flat=True)),
+            original_seed_match_ids,
+        )
+
+    def test_swiss_publication_and_correction_have_one_coherent_revision(self):
+        from competitions.swiss_commands import (
+            generate_swiss_round,
+            publish_swiss_round,
+        )
+
+        draw = self._swiss_round()
+        pending = generate_swiss_round(
+            actor=self.actor, stage_id=self.stage.pk, expected_revision=self._revision()
+        )
+        revision = self._revision()
+        match = draw.rounds.get(number=1).matches.filter(outcome="PLAYED").first()
+        preview = preview_correction(
+            actor=self.actor,
+            match_id=match.pk,
+            expected_revision=revision,
+            outcome="PLAYED",
+            side_one_score=0,
+            side_two_score=2,
+        )
+        results = self._race(
+            lambda: publish_swiss_round(
+                actor=self.actor, round_id=pending.pk, expected_revision=revision
+            ),
+            lambda: apply_correction(
+                actor=self.actor,
+                token=preview["token"],
+                internal_reason="Swiss race correction",
+            ),
+        )
+        self.assertEqual(sorted(results), ["denied", "ok"])
+        pending.refresh_from_db()
+        self.competition.refresh_from_db()
+        match.refresh_from_db()
+        self.assertEqual(self.competition.revision, revision + 1)
+        self.assertEqual(
+            pending.state, "PUBLISHED" if results[0] == "ok" else "SUPERSEDED"
+        )
+        self.assertEqual(
+            (match.side_one_score, match.side_two_score),
+            (2, 0) if results[0] == "ok" else (0, 2),
+        )
+        self.assertEqual(
+            self.competition.changes.filter(revision=revision + 1).count(), 1
+        )

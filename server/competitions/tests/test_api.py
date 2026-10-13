@@ -12,7 +12,8 @@ from competitions.commands import (
     save_elimination_draw,
     select_entrants,
 )
-from competitions.models import Match
+from competitions.models import Match, Round, Stage, StageDraw
+from competitions.serializers import PublicStageSerializer
 from competitions.tests import test_round_robin_ties as rr_fixtures
 from registrations.models import Registration, RegistrationMember
 from tournaments.models import Game, Tournament, TournamentGame
@@ -380,6 +381,22 @@ class PublicRoundRobinApiTests(APITestCase):
         resolution = self.confirm(
             self.preview(method="EXTRA_MATCHES"), reason="PRIVATE-REASON"
         )
+        extra_matches = list(
+            Match.objects.filter(round__tie_resolution=resolution).prefetch_related(
+                "slots"
+            )
+        )
+        self.assertEqual(len(extra_matches), 3)
+        for match in extra_matches:
+            self.result(match, side_one_score=1, side_two_score=0)
+        retained_scores = dict(
+            Match.objects.filter(round__tie_resolution=resolution).values_list(
+                "pk", "side_one_score"
+            )
+        )
+        historical_round_ids = set(
+            Round.objects.filter(tie_resolution=resolution).values_list("pk", flat=True)
+        )
         target = Match.objects.filter(
             round__draw=self.saved, round__section="NORMAL"
         ).first()
@@ -419,7 +436,66 @@ class PublicRoundRobinApiTests(APITestCase):
             if r["section"] == "TIEBREAK"
             for m in r["matches"]
         ]
-        self.assertTrue(all(m["historical"] for m in extras))
+        self.assertEqual({m["id"] for m in extras}, set(retained_scores))
+        self.assertEqual(len(extras), 3)
+        for match in extras:
+            self.assertTrue(match["historical"])
+            self.assertEqual(match["side_one_score"], retained_scores[match["id"]])
+            self.assertEqual(match["side_two_score"], 0)
+        for round_id in historical_round_ids:
+            direct = self.client.get(f"/api/competition-rounds/{round_id}/")
+            self.assertEqual(direct.status_code, 200)
+            self.assertTrue(all(m["historical"] for m in direct.data["matches"]))
+        private_retired = Round.objects.create(
+            draw=self.saved,
+            group=self.group,
+            section=Round.Section.TIEBREAK,
+            number=99,
+            state=Round.State.SUPERSEDED,
+        )
+        self.assertEqual(
+            self.client.get(
+                f"/api/competition-rounds/{private_retired.pk}/"
+            ).status_code,
+            404,
+        )
+        snapshot = self.client.get(url).data["stages"][0]
+        self.assertNotIn(private_retired.pk, {r["id"] for r in snapshot["rounds"]})
+        uncached = PublicStageSerializer(Stage.objects.get(pk=self.saved.stage_id)).data
+        self.assertEqual(
+            {r["id"] for r in uncached["rounds"] if r["section"] == "TIEBREAK"},
+            historical_round_ids,
+        )
+        self.assertNotIn(private_retired.pk, {r["id"] for r in uncached["rounds"]})
+        self.assertEqual(
+            uncached["groups"][0]["standings"], stage["groups"][0]["standings"]
+        )
+        self.assertEqual(
+            [row["played"] for row in stage["groups"][0]["standings"]], [2, 2, 2]
+        )
+        # Hiding history must not change current qualification or ordinary standings.
+        Round.objects.filter(pk__in=historical_round_ids).update(published_at=None)
+        without_history = PublicStageSerializer(
+            Stage.objects.get(pk=self.saved.stage_id)
+        ).data
+        self.assertEqual(without_history["qualification"], uncached["qualification"])
+        self.assertEqual(
+            without_history["groups"][0]["standings"],
+            uncached["groups"][0]["standings"],
+        )
+        # A formerly public owning draw is still absent from direct-round/snapshot reads.
+        StageDraw.objects.filter(pk=self.saved.pk).update(
+            state=StageDraw.State.SUPERSEDED
+        )
+        Round.objects.filter(pk__in=historical_round_ids).update(
+            published_at=timezone.now()
+        )
+        for round_id in historical_round_ids:
+            self.assertEqual(
+                self.client.get(f"/api/competition-rounds/{round_id}/").status_code, 404
+            )
+        retired = PublicStageSerializer(Stage.objects.get(pk=self.saved.stage_id)).data
+        self.assertEqual(retired["rounds"], [])
         changes = self.client.get(url + "changes/")
         self.assertIn("group_impact", changes.data["results"][0])
         self.assertNotIn("PRIVATE-", changes.rendered_content.decode())

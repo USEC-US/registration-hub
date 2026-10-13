@@ -1,11 +1,11 @@
 # Operating and testing multi-stage competitions
 
-A competition can contain any ordered combination of Round Robin, single elimination and double elimination, including repeated formats. Configure every stage, incoming group size and outgoing quota before publishing stage 1. First publication locks the entire plan. Existing published single-stage competitions stay single-stage; this migration does not attach playoffs retroactively.
+A competition can contain ordered Round Robin, single elimination, double elimination and Swiss stages, including repeated formats. Swiss must have a successor and cannot crown a champion; see [the Swiss operating guide](competition-swiss.md). Configure every stage, group-size policy and outgoing quota before publishing stage 1. First publication locks the entire plan. Existing published single-stage competitions stay single-stage; this migration does not attach playoffs retroactively.
 
 ## Organizer workflow
 
 1. Choose approved entrants for stage 1. Add and order the stages in Setup.
-2. Set groups and advancement in **Stage Add/Edit**. For Round Robin, choose the number of groups, then name each group and choose its entrant count and qualifiers from dropdowns. Arbitrary partitions are supported, including `3/3/2`, `3/2/2`, and `2/5/3` with quotas `1/4/2`. Each group needs at least two entrants; a quota may equal its size. The form checks quotas, unique names and the incoming total when known. For an elimination stage preceding another stage, choose its Top-N quota; leave it empty for the final stage. The draw form only assigns entrants to the saved groups.
+2. Set groups and advancement in **Stage Add/Edit**. For Round Robin, choose the number of groups and Exact or Automatic sizes, then name each group and choose its qualifiers. Exact sizes use entrant-count dropdowns; Automatic fills saved quotas and balances the remaining actual field. Unknown incoming fields stay unknown until the predecessor completes. Arbitrary partitions are supported, including `3/3/2`, `3/2/2`, and `2/5/3` with quotas `1/4/2`. Each group needs at least two entrants; a quota may equal its size. The form checks quotas, unique names and the incoming total when known. For an elimination stage preceding another stage, choose its Top-N quota; leave it empty for the final stage. The draw form only assigns entrants to the saved groups.
 3. Save and preview stage 1, then publish. The entire chain must be valid before publication.
 4. Finish every required source match, including groups advancing everyone. An unfinished two-team group still blocks generation even when both teams qualify.
 5. Resolve a tie crossing a qualification cutoff using **Extra Matches** or **Manual Decision**. Harmless ties within an advancing band require no extra contest. Decisions belong to their source draw and are invalidated when their source changes. Undefined upper-bracket double-forfeit placement blocks any cutoff depending on that placement.
@@ -55,8 +55,16 @@ The Stage Add/Edit dropdown refinement passed 48 focused PostgreSQL organizer te
 
 Deferred minor: `Changes?stage=<id>` currently omits round-level series changes. The unfiltered Changes endpoint retains them; stored history is preserved.
 
+## Swiss compatibility proof (2026-10-13)
+
+The final Swiss gate extends this guide's earlier evidence: 335 PostgreSQL competition/development-seed tests passed in 461.738s (`task-10-backend-recovery.log`), with no skipped locking races. Both complete bracket browser files passed 12 journeys in 4.0m (`task-10-browser-final.log`, 2026-10-10), including the existing Round Robin and multi-stage flows. The unchanged frontend inputs retain 36 focused Vitest tests, clean Svelte/i18n checks and a successful production build; final Django checks, migration drift, Ruff and browser ESLint also passed. The incomplete pre-restore backend log is retained separately and is not passing evidence.
+
+Regression proof preserves saved Exact group plans when the incoming field is unknown and retains formerly published non-Swiss tiebreak rounds, played scores and direct history navigation. Private retired rounds and retired owning draws stay out of snapshots/direct round reads. Historical rounds do not contribute to current standings or qualification; Swiss snapshots remain current-only. New fixtures cover fixed Top-4 → playoffs and threshold → automatic Swiss → playoffs, with stable reruns and stage-local resets.
+
+The Swiss guide records populated migration and deterministic pure solver timings. Maximum-field/64-round persisted publication stress remains unmeasured, because publication revalidates retained rounds; pure matching measurements are not deployment latency guarantees.
+
 ## Migration and rollout
 
 Migration `competitions.0004_multi_stage` adds group plans and draw provenance, backfills existing group rules and tie ownership, and preserves legacy codes and results. Take matching code/database backups before a live rollout. After multi-stage data is written, an older single-stage release cannot safely operate that database. Prefer a forward fix; a rollback requires restoring the matching backup rather than dropping the new columns and keeping newer writes. Local verification does not deploy or exercise a live restore.
 
-Swiss, withdrawal/disqualification commands, exceptional chain-ending commands, provider integration and realtime updates remain outside this slice.
+Swiss is delivered in the subsequent slice documented in [competition-swiss.md](competition-swiss.md). Withdrawal/disqualification commands, exceptional chain-ending commands, provider integration and realtime updates remain deferred.

@@ -194,7 +194,7 @@ class CompetitionSetupForm(RevisionForm):
                 "EXACT"
                 if self.is_bound
                 else "AUTOMATIC"
-                if (group_plans and group_plans[0].size is None) or not incoming_count
+                if (group_plans[0].size is None if group_plans else not incoming_count)
                 else "EXACT",
             )
             == "AUTOMATIC"

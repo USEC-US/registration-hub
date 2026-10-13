@@ -135,7 +135,10 @@ class PublicStageSerializer(serializers.Serializer):
         from .qualification import stage_qualification
 
         draw._qualification_matches = [
-            m for r in self._rounds(draw) for m in r.matches.all()
+            m
+            for r in self._rounds(draw)
+            if r.state == Round.State.PUBLISHED
+            for m in r.matches.all()
         ]
         state = stage_qualification(draw)
         entries = {e.pk: PublicEntrySerializer(e).data for e in draw.entries.all()}
@@ -264,7 +267,10 @@ class PublicStageSerializer(serializers.Serializer):
         for group in draw.groups.all():
             group_rounds = [r for r in rounds if r.group_id == group.pk]
             group._standings_matches = [
-                m for r in group_rounds for m in r.matches.all()
+                m
+                for r in group_rounds
+                if r.state == Round.State.PUBLISHED
+                for m in r.matches.all()
             ]
             state = group_standings(group)
             entries = {
@@ -354,7 +360,16 @@ class PublicStageSerializer(serializers.Serializer):
         return [
             r
             for r in draw.rounds.all()
-            if r.state == Round.State.PUBLISHED and r.published_at is not None
+            if r.published_at is not None
+            and (
+                r.state == Round.State.PUBLISHED
+                or (
+                    r.state == Round.State.SUPERSEDED
+                    and r.section == Round.Section.TIEBREAK
+                    and draw.stage.format
+                    not in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD)
+                )
+            )
         ]
 
 

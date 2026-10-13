@@ -170,3 +170,82 @@ test('multi-stage spectators switch unequal groups and playoffs in EN and VI at 
 		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 	}
 });
+
+test('Swiss spectators read odd byes, threshold qualification and consecutive stage resets in EN and VI', async ({
+	page
+}) => {
+	const response = await page.request.get(
+		'http://127.0.0.1:8015/api/tournaments/swiss-journey-test/'
+	);
+	expect(response.status()).toBe(200);
+	const tournament = await response.json();
+	for (const slug of ['swiss-chess', 'swiss-valorant']) {
+		const division = tournament.tournament_games.find(
+			(game: { game_slug: string }) => game.game_slug === slug
+		);
+		const response = await page.request.get(
+			`http://127.0.0.1:8015/api/tournament-games/${division.id}/competition/`
+		);
+		expect(response.status()).toBe(200);
+		const competition = await response.json();
+		for (const locale of ['en', 'vi']) {
+			await page.setViewportSize({ width: 390, height: 844 });
+			await page.goto(
+				`/${locale}/tournaments/swiss-journey-test/games/${division.id}/bracket?stage=${competition.stages[0].id}`
+			);
+			await expect(
+				page.getByText(locale === 'en' ? 'Swiss pairings' : 'Các cặp đấu Swiss', { exact: true })
+			).toBeVisible();
+			await expect(
+				page.getByText(
+					locale === 'en' ? 'Swiss qualification complete' : 'Đã hoàn tất vòng loại Swiss',
+					{ exact: true }
+				)
+			).toBeVisible();
+			if (slug === 'swiss-chess') {
+				await expect(
+					page.getByText(locale === 'en' ? 'Byes' : 'Lượt miễn đấu', { exact: true })
+				).toBeVisible();
+				await page
+					.getByLabel(locale === 'en' ? 'Round' : 'Vòng đấu', { exact: true })
+					.selectOption(String(competition.stages[0].rounds[0].id));
+				await expect(
+					page.getByText(locale === 'en' ? /^Bye · / : /^Miễn đấu · /).first()
+				).toBeVisible();
+			} else {
+				await expect(
+					page.getByText(
+						locale === 'en'
+							? 'Qualify at 3 wins; eliminated at 3 losses.'
+							: 'Đi tiếp khi đạt 3 trận thắng; bị loại khi thua 3 trận.',
+						{ exact: true }
+					)
+				).toBeVisible();
+				expect(
+					competition.stages[0].swiss_standings.some(
+						(row: { status: string }) => row.status === 'ELIMINATED'
+					)
+				).toBe(true);
+				await page
+					.getByLabel(locale === 'en' ? 'Stage' : 'Giai đoạn', { exact: true })
+					.selectOption(String(competition.stages[1].id));
+				await expect(
+					page.getByText(locale === 'en' ? 'Automatic round limit' : 'Số vòng tự động', {
+						exact: true
+					})
+				).toBeVisible();
+				expect(
+					competition.stages[1].swiss_standings.every(
+						(row: { wins: number; losses: number; draws: number }) =>
+							row.wins + row.losses + row.draws <= competition.stages[1].swiss_rules.round_limit
+					)
+				).toBe(true);
+			}
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+			expect(await page.locator('body').textContent()).not.toContain('@example.invalid');
+			expect(JSON.stringify(competition)).not.toContain(
+				'Synthetic Swiss confirmed repeat exception'
+			);
+		}
+	}
+});
