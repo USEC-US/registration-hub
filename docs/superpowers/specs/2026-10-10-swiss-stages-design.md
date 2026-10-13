@@ -17,8 +17,9 @@ delivered [multi-stage design](2026-10-09-multi-stage-competition-design.md).
 It replaces the older Swiss upper/lower-half pairing preference and proposed
 ranking-based handoff order. Existing non-Swiss stage plans retain their rules.
 Delivery remains tracked in [BRACKET-TODO](../../BRACKET-TODO.md).
-The [implementation plan](../plans/2026-10-10-swiss-stages.md) is the next
-review artifact; implementation has not been authorized.
+The [implementation plan](../plans/2026-10-10-swiss-stages.md) was authorized
+for execution on 2026-10-10; its ten tasks are delivered and independently
+reviewed. The operating/testing guide records the executed proof.
 
 ## 1. Purpose and placement
 
@@ -323,5 +324,7 @@ Pairing and handoff commands must still reject ineligible entrants. If a stage
 cannot continue under its published rules, retain the blocked state and history;
 do not invent an automatic competition-ending decision.
 
-Design review is complete. Review the separate implementation plan before
-execution; this document does not mark any Swiss delivery task done.
+Design and task implementation reviews are complete. Consolidated final fixes
+are implemented and verified; scoped re-review and integration remain pending.
+Delivery status and executed proof are tracked in BRACKET-TODO and the
+operating/testing guide.
