@@ -669,6 +669,12 @@ def _resolve_automatic_matches(draw: StageDraw) -> None:
     )
     for match in _ordered_matches(draw, include_drafts=not is_swiss):
         _reconcile_reset_final(match)
+        if match.status in (
+            Match.Status.FINAL,
+            Match.Status.CONDITIONAL,
+            Match.Status.NOT_REQUIRED,
+        ):
+            continue
         result = _automatic_result(
             match.status,
             list(

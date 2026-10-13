@@ -529,8 +529,7 @@ def validate_swiss_round(round_, *, verify_pairing=True):
             )
 
 
-def validate_swiss_draw(draw):
-    _validate_swiss_field(draw)
+def _validate_swiss_round_sequence(draw):
     rounds = list(
         draw.rounds.filter(section=Round.Section.NORMAL)
         .exclude(state=Round.State.SUPERSEDED)
@@ -543,6 +542,12 @@ def validate_swiss_draw(draw):
     drafts = [r for r in rounds if r.state == Round.State.DRAFT]
     if len(drafts) > 1 or (drafts and drafts[0].pk != rounds[-1].pk):
         raise ValidationError("Save only one private next Swiss round.")
+    return rounds
+
+
+def validate_swiss_draw(draw):
+    _validate_swiss_field(draw)
+    rounds = _validate_swiss_round_sequence(draw)
     for round_ in rounds:
         validate_swiss_round(round_)
 
@@ -841,7 +846,9 @@ def publish_swiss_round(*, actor, round_id: int, expected_revision: int) -> Roun
                 )
             )
         )
-        validate_swiss_draw(round_.draw)
+        _validate_swiss_round_sequence(round_.draw)
+        # Signed corrections own published history; fully verify only this private preview.
+        validate_swiss_round(round_)
         round_.state = Round.State.PUBLISHED
         round_.published_at = timezone.now()
         round_.save(update_fields=("state", "published_at"))

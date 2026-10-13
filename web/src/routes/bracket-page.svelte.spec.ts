@@ -1074,9 +1074,7 @@ describe('public Swiss qualification', () => {
 				locale === 'en' ? 'Swiss round 2 published' : 'Đã công bố vòng Swiss 2'
 			);
 			expect(container.textContent).toContain(
-				locale === 'en'
-					? '1 rematches in this published round.'
-					: 'Vòng đã công bố này có 1 cặp tái đấu.'
+				locale === 'en' ? 'Required rematches: 1.' : 'Vòng đã công bố này có 1 cặp tái đấu.'
 			);
 			expect(container.textContent).toContain(
 				locale === 'en'
@@ -1085,7 +1083,7 @@ describe('public Swiss qualification', () => {
 			);
 			expect(container.textContent).toContain(
 				locale === 'en'
-					? '1 rounds became historical; recorded results are preserved.'
+					? 'Rounds moved to history: 1; recorded results are preserved.'
 					: '1 vòng đấu đã được lưu vào lịch sử; kết quả được giữ nguyên.'
 			);
 			const historicalLabel =

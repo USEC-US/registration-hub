@@ -10,7 +10,14 @@
 
 **Spec:** [Approved Swiss design](../specs/2026-10-10-swiss-stages-design.md), approved 2026-10-10. Read it alongside the [delivered multi-stage design](../specs/2026-10-09-multi-stage-competition-design.md).
 
-**Status:** Ready for plan review. No implementation or execution method approved.
+**Status:** Implementation and subagent execution were authorized on 2026-10-10.
+Tasks 1–10 are delivered and independently reviewed on `feat/swiss-stages`;
+consolidated final review fixes are implemented and verified, awaiting scoped
+re-review before integration.
+The task checklists below retain the original execution instructions; current
+delivery and proof are recorded in `docs/BRACKET-TODO.md` and
+`docs/testing/competition-swiss.md`. The user clarified on 2026-10-13 that the
+organizer stays English until future translation work; public EN/VI is required.
 
 ## Global Constraints
 
@@ -608,7 +615,7 @@ self.assertEqual(preserved_seed_match_ids, original_seed_match_ids)
   commands. Cover configure→seed→private preview→publish→result→next round→
   cutoff/threshold completion→saved handoff, plus intermediate/consecutive Swiss.
   Include a repeat exception and earlier correction after downstream play in
-  disposable scenarios. Assert organizer and public EN/VI views, mobile scroll,
+  disposable scenarios. Assert English organizer and public EN/VI views, mobile scroll,
   bye status, lock errors, current versus historical scores and preview privacy.
 - [ ] **Run final backend gates from `server/`:**
 
@@ -648,12 +655,10 @@ pnpm exec playwright test --config=playwright.django.config.ts e2e/django/admin-
 Spec coverage: placement/limits/locking → Tasks 1–3; results/seeds/matching →
 Tasks 2/4; qualification and outcome-dependent successors → Tasks 3/5;
 publication/corrections → Tasks 4/6/8; organizer/public delivery → Tasks 7–10.
-Each Review Focus item has an owning regression above. Application tests and
-dependency installation are execution work, not evidence from this planning pass.
-
-Recommend native execution because these tasks share the same transaction,
-qualification and visibility boundaries. Implement in order with focused
-checks and intent-based commits, followed by independent whole-branch review
-under the chosen execution skill. Subagent-driven execution is also available
-if the user prefers per-task implementation/review contexts. Review this plan
-and select an execution method before starting implementation.
+Each Review Focus item has an owning regression above. Tasks 1–10 were executed
+in order using the user-approved subagent workflow, with task-scoped commits and
+independent reviews. The whole-feature review requested one consolidated final
+fix wave for measured later-publication cost, automatic RR display sizes, and
+English Changes wording. Executed commands, outcomes, and measurement limits
+belong in the operating/testing guide and delivery tracking; the checklist alone
+is not runtime evidence. Integration remains a separate step.

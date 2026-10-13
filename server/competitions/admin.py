@@ -1363,7 +1363,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     competition.pk, stage_id=selected_stage_id
                 ),
                 "stage_setup": isinstance(form, CompetitionSetupForm),
-                "group_plans": form.group_plans
+                "group_plans": form.display_group_plans
                 if isinstance(form, GroupDrawForm)
                 else None,
                 "description": description

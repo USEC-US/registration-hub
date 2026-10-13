@@ -14,6 +14,11 @@ Every Swiss stage starts fresh: points, records, byes, opponent history and thre
 
 ## Organizer workflow
 
+The organizer UI remains English under the user's 2026-10-13 scope clarification.
+Translation of organizer controls is future work. Public Swiss rules, standings,
+statuses and Changes support English and Vietnamese; the locale proof below
+applies to those public views.
+
 1. Save all stages and rules, choose approved entrants for stage 1, then save the seed order or random draw.
 2. Review the private first-round preview and publish separately. Spectators cannot read a private draw. Refresh preserves the saved IDs and pairings.
 3. Finalize every current-round match. Select **Generate next Swiss round** to save one private preview; GET and refresh never generate. Review its bye, score-group moves and any pairing exception, then select **Publish saved Swiss round**.
@@ -50,7 +55,7 @@ The browser harness overrides `DJANGO_SETTINGS_MODULE` with `config.settings`: i
 
 Final workflow evidence: 335 PostgreSQL competition/development-seed tests in 461.738s, OK with no skipped races (`task-10-backend-recovery.log`, 2026-10-13). After restore, the original final backend process and disposable instance were gone and its log had no summary; the isolated `/tmp:55441` instance/settings were recreated and the entire gate rerun in this new log. The incomplete `task-10-backend-final.log` remains preserved and is not counted as passing evidence.
 
-Both complete Django-backed bracket browser files passed all 12 journeys in 4.0m (`task-10-browser-final.log`, 2026-10-10), including fixed/threshold/consecutive Swiss, actual rematch consent, signed corrections after downstream play, EN/VI and 390px containment. Frontend sources/build inputs were unchanged by the approved server compatibility fixes: retained proof is 36 focused Vitest tests in 5.95s, Svelte/i18n with zero errors/warnings and a successful production build. Final Django system checks, migration drift, Ruff and browser ESLint passed. The production build retained third-party circular-dependency and empty-chunk warnings. This is the competition/seed gate and both bracket browser files, not the entire unrelated application suite.
+Both complete Django-backed bracket browser files passed all 12 journeys in 4.0m (`task-10-browser-final.log`, 2026-10-10), including fixed/threshold/consecutive Swiss, actual English organizer rematch consent, signed corrections after downstream play, public EN/VI and organizer/public 390px containment. Organizer Vietnamese localization was not exercised and is explicitly deferred. Frontend sources/build inputs were unchanged by the approved server compatibility fixes: retained Task 10 proof is 36 focused Vitest tests in 5.95s, Svelte/i18n with zero errors/warnings and a successful production build. Final Django system checks, migration drift, Ruff and browser ESLint passed. The production build retained third-party circular-dependency and empty-chunk warnings. This is the competition/seed gate and both bracket browser files, not the entire unrelated application suite.
 
 Compatibility regressions retain saved Exact Round Robin group plans with unknown incoming counts and formerly published non-Swiss tiebreak navigation/scores. Restored history does not change current qualification or standings. Private retired rounds, superseded owning draws and Swiss superseded rounds remain excluded from current snapshots.
 
@@ -58,7 +63,38 @@ Task 1's populated PostgreSQL migration proof preserved existing elimination/Rou
 
 The deterministic solver proof includes process/hash-seed checks. Task 2 measured Python 3.14.7 / NetworkX 3.7 pure solver performance: 256 first-round entrants paired in 0.304480s; a fragmented fixed field with 8,064 prior pairs over 63 rounds in 2.108597s; the analogous synthetic threshold records in 1.328945s. Each returned 128 pairs and zero repeats; cross-group pairs were 0, 64 and 2 respectively. These are observations, not worst-case guarantees. The threshold benchmark deliberately isolates matching and is not a legally playable full threshold tournament. Pinned NetworkX changes require rerunning determinism proof.
 
-Publication currently revalidates/re-solves retained ordinary rounds. The above pure solver timings do not establish persisted 256-entry/64-round publication latency; that stress remains unmeasured. No timing or integrity failure is established by this limitation.
+The consolidated final fix keeps full initial-draw and private-preview validation
+while removing historical pairing replay from later publication. It also skips
+completed automatic-result slot reads, resolves known automatic RR display sizes
+without changing saved plans, and uses count-neutral English Changes copy.
+Fresh proof: 340 PostgreSQL competition/seed tests in 357.049s with no skips,
+46 focused command/workspace tests, and 25 public component tests. The complete
+gate ran before a final display-only follow-up preserving configured Exact sizes
+without selected entrants; that follow-up and its additional regression have
+fresh 56-test workspace proof in 25.361s. It is not claimed as a 341-test full run.
+Svelte/i18n, production build, Django check, migration drift, Ruff, scoped ESLint
+and Prettier passed. The existing 12 browser journeys are retained evidence;
+they were not rerun for this wave. The build retains the third-party warnings
+described above.
+
+The same disposable persisted 256-entry/64-round case contains 8,192 ordinary
+fixtures with 63 completed 1–1 rounds and a saved private round 64. The real
+`publish_swiss_round` now completed in **12.528s, 234 SQL executions and one solver
+call (2.829933s solver time)**, ending PUBLISHED with its normal Changes event.
+Fixture setup was **231.116s**, measured separately. The pre-fix review measured
+**236.053s, 11,197 SQL executions and 64 solver calls (117.879s solver time)**,
+excluding **242.478s** setup. Both runs use the unchanged
+`/tmp/swiss_publication_review.py`, the pinned solver and separate disposable
+database on `/tmp:55441`; the repeat ran without competing test/build processes.
+Later historical fixture setup uses internal persistence with real pairings,
+source fingerprints/audits and bulk finalized scores, so this is not an
+end-to-end 8,192-result workflow. SQL and solver counters wrap real execution;
+the timed publication is the actual command. The script removed its benchmark
+database, and the disposable instance was stopped afterward. See the execution
+workspace's `final-fix-report.md` and `final-fix-publication-measurement.log` for
+commands and results. This is one local repeat-free case, not a worst-case or
+production latency guarantee; pure solver timings alone remain insufficient for
+persisted-publication claims.
 
 ## Migration and deployment
 

@@ -497,6 +497,26 @@ class GroupDrawForm(DrawForm):
         stage = competition.stages.first()
         draw = stage.draws.exclude(state="SUPERSEDED").first() if stage else None
         self.group_plans = list(stage.group_plans.all()) if stage else []
+        from .stage_commands import resolve_group_sizes
+
+        sizes = [plan.size for plan in self.group_plans]
+        self.group_size_error = ""
+        if self.entrants and self.group_plans:
+            try:
+                sizes = resolve_group_sizes(
+                    [(p.name, p.size, p.qualifying_places) for p in self.group_plans],
+                    len(self.entrants),
+                )
+            except forms.ValidationError as error:
+                self.group_size_error = " ".join(error.messages)
+        self.display_group_plans = [
+            {
+                "name": plan.name,
+                "size": size,
+                "qualifying_places": plan.qualifying_places,
+            }
+            for plan, size in zip(self.group_plans, sizes)
+        ]
         choices = [(p.number, p.name) for p in self.group_plans]
         saved = (
             dict(draw.entries.values_list("entrant_id", "group__number"))

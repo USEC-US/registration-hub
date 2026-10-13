@@ -109,6 +109,69 @@ class SwissCommandTests(TestCase):
         self.assertEqual(draw.rounds.count(), 2)
         self.assertEqual(draw.rounds.filter(state="PUBLISHED").count(), 2)
 
+    def test_late_publication_validates_only_saved_pairing_and_preserves_history(self):
+        draw = self._draw(
+            8, round_count=4, series_mode="FIXED_GAMES", default_series_length=2
+        )
+        round_ = draw.rounds.get()
+        for _ in range(3):
+            for match in round_.matches.all():
+                commands.finalize_match(
+                    actor=self.actor,
+                    match_id=match.pk,
+                    expected_revision=self._revision(),
+                    outcome="PLAYED",
+                    side_one_score=1,
+                    side_two_score=1,
+                )
+            saved = self._generate()
+            if saved.number < 4:
+                round_ = self._publish(saved)
+        history = list(
+            Match.objects.filter(round__draw=draw, status="FINAL")
+            .order_by("pk")
+            .values()
+        )
+        with patch.object(
+            swiss_commands, "pair_swiss_round", wraps=swiss_commands.pair_swiss_round
+        ) as solver:
+            self._publish(saved)
+        self.assertEqual(solver.call_count, 1)
+        saved.refresh_from_db()
+        self.assertEqual(saved.state, "PUBLISHED")
+        self.assertEqual(
+            history,
+            list(
+                Match.objects.filter(pk__in=[m["id"] for m in history])
+                .order_by("pk")
+                .values()
+            ),
+        )
+        self.assertEqual(saved.matches.filter(status="PENDING").count(), 4)
+        event = self.competition.changes.get(revision=self._revision())
+        self.assertEqual(event.kind, "swiss_round_published")
+        self.assertEqual(event.public_data["round_number"], 4)
+
+    def test_automatic_resolution_skips_slots_of_final_swiss_history(self):
+        draw = self._draw()
+        self._finish(draw.rounds.get())
+        _ = draw.stage
+        with self.assertNumQueries(2):
+            commands._resolve_automatic_matches(draw)
+
+    def test_publication_rejects_extra_private_round_without_mutation(self):
+        draw = self._draw()
+        self._finish(draw.rounds.get())
+        saved = self._generate()
+        Round.objects.create(draw=draw, number=3, version=1)
+        revision = self._revision()
+        with self.assertRaises(ValidationError):
+            self._publish(saved)
+        saved.refresh_from_db()
+        self.assertEqual(saved.state, "DRAFT")
+        self.assertIsNone(saved.published_at)
+        self.assertEqual(self._revision(), revision)
+
     def test_repeated_generate_reuses_draft_without_solver_or_revision_change(self):
         draw = self._draw()
         self._finish(draw.rounds.get())

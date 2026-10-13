@@ -1,10 +1,15 @@
 # Swiss qualification stages
 
-Date: 2026-10-10. Branch: `feat/tournament-brackets`.
+Date: 2026-10-10. Branch: `feat/swiss-stages`.
 
-Status: **Design approved on 2026-10-10; implementation planning only.**
-The decisions below consolidate the current planning conversation. Technical
-details describe proposed behavior, not features already delivered.
+Status: **Design approved and implementation authorized on 2026-10-10;
+Tasks 1–10 delivered and independently reviewed.** The consolidated final review
+fixes are implemented and verified on the feature branch; scoped re-review and
+integration are pending.
+See the [operating/testing guide](../../testing/competition-swiss.md) for executed
+proof and its limits. The organizer remains English by the user's explicit
+2026-10-13 instruction; organizer translation is future work. Public Swiss
+presentation supports English and Vietnamese.
 
 This refines the Swiss portion of the
 [competition core design](2026-09-23-competition-core-design.md) and extends the
@@ -307,8 +312,10 @@ Required focused evidence includes:
 - Cover stale and concurrent round generation, correction of earlier rounds
   after later play, cutoff invalidation, downstream retirement, and private
   preview/history boundaries.
-- Preserve existing non-Swiss data through migration and verify organizer and
-  public workflows in English/Vietnamese and at narrow viewport widths.
+- Preserve existing non-Swiss data through migration and verify organizer
+  workflows in English and public workflows in English/Vietnamese, including
+  narrow viewport widths. Organizer translation is deferred by the user's
+  explicit scope clarification.
 
 No new withdrawal/disqualification commands or UI, exceptional competition-ending
 workflow, provider integration, or realtime delivery is added to this slice.

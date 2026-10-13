@@ -303,12 +303,22 @@ responsive public browser journey for V4; and repeatable fixtures, operating
 notes, migration guidance, and recorded results for V5. Swiss evidence adds fixed/threshold/consecutive stages, complete no-rematch pairing
 and explicit exceptions, odd byes, cutoff decisions, PostgreSQL generation and
 publication/correction races, private previews, played-suffix history, and real
-organizer/public EN/VI journeys at 390px. Supported formats and ordered-stage
+English organizer and public EN/VI journeys at 390px. Organizer translation is
+future work under the user's explicit 2026-10-13 clarification. Supported formats and ordered-stage
 workflows are covered. The broad V1–V5 gates remain open for deferred
 withdrawal/disqualification, exceptional chain-ending paths and broader delivery
-hardening. Realtime retains its separate gate. Maximum-field/64-round persisted
-publication stress remains unmeasured; pure solver timings are not a latency
-guarantee.
+hardening. Realtime retains its separate gate. A disposable persisted
+256-entry/64-round measurement found 236.053s, 11,197 SQL executions and 64 solver
+calls for the real final publication, excluding 242.478s of fixture setup.
+The consolidated fix removes repeated historical pairing validation while
+retaining full private-preview validation. The unchanged script's repeat measured
+12.528s, 234 SQL executions and one solver call (2.829933s solver time), excluding
+231.116s setup; real final publication completed PUBLISHED. Fresh proof includes
+340 competition/seed tests and 56 final workspace tests for the later display-only
+Exact-size follow-up, plus 25 public component tests and static/build checks.
+The operating/testing guide records the measurement and verification limits;
+one local case is not a production latency guarantee. Scoped re-review and
+integration remain separate from implementation completion.
 
 Core is complete when an authorized TO can run all agreed formats and ordered
 stage handoffs through Django Unfold admin, and spectators can follow published

@@ -457,9 +457,9 @@
 	"bracket_swiss_complete": "Swiss qualification complete",
 	"bracket_swiss_pairings": "Swiss pairings",
 	"bracket_swiss_round_published": "Swiss round {number} published",
-	"bracket_swiss_rematches": "{count} rematches in this published round.",
+	"bracket_swiss_rematches": "Required rematches: {count}.",
 	"bracket_swiss_repeated_bye": "A repeat bye was needed in this published round.",
-	"bracket_swiss_retired_rounds": "{count} rounds became historical; recorded results are preserved.",
+	"bracket_swiss_retired_rounds": "Rounds moved to history: {count}; recorded results are preserved.",
 	"bracket_swiss_historical_match": "Historical match {code}",
 	"bracket_swiss_bye_result": "Bye · {name}"
 }

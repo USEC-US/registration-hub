@@ -128,6 +128,59 @@ class SwissWorkspaceTests(TestCase):
             response.context_data["form"]["group_size_policy"].value(), "AUTOMATIC"
         )
 
+    def test_known_first_stage_automatic_rr_draw_displays_resolved_sizes(self):
+        self._competition(7)
+        self.stage = handoff_fixtures.SwissHandoffTests._rr(
+            self, 1, [("A", None, 2), ("B", None, 2)]
+        )
+        self.client.force_login(self.actor)
+        response = self.client.get(
+            reverse(
+                "admin:competitions_competition_draw_detail", args=[self.competition.pk]
+            )
+        )
+        self.assertContains(response, "A: 4 entrants, 2 qualify")
+        self.assertContains(response, "B: 3 entrants, 2 qualify")
+        self.assertNotContains(response, "None entrants")
+        self.assertEqual(
+            list(self.stage.group_plans.values_list("size", flat=True)), [None, None]
+        )
+
+    def test_saved_exact_group_sizes_remain_visible_before_entrant_selection(self):
+        self._competition(6)
+        self.stage = handoff_fixtures.SwissHandoffTests._rr(
+            self, 1, [("A", 3, 2), ("B", 3, 2)]
+        )
+        self.competition.entrants.update(is_selected=False)
+        self.client.force_login(self.actor)
+        response = self.client.get(
+            reverse(
+                "admin:competitions_competition_draw_detail", args=[self.competition.pk]
+            )
+        )
+        self.assertContains(response, "A: 3 entrants, 2 qualify")
+        self.assertContains(response, "B: 3 entrants, 2 qualify")
+        self.assertEqual(
+            list(self.stage.group_plans.values_list("size", flat=True)), [3, 3]
+        )
+
+    def test_known_rr_field_that_cannot_fill_groups_displays_allocation_error(self):
+        self._competition(3)
+        self.stage = handoff_fixtures.SwissHandoffTests._rr(
+            self, 1, [("A", None, 2), ("B", None, 2)]
+        )
+        self.client.force_login(self.actor)
+        response = self.client.get(
+            reverse(
+                "admin:competitions_competition_draw_detail", args=[self.competition.pk]
+            )
+        )
+        self.assertContains(
+            response, "The incoming field cannot fill every group and quota."
+        )
+        self.assertContains(response, "allocation blocked")
+        self.assertNotContains(response, "None entrants")
+
     def test_saved_exact_rr_sizes_survive_edit_before_incoming_field_is_known(self):
         self._competition(8)
         self.stage = self._swiss(
