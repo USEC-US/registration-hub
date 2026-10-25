@@ -59,19 +59,17 @@ function isNonNegativeInteger(value: unknown): value is number {
 	return Number.isInteger(value) && Number(value) >= 0;
 }
 
-function isInstitutionChoice(value: RecordValue, allowBlankLabel = false): boolean {
+function isInstitutionChoice(value: RecordValue): boolean {
 	const hasId = 'institution_id' in value;
 	const hasLabel = 'institution_label' in value;
 	return (
 		hasId !== hasLabel &&
 		(!hasId || isPositiveInteger(value.institution_id)) &&
-		(!hasLabel ||
-			(typeof value.institution_label === 'string' &&
-				(allowBlankLabel || value.institution_label.trim() !== '')))
+		(!hasLabel || typeof value.institution_label === 'string')
 	);
 }
 
-function isMember(value: unknown, allowBlankInstitution = false): boolean {
+function isMember(value: unknown): boolean {
 	if (!isRecord(value)) return false;
 	if (
 		!hasOnlyKeys(
@@ -101,14 +99,11 @@ function isMember(value: unknown, allowBlankInstitution = false): boolean {
 		typeof value.is_captain === 'boolean' &&
 		(value.roster_role === 'main' || value.roster_role === 'substitute') &&
 		isNonNegativeInteger(value.display_order) &&
-		isInstitutionChoice(value, allowBlankInstitution)
+		isInstitutionChoice(value)
 	);
 }
 
-function isSubmissionPayload(
-	value: unknown,
-	allowBlankInstitution = false
-): value is RegistrationSubmissionPayload {
+function isSubmissionPayload(value: unknown): value is RegistrationSubmissionPayload {
 	if (!isRecord(value)) return false;
 	if (
 		!hasOnlyKeys(
@@ -136,7 +131,7 @@ function isSubmissionPayload(
 		) &&
 		(value.submitter_role === 'captain' || value.submitter_role === 'manager') &&
 		Array.isArray(value.members) &&
-		value.members.every((member) => isMember(member, allowBlankInstitution))
+		value.members.every((member) => isMember(member))
 	);
 }
 
@@ -161,7 +156,7 @@ function parseDraft(value: unknown, gameId: number): RegistrationDraft | null {
 	if (value.stage !== 'details' && value.stage !== 'roster' && value.stage !== 'review')
 		return null;
 	if (
-		!isSubmissionPayload(value.fields, true) ||
+		!isSubmissionPayload(value.fields) ||
 		value.fields.tournament_game !== gameId ||
 		!isLabels(value.institutionLabels)
 	)

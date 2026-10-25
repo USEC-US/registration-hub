@@ -162,8 +162,8 @@
 					x.last_name_snapshot.trim() &&
 					/^\d{4}-\d{2}-\d{2}$/.test(x.date_of_birth_snapshot) &&
 					x.date_of_birth_snapshot <= new Date().toISOString().slice(0, 10) &&
-					(!instanceData.tournament.students_only || x.student_id_snapshot.trim()) &&
-					(x.institution_id || x.institution_label?.trim())
+					(!instanceData.tournament.students_only ||
+						(x.student_id_snapshot.trim() && (x.institution_id || x.institution_label?.trim())))
 			)
 		);
 	}

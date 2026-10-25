@@ -20,11 +20,11 @@ Schedule expiry every minute. For example, a cron entry owned by the application
 
 Replace these example paths with the deployed paths and provide the same environment/secret loading as the backend service. Confirm the command succeeds under the scheduler's actual user and environment, and monitor failures. A manual run uses `.venv/bin/python manage.py expire_unpaid_registrations` from that same directory. No scheduler is installed by this repository change.
 
-A missed schedule can delay persisted EXPIRED events. Effective availability and duplicate-player claims still release overdue unpaid entries using backend time; they do not depend on cron. Pending or verified proof protects a reservation. Rejected proof requires a staff reason and starts a replacement window using the saved duration from review time, even after registration closes. Expired records remain visible but cannot accept payment proof; retry creates a separate editable draft when intake is available. Verification of payment and eligibility approval are separate staff decisions.
+A missed schedule can delay persisted EXPIRED events. Effective availability and duplicate-player claims still release overdue unpaid entries using backend time; they do not depend on cron. Pending or verified proof protects a reservation. Organizers approve a paid registration and verify its submitted image proof in one transaction; without proof, approval fails. Historical rejected proofs retain their replacement window. Expired records remain visible but cannot accept payment proof; retry creates a separate editable draft when intake is available.
 
 ## Recovery
 
-- **Rejected proof:** explain the correction in the staff reason. The participant refreshes the saved payment page and uploads replacement evidence within the displayed deadline.
+- **Unclear proof:** reject the registration with a meaningful reason. The participant can create a new editable draft and submit fresh evidence while intake is open; keep earlier attempts for reconciliation. If money was transferred, reconcile with the organizer before another payment.
 - **Late transfer:** retain the old registration and evidence; ask the organizer to reconcile it before creating another payment. Never treat an expired QR or reference as authority to reserve a new place.
 - **Lost response:** use “Recover pending submission” on the original browser. The saved credential resolves the committed registration without duplicating it.
 - **Lost browser access:** sign in as the submitting account when applicable. Guests must return on the original browser or contact organizers; an internal `USEC` reference is not an access credential. Clearing device access does not cancel an entry.

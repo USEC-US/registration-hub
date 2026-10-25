@@ -1,0 +1,69 @@
+{% extends "admin/competitions/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="cw cw-detail">
+  <a class="cw-back" href="{{ change_url }}">&larr; {% if match_card %}Back to match{% elif workspace_url %}Back to competition{% else %}Back{% endif %}</a>
+  <header class="cw-header"><div><h1>{{ title }}</h1>{% if division %}<p>{{ division.tournament.name }} · {{ division.game.name }}</p>{% endif %}{% if description %}<p class="cw-muted">{{ description }}</p>{% endif %}</div></header>
+  {% if match_card %}
+    <section class="cw-scoreboard cw-scoreboard-compact" aria-label="{{ match_card.title }}">
+      <header class="cw-match-heading"><strong>{{ match_card.code }}</strong><span>{{ match_card.series_label }}</span></header>
+      <ol class="cw-slots">
+        {% for slot in match_card.slots %}<li class="cw-slot{% if slot.is_winner %} cw-slot-winner{% endif %}"><span class="cw-slot-name">{{ slot.label }}{% if slot.is_winner %}<span class="cw-winner-label">Winner</span>{% endif %}</span><strong class="cw-slot-score">{{ slot.score|default_if_none:"—" }}</strong></li>{% endfor %}
+      </ol>
+    </section>
+  {% endif %}
+  {% if impact_display %}
+    <section class="cw-notice cw-notice-warning" aria-labelledby="cw-impact-title">
+      <h2 id="cw-impact-title">Review this correction</h2>
+      <dl class="cw-comparison"><div><dt>Before</dt><dd>{{ impact_display.before|linebreaksbr }}</dd></div><div><dt>After</dt><dd>{{ impact_display.after|linebreaksbr }}</dd></div></dl>
+      {% if impact_display.matches %}
+        <h3>These match results will be cleared</h3>
+        <p>Their current scores and results will be cleared. Previous results will remain in Changes.</p>
+        <ul class="cw-reset-list">{% for item in impact_display.matches %}<li>{% if item.url %}<a href="{{ item.url }}">{{ item.code }} — {{ item.label }}</a>{% else %}{{ item.code }} — {{ item.label }}{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p>No other match results need to be cleared.</p>{% endif %}
+      {% if impact_display.swiss.rounds %}<h3>Swiss rounds becoming historical</h3><p>{{ impact_display.swiss.retired_match_count }} fixtures will leave current standings. Their recorded scores and results are preserved.</p><ul>{% for round in impact_display.swiss.rounds %}<li>{{ round.label }} · {{ round.state }}</li>{% endfor %}</ul>{% endif %}
+      {% if impact_display.swiss.played_matches %}<h3>Played Swiss results preserved as history</h3><ul class="cw-reset-list">{% for match in impact_display.swiss.played_matches %}<li><a href="{{ match.url }}">{{ match.code }} — {{ match.title }} · {{ match.scores }}</a></li>{% endfor %}</ul>{% endif %}
+      {% if impact_display.group %}<h3>{{ impact_display.group.group_name }} qualification impact</h3><p>Qualifiers: {{ impact_display.group.before_qualifiers|join:", "|default:"Unresolved" }} → {{ impact_display.group.after_qualifiers|join:", "|default:"Unresolved" }}</p><p>Qualification: {{ impact_display.group.before.qualification_state }} → {{ impact_display.group.after.qualification_state }}</p><p>Tie decisions superseded: {{ impact_display.group.invalidated_resolution_ids|length }}. Their extra contests remain historical.</p><table><caption>Projected standings</caption><thead><tr><th>Rank</th><th>Entry</th><th>Points</th><th>Game difference</th></tr></thead><tbody>{% for row in impact_display.group.after_rows %}<tr><td>{{ row.rank }}</td><td>{{ row.name }}</td><td>{{ row.points }}</td><td>{{ row.game_difference }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+      {% if impact_display.group.historical_matches %}<h3>Extra contests becoming historical</h3><p>Their records and scores will remain available as history.</p><ul class="cw-reset-list">{% for item in impact_display.group.historical_matches %}<li><a href="{{ item.url }}">{{ item.code }}</a> · {{ item.status }} · {{ item.label }}</li>{% endfor %}</ul>{% endif %}
+      {% if impact_display.activation_changes %}
+        <h3>Reserved final activation changes</h3>
+        <ul class="cw-reset-list">{% for item in impact_display.activation_changes %}<li><a href="{{ item.url }}">{{ item.code }}</a> — {{ item.before }} &rarr; {{ item.after }}</li>{% endfor %}</ul>
+      {% endif %}
+    </section>
+  {% elif impact %}
+    <div class="cw-notice cw-notice-warning"><h2>Review this correction</h2><p>Confirm the result correction below. Previous results will remain in Changes.</p></div>
+  {% endif %}
+  {% if tie_preview %}<section class="cw-panel"><h2>{{ tie_preview.group_name }} — {{ tie_preview.places }} qualifying place{{ tie_preview.places|pluralize }}</h2>
+    {% if tie_preview.method == 'MANUAL' %}<p>Organizer order: {{ tie_preview.ordered_entries|join:" → " }}</p>{% else %}<p>Extra contests · Best of {{ tie_preview.series_length }}. Ordinary group points stay unchanged.</p><ul>{% for pairing in tie_preview.fixtures %}<li>{{ pairing|join:" vs " }}</li>{% endfor %}</ul>{% endif %}</section>{% endif %}
+  {% if impact_display.handoff.superseded_draw_ids %}<section class="cw-panel"><h2>Downstream draws leaving the active competition</h2><p>{{ impact_display.handoff.superseded_draw_ids|length }} draw{{ impact_display.handoff.superseded_draw_ids|length|pluralize }} will become historical. Their recorded results are preserved.</p><ul>{% for result in impact_display.retired_results %}<li>{{ result }}</li>{% endfor %}</ul></section>{% endif %}
+  {% if rematch_url %}<p class="cw-notice cw-notice-warning">A complete round without rematches could not be found. <a class="cw-button" href="{{ rematch_url }}">Allow required rematches</a></p>{% endif %}
+  <form method="post"{% if form_action %} action="{{ form_action }}"{% endif %} class="cw-panel cw-form">
+    {% csrf_token %}
+    {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+    {% if form.non_field_errors %}<div class="cw-form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form.hidden_fields %}{{ field }}{% if field.errors %}<div class="cw-form-errors" role="alert">{{ field.errors }}</div>{% endif %}{% endfor %}
+    {% if group_plans %}<p class="cw-help">Groups and quotas are configured in Stage Add/Edit. Assign entrants to the saved groups below.</p>{% if form.group_size_error %}<p class="cw-help">{{ form.group_size_error }}</p>{% endif %}<ul>{% for group in group_plans %}<li>{{ group.name }}: {% if group.size %}{{ group.size }} entrants{% elif form.group_size_error %}allocation blocked{% else %}automatic size pending the field{% endif %}, {{ group.qualifying_places }} qualify</li>{% endfor %}</ul>{% endif %}
+    <div class="cw-form-fields">
+      {% for field in form.setup_fields|default:form.visible_fields %}{% include "admin/competitions/form_field.html" %}{% endfor %}
+    </div>
+    {% if stage_setup %}
+      <section class="cw-stage-rules" aria-labelledby="cw-stage-rules-title">
+        <h2 id="cw-stage-rules-title">Groups &amp; advancement</h2>
+        {% if form.incoming_count %}<p class="cw-help">Incoming field: {{ form.incoming_count }} entrants.</p>{% else %}<p class="cw-help">The incoming total will be checked once entrants or the previous stage's quota are set.</p>{% endif %}
+        <div data-stage-elimination>{% include "admin/competitions/form_field.html" with field=form.advancement_count %}</div>
+        <div data-stage-groups data-incoming-count="{{ form.incoming_count|default_if_none:'' }}">
+          {% include "admin/competitions/form_field.html" with field=form.group_count %}
+          {% include "admin/competitions/form_field.html" with field=form.group_size_policy %}
+          <noscript><button class="cw-button" type="submit" name="preview_groups" value="1" formnovalidate>Update group rows</button></noscript>
+          <div data-group-rows>{% for row in form.group_rows %}<div class="cw-group-plan-row">{% for field in row %}{% include "admin/competitions/form_field.html" %}{% endfor %}</div>{% endfor %}</div>
+          <p class="cw-help" data-group-summary aria-live="polite"></p>
+          <p class="cw-help">Each group needs at least two entrants. Everyone may qualify, but all required matches must finish. Cutoff ties require Extra Matches or Manual Decision.</p>
+        </div>
+      </section>
+    {% endif %}
+    <div class="cw-form-actions"><button type="submit" class="cw-button cw-button-primary">{{ submit_label|default:"Confirm" }}</button><a class="cw-button" href="{{ change_url }}">Cancel</a></div>
+  </form>
+</div>
+<script src="{% static 'competitions/forms.js' %}" defer></script>
+{% endblock %}

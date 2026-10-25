@@ -13,7 +13,7 @@ The test fixture accounts use reserved `.test` email addresses and a fixed test 
 
 Application API requests are real. The lost-response tests forward an actual registration submission to Django, then drop the browser response and recover the same committed ID using the saved credential; it does not stub persistence or API payloads. It uses the existing development Turnstile bypass so it can run unattended; backend tests separately cover challenge rejection and side effects. It does not verify the live Cloudflare challenge service.
 
-The ten browser journeys cover free guest captain and manager teams with a substitute representative, solo registration, signed-in payment via the account page, paid guest return in a new tab, pending proof, staff rejection and replacement, private proof downloads, separate payment verification and eligibility approval, lost-response recovery, expired-entry retry, and duplicate rejection followed by organizer rejection and resubmission. A JavaScript-disabled browser also verifies that credential forms use POST and keep submission disabled before hydration. Backend tests additionally cover concurrency, snapshot preservation after institution rename, required contacts, invalid proof, and rollback cleanup.
+The ten browser journeys cover free guest captain and manager teams with a substitute representative, solo registration, signed-in payment via the account page, paid guest return in a new tab, pending proof, private proof downloads, combined payment verification and registration approval, lost-response recovery, expired-entry retry, and duplicate rejection followed by organizer rejection and resubmission. A JavaScript-disabled browser also verifies that credential forms use POST and keep submission disabled before hydration. Backend tests additionally cover concurrency, snapshot preservation after institution rename, required contacts, invalid proof, and rollback cleanup.
 
 Run backend verification from `server/`:
 
@@ -81,9 +81,9 @@ The migration test checks forward and reverse limit conversion and preservation 
 
 ## Player identity and student eligibility
 
-Each main player and substitute supplies first name, last name, date of birth, Student ID, and the existing game identifier/institution choice. Names and a valid date of birth are required for every new submission; future birth dates are rejected. Student IDs remain strings so leading zeroes survive.
+Each main player and substitute supplies first name, last name, date of birth, and the existing game identifier. Names and a valid date of birth are required for every new submission; future birth dates are rejected. Student IDs remain strings so leading zeroes survive.
 
-Enable **Students only** in the tournament admin to require Student IDs for all players in every division of that tournament. Other tournaments accept an empty Student ID. This setting collects the information needed for manual organizer review; it does not independently prove enrollment or automatically approve eligibility. Existing tournaments default to this setting being off.
+Enable **Students only** in the tournament admin to require Student IDs and schools for all players in every division of that tournament. Other tournaments accept an empty Student ID and school. School is also optional during account signup and profile edits. This setting collects the information needed for manual organizer review; it does not independently prove enrollment or automatically approve eligibility. Existing tournaments default to this setting being off.
 
 The four identity fields are stored on `RegistrationMember` as snapshots, separately from account/profile data. Organizer admin shows them alongside the roster and supports searching by player name, Student ID, and institution. They are omitted from registration receipts and read serializers. Existing player snapshots, captain ordering, role assignments, contacts, and institution catalogue behavior remain intact.
 

@@ -6,6 +6,7 @@ from unittest.mock import patch
 from urllib.error import URLError
 
 from django.contrib.auth.models import Group, Permission
+from django.contrib.admin.models import LogEntry
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError
@@ -227,6 +228,44 @@ class BankAdminTests(TestCase):
         response = self.client.post(self.sync_url, follow=True)
         self.assertContains(response, "Bank catalogue refreshed: 1 new")
         self.assertEqual(Bank.objects.count(), 1)
+        entry = LogEntry.objects.get(
+            content_type__model="bank", object_id=str(Bank.objects.get().pk)
+        )
+        self.assertEqual(entry.user_id, self.user.pk)
+        self.assertIn("absent", entry.change_message)
+        self.assertIn("active", entry.change_message)
+        self.assertContains(
+            self.client.get(
+                reverse(
+                    "admin:registrations_bank_history", args=[Bank.objects.get().pk]
+                )
+            ),
+            "Bank catalogue refresh",
+        )
+
+    @patch("registrations.bank_catalogue.fetch_bank_catalogue")
+    def test_refresh_history_records_updated_and_deactivated_banks(self, fetch):
+        sync_bank_catalogue(
+            payload(
+                bank_row(), bank_row(bin="970436", shortName="Old bank", code="VCB")
+            )
+        )
+        fetch.return_value = payload(bank_row(shortName="Updated bank"))
+        self.client.post(self.sync_url)
+        updated = Bank.objects.get(bin="970415")
+        deactivated = Bank.objects.get(bin="970436")
+        self.assertIn(
+            "active (VietinBank) -> active (Updated bank)",
+            LogEntry.objects.get(
+                content_type__model="bank", object_id=str(updated.pk)
+            ).change_message,
+        )
+        self.assertIn(
+            "active (Old bank) -> inactive (Old bank)",
+            LogEntry.objects.get(
+                content_type__model="bank", object_id=str(deactivated.pk)
+            ).change_message,
+        )
 
     @patch(
         "registrations.admin.sync_bank_catalogue",
@@ -234,6 +273,7 @@ class BankAdminTests(TestCase):
     )
     def test_refresh_failure_displays_error(self, sync):
         self.assertContains(self.client.post(self.sync_url, follow=True), "Unavailable")
+        self.assertFalse(LogEntry.objects.filter(content_type__model="bank").exists())
 
     @patch("registrations.admin.sync_bank_catalogue")
     def test_unprivileged_staff_cannot_refresh_or_view(self, sync):
@@ -275,3 +315,30 @@ class BankAdminTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(PaymentSettings.objects.get().bank_name, "VietinBank")
+        settings = PaymentSettings.objects.get()
+        response = self.client.post(
+            reverse("admin:registrations_paymentsettings_change", args=[settings.pk]),
+            {
+                "enabled": "on",
+                "bank_bin": "970415",
+                "bank_name": "Ignored display name",
+                "account_number": "00001234",
+                "account_holder": "HCMUSEC UPDATED",
+                "payment_hold_minutes": "60",
+                "_save": "Save",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            LogEntry.objects.filter(
+                content_type__model="paymentsettings", object_id=str(settings.pk)
+            ).exists()
+        )
+        self.assertContains(
+            self.client.get(
+                reverse(
+                    "admin:registrations_paymentsettings_history", args=[settings.pk]
+                )
+            ),
+            "Account holder",
+        )

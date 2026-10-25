@@ -11,6 +11,7 @@ urlpatterns = [
     path("", include("accounts.urls")),
     path("", include("registrations.urls")),
     path("", include("tournaments.urls")),
+    path("", include("competitions.urls")),
     path("schema/", schema_view, name="schema"),
     path(
         "docs/",

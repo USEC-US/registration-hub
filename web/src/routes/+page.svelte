@@ -73,7 +73,7 @@
 					<div class="spotlight-art relative aspect-video overflow-hidden border-b">
 						{#if spotlight.cover_image}
 							<img
-								class="absolute inset-0 size-full object-cover"
+								class="absolute inset-0 size-full object-contain"
 								src={spotlight.cover_image}
 								alt={m.tournament_cover_alt({ name: spotlight.name })}
 								fetchpriority="high"

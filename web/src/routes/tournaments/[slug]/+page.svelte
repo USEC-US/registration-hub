@@ -17,13 +17,15 @@
 	/>
 </svelte:head>
 
-<h1 class="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight sm:text-5xl mb-6">{m.tournament_detail_title()}</h1>
+<h1 class="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight sm:text-5xl mb-6">
+	{m.tournament_detail_title()}
+</h1>
 <article>
 	<header class="overflow-hidden border border-(--line)">
 		{#if data.tournament.cover_image}
 			<figure class="relative aspect-video w-full overflow-hidden bg-(--surface-muted)">
 				<img
-					class="absolute inset-0 h-full w-full object-cover"
+					class="absolute inset-0 h-full w-full object-contain"
 					src={data.tournament.cover_image}
 					alt={m.tournament_cover_alt({ name: data.tournament.name })}
 					loading="eager"
@@ -75,7 +77,11 @@
 					<dd class="font-mono-data mt-1 text-xs font-medium">
 						{#if data.tournament.ends_at}
 							<time datetime={data.tournament.ends_at}>
-								{formatTournamentDateTime(data.tournament.ends_at, getLocale(), data.displayTimeZone)}
+								{formatTournamentDateTime(
+									data.tournament.ends_at,
+									getLocale(),
+									data.displayTimeZone
+								)}
 							</time>
 						{:else}
 							{m.tournament_schedule_tba()}

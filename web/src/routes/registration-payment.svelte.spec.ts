@@ -217,6 +217,11 @@ describe('private payment panel', () => {
 			authority: { credential: 'ab'.repeat(32) },
 			onupdated: vi.fn()
 		});
+		await expect.element(page.getByRole('heading', { name: 'Payment instructions' })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Payment proof' })).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Registration status timeline' }))
+			.toBeVisible();
 		await expect.element(page.getByText('001234', { exact: true })).toBeVisible();
 		await expect
 			.element(
@@ -252,9 +257,95 @@ describe('private payment panel', () => {
 				.not.toBeInTheDocument();
 		}
 	);
+	it('shows registration approval for an approved paid session', async () => {
+		render(PaymentPanel, {
+			session: {
+				...privateSession,
+				registration: { ...registration, status: 'APPROVED' },
+				payment_state: 'VERIFIED',
+				can_upload_proof: false,
+				instructions: null
+			},
+			authority: { credential: 'ab'.repeat(32) },
+			onupdated: vi.fn()
+		});
+		await expect
+			.element(
+				page.getByText(
+					'The registration for team Blue Team in USEC Summer 2026 - Valorant has been confirmed! Thank you for your interest in USEC tournaments!'
+				)
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByText(/Your registration is awaiting approval/))
+			.not.toBeInTheDocument();
+	});
+	it('shows review guidance and contact options while payment proof is pending', async () => {
+		render(PaymentPanel, {
+			session: {
+				...privateSession,
+				payment_state: 'PENDING',
+				can_upload_proof: false,
+				instructions: null
+			},
+			authority: { credential: 'ab'.repeat(32) },
+			onupdated: vi.fn()
+		});
+		await expect
+			.element(page.getByRole('heading', { name: 'Registration submitted' }))
+			.toBeVisible();
+		await expect.element(page.getByText('Awaiting organizer review')).toBeVisible();
+		await expect.element(page.getByText(/include a screenshot of this page/)).toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Contact organizers on Facebook' }))
+			.toHaveAttribute('href', 'https://facebook.com/hcmusec');
+		await expect
+			.element(page.getByRole('link', { name: 'hcmusec@gmail.com' }))
+			.toHaveAttribute('href', 'mailto:hcmusec@gmail.com');
+	});
+	it('hides the payment deadline after proof has been submitted', async () => {
+		render(PaymentPanel, {
+			session: {
+				...privateSession,
+				payment_state: 'PENDING',
+				can_upload_proof: false,
+				instructions: null
+			},
+			authority: { credential: 'ab'.repeat(32) },
+			onupdated: vi.fn()
+		});
+		await expect.element(page.getByText('Payment deadline')).not.toBeInTheDocument();
+	});
 });
 
 import PaymentPage from './registrations/[id]/payment/+page.svelte';
+it('labels removal of locally saved registration access', async () => {
+	const accessKey = `usec-registration-access:v1:${'ab'.repeat(32)}`;
+	localStorage.setItem(
+		accessKey,
+		JSON.stringify({
+			version: 1,
+			gameId: 10,
+			credential: 'ab'.repeat(32),
+			registrationId: 33,
+			attemptState: 'submitted'
+		})
+	);
+	vi.mocked(getPaymentSession).mockReset().mockResolvedValue(privateSession);
+	render(PaymentPage);
+	await expect
+		.element(page.getByRole('heading', { name: 'Delete saved registration on this device' }))
+		.toBeVisible();
+	await expect
+		.element(
+			page.getByText(
+				/registration remains on the USEC system.*Guests may not be able to reopen it here/
+			)
+		)
+		.toBeVisible();
+	await page.getByRole('button', { name: 'Forget on this device' }).click();
+	expect(localStorage.getItem(accessKey)).toBeNull();
+});
 it('loads the private payment page with saved access and never falls through a wrong credential to account authority', async () => {
 	localStorage.setItem(
 		`usec-registration-access:v1:${'ab'.repeat(32)}`,
@@ -339,15 +430,23 @@ it('uses server time, refreshes at the deadline, and cleans visibility listeners
 	await new Promise((resolve) => setTimeout(resolve, 50));
 	expect(getPaymentSession).toHaveBeenCalledTimes(calls);
 });
-it('counts down monotonically between server refreshes', async () => {
+it('formats the countdown in hours and minutes without second-by-second churn', async () => {
 	render(PaymentPanel, {
-		session: privateSession,
+		session: { ...privateSession, payment_due_at: '2026-07-19T01:02:00Z' },
 		authority: { credential: 'ab'.repeat(32) },
 		onupdated: vi.fn()
 	});
-	await expect.element(page.getByText('Time remaining: 3600 seconds')).toBeVisible();
+	await expect.element(page.getByText('Time remaining: 1 hr 2 min')).toBeVisible();
 	await new Promise((resolve) => setTimeout(resolve, 1150));
-	await expect.element(page.getByText('Time remaining: 3599 seconds')).toBeVisible();
+	await expect.element(page.getByText('Time remaining: 1 hr 2 min')).toBeVisible();
+});
+it('shows a calm final-minute countdown instead of raw seconds', async () => {
+	render(PaymentPanel, {
+		session: { ...privateSession, payment_due_at: '2026-07-19T00:00:30Z' },
+		authority: { credential: 'ab'.repeat(32) },
+		onupdated: vi.fn()
+	});
+	await expect.element(page.getByText('Time remaining: less than 1 min')).toBeVisible();
 });
 import { getTournament } from '$lib/api/tournaments';
 import { searchInstitutions } from '$lib/api/institutions';

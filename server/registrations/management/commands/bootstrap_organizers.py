@@ -3,6 +3,17 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Q
 
 PERMISSION_SPEC = {
+    "competitions": {
+        "competition": ("add", "change", "view"),
+        "competitionentrant": ("view",),
+        "stage": ("view",),
+        "stagedraw": ("view",),
+        "stageentry": ("view",),
+        "round": ("view",),
+        "match": ("change", "view"),
+        "matchslot": ("view",),
+        "changeset": ("view",),
+    },
     "tournaments": {
         "game": ("add", "change", "view"),
         "tournament": ("add", "change", "view"),

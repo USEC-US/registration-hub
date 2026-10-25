@@ -7,6 +7,7 @@ from typing import Sequence
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import validate_email
+from django.contrib.admin.models import CHANGE, LogEntry
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -16,6 +17,7 @@ from accounts.services.institutions import (
     resolve_institution,
 )
 from tournaments.models import TournamentGame
+from config.organizers import require_organizer
 
 from .payments import create_payment_intent
 from .payment_settings import require_payment_settings
@@ -216,16 +218,18 @@ def submit_registration(
             )
             resolved = []
             for member in members:
-                try:
-                    institution = resolve_institution(
-                        institution_id=member.institution_id,
-                        institution_label=member.institution_label
-                        or member.school_snapshot,
-                    )
-                except Institution.DoesNotExist as error:
-                    raise ValidationError(
-                        {"members": "Select an available institution."}
-                    ) from error
+                school_label = member.institution_label or member.school_snapshot
+                institution = None
+                if member.institution_id or school_label.strip():
+                    try:
+                        institution = resolve_institution(
+                            institution_id=member.institution_id,
+                            institution_label=school_label,
+                        )
+                    except Institution.DoesNotExist as error:
+                        raise ValidationError(
+                            {"members": "Select an available institution."}
+                        ) from error
                 resolved.append((member, institution))
             claims = [
                 (
@@ -237,13 +241,21 @@ def submit_registration(
             ]
             for member, institution in resolved:
                 tag = normalize_institution_label(member.gamer_tag_snapshot)
-                label = normalize_institution_label(institution.label)
+                label = (
+                    normalize_institution_label(institution.label)
+                    if institution
+                    else ""
+                )
                 if any(
                     tag == old_tag
                     and (
-                        institution.pk == old_id
-                        if old_id is not None
-                        else label == old_label
+                        institution is None
+                        or (old_id is None and not old_label)
+                        or (
+                            institution.pk == old_id
+                            if old_id is not None
+                            else label == old_label
+                        )
                     )
                     for old_tag, old_id, old_label in claims
                 ):
@@ -252,7 +264,7 @@ def submit_registration(
                             "members": "A player already has an active registration in this division."
                         }
                     )
-                claims.append((tag, institution.pk, label))
+                claims.append((tag, institution.pk if institution else None, label))
             submitted_at = timezone.now()
             if submitted_at >= tournament_game.registration_closes_at:
                 raise ValidationError("Registration is not open.")
@@ -290,7 +302,7 @@ def submit_registration(
                         last_name_snapshot=member.last_name_snapshot.strip(),
                         date_of_birth_snapshot=member.date_of_birth_snapshot,
                         student_id_snapshot=member.student_id_snapshot.strip(),
-                        school_snapshot=institution.label,
+                        school_snapshot=institution.label if institution else "",
                         is_captain=member.is_captain,
                         roster_role=member.roster_role,
                         display_order=display_order,
@@ -423,6 +435,16 @@ def _validate_roster(
                     "members": f"Player {index}: student ID is required for student-only tournaments."
                 }
             )
+        if tournament_game.tournament.students_only and not (
+            member.institution_id
+            or (member.institution_label and member.institution_label.strip())
+            or member.school_snapshot.strip()
+        ):
+            raise ValidationError(
+                {
+                    "members": f"Player {index}: school is required for student-only tournaments."
+                }
+            )
     if any(
         member.roster_role not in RegistrationMember.RosterRole.values
         for member in members
@@ -458,29 +480,8 @@ def _validate_roster(
         raise ValidationError("Roster display order must be unique.")
     if {member.display_order for member in members} != set(range(1, len(members) + 1)):
         raise ValidationError("Roster display order must be contiguous from one.")
-    if any(
-        not member.gamer_tag_snapshot.strip()
-        or not (
-            member.institution_id
-            or member.institution_label
-            or member.school_snapshot.strip()
-        )
-        for member in members
-    ):
-        raise ValidationError("Every player needs a gamer tag and school snapshot.")
-
-
-def _require_organizer(actor, permission: str) -> None:
-    if actor.is_authenticated and actor.is_superuser:
-        return
-    if (
-        actor.is_authenticated
-        and actor.is_staff
-        and actor.groups.filter(name="Organizers").exists()
-        and actor.has_perm(permission)
-    ):
-        return
-    raise PermissionDenied("An Organizer staff account is required.")
+    if any(not member.gamer_tag_snapshot.strip() for member in members):
+        raise ValidationError("Every player needs a gamer tag.")
 
 
 def _transition_registration(
@@ -491,24 +492,47 @@ def _transition_registration(
     to_status: str,
     note: str = "",
 ) -> Registration:
-    _require_organizer(actor, "registrations.change_registration")
+    require_organizer(actor, "registrations.change_registration")
     with transaction.atomic():
         registration = lock_registration(registration_id)
         expire_due_registrations(division_id=registration.tournament_game_id)
         registration.refresh_from_db()
         if is_expired(registration, now=timezone.now()):
             raise ValidationError("Payment reservation has expired.")
-        if (
-            to_status == Registration.Status.APPROVED
-            and registration.payment_due_at is not None
-            and registration.fee_amount_snapshot > 0
-            and payment_state(registration) != "VERIFIED"
-        ):
-            raise ValidationError("Verified payment is required before approval.")
         if registration.status != expected_status:
             raise ValidationError(
                 f"Cannot move a {registration.status} registration to {to_status}."
             )
+        verified_attempt_id = None
+        if (
+            to_status == Registration.Status.APPROVED
+            and registration.fee_amount_snapshot > 0
+        ):
+            if payment_state(registration) == "VERIFIED":
+                if (
+                    not registration.payment_attempts.filter(
+                        status=PaymentAttempt.Status.VERIFIED
+                    )
+                    .exclude(proof_file="")
+                    .exists()
+                ):
+                    raise ValidationError("Payment proof is required before approval.")
+            else:
+                attempt = (
+                    registration.payment_attempts.filter(
+                        status=PaymentAttempt.Status.PENDING
+                    )
+                    .order_by("-pk")
+                    .first()
+                )
+                if attempt is None or not attempt.proof_file:
+                    raise ValidationError("Payment proof is required before approval.")
+                review_payment_attempt(
+                    actor=actor,
+                    payment_attempt_id=attempt.pk,
+                    status=PaymentAttempt.Status.VERIFIED,
+                )
+                verified_attempt_id = attempt.pk
         registration.status = to_status
         registration.save(update_fields=("status", "updated_at"))
         RegistrationStatusEvent.objects.create(
@@ -517,6 +541,17 @@ def _transition_registration(
             to_status=to_status,
             actor=actor,
             note=note.strip(),
+        )
+        audit = f"Registration {expected_status} -> {to_status}"
+        if verified_attempt_id is not None:
+            audit += f"; payment attempt #{verified_attempt_id} PENDING -> VERIFIED"
+        if note.strip():
+            audit += f"; reason: {note.strip()}"
+        LogEntry.objects.log_actions(
+            user_id=actor.pk,
+            queryset=[registration],
+            action_flag=CHANGE,
+            change_message=audit,
         )
         return registration
 
@@ -635,7 +670,7 @@ def review_payment_attempt(
     status: str,
     note: str = "",
 ) -> PaymentAttempt:
-    _require_organizer(actor, "registrations.change_paymentattempt")
+    require_organizer(actor, "registrations.change_paymentattempt")
     if status not in {PaymentAttempt.Status.VERIFIED, PaymentAttempt.Status.REJECTED}:
         raise ValidationError("A payment attempt may only be verified or rejected.")
 
@@ -658,12 +693,23 @@ def review_payment_attempt(
         )
         if payment_attempt.status != PaymentAttempt.Status.PENDING:
             raise ValidationError("Only a pending payment attempt may be reviewed.")
+        if status == PaymentAttempt.Status.VERIFIED and not payment_attempt.proof_file:
+            raise ValidationError("Payment proof is required before verification.")
         payment_attempt.status = status
         payment_attempt.reviewed_by = actor
         payment_attempt.reviewed_at = timezone.now()
         payment_attempt.review_note = note.strip()
         payment_attempt.save(
             update_fields=("status", "reviewed_by", "reviewed_at", "review_note")
+        )
+        audit = f"Payment attempt PENDING -> {status}"
+        if note.strip():
+            audit += f"; reason: {note.strip()}"
+        LogEntry.objects.log_actions(
+            user_id=actor.pk,
+            queryset=[payment_attempt],
+            action_flag=CHANGE,
+            change_message=audit,
         )
         if (
             status == PaymentAttempt.Status.REJECTED

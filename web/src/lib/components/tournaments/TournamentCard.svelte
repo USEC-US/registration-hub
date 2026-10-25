@@ -30,14 +30,16 @@
 			{#if tournament.cover_image}
 				<figure class="relative aspect-video w-full overflow-hidden rounded-t-(--radius) bg-muted">
 					<img
-						class="absolute inset-0 h-full w-full object-cover"
+						class="absolute inset-0 h-full w-full object-contain"
 						src={tournament.cover_image}
 						alt={m.tournament_cover_alt({ name: tournament.name })}
 						loading="eager"
 					/>
 				</figure>
 			{/if}
-			<Card.Root class="grid gap-0 py-0 transition-shadow group-hover:shadow-sm md:grid-cols-[minmax(0,1fr)_17rem]">
+			<Card.Root
+				class="grid gap-0 py-0 transition-shadow group-hover:shadow-sm md:grid-cols-[minmax(0,1fr)_17rem]"
+			>
 				<Card.Header class="p-5 sm:p-6 md:row-span-2">
 					<p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
 						{m.tournament_label()}
@@ -110,7 +112,7 @@
 						class="relative aspect-video w-full shrink-0 overflow-hidden rounded-t-(--radius) bg-muted"
 					>
 						<img
-							class="absolute inset-0 h-full w-full object-cover"
+							class="absolute inset-0 h-full w-full object-contain"
 							src={tournament.cover_image}
 							alt={m.tournament_cover_alt({ name: tournament.name })}
 							loading="lazy"

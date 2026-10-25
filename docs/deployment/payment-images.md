@@ -6,10 +6,12 @@ accepted images, removes metadata and trailing bytes, and generates filenames.
 Existing payment records remain readable. Development seeds now include images
 clearly marked as development samples.
 
-Proof downloads at `/media/payment-proofs/...` must reach Django. The view
-requires the submitter's JWT or an authorized organizer's JWT/admin session.
-Responses are attachments with `private, no-store`; the public development
-media handler excludes this directory, including normalized traversal paths.
+Proof files at `/media/payment-proofs/...` must reach Django. The view requires
+the submitter's JWT or an authorized organizer's JWT/admin session. JPEG, PNG,
+and WebP proofs display inline at their full aspect ratio; other legacy files
+remain downloads. Responses use `private, no-store` and `nosniff`; the public
+development media handler excludes this directory, including normalized
+traversal paths.
 
 When configuring production media, never expose `payment-proofs/` through a
 public bucket, CDN, or generic static alias. Route that prefix to Django before

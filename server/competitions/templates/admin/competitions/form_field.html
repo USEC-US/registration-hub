@@ -1,0 +1,9 @@
+<div data-field-name="{{ field.name }}" class="cw-field{% if field.field.widget.input_type == 'checkbox' or field.field.widget.input_type == 'radio' or field.field.widget.allow_multiple_selected or field.name == 'outcome' or field.name == 'winner_position' %} cw-field-wide{% endif %}{% if field.errors %} cw-field-invalid{% endif %}">
+  {% if field.field.widget.allow_multiple_selected %}
+    <fieldset><legend>{{ field.label }}{% if field.field.required %}<span class="cw-required" aria-hidden="true"> *</span>{% endif %}</legend>{{ field }}{% if field.help_text %}<p class="cw-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</p>{% endif %}{{ field.errors }}</fieldset>
+  {% elif field.field.widget.input_type == 'checkbox' %}
+    <div class="cw-checkbox">{{ field }}{{ field.label_tag }}</div>{% if field.help_text %}<p class="cw-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</p>{% endif %}{{ field.errors }}
+  {% else %}
+    {{ field.label_tag }}{{ field }}{% if field.help_text %}<p class="cw-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</p>{% endif %}{{ field.errors }}
+  {% endif %}
+</div>

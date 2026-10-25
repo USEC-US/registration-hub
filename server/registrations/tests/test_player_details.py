@@ -140,6 +140,29 @@ class PlayerDetailsApiTests(APITestCase):
             .exists()
         )
 
+    def test_open_tournament_accepts_players_without_schools(self):
+        payload = self.team_payload()
+        payload["members"][0]["institution_label"] = ""
+        payload["members"][1].pop("institution_label")
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 201, response.data)
+        members = Registration.objects.get(pk=response.data["id"]).members.all()
+        self.assertEqual(
+            members.filter(institution__isnull=True, school_snapshot="").count(), 2
+        )
+        self.assertEqual(members.count(), 3)
+
+    def test_student_only_tournament_still_requires_every_players_school(self):
+        payload = self.team_payload()
+        tournament = self.tournament_game.tournament
+        tournament.students_only = True
+        tournament.save(update_fields=("students_only",))
+        payload["members"][2]["institution_label"] = ""
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("school", str(response.data).lower())
+        self.assertEqual(Registration.objects.count(), 2)
+
     def test_invalid_substitute_identity_rolls_back_entire_registration(self):
         payload = self.team_payload()
         payload["members"][2]["date_of_birth_snapshot"] = "2999-01-01"

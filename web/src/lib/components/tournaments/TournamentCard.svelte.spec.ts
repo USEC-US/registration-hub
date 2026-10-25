@@ -67,6 +67,7 @@ describe('TournamentCard', () => {
 
 			expect(image).toHaveAttribute('src', coveredTournament.cover_image);
 			expect(image).toHaveAttribute('alt', `Cover image for ${coveredTournament.name}`);
+			expect(getComputedStyle(image!).objectFit).toBe('contain');
 			const frame = image!.parentElement!.getBoundingClientRect();
 			expect(frame.width).toBeGreaterThan(0);
 			expect(frame.height).toBeCloseTo((frame.width * 9) / 16, 1);

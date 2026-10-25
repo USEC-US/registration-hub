@@ -113,21 +113,32 @@
 		</Card.Content>
 
 		<Card.Footer class="border-t px-4 py-4 lg:row-span-2 lg:border-l lg:border-t-0">
-			{#if game.is_registration_open}
+			<div class="flex w-full flex-col gap-3 lg:min-w-36">
 				<a
-					class="flex items-center justify-between gap-4 text-sm font-semibold text-primary lg:min-w-36"
+					class="flex items-center justify-between gap-4 text-sm font-semibold text-primary"
 					href={resolve(
-						localizeInternalHref(`/tournaments/${tournament.slug}/games/${game.id}/register`)
+						localizeInternalHref(`/tournaments/${tournament.slug}/games/${game.id}/bracket`)
 					)}
 				>
-					{m.action_register()}
+					{m.action_view_bracket()}
 					<span class="bracket-node" aria-hidden="true"></span>
 				</a>
-			{:else}
-				<span class="text-sm font-semibold text-muted-foreground"
-					>{stateLabel(game.registration_state)}</span
-				>
-			{/if}
+				{#if game.is_registration_open}
+					<a
+						class="flex items-center justify-between gap-4 border-t pt-3 text-sm font-semibold text-primary"
+						href={resolve(
+							localizeInternalHref(`/tournaments/${tournament.slug}/games/${game.id}/register`)
+						)}
+					>
+						{m.action_register()}
+						<span class="bracket-node" aria-hidden="true"></span>
+					</a>
+				{:else}
+					<span class="border-t pt-3 text-sm font-semibold text-muted-foreground"
+						>{stateLabel(game.registration_state)}</span
+					>
+				{/if}
+			</div>
 		</Card.Footer>
 	</Card.Root>
 </article>

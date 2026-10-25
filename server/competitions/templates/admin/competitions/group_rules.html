@@ -1,0 +1,9 @@
+<section class="cw-panel" aria-labelledby="cw-rules-title">
+  <h3 id="cw-rules-title">Standings rules</h3>
+  <dl class="cw-facts">
+    {% if stage.format == "ROUND_ROBIN" %}<div><dt>Meetings per pair</dt><dd>{{ stage.round_robin_meetings }}</dd></div>{% elif stage.format == "SWISS_FIXED" %}<div><dt>Round policy</dt><dd>{% if stage.swiss_round_count %}Custom: {{ stage.swiss_round_count }} rounds{% else %}Recommended rounds: ceil(log2(actual N)){% endif %}</dd></div>{% elif stage.format == "SWISS_THRESHOLD" %}<div><dt>Exit targets</dt><dd>{{ stage.swiss_win_target }} wins qualify · {{ stage.swiss_loss_limit }} losses eliminate</dd></div>{% endif %}
+    <div><dt>Match points (win / draw / loss)</dt><dd>{{ stage.win_points }} / {{ stage.draw_points }} / {{ stage.loss_points }}</dd></div>
+    {% if groups %}<div><dt>Saved group sizes</dt><dd>{% for group in groups %}{{ group.name }}: {{ group.entries.count }} entrants{% if not forloop.last %} · {% endif %}{% endfor %}</dd></div>{% endif %}
+    <div><dt>Tiebreakers in order</dt><dd>{{ rule_labels|join:" → "|default:"No rules" }}</dd></div>
+  </dl>
+</section>

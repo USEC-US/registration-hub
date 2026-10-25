@@ -29,7 +29,7 @@ class InstitutionChoiceSerializerMixin(serializers.Serializer):
     defer_institution_resolution = False
     institution = InstitutionSerializer(read_only=True)
     institution_id = serializers.IntegerField(
-        write_only=True, required=False, allow_null=True
+        write_only=True, required=False, allow_null=True, min_value=1
     )
     institution_label = serializers.CharField(
         write_only=True,
@@ -64,9 +64,15 @@ class InstitutionChoiceSerializerMixin(serializers.Serializer):
                     attrs.pop("institution_label", None)
                     attrs["institution"] = self.instance.institution
                 else:
-                    attrs["institution"] = resolve_institution(
-                        institution_id=attrs.pop("institution_id", None),
-                        institution_label=attrs.pop("institution_label", None),
+                    attrs.pop("institution_id", None)
+                    attrs.pop("institution_label", None)
+                    attrs["institution"] = (
+                        resolve_institution(
+                            institution_id=institution_id,
+                            institution_label=institution_label,
+                        )
+                        if institution_id or institution_label
+                        else None
                     )
         except Institution.DoesNotExist as error:
             raise serializers.ValidationError(
@@ -86,7 +92,7 @@ class InstitutionChoiceSerializerMixin(serializers.Serializer):
     ) -> None:
         has_institution_id = bool(institution_id)
         has_institution_label = bool(institution_label and institution_label.strip())
-        if has_institution_id == has_institution_label:
+        if has_institution_id and has_institution_label:
             raise DjangoValidationError(
                 "Choose a catalogue institution or enter a custom label."
             )
@@ -140,9 +146,15 @@ class AccountRegistrationSerializer(
     def create(self, validated_data):
         password = validated_data.pop("password")
         validated_data.pop("turnstile_token", None)
-        validated_data["institution"] = resolve_institution(
-            institution_id=validated_data.pop("institution_id", None),
-            institution_label=validated_data.pop("institution_label", None),
+        institution_id = validated_data.pop("institution_id", None)
+        institution_label = validated_data.pop("institution_label", None)
+        validated_data["institution"] = (
+            resolve_institution(
+                institution_id=institution_id,
+                institution_label=institution_label,
+            )
+            if institution_id or institution_label
+            else None
         )
         return get_user_model().objects.create_user(password=password, **validated_data)
 
