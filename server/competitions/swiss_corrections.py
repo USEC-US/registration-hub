@@ -8,7 +8,11 @@ from .swiss_commands import _swiss_source_fingerprint
 
 
 def project_swiss_correction(
-    draw: StageDraw, *, projected_matches: Sequence[Match]
+    draw: StageDraw,
+    *,
+    projected_matches: Sequence[Match] | None,
+    entrant_statuses=None,
+    retire_from_round=None,
 ) -> dict:
     """Project history retirement from a complete current published fixture sequence."""
     projected_matches = projected_fixture_matches(draw, projected_matches)
@@ -22,11 +26,23 @@ def project_swiss_correction(
             if round_.section == Round.Section.NORMAL
             and round_.source_fingerprint
             != _swiss_source_fingerprint(
-                draw, round_.number, projected_matches=projected_matches
+                draw,
+                round_.number,
+                projected_matches=projected_matches,
+                availability_snapshot=round_.availability_snapshot
+                if round_.state == Round.State.PUBLISHED
+                else None,
+                entrant_statuses=entrant_statuses,
             )
         ),
         None,
     )
+    if retire_from_round is not None:
+        changed = (
+            min(changed, retire_from_round)
+            if changed is not None
+            else retire_from_round
+        )
     retired = {
         r.pk
         for r in rounds
@@ -35,7 +51,9 @@ def project_swiss_correction(
         and r.number >= changed
     }
     retained = [m for m in projected_matches if m.round_id not in retired]
-    qualification = stage_qualification(draw, projected_matches=retained)
+    qualification = stage_qualification(
+        draw, projected_matches=retained, entrant_statuses=entrant_statuses
+    )
     invalidated_ties = (
         set(
             draw.tie_resolutions.exclude(state="SUPERSEDED").values_list(

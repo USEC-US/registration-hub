@@ -261,11 +261,43 @@ def swiss_standings(
     return _rank(draw, _swiss_results(draw, projected_matches=projected_matches))
 
 
-def _swiss_source_fingerprint(draw, number, *, projected_matches=None):
+def _swiss_availability(draw, *, entrant_statuses=None):
+    entrant_statuses = entrant_statuses or {}
+    return {
+        str(e.pk): {
+            "entrant_status": entrant_statuses.get(e.entrant_id, e.entrant.status),
+            "registration_status": e.entrant.registration.status,
+            "is_selected": e.entrant.is_selected,
+        }
+        for e in draw.entries.select_related("entrant__registration")
+    }
+
+
+def _unavailable_entries(availability):
+    return {
+        int(pk)
+        for pk, value in availability.items()
+        if value["entrant_status"] != "ACTIVE"
+    }
+
+
+def _swiss_source_fingerprint(
+    draw,
+    number,
+    *,
+    projected_matches=None,
+    availability_snapshot=None,
+    entrant_statuses=None,
+):
     """Stage-local rules, seeds/eligibility and earlier current results; no provenance."""
     stage = draw.stage
     entries = list(
         draw.entries.select_related("entrant__registration").order_by("seed", "pk")
+    )
+    availability = (
+        availability_snapshot
+        if availability_snapshot is not None
+        else _swiss_availability(draw, entrant_statuses=entrant_statuses)
     )
     game_metrics = bool(set(stage.tiebreaks) & {"GAME_DIFFERENCE", "GAMES_WON"})
     results = _swiss_results(
@@ -296,10 +328,10 @@ def _swiss_source_fingerprint(draw, number, *, projected_matches=None):
                 e.seed,
                 e.entrant_id,
                 e.entrant.competition_id,
-                e.entrant.status,
-                e.entrant.is_selected,
+                availability[str(e.pk)]["entrant_status"],
+                availability[str(e.pk)]["is_selected"],
                 e.entrant.registration_id,
-                e.entrant.registration.status,
+                availability[str(e.pk)]["registration_status"],
                 e.entrant.registration.tournament_game_id,
             ]
             for e in entries
@@ -323,7 +355,7 @@ def _swiss_source_fingerprint(draw, number, *, projected_matches=None):
     ).hexdigest()
 
 
-def _validate_swiss_field(draw):
+def _validate_swiss_field(draw, *, current_eligibility=True):
     from .stage_commands import validate_stage_field
 
     stage = draw.stage
@@ -348,8 +380,11 @@ def _validate_swiss_field(draw):
         raise ValidationError("The saved draw has invalid seeds.")
     if any(
         e.entrant.competition_id != stage.competition_id
-        or e.entrant.status != CompetitionEntrant.Status.ACTIVE
-        or e.entrant.registration.status != Registration.Status.APPROVED
+        or (
+            current_eligibility
+            and e.entrant.status == CompetitionEntrant.Status.ACTIVE
+            and e.entrant.registration.status != Registration.Status.APPROVED
+        )
         or e.entrant.registration.tournament_game_id
         != stage.competition.tournament_game_id
         for e in entries
@@ -358,11 +393,12 @@ def _validate_swiss_field(draw):
             "Every Swiss entrant must still be active and approved for this division."
         )
     if stage.sequence == 1:
-        selected = set(
-            stage.competition.entrants.filter(
-                is_selected=True, status=CompetitionEntrant.Status.ACTIVE
-            ).values_list("pk", flat=True)
-        )
+        selected_entrants = stage.competition.entrants.filter(is_selected=True)
+        if not stage.published_at:
+            selected_entrants = selected_entrants.filter(
+                status=CompetitionEntrant.Status.ACTIVE
+            )
+        selected = set(selected_entrants.values_list("pk", flat=True))
         if (
             draw.source_draw_id
             or any(e.source_entry_id for e in entries)
@@ -371,10 +407,22 @@ def _validate_swiss_field(draw):
             raise ValidationError(
                 "The draw does not contain every selected entrant exactly once."
             )
-    else:
+    elif draw.state != StageDraw.State.PUBLISHED:
         from .handoff_commands import validate_draw_source
 
         validate_draw_source(draw)
+    elif (
+        draw.source_draw_id is None
+        or draw.source_draw.stage.competition_id != stage.competition_id
+        or draw.source_draw.stage.sequence != stage.sequence - 1
+        or any(
+            e.source_entry_id is None
+            or e.source_entry.draw_id != draw.source_draw_id
+            or e.source_entry.entrant_id != e.entrant_id
+            for e in entries
+        )
+    ):
+        raise ValidationError("The saved Swiss field has invalid source entries.")
     if (
         Match.objects.filter(round__draw=draw)
         .exclude(round__section=Round.Section.TIEBREAK)
@@ -409,7 +457,9 @@ def _swiss_round_payload(round_):
 
 def validate_swiss_round(round_, *, verify_pairing=True):
     draw, stage = round_.draw, round_.draw.stage
-    entries = _validate_swiss_field(draw)
+    entries = _validate_swiss_field(
+        draw, current_eligibility=round_.state == Round.State.DRAFT
+    )
     if (
         round_.state == Round.State.SUPERSEDED
         or round_.section != Round.Section.NORMAL
@@ -433,14 +483,26 @@ def validate_swiss_round(round_, *, verify_pairing=True):
         raise ValidationError(
             "Finish every prior current Swiss round before generating or publishing another."
         )
-    source = _swiss_source_fingerprint(draw, round_.number)
+    availability = (
+        round_.availability_snapshot
+        if round_.state == Round.State.PUBLISHED
+        else _swiss_availability(draw)
+    )
+    unavailable = _unavailable_entries(availability)
+    source = _swiss_source_fingerprint(
+        draw, round_.number, availability_snapshot=availability
+    )
     if round_.source_fingerprint != source:
         raise ValidationError(
             "The saved Swiss round source changed. Regenerate the preview."
         )
     results = _swiss_results(draw, before_number=round_.number)
     rows = _rank(draw, results)
-    active = {r.entry_id for r in rows if r.status == "ACTIVE"}
+    active = {
+        r.entry_id
+        for r in rows
+        if r.status == "ACTIVE" and r.entry_id not in unavailable
+    }
     matches = list(round_.matches.prefetch_related("slots").order_by("number"))
     if not active or [m.number for m in matches] != list(
         range(1, (len(active) + 1) // 2 + 1)
@@ -517,6 +579,7 @@ def validate_swiss_round(round_, *, verify_pairing=True):
                 results,
                 format=stage.format,
                 allow_rematches=round_.rematches_authorized,
+                unavailable_entry_ids=unavailable,
             )
         except ValueError as error:
             raise ValidationError(str(error)) from error
@@ -546,7 +609,7 @@ def _validate_swiss_round_sequence(draw):
 
 
 def validate_swiss_draw(draw):
-    _validate_swiss_field(draw)
+    _validate_swiss_field(draw, current_eligibility=False)
     rounds = _validate_swiss_round_sequence(draw)
     for round_ in rounds:
         validate_swiss_round(round_)
@@ -584,6 +647,7 @@ def _persist_swiss_round(
         version=version,
         source_fingerprint=source_fingerprint,
         rematches_authorized=rematches_authorized,
+        availability_snapshot=_swiss_availability(draw),
     )
     ordinal = Match.objects.filter(round__draw=draw).count()
     pairs = list(pairing.pairs)
@@ -762,6 +826,7 @@ def generate_swiss_round(
                 results,
                 format=stage.format,
                 allow_rematches=allow_rematches,
+                unavailable_entry_ids=_unavailable_entries(_swiss_availability(draw)),
             )
         except ValueError as error:
             raise ValidationError(str(error)) from error
@@ -870,10 +935,12 @@ def publish_swiss_round(*, actor, round_id: int, expected_revision: int) -> Roun
         return round_
 
 
-def update_swiss_completion(stage: Stage, draw: StageDraw) -> None:
+def update_swiss_completion(
+    stage: Stage, draw: StageDraw, *, entrant_statuses=None
+) -> None:
     from .qualification import stage_qualification
 
-    qualification = stage_qualification(draw)
+    qualification = stage_qualification(draw, entrant_statuses=entrant_statuses)
     now = timezone.now()
     for resolution_id, status in qualification["resolution_states"].items():
         TieResolution.objects.filter(pk=resolution_id).update(

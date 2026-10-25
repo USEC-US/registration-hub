@@ -90,7 +90,11 @@ def _fingerprint(results, *, points, tiebreaks, source=""):
 
 
 def group_standings(
-    group: StageGroup, *, replacement=None, projected_matches=None
+    group: StageGroup,
+    *,
+    replacement=None,
+    projected_matches=None,
+    entrant_statuses=None,
 ) -> dict:
     stage = group.draw.stage
     entry_ids = [entry.pk for entry in group.entries.all()]
@@ -101,7 +105,7 @@ def group_standings(
             .select_related("round")
             .prefetch_related("slots")
         )
-    if projected_matches:
+    if projected_matches is not None:
         from .qualification import projected_fixture_matches
 
         group.draw._qualification_matches = matches
@@ -130,8 +134,16 @@ def group_standings(
     fingerprint = _fingerprint(
         ordinary_results, points=points, tiebreaks=stage.tiebreaks
     )
-    from .qualification import select_qualifiers
+    from .qualification import (
+        select_qualifiers,
+        entry_eligibility,
+        current_resolution_states,
+    )
 
+    eligibility = entry_eligibility(
+        group.entries.select_related("entrant__registration"),
+        entrant_statuses=entrant_statuses,
+    )
     qualifiers, ties, states = (
         select_qualifiers(
             rows,
@@ -140,27 +152,55 @@ def group_standings(
             resolutions=resolutions,
             matches=matches,
             results_for=results_for,
+            entrant_eligibility=eligibility,
         )
         if complete
         else ([], [], {})
     )
 
+    earned_qualifiers = qualifiers
+    qualifiers = [entry for entry in earned_qualifiers if eligibility[entry]]
+    blocked = None
+    if complete and len(qualifiers) != len(earned_qualifiers):
+        blocked = "An earned qualifier is unavailable; the locked quota cannot be filled without a substitution."
+    if complete and any(not eligibility[i] for tie in ties for i in tie["entry_ids"]):
+        blocked = (
+            blocked
+            or "A cutoff contender is unavailable; resolve entrant availability before deciding this cutoff."
+        )
+    current_states = current_resolution_states(resolutions, states, eligibility)
+    if states != current_states:
+        blocked = (
+            blocked
+            or "A cutoff decision depends on an unavailable contender; resolve entrant availability before advancing."
+        )
+    states = current_states
+    fingerprint = hashlib.sha256(
+        json.dumps([fingerprint, sorted(eligibility.items())]).encode()
+    ).hexdigest()
     return {
         "fingerprint": fingerprint,
         "standings": rows,
         "qualifiers": qualifiers,
+        "earned_qualifiers": earned_qualifiers,
+        "block_reason": blocked,
         "cutoff_ties": ties,
         "resolution_states": states,
         "qualification_state": "PROVISIONAL"
         if not complete
+        else "BLOCKED"
+        if blocked
         else "AWAITING_RESOLUTION"
         if ties
         else "RESOLVED",
     }
 
 
-def update_round_robin_completion(draw: StageDraw) -> None:
-    states = [group_standings(group) for group in draw.groups.all()]
+def update_round_robin_completion(draw: StageDraw, *, entrant_statuses=None) -> None:
+    states = [
+        group_standings(group, entrant_statuses=entrant_statuses)
+        for group in draw.groups.all()
+    ]
     for state in states:
         for resolution_id, status in state["resolution_states"].items():
             TieResolution.objects.filter(pk=resolution_id).update(

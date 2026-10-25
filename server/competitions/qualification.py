@@ -28,25 +28,46 @@ from .round_robin import generate_round_robin, rank_group
 TIE_SALT = "competitions.group_tie"
 
 
-def select_qualifiers(rows, cutoff, fingerprint, *, resolutions, matches, results_for):
+def select_qualifiers(
+    rows,
+    cutoff,
+    fingerprint,
+    *,
+    resolutions,
+    matches,
+    results_for,
+    entrant_eligibility=None,
+):
     from .round_robin_commands import _fingerprint
 
     states = {}
     ties = []
 
-    def select(ranked, cutoff, source, parent=None):
+    def select(ranked, cutoff, source, parent=None, historical=False):
         selected = []
         for rank, block in groupby(ranked, key=lambda row: row.rank):
             ids = [row.entry_id for row in block]
+            unavailable = historical or (
+                entrant_eligibility is not None
+                and any(not entrant_eligibility[i] for i in ids)
+            )
             if rank <= cutoff:
                 places = cutoff - rank + 1
                 if places < len(ids):
                     resolution = next(
                         (
                             r
-                            for r in resolutions
+                            for r in sorted(
+                                resolutions,
+                                key=lambda r: (
+                                    r.state == TieResolution.State.SUPERSEDED,
+                                    -r.pk,
+                                ),
+                            )
                             if r.parent_id == parent
-                            and r.state != TieResolution.State.SUPERSEDED
+                            and (
+                                r.state != TieResolution.State.SUPERSEDED or unavailable
+                            )
                             and r.source_fingerprint == source
                             and r.places == places
                             and {e.pk for e in r.contenders.all()} == set(ids)
@@ -72,6 +93,13 @@ def select_qualifiers(rows, cutoff, fingerprint, *, resolutions, matches, result
                             for m in matches
                             if m.round.tie_resolution_id == resolution.pk
                         ]
+                        if not extra and unavailable:
+                            # Retired cutoff fixtures still establish historical earned places.
+                            extra = list(
+                                Match.objects.filter(round__tie_resolution=resolution)
+                                .select_related("round")
+                                .prefetch_related("slots")
+                            )
                         if not extra or any(
                             m.status != Match.Status.FINAL for m in extra
                         ):
@@ -102,7 +130,13 @@ def select_qualifiers(rows, cutoff, fingerprint, *, resolutions, matches, result
                             )
                             count = len(ties)
                             selected.extend(
-                                select(extra_rows, places, extra_source, resolution.pk)
+                                select(
+                                    extra_rows,
+                                    places,
+                                    extra_source,
+                                    resolution.pk,
+                                    unavailable,
+                                )
                             )
                             states[resolution.pk] = (
                                 TieResolution.State.CONFIRMED
@@ -161,10 +195,43 @@ def projected_fixture_matches(draw, projected_matches=None):
     return projected
 
 
-def stage_qualification(draw, *, projected_matches=None):
+def entry_eligibility(entries, *, entrant_statuses=None):
+    """Competition entrant overrides affect availability, never earned placement."""
+    entrant_statuses = entrant_statuses or {}
+    return {
+        e.pk: entrant_statuses.get(e.entrant_id, e.entrant.status) == "ACTIVE"
+        and e.entrant.registration.status == "APPROVED"
+        for e in entries
+    }
+
+
+def current_resolution_states(resolutions, states, eligibility):
+    """Historical decisions establish earned places; availability can invalidate their reuse."""
+    invalid = {
+        r.pk
+        for r in resolutions
+        if r.pk in states
+        and (
+            r.state == TieResolution.State.SUPERSEDED
+            or any(not eligibility[e.pk] for e in r.contenders.all())
+        )
+    }
+    while True:
+        children = {r.pk for r in resolutions if r.parent_id in invalid}
+        if children <= invalid:
+            break
+        invalid.update(children)
+    return {pk: state for pk, state in states.items() if pk not in invalid}
+
+
+def stage_qualification(draw, *, projected_matches=None, entrant_statuses=None):
     from .round_robin_commands import _results, group_standings
 
     stage = draw.stage
+    eligibility = entry_eligibility(
+        draw.entries.select_related("entrant__registration"),
+        entrant_statuses=entrant_statuses,
+    )
     matches = projected_fixture_matches(draw, projected_matches)
     ordinary = [m for m in matches if m.round.section != Round.Section.TIEBREAK]
     complete = bool(ordinary) and all(
@@ -172,6 +239,7 @@ def stage_qualification(draw, *, projected_matches=None):
     )
     cutoffs = []
     qualifiers = []
+    earned_qualifiers = []
     bands = []
     states = {}
     blocked = None
@@ -182,9 +250,11 @@ def stage_qualification(draw, *, projected_matches=None):
             group._standings_matches = [
                 m for m in matches if m.round.group_id == group.pk
             ]
-            state = group_standings(group)
+            state = group_standings(group, entrant_statuses=entrant_statuses)
             group_states.append(state["qualification_state"])
             qualifiers.extend(state["qualifiers"])
+            earned_qualifiers.extend(state["earned_qualifiers"])
+            blocked = blocked or state["block_reason"]
             states.update(state["resolution_states"])
             cutoffs.extend(
                 {"group_id": group.pk, **tie} for tie in state["cutoff_ties"]
@@ -198,8 +268,20 @@ def stage_qualification(draw, *, projected_matches=None):
             {m.round_id: m.round for m in ordinary}.values(), key=lambda r: r.number
         )
         rows = swiss_standings(draw, projected_matches=matches)
+        first_round = (
+            draw.rounds.filter(
+                state=Round.State.PUBLISHED, section=Round.Section.NORMAL
+            )
+            .order_by("number")
+            .first()
+        )
         source = _swiss_source_fingerprint(
-            draw, (draw.swiss_round_limit or 0) + 1, projected_matches=matches
+            draw,
+            (draw.swiss_round_limit or 0) + 1,
+            projected_matches=matches,
+            availability_snapshot=first_round.availability_snapshot
+            if first_round
+            else None,
         )
         extra = [m for m in matches if m.round.section == Round.Section.TIEBREAK]
         inputs = [
@@ -229,10 +311,13 @@ def stage_qualification(draw, *, projected_matches=None):
                     resolutions=resolutions,
                     matches=matches,
                     results_for=_results,
+                    entrant_eligibility=eligibility,
                 )
                 cutoffs = [{"group_id": None, **tie} for tie in ties]
         else:
-            complete = complete and not any(row.status == "ACTIVE" for row in rows)
+            complete = complete and not any(
+                row.status == "ACTIVE" and eligibility[row.entry_id] for row in rows
+            )
             if complete:
                 qualifiers = [row.entry_id for row in rows if row.status == "QUALIFIED"]
     else:
@@ -290,8 +375,33 @@ def stage_qualification(draw, *, projected_matches=None):
                         resolutions=resolutions,
                         matches=matches,
                         results_for=_results,
+                        entrant_eligibility=eligibility,
                     )
                     cutoffs = [{"group_id": None, **tie} for tie in ties]
+    if stage.format != Stage.Format.ROUND_ROBIN:
+        earned_qualifiers = qualifiers
+        qualifiers = [entry for entry in earned_qualifiers if eligibility[entry]]
+    if complete and len(qualifiers) != len(earned_qualifiers):
+        blocked = (
+            blocked
+            or "An earned qualifier is unavailable; the locked quota cannot be filled without a substitution."
+        )
+    if complete and any(
+        not eligibility[i] for tie in cutoffs for i in tie["entry_ids"]
+    ):
+        blocked = (
+            blocked
+            or "A cutoff contender is unavailable; resolve entrant availability before deciding this cutoff."
+        )
+    current_states = current_resolution_states(
+        list(draw.tie_resolutions.prefetch_related("contenders")), states, eligibility
+    )
+    if states != current_states:
+        blocked = (
+            blocked
+            or "A cutoff decision depends on an unavailable contender; resolve entrant availability before advancing."
+        )
+    states = current_states
     decisions = []
     for resolution in draw.tie_resolutions.all():
         if resolution.pk in states:
@@ -311,6 +421,7 @@ def stage_qualification(draw, *, projected_matches=None):
                 inputs,
                 decisions,
                 sorted(qualifiers),
+                sorted(eligibility.items()),
                 cutoffs,
             ],
             sort_keys=True,
@@ -324,6 +435,7 @@ def stage_qualification(draw, *, projected_matches=None):
         else "AWAITING_RESOLUTION"
         if cutoffs
         else "RESOLVED",
+        "earned_qualifier_entry_ids": earned_qualifiers if complete else [],
         "qualifier_entry_ids": qualifiers if complete else [],
         "fingerprint": fingerprint,
         "block_reason": blocked,
@@ -367,6 +479,13 @@ def _tie_payload(
     if tie is None or len(set(tied_entry_ids)) != len(tied_entry_ids):
         raise ValidationError(
             "This cutoff is not awaiting the submitted tie choice. Reload standings."
+        )
+    eligibility = entry_eligibility(
+        draw.entries.select_related("entrant__registration")
+    )
+    if any(not eligibility.get(i, False) for i in tied_entry_ids):
+        raise ValidationError(
+            "Every cutoff contender must be active and approved before a new resolution."
         )
     if method not in TieResolution.Method.values:
         raise ValidationError("Choose an organizer decision or extra matches.")

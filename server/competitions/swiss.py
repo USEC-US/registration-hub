@@ -1,6 +1,6 @@
 """Pure Swiss setup, standings and whole-round matching calculations."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from itertools import combinations
@@ -275,10 +275,17 @@ def pair_swiss_round(
     *,
     format: str,
     allow_rematches: bool = False,
+    unavailable_entry_ids: Collection[int] = (),
 ) -> SwissPairing:
     try:
         _validate_seeds(entry_seeds, format)
         _validate_results(entry_seeds, results, format)
+        if any(
+            type(i) is not int or i not in entry_seeds for i in unavailable_entry_ids
+        ):
+            raise ValueError(
+                "Unavailable entrants must belong to the saved Swiss field."
+            )
         if type(allow_rematches) is not bool:
             raise ValueError("The rematch exception must be an explicit boolean.")
         if (
@@ -313,7 +320,11 @@ def pair_swiss_round(
         return (row.points,) if format == FIXED else (row.wins, -row.losses)
 
     active = sorted(
-        (r.entry_id for r in standings if r.status == "ACTIVE"),
+        (
+            r.entry_id
+            for r in standings
+            if r.status == "ACTIVE" and r.entry_id not in unavailable_entry_ids
+        ),
         key=lambda entry: (*(-value for value in group(entry)), entry_seeds[entry]),
     )
     if not active:

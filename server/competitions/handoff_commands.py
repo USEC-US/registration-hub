@@ -173,11 +173,12 @@ def generate_next_stage_draw(
 
 
 def project_handoff_corrections(
-    source_draw, *, projected_qualification, source_needs_replay
+    source_draw, *, projected_qualification, source_needs_replay, entrant_statuses=None
 ):
     from .command_support import _match_snapshot
     from .models import Match, StageDraw
 
+    entrant_statuses = entrant_statuses or {}
     impact = {
         "retained_draw_ids": [],
         "superseded_draw_ids": [],
@@ -209,7 +210,7 @@ def project_handoff_corrections(
             and {e.source_entry_id for e in entries}
             == set(snapshot["qualifier_entry_ids"])
             and all(
-                e.entrant.status == "ACTIVE"
+                entrant_statuses.get(e.entrant_id, e.entrant.status) == "ACTIVE"
                 and e.entrant.registration.status == "APPROVED"
                 and e.entrant.registration.tournament_game_id
                 == source_draw.stage.competition.tournament_game_id
@@ -222,7 +223,7 @@ def project_handoff_corrections(
                 {"draw_id": draw.pk, "source_fingerprint": snapshot["fingerprint"]}
             )
             current_source = draw
-            snapshot = stage_qualification(draw)
+            snapshot = stage_qualification(draw, entrant_statuses=entrant_statuses)
         else:
             retire = True
             impact["superseded_draw_ids"].append(draw.pk)
