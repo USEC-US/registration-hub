@@ -163,7 +163,11 @@ def project_elimination_results(
                     if resolved
                     else None
                 )
-                source_corrected |= corrected[slot.source_match_id]
+                # Only a changed routed input can invalidate a historical contest.
+                source_corrected |= corrected[slot.source_match_id] and [
+                    resolved,
+                    entry,
+                ] != [slot.is_resolved, slot.resolved_entry_id]
                 raw_slots.append([resolved, entry])
                 slots.append([resolved, entry if entry in available else None])
             else:

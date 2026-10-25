@@ -237,3 +237,66 @@ class ResultProjectionTests(TestCase):
         self.assertEqual(
             (final.applied_series_length, final.applied_series_mode), (3, "BEST_OF")
         )
+
+    def test_same_participant_outcome_correction_preserves_historical_inactive_opponent(
+        self,
+    ):
+        from competitions.result_projection import (
+            COMPETITIVE_FIELDS,
+            apply_elimination_projection,
+            project_elimination_results,
+        )
+
+        competition, draw = self.draw(4)
+        first = self.match(draw, "UPPER", 1, 1)
+        second = self.match(draw, "UPPER", 1, 2)
+        self.finish(competition, first)
+        self.finish(competition, second)
+        historical = self.match(draw, "UPPER", 2)
+        self.finish(competition, historical)
+        historical.refresh_from_db()
+        first.refresh_from_db()
+        removed = historical.slots.get(position=2).resolved_entry
+        overrides = {removed.entrant_id: "WITHDRAWN"}
+        before = {field: getattr(historical, field) for field in COMPETITIVE_FIELDS}
+        before_slots = list(
+            historical.slots.order_by("position").values_list(
+                "is_resolved", "resolved_entry_id"
+            )
+        )
+        availability_only = project_elimination_results(
+            draw, result_updates={}, entrant_statuses=overrides
+        )
+        self.assertNotIn(historical.pk, availability_only["changed_match_ids"])
+        projection = project_elimination_results(
+            draw,
+            result_updates={
+                first.pk: {
+                    "outcome": "FORFEIT",
+                    "winner_id": first.winner_id,
+                }
+            },
+            entrant_statuses=overrides,
+        )
+        self.assertNotIn(historical.pk, projection["reset_match_ids"])
+        self.assertNotIn(historical.pk, projection["changed_match_ids"])
+        self.assertEqual(
+            {
+                field: projection["matches"][historical.pk][field]
+                for field in COMPETITIVE_FIELDS
+            },
+            before,
+        )
+        apply_elimination_projection(draw, projection)
+        historical.refresh_from_db()
+        self.assertEqual(
+            {field: getattr(historical, field) for field in COMPETITIVE_FIELDS}, before
+        )
+        self.assertEqual(
+            list(
+                historical.slots.order_by("position").values_list(
+                    "is_resolved", "resolved_entry_id"
+                )
+            ),
+            before_slots,
+        )
