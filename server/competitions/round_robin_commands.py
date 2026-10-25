@@ -138,13 +138,14 @@ def group_standings(
         select_qualifiers,
         entry_eligibility,
         current_resolution_states,
+        historical_resolution_entries,
     )
 
-    eligibility = entry_eligibility(
-        group.entries.select_related("entrant__registration"),
-        entrant_statuses=entrant_statuses,
+    entries = list(
+        group.entries.select_related("entrant__registration", "entrant__removal_change")
     )
-    qualifiers, ties, states = (
+    eligibility = entry_eligibility(entries, entrant_statuses=entrant_statuses)
+    qualifiers, ties, states, earned_resolution_ids = (
         select_qualifiers(
             rows,
             group.qualifying_places,
@@ -153,9 +154,12 @@ def group_standings(
             matches=matches,
             results_for=results_for,
             entrant_eligibility=eligibility,
+            historical_resolution_entries=historical_resolution_entries(
+                entries, entrant_statuses=entrant_statuses
+            ),
         )
         if complete
-        else ([], [], {})
+        else ([], [], {}, [])
     )
 
     earned_qualifiers = qualifiers
@@ -183,6 +187,7 @@ def group_standings(
         "standings": rows,
         "qualifiers": qualifiers,
         "earned_qualifiers": earned_qualifiers,
+        "earned_resolution_ids": earned_resolution_ids,
         "block_reason": blocked,
         "cutoff_ties": ties,
         "resolution_states": states,

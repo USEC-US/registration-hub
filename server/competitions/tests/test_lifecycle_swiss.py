@@ -302,6 +302,28 @@ class LifecycleQualificationTests(TestCase):
                 method="MANUAL",
             )
 
+    def _remove_with_earned_decisions(self, draw, entry):
+        from competitions.models import ChangeSet, Competition
+
+        state = stage_qualification(draw)
+        self.competition.refresh_from_db()
+        revision = self.competition.revision + 1
+        change = ChangeSet.objects.create(
+            competition=self.competition,
+            revision=revision,
+            kind="entrant_withdrawn",
+            actor=self.actor,
+            private_data={
+                "entrant_id": entry.entrant_id,
+                "earned_resolution_ids": state["earned_resolution_ids"],
+            },
+        )
+        Competition.objects.filter(pk=self.competition.pk).update(revision=revision)
+        CompetitionEntrant.objects.filter(pk=entry.entrant_id).update(
+            status="WITHDRAWN", removal_change=change
+        )
+        return change
+
     def test_resolved_tie_keeps_earned_winner_after_lifecycle_supersedes_decision(self):
         from competitions.models import TieResolution
         from competitions.qualification import (
@@ -327,9 +349,7 @@ class LifecycleQualificationTests(TestCase):
         )
         winner = draw.entries.get(pk=tie["entry_ids"][0])
         expected_earned = tie["entry_ids"][:2]
-        CompetitionEntrant.objects.filter(pk=winner.entrant_id).update(
-            status="WITHDRAWN"
-        )
+        removal = self._remove_with_earned_decisions(draw, winner)
         for superseded in (False, True):
             if superseded:
                 TieResolution.objects.filter(pk=resolution.pk).update(
@@ -340,7 +360,21 @@ class LifecycleQualificationTests(TestCase):
             self.assertEqual(state["qualifier_entry_ids"], expected_earned[1:])
             self.assertEqual(state["qualification_state"], "BLOCKED")
             self.assertNotIn(resolution.pk, state["resolution_states"])
+            self.assertEqual(state["earned_resolution_ids"], [resolution.pk])
             self.assertEqual(group_standings(group)["qualification_state"], "BLOCKED")
+
+        CompetitionEntrant.objects.filter(pk=winner.entrant_id).update(
+            removal_change=None
+        )
+        without_provenance = stage_qualification(draw)
+        self.assertEqual(without_provenance["earned_qualifier_entry_ids"], [])
+        self.assertEqual(without_provenance["earned_resolution_ids"], [])
+        CompetitionEntrant.objects.filter(pk=winner.entrant_id).update(
+            removal_change=removal
+        )
+        self.assertEqual(
+            stage_qualification(draw)["earned_resolution_ids"], [resolution.pk]
+        )
 
     def test_retired_extra_contests_still_establish_earned_places(self):
         from competitions.models import TieResolution, Round
@@ -371,9 +405,7 @@ class LifecycleQualificationTests(TestCase):
             )
         before = stage_qualification(draw)
         winner = draw.entries.get(pk=before["qualifier_entry_ids"][0])
-        CompetitionEntrant.objects.filter(pk=winner.entrant_id).update(
-            status="WITHDRAWN"
-        )
+        self._remove_with_earned_decisions(draw, winner)
         TieResolution.objects.filter(pk=resolution.pk).update(state="SUPERSEDED")
         Round.objects.filter(tie_resolution=resolution).update(state="SUPERSEDED")
         after = stage_qualification(draw)
@@ -385,3 +417,150 @@ class LifecycleQualificationTests(TestCase):
         )
         self.assertEqual(after["qualification_state"], "BLOCKED")
         self.assertEqual(after["resolution_states"], {})
+        self.assertEqual(after["earned_resolution_ids"], [resolution.pk])
+
+    def test_score_reversal_then_withdrawal_cannot_revive_discarded_decision(self):
+        from competitions.models import TieResolution
+        from competitions.qualification import (
+            preview_qualification_tie,
+            confirm_qualification_tie,
+        )
+
+        draw, group = self._group(tied=True)
+        tie = stage_qualification(draw)["cutoffs"][0]
+        self.competition.refresh_from_db()
+        preview = preview_qualification_tie(
+            actor=self.actor,
+            draw_id=draw.pk,
+            group_id=group.pk,
+            expected_revision=self.competition.revision,
+            tied_entry_ids=tie["entry_ids"],
+            ordered_entry_ids=tie["entry_ids"],
+            method="MANUAL",
+        )
+        resolution = confirm_qualification_tie(
+            actor=self.actor, token=preview["token"], internal_reason="Decision"
+        )
+        match = Match.objects.filter(
+            round__group=group, round__section="NORMAL"
+        ).first()
+        for one, two in ((2, 0), (1, 1)):
+            self.competition.refresh_from_db()
+            correction = commands.preview_correction(
+                actor=self.actor,
+                match_id=match.pk,
+                expected_revision=self.competition.revision,
+                outcome="PLAYED",
+                side_one_score=one,
+                side_two_score=two,
+            )
+            commands.apply_correction(
+                actor=self.actor,
+                token=correction["token"],
+                internal_reason="Independent correction",
+            )
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.state, TieResolution.State.SUPERSEDED)
+        self.assertEqual(
+            stage_qualification(draw)["qualification_state"], "AWAITING_RESOLUTION"
+        )
+        winner = draw.entries.get(pk=tie["entry_ids"][0])
+        change = self._remove_with_earned_decisions(draw, winner)
+        self.assertEqual(change.private_data["earned_resolution_ids"], [])
+        after = stage_qualification(draw)
+        self.assertEqual(after["earned_qualifier_entry_ids"], [])
+        self.assertEqual(after["qualifier_entry_ids"], [])
+        self.assertEqual(after["qualification_state"], "BLOCKED")
+
+    def test_two_removals_retain_authoritative_history_after_first_restores(self):
+        from competitions.models import TieResolution
+        from competitions.qualification import (
+            preview_qualification_tie,
+            confirm_qualification_tie,
+        )
+        from competitions.serializers import PublicStageSerializer
+        import json
+
+        draw, group = self._group(tied=True)
+        tie = stage_qualification(draw)["cutoffs"][0]
+        self.competition.refresh_from_db()
+        preview = preview_qualification_tie(
+            actor=self.actor,
+            draw_id=draw.pk,
+            group_id=group.pk,
+            expected_revision=self.competition.revision,
+            tied_entry_ids=tie["entry_ids"],
+            ordered_entry_ids=tie["entry_ids"],
+            method="MANUAL",
+        )
+        resolution = confirm_qualification_tie(
+            actor=self.actor, token=preview["token"], internal_reason="Decision"
+        )
+        first, second = [draw.entries.get(pk=i) for i in tie["entry_ids"][:2]]
+        self._remove_with_earned_decisions(draw, first)
+        TieResolution.objects.filter(pk=resolution.pk).update(state="SUPERSEDED")
+        second_removal = self._remove_with_earned_decisions(draw, second)
+        self.assertEqual(
+            second_removal.private_data["earned_resolution_ids"], [resolution.pk]
+        )
+        CompetitionEntrant.objects.filter(pk=first.entrant_id).update(
+            status="ACTIVE", removal_change=None
+        )
+        # Relabeling an existing removal does not replace its original authority.
+        CompetitionEntrant.objects.filter(pk=second.entrant_id).update(
+            status="DISQUALIFIED"
+        )
+        after = stage_qualification(draw)
+        self.assertEqual(after["earned_qualifier_entry_ids"], [first.pk, second.pk])
+        self.assertEqual(after["qualifier_entry_ids"], [first.pk])
+        self.assertEqual(after["qualification_state"], "BLOCKED")
+        self.assertEqual(after["earned_resolution_ids"], [resolution.pk])
+        self.assertNotIn(
+            "earned_resolution_ids", json.dumps(PublicStageSerializer(draw.stage).data)
+        )
+
+
+class RemovalDecisionProvenanceTests(SimpleTestCase):
+    def test_only_subject_owned_removal_events_authorize_history(self):
+        from types import SimpleNamespace
+        from competitions.qualification import historical_resolution_entries
+
+        change = SimpleNamespace(
+            competition_id=1,
+            kind="entrant_withdrawn",
+            private_data={"entrant_id": 2, "earned_resolution_ids": [9]},
+        )
+        entrant = SimpleNamespace(
+            pk=2,
+            competition_id=1,
+            status="WITHDRAWN",
+            removal_change_id=7,
+            removal_change=change,
+        )
+        entry = SimpleNamespace(pk=3, entrant=entrant)
+        self.assertEqual(historical_resolution_entries([entry]), {9: {3}})
+        for invalid in (
+            dict(competition_id=99),
+            dict(kind="result_corrected"),
+            dict(private_data={"entrant_id": 99, "earned_resolution_ids": [9]}),
+            dict(private_data={"entrant_id": True, "earned_resolution_ids": [9]}),
+            dict(private_data={"entrant_id": 2, "earned_resolution_ids": [True]}),
+            dict(private_data={"entrant_id": 2, "earned_resolution_ids": "9"}),
+            dict(private_data=[]),
+        ):
+            with self.subTest(invalid=invalid):
+                changed = SimpleNamespace(**(vars(change) | invalid))
+                altered = SimpleNamespace(
+                    **(vars(entrant) | {"removal_change": changed})
+                )
+                self.assertEqual(
+                    historical_resolution_entries(
+                        [SimpleNamespace(pk=3, entrant=altered)]
+                    ),
+                    {},
+                )
+        self.assertEqual(
+            historical_resolution_entries([entry], entrant_statuses={2: "ACTIVE"}), {}
+        )
+        entrant.removal_change_id = None
+        self.assertEqual(historical_resolution_entries([entry]), {})
