@@ -10,6 +10,8 @@ from django.utils.html import format_html, format_html_join
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.decorators import action
 
+from config.organizers import is_organizer_staff
+
 from .admin_forms import PaymentSettingsForm
 from .bank_catalogue import BankCatalogueError, sync_bank_catalogue
 from .models import (
@@ -21,10 +23,10 @@ from .models import (
     RegistrationMember,
     RegistrationStatusEvent,
 )
+from .reservations import payment_state
 from .services import (
     approve_registration,
     reject_registration,
-    review_payment_attempt,
     start_review,
 )
 
@@ -101,26 +103,19 @@ class RegistrationStatusEventInline(ImmutableInline, TabularInline):
     readonly_fields = ("from_status", "to_status", "actor", "note", "created_at")
 
 
-def _is_organizer_staff(user) -> bool:
-    return user.is_authenticated and (
-        user.is_superuser
-        or (user.is_staff and user.groups.filter(name="Organizers").exists())
-    )
-
-
 class GuardedReadOnlyAdmin(ModelAdmin):
     def has_module_permission(self, request):
-        return _is_organizer_staff(request.user) and super().has_module_permission(
+        return is_organizer_staff(request.user) and super().has_module_permission(
             request
         )
 
     def has_view_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_view_permission(
+        return is_organizer_staff(request.user) and super().has_view_permission(
             request, obj
         )
 
     def has_change_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_change_permission(
+        return is_organizer_staff(request.user) and super().has_change_permission(
             request, obj
         )
 
@@ -146,7 +141,7 @@ class BankAdmin(GuardedReadOnlyAdmin):
 
     def has_sync_permission(self, request):
         return (
-            _is_organizer_staff(request.user)
+            is_organizer_staff(request.user)
             and request.user.has_perm("registrations.change_bank")
             and request.user.has_perm("registrations.view_bank")
         )
@@ -175,7 +170,7 @@ class BankAdmin(GuardedReadOnlyAdmin):
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
         try:
-            result = sync_bank_catalogue()
+            result = sync_bank_catalogue(actor=request.user)
         except BankCatalogueError as error:
             self.message_user(request, str(error), level=messages.ERROR)
         else:
@@ -201,23 +196,23 @@ class PaymentSettingsAdmin(ModelAdmin):
     )
 
     def has_module_permission(self, request):
-        return _is_organizer_staff(request.user) and super().has_module_permission(
+        return is_organizer_staff(request.user) and super().has_module_permission(
             request
         )
 
     def has_view_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_view_permission(
+        return is_organizer_staff(request.user) and super().has_view_permission(
             request, obj
         )
 
     def has_change_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_change_permission(
+        return is_organizer_staff(request.user) and super().has_change_permission(
             request, obj
         )
 
     def has_add_permission(self, request):
         return (
-            _is_organizer_staff(request.user)
+            is_organizer_staff(request.user)
             and super().has_add_permission(request)
             and not PaymentSettings.objects.exists()
         )
@@ -313,7 +308,30 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
     actions_detail = ("start_review_detail", "approve_detail", "reject_detail")
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("members")
+        return (
+            super()
+            .get_queryset(request)
+            .prefetch_related("members", "payment_attempts")
+        )
+
+    @staticmethod
+    def _approval_needs_payment(registration):
+        return (
+            registration.fee_amount_snapshot > 0
+            and payment_state(registration) != "VERIFIED"
+        )
+
+    def _can_approve(self, request, registration):
+        return not self._approval_needs_payment(registration) or request.user.has_perm(
+            "registrations.change_paymentattempt"
+        )
+
+    def _approval_label(self, registration):
+        return (
+            "Verify payment and approve"
+            if self._approval_needs_payment(registration)
+            else "Approve registration"
+        )
 
     @admin.display(description="Responsible person")
     def responsible_name(self, obj):
@@ -342,10 +360,12 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
                     ("start_review_detail", "Start review"),
                 ),
                 Registration.Status.UNDER_REVIEW: (
-                    ("approve_detail", "Approve"),
+                    ("approve_detail", self._approval_label(obj)),
                     ("reject_detail", "Reject"),
                 ),
             }.get(obj.status, ())
+            if not self._can_approve(request, obj):
+                names = tuple(item for item in names if item[0] != "approve_detail")
             return format_html_join(
                 " ",
                 '<a class="font-medium text-primary-600 underline" href="{}">{}</a>',
@@ -371,6 +391,8 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
             Registration.Status.SUBMITTED: {"start_review_detail"},
             Registration.Status.UNDER_REVIEW: {"approve_detail", "reject_detail"},
         }.get(registration.status, set())
+        if not self._can_approve(request, registration):
+            valid.discard("approve_detail")
         return [item for item in actions if item.method.original_function_name in valid]
 
     def _decision_view(
@@ -424,9 +446,16 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
     def start_review_detail(self, request, object_id):
         return self._decision_view(request, object_id, "Start review", start_review)
 
-    @action(permissions=["change"], description="Approve")
+    @action(permissions=["change"], description="Approve registration")
     def approve_detail(self, request, object_id):
-        return self._decision_view(request, object_id, "Approve", approve_registration)
+        registration = self.get_object(request, object_id)
+        if registration is None:
+            raise Http404
+        if not self._can_approve(request, registration):
+            raise PermissionDenied
+        return self._decision_view(
+            request, object_id, self._approval_label(registration), approve_registration
+        )
 
     @action(permissions=["change"], description="Reject")
     def reject_detail(self, request, object_id):
@@ -439,11 +468,15 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
             "danger",
         )
 
-    def _run_transition(self, request, queryset, command):
+    def _run_transition(self, request, queryset, command, *, label, note=""):
         completed = 0
         for registration in queryset:
             try:
-                command(actor=request.user, registration_id=registration.pk)
+                command(
+                    actor=request.user,
+                    registration_id=registration.pk,
+                    **({"note": note} if note else {}),
+                )
             except (PermissionDenied, ValidationError) as error:
                 self.message_user(
                     request,
@@ -455,28 +488,72 @@ class RegistrationAdmin(GuardedReadOnlyAdmin):
         if completed:
             self.message_user(
                 request,
-                f"Applied transition to {completed} registration(s).",
+                f"{label} {completed} registration(s).",
                 level=messages.SUCCESS,
             )
 
-    @admin.action(description="Mark selected registrations under review")
+    def _bulk_confirmation(self, request, queryset, *, action_name, title, form):
+        return TemplateResponse(
+            request,
+            "admin/registrations/registration_bulk_decision.html",
+            {
+                **self.admin_site.each_context(request),
+                "title": title,
+                "form": form,
+                "items": [
+                    (
+                        registration,
+                        self._approval_label(registration)
+                        if action_name == "approve_selected"
+                        else title,
+                    )
+                    for registration in queryset
+                ],
+                "action_name": action_name,
+                "action_checkbox_name": ACTION_CHECKBOX_NAME,
+                "opts": self.model._meta,
+            },
+        )
+
+    @admin.action(
+        permissions=["change"], description="Mark selected registrations under review"
+    )
     def mark_under_review(self, request, queryset):
-        self._run_transition(request, queryset, start_review)
+        self._run_transition(
+            request, queryset, start_review, label="Started review for"
+        )
 
-    @admin.action(description="Approve selected registrations")
+    @admin.action(permissions=["change"], description="Approve selected registrations")
     def approve_selected(self, request, queryset):
-        self._run_transition(request, queryset, approve_registration)
+        if request.POST.get("confirm_action") != "1":
+            return self._bulk_confirmation(
+                request,
+                queryset,
+                action_name="approve_selected",
+                title="Confirm registration approvals",
+                form=forms.Form(),
+            )
+        self._run_transition(request, queryset, approve_registration, label="Approved")
 
-    @admin.action(description="Reject selected registrations")
+    @admin.action(permissions=["change"], description="Reject selected registrations")
     def reject_selected(self, request, queryset):
+        form = RejectionReasonForm(
+            request.POST if request.POST.get("confirm_action") == "1" else None
+        )
+        if not form.is_valid():
+            return self._bulk_confirmation(
+                request,
+                queryset,
+                action_name="reject_selected",
+                title="Reject registrations",
+                form=form,
+            )
         self._run_transition(
             request,
             queryset,
-            lambda *, actor, registration_id: reject_registration(
-                actor=actor,
-                registration_id=registration_id,
-                note="Rejected by organizer.",
-            ),
+            reject_registration,
+            label="Rejected",
+            note=form.cleaned_data["reason"],
         )
 
 
@@ -501,65 +578,10 @@ class PaymentAttemptAdmin(GuardedReadOnlyAdmin):
         "reference",
     )
     list_select_related = ("registration",)
-    actions = ("verify_selected", "reject_selected")
+    actions = ()
 
     def get_readonly_fields(self, request, obj=None):
         return (*super().get_readonly_fields(request, obj), payment_proof_preview)
-
-    def _review(self, request, queryset, target_status, note=None):
-        completed = 0
-        for payment_attempt in queryset:
-            try:
-                review_payment_attempt(
-                    actor=request.user,
-                    payment_attempt_id=payment_attempt.pk,
-                    status=target_status,
-                    **({"note": note} if note is not None else {}),
-                )
-            except (PermissionDenied, ValidationError) as error:
-                self.message_user(
-                    request,
-                    f"Payment attempt {payment_attempt.pk}: {error}",
-                    level=messages.ERROR,
-                )
-            else:
-                completed += 1
-        if completed:
-            self.message_user(
-                request,
-                f"Reviewed {completed} payment attempt(s).",
-                level=messages.SUCCESS,
-            )
-
-    @admin.action(description="Verify selected payment attempts")
-    def verify_selected(self, request, queryset):
-        self._review(request, queryset, PaymentAttempt.Status.VERIFIED)
-
-    @admin.action(description="Reject selected payment attempts")
-    def reject_selected(self, request, queryset):
-        form = RejectionReasonForm(
-            request.POST if request.POST.get("confirm_rejection") else None
-        )
-        if form.is_bound and form.is_valid():
-            self._review(
-                request,
-                queryset,
-                PaymentAttempt.Status.REJECTED,
-                note=form.cleaned_data["reason"],
-            )
-            return None
-        return TemplateResponse(
-            request,
-            "admin/registrations/reject_payment.html",
-            {
-                **self.admin_site.each_context(request),
-                "title": "Reject payment proof",
-                "form": form,
-                "queryset": queryset,
-                "opts": self.model._meta,
-                "action_checkbox_name": ACTION_CHECKBOX_NAME,
-            },
-        )
 
 
 @admin.register(PaymentIntent)

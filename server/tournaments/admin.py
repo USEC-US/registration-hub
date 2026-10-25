@@ -1,41 +1,37 @@
 from django.contrib import admin
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.urls import reverse
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin, StackedInline
 from unfold.contrib.forms.widgets import WysiwygWidget
 
+from config.organizers import is_organizer_staff
+
 from .models import Game, Tournament, TournamentGame
-
-
-def _is_organizer_staff(user) -> bool:
-    return user.is_authenticated and (
-        user.is_superuser
-        or (user.is_staff and user.groups.filter(name="Organizers").exists())
-    )
 
 
 class OrganizerStaffAdmin(ModelAdmin):
     def has_module_permission(self, request):
-        return _is_organizer_staff(request.user) and super().has_module_permission(
+        return is_organizer_staff(request.user) and super().has_module_permission(
             request
         )
 
     def has_view_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_view_permission(
+        return is_organizer_staff(request.user) and super().has_view_permission(
             request, obj
         )
 
     def has_change_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_change_permission(
+        return is_organizer_staff(request.user) and super().has_change_permission(
             request, obj
         )
 
     def has_add_permission(self, request):
-        return _is_organizer_staff(request.user) and super().has_add_permission(request)
+        return is_organizer_staff(request.user) and super().has_add_permission(request)
 
     def has_delete_permission(self, request, obj=None):
-        return _is_organizer_staff(request.user) and super().has_delete_permission(
+        return is_organizer_staff(request.user) and super().has_delete_permission(
             request, obj
         )
 
@@ -132,6 +128,7 @@ class TournamentGameAdmin(OrganizerStaffAdmin):
     list_display = (
         "tournament",
         "game",
+        "competition_link",
         "registration_count",
         "main_roster_size",
         "substitute_limit",
@@ -149,7 +146,7 @@ class TournamentGameAdmin(OrganizerStaffAdmin):
         "game__slug",
     )
     date_hierarchy = "registration_opens_at"
-    readonly_fields = ("registration_count",)
+    readonly_fields = ("registration_count", "competition_link")
     list_select_related = ("tournament", "game")
 
     def get_queryset(self, request):
@@ -172,4 +169,23 @@ class TournamentGameAdmin(OrganizerStaffAdmin):
                 query={"tournament_game__id__exact": obj.pk},
             ),
             obj._registration_count,
+        )
+
+    @admin.display(description="Competition")
+    def competition_link(self, obj):
+        if not obj.pk:
+            return "—"
+        try:
+            competition = obj.competition
+        except ObjectDoesNotExist:
+            return format_html(
+                '<a href="{}">Set up competition</a>',
+                reverse(
+                    "admin:competitions_competition_create_for_division",
+                    args=[obj.pk],
+                ),
+            )
+        return format_html(
+            '<a href="{}">Open competition</a>',
+            reverse("admin:competitions_competition_change", args=[competition.pk]),
         )

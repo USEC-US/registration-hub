@@ -277,7 +277,7 @@ describe('private payment panel', () => {
 			)
 			.toBeVisible();
 		await expect
-			.element(page.getByText(/Eligibility approval is a separate organizer decision/))
+			.element(page.getByText(/Your registration is awaiting approval/))
 			.not.toBeInTheDocument();
 	});
 	it('shows review guidance and contact options while payment proof is pending', async () => {
@@ -294,7 +294,7 @@ describe('private payment panel', () => {
 		await expect
 			.element(page.getByRole('heading', { name: 'Registration submitted' }))
 			.toBeVisible();
-		await expect.element(page.getByText('Awaiting verification')).toBeVisible();
+		await expect.element(page.getByText('Awaiting organizer review')).toBeVisible();
 		await expect.element(page.getByText(/include a screenshot of this page/)).toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Contact organizers on Facebook' }))

@@ -15,9 +15,9 @@
   in tournaments without student requirements. Student-only tournaments still
   require each player's student ID and school. The roster form explains the
   HCMUS conduct-point benefit beneath each player form.
-- Organizer admin already provides registration/payment review actions, immutable
-  roster and contact snapshots, and registration status history. Section 4 tracks
-  the remaining usability and audit review, not a replacement implementation.
+- Organizer admin provides combined registration/payment approval, immutable
+  roster and contact snapshots, and protected decision history. Payment attempts
+  remain visible, but standalone payment review is removed.
 - The first organizer navigation slice adds linked division and all-status
   registration totals to tournament/division admin lists and detail pages. These
   are record counts, not capacity counts.
@@ -27,13 +27,13 @@
   can view full payment proof images inline; public tournament images fit their
   frames without cropping. Admin record labels identify registrations, roster
   members, payment records, and status events; Vietnamese names display family
-  name first. Further audit and permissions review remains open.
+  name first. Organizer permission and audit controls are documented below.
 - Operational acceptance remains open: verify the receiving destination and scan
   the QR in a bank app, activate/monitor expiry and bank refresh jobs, and verify
   backups and restore procedures. The Compose file does not install these jobs.
 - Institution dataset contributions, SePay/account-holder verification, and
-  competition formats remain separate unfinished work. Settle the expanded bracket
-  scope noted in section 5 before implementation.
+  competition formats remain separate unfinished work. Bracket scope and the
+  dedicated implementation backlog are tracked in [BRACKET-TODO.md](BRACKET-TODO.md).
 - Verification for these registration, organizer UI, and image changes: 290
   Django tests pass on an isolated PostgreSQL 18 instance; server Ruff,
   frontend Svelte checks, and 330 unit/browser component tests pass. This was
@@ -127,31 +127,47 @@
 - [x] Add direct links from tournaments and divisions to their filtered registrations.
 - [x] Improve registration search, filtering, review, payment evidence, and status actions.
   - [x] Search private contact snapshots and filter by role and division; retain
-    existing guarded review and payment actions.
+    guarded registration review actions.
   - [x] Show full payment proof images in organizer registration and payment
     details, with protected inline delivery for supported raster formats.
-- [x] Show manual review, approval, and rejection controls on registration rows and detail pages for authorized organizers; keep payment proof verification separate.
+- [x] Show manual review, approval, and rejection controls on registration rows and detail pages for authorized organizers; approving a paid registration also verifies its submitted image proof.
 - [x] Display registration, manager/captain, roster, and private contact information
   clearly in organizer tables and detail pages. Tables show role, responsible
   name, and phone; details show all contact channels and the roster snapshot.
-- [ ] Preserve least-privilege organizer permissions.
-- [ ] Add an audit trail for consequential organizer actions.
-- [ ] Consider safe CSV export if club operations require it.
+- [x] Preserve least-privilege organizer permissions, including both change permissions for combined paid approval.
+- [x] Record organizer decisions and bank refreshes in admin history alongside status events and payment reviewer fields.
+- [ ] CSV export is deferred until club operations has a concrete need.
 
 ## 5. Bracket core
 
-- [ ] Support single elimination.
-- [ ] Support double elimination.
-- [ ] Explicitly defer groups, round robin, Swiss, and other pairing systems.
-  - It's now possible to de-defer this, and start working on it as part of a full core bracket system.
-  - This also means we should think of putting the TFT system here too. Complex (itself has a ton of rules) but TFT is popular these days in the Student community.
-- [ ] Let organizers select entrants from approved registrations.
-- [ ] Support manual seeding, randomization, byes, preview, and publication.
-- [ ] Track rounds, matches, sides, scores, winners, and advancement.
-- [ ] Support organizer result entry and controlled correction of mistakes.
-- [ ] Preserve an audit history when published results change.
-- [ ] Decide the double-elimination grand-final reset rule when this slice begins.
-- [ ] Expose public brackets and results without private registration data.
+Detailed scope, rule decisions, task dependencies, and completion checks live in
+[the bracket core TODO](BRACKET-TODO.md). Update task progress there.
+Single and double elimination now have organizer/public workflows and focused
+PostgreSQL/browser validation; see the [double-elimination guide](testing/competition-double-elimination.md).
+Round robin groups, configurable standings rules and qualification ties now have
+organizer/public workflows; see the [round robin guide](testing/competition-round-robin.md).
+Swiss, stage handoffs and realtime remain open.
+
+Inspiration (and future replacement):
+
+- [Challonge](https://challonge.com)
+- [Toornament](https://toornament.com)
+- [Battlefy](https://battlefy.com)
+- [Garena Arena of Valor VN Community Tournament hosting site](https://congdong.lienquan.garena.vn)
+
+Agreed scope:
+
+- Agreed formats: single elimination, double elimination, single/double round robin groups,
+  and both fixed-round and win/loss-threshold Swiss, combined into ordered stages
+  with TO-confirmed advancement.
+- Support best-of series and fixed-game series with draws for round robin and
+  fixed-round Swiss.
+- Organizer controls stay in Django Unfold admin; public SvelteKit brackets,
+  schedules, pairings, standings, and Changes are read-only. TO identities and
+  internal correction notes remain private.
+- Implement through small tasks with explicit dependencies and file ownership
+  so independent subagent work can run in parallel.
+- TFT remains a later phase. Live updates remain Section 6.
 
 ## 6. Realtime competition experience
 
@@ -166,8 +182,9 @@
 ## 7. Full Beta hardening
 
 - [ ] Maintain green backend, frontend, type, lint, and migration checks throughout every slice.
-- [x] Add true full-stack registration browser tests against Django, not only mocked API routes; see [existing journey coverage](testing/registration-journey.md). Bracket/realtime journeys remain to be added with those features.
-- [ ] Seed realistic captain, manager, solo, payment, single-elimination, and double-elimination scenarios.
+- [x] Add true full-stack registration browser tests against Django, not only mocked API routes; see [existing journey coverage](testing/registration-journey.md). Single/double-elimination journeys are also covered; realtime journeys remain open.
+- [ ] Complete realistic captain/manager/solo/payment fixture coverage. Single- and
+  double-elimination fixtures are delivered; see the [seed guide](testing/competition-double-elimination.md).
 - [ ] Test all participant and organizer permissions.
 - [ ] Audit contact information and payment-file privacy.
 - [ ] Validate file types, upload limits, rate limits, and error handling.
@@ -185,11 +202,12 @@ Full Beta is ready when club staff can:
 - Accept and review real registrations.
 - Distinguish managers from captains per registration.
 - Review captain contact and payment evidence safely.
-- Build, seed, publish, and operate single- or double-elimination brackets.
+- Build, seed, publish, and operate single/double elimination, round robin groups,
+  and both Swiss presets, including qualification into playoffs.
 - Enter and correct results while public viewers receive realtime updates.
 - Complete these workflows without critical permission, privacy, data-loss, or usability failures.
 
-  SePay and group-stage formats are not Full Beta blockers.
+  SePay and TFT are not Full Beta blockers.
 
 ### 8. TFT — early post-beta
 
@@ -208,13 +226,11 @@ Full Beta is ready when club staff can:
 
 - Preserve result history and recalculate standings safely after organizer corrections.
 
-### 9. Group stages — later post-beta
+### 9. Group stages — included in bracket core
 
-- Round Robin first.
-- Swiss afterward.
-- Configurable rounds, scoring, tiebreaks, advancement count, and playoff handoff.
-- Organizer-controlled pairings and corrections where required.
-- Limit this to supported esports presets rather than attempting every possible group-stage variation.
+Round robin and both Swiss presets are now part of Section 5. Their rules,
+standings, organizer controls, and playoff handoffs are tracked only in
+[BRACKET-TODO.md](BRACKET-TODO.md).
 
 ## 10. Post-Beta: SePay integration
 

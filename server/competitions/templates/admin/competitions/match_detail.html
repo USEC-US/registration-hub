@@ -1,0 +1,30 @@
+{% extends "admin/competitions/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="cw cw-detail">
+  <a class="cw-back" href="{{ bracket_url|default:workspace_url }}">&larr; Bracket &amp; matches</a>
+  <header class="cw-header">
+    <div><h1>{{ match_card.title }}</h1><div class="cw-meta"><span class="cw-badge">{{ match_card.status }}</span><span>{{ match_card.series_label }}</span>{% if match_card.scheduled_at %}<time datetime="{{ match_card.scheduled_at|date:'c' }}">{{ match_card.scheduled_at|date:"M j, Y, H:i T" }}</time>{% else %}<span>Not scheduled</span>{% endif %}</div></div>
+    {% if match_card.result_url %}<a class="cw-button cw-button-primary" href="{{ match_card.result_url }}">{{ match_card.result_label }}</a>{% endif %}
+  </header>
+  {% if match_card.historical %}<p class="cw-notice">This match belongs to an earlier bracket. Its result is kept here for reference.</p>{% endif %}
+  {% if match_card.private %}<p class="cw-notice">Private preview. Publish this saved round before managing its matches.</p>{% endif %}
+  <section class="cw-scoreboard" aria-label="Match score">
+    <ol class="cw-slots">
+      {% for slot in match_card.slots %}
+        <li class="cw-slot{% if slot.is_winner %} cw-slot-winner{% endif %}">
+          {% if slot.seed %}<span class="cw-slot-seed" title="Seed {{ slot.seed }}">{{ slot.seed }}</span>{% endif %}
+          <span class="cw-slot-name">{{ slot.label }}{% if slot.is_winner %}<span class="cw-winner-label">Winner</span>{% endif %}</span>
+          <strong class="cw-slot-score">{{ slot.score|default_if_none:"—" }}</strong>
+        </li>
+      {% endfor %}
+    </ol>
+    {% if match_card.outcome %}<p class="cw-match-note">{{ match_card.outcome }}</p>{% endif %}
+    {% if match_card.awaiting %}<p class="cw-match-note">Waiting for earlier matches. The entrants will appear here when those results are confirmed.</p>{% endif %}
+    {% if match_card.inactive_final %}<p class="cw-notice">{{ match_card.inactive_final_message }}</p>{% endif %}
+  </section>
+  {% if match_actions %}<section class="cw-panel" aria-labelledby="cw-match-actions-title"><h2 id="cw-match-actions-title">Manage this match</h2><div class="cw-actions">{% for action in match_actions %}<a class="cw-button" href="{{ action.url }}">{{ action.label }}</a>{% endfor %}</div></section>{% endif %}
+  {% if changes_url %}<a class="cw-history-link" href="{{ changes_url }}">View result history in Changes <span aria-hidden="true">&rarr;</span></a>{% endif %}
+</div>
+{% endblock %}

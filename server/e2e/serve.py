@@ -21,6 +21,7 @@ os.environ["CSRF_ALLOWED_ORIGINS"] = "http://127.0.0.1:4175"
 
 def seed():
     from datetime import timedelta
+    from decimal import Decimal
 
     from django.contrib.auth import get_user_model
     from django.contrib.auth.models import Group
@@ -28,8 +29,24 @@ def seed():
     from django.utils import timezone
 
     from accounts.models import Institution
+    from competitions.commands import (
+        apply_correction,
+        configure_elimination,
+        create_competition,
+        finalize_match,
+        preview_correction,
+        publish_draw,
+        save_elimination_draw,
+        schedule_match,
+        select_entrants,
+    )
+    from competitions.models import Match
+    from registrations.models import (
+        PaymentSettings,
+        Registration,
+        RegistrationMember,
+    )
     from tournaments.models import Game, Tournament, TournamentGame
-    from registrations.models import PaymentSettings, Registration
     from rest_framework.test import APIClient
 
     PaymentSettings.objects.update_or_create(
@@ -68,12 +85,176 @@ def seed():
         student_id="E2E-ORGANIZER",
     )
     organizer.groups.add(Group.objects.get(name="Organizers"))
+    from e2e.fixtures import seed_swiss_browser_fixtures
+
+    seed_swiss_browser_fixtures(organizer=organizer)
+    from registrations.dev_seed import SeedCatalog, _seed_round_robin, _seed_multi_stage
+
+    rr_tournament = Tournament.objects.create(
+        name="Round Robin Journey Test",
+        slug="round-robin-journey-test",
+        students_only=False,
+        is_published=True,
+    )
+    rr_divisions = {}
+    for slug, key in (
+        ("rr-fixed", "round-robin-valorant"),
+        ("rr-double", "round-robin-league-of-legends"),
+        ("rr-workflow", "workflow"),
+    ):
+        division = TournamentGame.objects.create(
+            tournament=rr_tournament,
+            game=Game.objects.create(name=slug, slug=slug),
+            main_roster_size=2,
+            substitute_limit=0,
+            registration_opens_at=timezone.now() - timedelta(days=2),
+            registration_closes_at=timezone.now() - timedelta(days=1),
+            fee_amount=Decimal("0.00"),
+            fee_currency="VND",
+        )
+        rr_divisions[key] = division
+        if key == "workflow":
+            for index in range(1, 4):
+                registration = Registration.objects.create(
+                    tournament_game=division,
+                    team_name=f"RR Team {index}",
+                    status="APPROVED",
+                    fee_amount_snapshot="0.00",
+                    fee_currency_snapshot="VND",
+                )
+                for member in range(1, 3):
+                    RegistrationMember.objects.create(
+                        registration=registration,
+                        gamer_tag_snapshot=f"RR-{index}-Player-{member}",
+                        display_order=member,
+                        is_captain=member == 1,
+                    )
+    _seed_round_robin(
+        now=timezone.now(),
+        organizer=organizer,
+        catalog=SeedCatalog({rr_tournament.slug: rr_tournament}, rr_divisions),
+    )
+    multi_tournament = Tournament.objects.create(
+        name="Multi-stage Journey Test",
+        slug="multi-stage-journey-test",
+        students_only=False,
+        is_published=True,
+    )
+    multi_divisions = {}
+    for slug in ("valorant", "league-of-legends", "chess", "workflow"):
+        division = TournamentGame.objects.create(
+            tournament=multi_tournament,
+            game=Game.objects.create(name=f"ms-{slug}", slug=f"ms-{slug}"),
+            main_roster_size=1 if slug == "chess" else 2,
+            substitute_limit=0,
+            registration_opens_at=timezone.now() - timedelta(days=2),
+            registration_closes_at=timezone.now() - timedelta(days=1),
+            fee_amount=Decimal("0.00"),
+            fee_currency="VND",
+        )
+        multi_divisions[f"multi-stage-{slug}"] = division
+        if slug == "workflow":
+            for index in range(1, 9):
+                registration = Registration.objects.create(
+                    tournament_game=division,
+                    team_name=f"MS Team {index}",
+                    status="APPROVED",
+                    fee_amount_snapshot="0.00",
+                    fee_currency_snapshot="VND",
+                )
+                for member in range(1, 3):
+                    RegistrationMember.objects.create(
+                        registration=registration,
+                        gamer_tag_snapshot=f"MS-{index}-{member}",
+                        is_captain=member == 1,
+                        display_order=member,
+                    )
+    _seed_multi_stage(
+        now=timezone.now(),
+        organizer=organizer,
+        catalog=SeedCatalog({multi_tournament.slug: multi_tournament}, multi_divisions),
+    )
+    double_tournament = Tournament.objects.create(
+        name="Double Elimination Journey Test",
+        slug="double-elimination-journey-test",
+        students_only=False,
+        is_published=True,
+    )
+    for slug, entrant_count, policy in (
+        ("double-reset", 4, "RESET"),
+        ("double-public", 4, "NO_RESET"),
+        ("double-large", 16, "RESET"),
+        ("double-two", 2, "NO_RESET"),
+    ):
+        division = TournamentGame.objects.create(
+            tournament=double_tournament,
+            game=Game.objects.create(name=slug, slug=slug),
+            main_roster_size=2,
+            substitute_limit=0,
+            registration_opens_at=timezone.now() - timedelta(days=2),
+            registration_closes_at=timezone.now() - timedelta(days=1),
+            fee_amount="0.00",
+            fee_currency="VND",
+        )
+        registrations = []
+        for index in range(1, entrant_count + 1):
+            registration = Registration.objects.create(
+                tournament_game=division,
+                team_name=f"DE Team {index}",
+                status=Registration.Status.APPROVED,
+                contact_email_snapshot=f"private-de-{index}@example.invalid",
+                fee_amount_snapshot="0.00",
+                fee_currency_snapshot="VND",
+            )
+            for member in range(1, 3):
+                RegistrationMember.objects.create(
+                    registration=registration,
+                    gamer_tag_snapshot=f"DE-{index}-Player-{member}",
+                    is_captain=member == 1,
+                    display_order=member,
+                )
+            registrations.append(registration)
+        if slug != "double-reset":
+            competition = create_competition(
+                actor=organizer, tournament_game_id=division.pk
+            )
+            configure_elimination(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                name="Public browser bracket",
+                format="DOUBLE_ELIMINATION",
+                grand_final_policy=policy,
+                default_series_length=1,
+            )
+            competition.refresh_from_db()
+            entrants = select_entrants(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                registration_ids=[registration.pk for registration in registrations],
+            )
+            competition.refresh_from_db()
+            save_elimination_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                entrant_order=[entrant.pk for entrant in entrants],
+            )
+            competition.refresh_from_db()
+            publish_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+            )
+
     tournament = Tournament.objects.create(
         name="Registration Journey Test",
         slug="registration-journey-test",
         students_only=True,
         is_published=True,
     )
+    divisions = {}
     for slug, minimum, maximum, fee in (
         ("team-free", 2, 3, "0.00"),
         ("solo-free", 1, 1, "0.00"),
@@ -91,6 +272,7 @@ def seed():
             fee_amount=fee,
             fee_currency="VND",
         )
+        divisions[slug] = division
 
         if slug == "solo-paid":
             credential = secrets.token_hex(32)
@@ -140,6 +322,105 @@ def seed():
                     "attemptState": "submitted",
                     "registrationId": registration_id,
                 },
+            )
+
+            bracket_registrations = []
+            for index in range(1, 4):
+                registration = Registration.objects.create(
+                    tournament_game=divisions["solo-free"],
+                    status=Registration.Status.APPROVED,
+                    fee_amount_snapshot="0.00",
+                    fee_currency_snapshot="VND",
+                )
+                RegistrationMember.objects.create(
+                    registration=registration,
+                    gamer_tag_snapshot=f"Bracket Player {index}",
+                    is_captain=True,
+                    display_order=1,
+                )
+                bracket_registrations.append(registration)
+
+            competition = create_competition(
+                actor=organizer,
+                tournament_game_id=divisions["solo-free"].pk,
+            )
+            configure_elimination(
+                format="SINGLE_ELIMINATION",
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                name="Journey final bracket",
+                default_series_length=3,
+            )
+            competition.refresh_from_db()
+            entrants = select_entrants(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                registration_ids=[item.pk for item in bracket_registrations],
+            )
+            competition.refresh_from_db()
+            draw = save_elimination_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+                entrant_order=[item.pk for item in entrants],
+            )
+            competition.refresh_from_db()
+            publish_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+            )
+            competition.refresh_from_db()
+            semifinal = draw.rounds.get(number=1).matches.get(number=2)
+            final = draw.rounds.get(number=2).matches.get(number=1)
+            schedule_match(
+                actor=organizer,
+                match_id=semifinal.pk,
+                expected_revision=competition.revision,
+                scheduled_at=timezone.now() + timedelta(days=1),
+            )
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=semifinal.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=2,
+                side_two_score=0,
+            )
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=final.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=0,
+                side_two_score=2,
+            )
+            competition.refresh_from_db()
+            correction = preview_correction(
+                actor=organizer,
+                match_id=semifinal.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=0,
+                side_two_score=2,
+            )
+            apply_correction(
+                actor=organizer,
+                token=correction["token"],
+                internal_reason="Browser-only correction fixture.",
+            )
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=final.pk,
+                expected_revision=competition.revision,
+                outcome=Match.Outcome.PLAYED,
+                side_one_score=2,
+                side_two_score=0,
             )
             return fixture_path
 

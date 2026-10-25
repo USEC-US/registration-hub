@@ -34,6 +34,15 @@ class SchemaDocsAccessTests(APITestCase):
         self.assertEqual(identifier_parameter["schema"]["type"], "integer")
         self.assertIn("RegistrationStatus", schema["components"]["schemas"])
         self.assertIn("PaymentAttemptStatus", schema["components"]["schemas"])
+        for path in (
+            "/api/tournament-games/{division_id}/competition/",
+            "/api/tournament-games/{division_id}/competition/changes/",
+            "/api/competition-stages/{stage_id}/",
+            "/api/competition-rounds/{round_id}/",
+            "/api/competition-matches/{match_id}/",
+        ):
+            with self.subTest(path=path):
+                self.assertIn(path, schema["paths"])
 
     @override_settings(DEBUG=False)
     def test_schema_is_staff_only_outside_debug(self):

@@ -181,6 +181,11 @@ class RegistrationOwnershipApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         if response.streaming:
             self.assertTrue(b"".join(response.streaming_content))
+        self.other_user.is_superuser = True
+        self.other_user.is_active = False
+        self.other_user.save(update_fields=("is_superuser", "is_active"))
+        self.client.force_authenticate(self.other_user)
+        self.assertEqual(self.client.get(url).status_code, 404)
 
     def test_legacy_non_raster_proof_stays_a_download(self):
         for filename in ("legacy.svg", "fake.png"):

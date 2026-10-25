@@ -1,0 +1,14 @@
+{% include "admin/competitions/group_assignment.html" %}
+{% if group_display %}
+<section aria-labelledby="cw-standings-title">
+  <div class="cw-section-heading"><div><h2 id="cw-standings-title">{{ group_display.group.name }} standings</h2><p class="cw-muted">Final results only. Equal ranks remain tied until qualification is resolved.</p></div></div>
+  <p class="cw-notice">{% if group_display.state == 'PROVISIONAL' %}Provisional — ordinary play is unfinished.{% elif group_display.state == 'AWAITING_RESOLUTION' %}Awaiting resolution — a tie crosses the qualification cutoff.{% else %}Qualification resolved.{% endif %}</p>
+  <div class="cw-bracket-scroll" role="region" aria-label="Group standings" tabindex="0">
+  <table class="cw-standings"><thead><tr><th scope="col">Rank</th><th scope="col">Entrant</th><th scope="col">Played</th><th scope="col">Won</th><th scope="col">Drawn</th><th scope="col">Lost</th><th scope="col">Points</th><th scope="col">Games won</th><th scope="col">Game difference</th><th scope="col">Qualification</th></tr></thead><tbody>
+    {% for item in group_display.rows %}<tr><td>{{ item.row.rank }}</td><th scope="row">{{ item.name }}</th><td>{{ item.row.played }}</td><td>{{ item.row.wins }}</td><td>{{ item.row.draws }}</td><td>{{ item.row.losses }}</td><td>{{ item.row.points|floatformat:2 }}</td><td>{{ item.row.games_won }}</td><td>{{ item.row.game_difference }}</td><td>{{ item.qualification }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if group_display.qualifiers %}<p><strong>Qualifiers:</strong> {{ group_display.qualifiers|join:", " }}</p>{% endif %}
+  {% if group_display.tie_url %}<a class="cw-button cw-button-primary" href="{{ group_display.tie_url }}">Resolve qualification tie</a>{% endif %}
+  {% if group_display.resolutions %}<section class="cw-panel"><h3>Recorded tie resolutions</h3><ul>{% for resolution in group_display.resolutions %}<li>{{ resolution.get_method_display }} · {{ resolution.get_state_display }} · {{ resolution.places }} place{{ resolution.places|pluralize }}{% if resolution.state == 'SUPERSEDED' %} — extra contests retained as history{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+</section>
+{% endif %}

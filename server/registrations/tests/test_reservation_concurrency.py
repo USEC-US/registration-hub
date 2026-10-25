@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from threading import Barrier
 
 from django.core.exceptions import ValidationError
+from django.contrib.admin.models import LogEntry
 from django.db import close_old_connections, connection, connections
 from django.test import TransactionTestCase
 from django.utils import timezone
@@ -13,6 +14,8 @@ from registrations.models import PaymentAttempt, Registration
 from registrations.reservations import active_registrations, expire_due_registrations
 from registrations.services import (
     RegistrationMemberInput,
+    approve_registration,
+    start_review,
     submit_registration,
     submit_payment_attempt,
     review_payment_attempt,
@@ -153,6 +156,46 @@ class ReservationConcurrencyTests(TransactionTestCase):
         self.assertEqual(sorted(results), [0, 1])
         self.assertEqual(
             self.registration.status_events.filter(to_status="EXPIRED").count(), 1
+        )
+
+    def test_simultaneous_approval_records_one_payment_and_registration_decision(self):
+        self.owner.is_superuser = True
+        self.owner.save(update_fields=("is_superuser",))
+        start_review(actor=self.owner, registration_id=self.registration.pk)
+        attempt = PaymentAttempt.objects.create(
+            registration=self.registration,
+            amount=self.registration.fee_amount_snapshot,
+            currency="VND",
+            proof_file=payment_image(),
+        )
+        results = self.race(
+            lambda: (
+                approve_registration(
+                    actor=self.owner, registration_id=self.registration.pk
+                ).pk
+            ),
+            lambda: (
+                approve_registration(
+                    actor=self.owner, registration_id=self.registration.pk
+                ).pk
+            ),
+        )
+        self.assertEqual(results.count("denied"), 1)
+        self.registration.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertEqual(self.registration.status, Registration.Status.APPROVED)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.VERIFIED)
+        self.assertEqual(
+            LogEntry.objects.filter(
+                content_type__model="registration", object_id=str(self.registration.pk)
+            ).count(),
+            2,
+        )
+        self.assertEqual(
+            LogEntry.objects.filter(
+                content_type__model="paymentattempt", object_id=str(attempt.pk)
+            ).count(),
+            1,
         )
 
     def test_proof_before_deadline_protects_against_cleanup(self):

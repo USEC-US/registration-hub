@@ -81,16 +81,21 @@ async function organizerLogin(page: Page) {
 	await expect(page).toHaveURL(`${api}/admin/`);
 }
 
-async function adminAction(page: Page, model: string, id: number, action: string) {
-	await page.goto(`${api}/admin/registrations/${model}/`);
+async function adminAction(page: Page, id: number, action: string) {
+	await page.goto(`${api}/admin/registrations/registration/`);
 	await page.locator(`input[name="_selected_action"][value="${id}"]`).check();
 	await page.locator('select[name="action"]').first().selectOption(action);
 	await page.locator('button[name="index"]').first().click();
+	if (action === 'reject_selected')
+		await page.getByLabel('Rejection reason').fill('Test-only: rejected registration.');
+	if (action !== 'mark_under_review') await page.getByRole('button', { name: 'Confirm' }).click();
 	await expect(
 		page.getByText(
-			model === 'paymentattempt'
-				? 'Reviewed 1 payment attempt(s).'
-				: 'Applied transition to 1 registration(s).',
+			action === 'approve_selected'
+				? 'Approved 1 registration(s).'
+				: action === 'reject_selected'
+					? 'Rejected 1 registration(s).'
+					: 'Started review for 1 registration(s).',
 			{ exact: true }
 		)
 	).toBeVisible();
@@ -102,7 +107,8 @@ function adminField(page: Page, label: string) {
 		.filter({
 			has: page.locator('label').filter({ hasText: new RegExp(`^\\s*${label}:?\\s*$`) })
 		})
-		.locator('.readonly');
+		.locator('.readonly')
+		.first();
 }
 
 test('credential forms use POST and stay disabled before hydration', async ({ browser }) => {
@@ -213,7 +219,7 @@ async function uploadProof(page: Page, id: number) {
 	return result.json();
 }
 
-test('paid guest returns in a new tab, replaces rejected proof, and receives separate verification and approval', async ({
+test('paid guest returns in a new tab and receives combined payment verification and approval', async ({
 	page,
 	request,
 	context,
@@ -228,16 +234,13 @@ test('paid guest returns in a new tab, replaces rejected proof, and receives sep
 	await expect(page).toHaveURL(`/en/registrations/${receipt.id}/payment`);
 	await expect(page.getByAltText('VietQR payment code')).toBeVisible();
 	const returned = await context.newPage();
-	await returned.goto(path);
-	await returned
-		.getByRole('link', { name: `View registration ${receipt.id} / payment`, exact: true })
-		.click();
+	await returned.goto(`/en/registrations/${receipt.id}/payment`);
 	await expect(returned.getByAltText('VietQR payment code')).toBeVisible();
 	const pending = await uploadProof(returned, receipt.id);
 	expect(pending.payment_state).toBe('PENDING');
 	await expect(
 		returned.getByText(
-			'Payment proof is pending verification. Your reservation is protected during review.'
+			'The organizers will review your registration and payment proof together within 24 hours.'
 		)
 	).toBeVisible();
 	await expect(returned.getByAltText('VietQR payment code')).toHaveCount(0);
@@ -253,29 +256,21 @@ test('paid guest returns in a new tab, replaces rejected proof, and receives sep
 		const privateProof = await staff.request.get(proofUrl);
 		expect(privateProof.status()).toBe(200);
 		expect(privateProof.headers()['cache-control']).toBe('private, no-store');
-		await staff.goto(`${api}/admin/registrations/paymentattempt/`);
-		await staff.locator(`input[name="_selected_action"][value="${attempt}"]`).check();
-		await staff.locator('select[name="action"]').first().selectOption('reject_selected');
-		await staff.locator('button[name="index"]').first().click();
-		await staff.getByLabel('Reason').fill('Test-only: upload a clearer image.');
-		await staff.getByRole('button', { name: 'Reject proof', exact: true }).click();
-		await returned.getByRole('button', { name: 'Refresh status', exact: true }).click();
-		await expect(
-			returned.getByText('Test-only: upload a clearer image.', { exact: true })
-		).toBeVisible();
-		const replacement = await uploadProof(returned, receipt.id);
-		const replacementAttempt = replacement.registration.payment_attempts.find(
-			(p: { id: number }) => p.id !== attempt
-		);
-		await adminAction(staff, 'paymentattempt', replacementAttempt.id, 'verify_selected');
-		await returned.getByRole('button', { name: 'Refresh status', exact: true }).click();
-		await expect(
-			returned.getByText('Payment verified. Eligibility approval is a separate organizer decision.')
-		).toBeVisible();
-		await adminAction(staff, 'registration', receipt.id, 'mark_under_review');
-		await adminAction(staff, 'registration', receipt.id, 'approve_selected');
+		await adminAction(staff, receipt.id, 'mark_under_review');
+		await adminAction(staff, receipt.id, 'approve_selected');
 		await staff.goto(`${api}/admin/registrations/registration/${receipt.id}/change/`);
 		await expect(adminField(staff, 'Status')).toHaveText('Approved');
+		await staff.goto(`${api}/admin/registrations/paymentattempt/${attempt}/change/`);
+		await expect(adminField(staff, 'Status')).toHaveText('Verified');
+		const refreshed = returned.waitForResponse(
+			(r) =>
+				r.url() === `${api}/api/registrations/${receipt.id}/payment-session/` &&
+				r.request().method() === 'POST'
+		);
+		await returned.getByRole('button', { name: 'Refresh status', exact: true }).click();
+		const state = await (await refreshed).json();
+		expect(state.registration.status).toBe('APPROVED');
+		expect(state.payment_state).toBe('VERIFIED');
 	} finally {
 		await staffContext.close();
 	}
@@ -395,8 +390,8 @@ test('duplicate player is blocked until organizer rejection permits resubmission
 	try {
 		const organizerPage = await organizerContext.newPage();
 		await organizerLogin(organizerPage);
-		await adminAction(organizerPage, 'registration', receipt.id, 'mark_under_review');
-		await adminAction(organizerPage, 'registration', receipt.id, 'reject_selected');
+		await adminAction(organizerPage, receipt.id, 'mark_under_review');
+		await adminAction(organizerPage, receipt.id, 'reject_selected');
 	} finally {
 		await organizerContext.close();
 	}

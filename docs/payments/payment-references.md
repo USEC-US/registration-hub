@@ -22,7 +22,7 @@ Accents, including Vietnamese đ/Đ, are removed and whitespace is collapsed in 
 
 Both guests and signed-in participants submit first, then open the dedicated payment page. Free entries finish immediately. Drafts are automatically saved for seven days without an edit and hold no place. Submitted access is saved separately on the browser using a random 256-bit credential sent only in `X-Registration-Access`; it is never the internal reference or an intent token.
 
-New paid entries reserve a place for the saved deadline. Uploads remain pending until staff verify them; payment verification is separate from tournament eligibility approval. See [reservation operations](../deployment/payment-reservations.md) for activation, expiry, replacement windows, and recovery.
+New paid entries reserve a place for the saved deadline. Submitted image proof remains pending until an organizer approves the registration; approval verifies the proof in the same transaction. See [reservation operations](../deployment/payment-reservations.md) for activation, expiry, and recovery.
 
 ## Legacy compatibility endpoints
 
@@ -46,7 +46,7 @@ Apply the additive migrations and run `bootstrap_organizers` before using the up
 
 The backend generates QR images locally using VietQR `QRIBFTTA`, provider `A000000727`, country `VN`, and currency `704`. Amounts must be positive whole-dong values, without rounding. The QR transfer-content field supports at most 25 characters. Longer valid transfer text uses a bank-and-amount QR with explicit copy/paste instructions; downloaded images include the full text and warning. The tournament transfer-content limit remains independently configurable; no text is truncated.
 
-Site-wide bank settings and the duration are snapshotted at submission. Pending, verified, expired, and terminal rejected entries receive no actionable QR. A rejected proof within its replacement window can be replaced. Historical intents retain blank unknown destination fields and direct participants to organizers.
+Site-wide bank settings and the duration are snapshotted at submission. Pending, verified, expired, and terminal rejected entries receive no actionable QR. Historical rejected proofs retain their earlier attempt and replacement window. Historical intents retain blank unknown destination fields and direct participants to organizers.
 
 Staff select the receiving bank from the local searchable catalogue in Django admin.
 See [bank catalogue operations](bank-catalogue.md) for setup and refresh commands.

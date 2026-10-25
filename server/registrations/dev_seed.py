@@ -16,6 +16,40 @@ from PIL import Image, ImageDraw
 
 from accounts.models import Institution
 from accounts.services.institutions import normalize_institution_label
+from competitions.commands import (
+    apply_correction,
+    configure_elimination,
+    create_competition,
+    finalize_match,
+    preview_correction,
+    publish_draw,
+    save_elimination_draw,
+    schedule_match,
+    select_entrants,
+    set_round_series_length,
+    save_match_progress,
+)
+from competitions.handoff_commands import generate_next_stage_draw
+from competitions.swiss_commands import (
+    configure_swiss,
+    generate_swiss_round,
+    publish_swiss_round,
+    save_swiss_draw,
+)
+from competitions.qualification import (
+    stage_qualification,
+    preview_qualification_tie,
+    confirm_qualification_tie,
+)
+from competitions.stage_commands import set_stage_groups
+from competitions.models import Competition, Match, Round, Stage, StageDraw
+from competitions.round_robin_commands import (
+    configure_round_robin,
+    save_round_robin_draw,
+    group_standings,
+    preview_group_tie,
+    confirm_group_tie,
+)
 from tournaments.models import Game, Tournament, TournamentGame
 
 from .models import (
@@ -23,6 +57,7 @@ from .models import (
     PaymentIntent,
     PaymentSettings,
     Registration,
+    RegistrationMember,
     RegistrationStatusEvent,
 )
 from .services import (
@@ -57,10 +92,19 @@ ACCOUNT_CREDENTIALS = (
     ("Admin", ADMIN_EMAIL, "admin@123"),
 )
 
+BRACKET_TOURNAMENT_SLUGS = (
+    "dev-sponsor-open",
+    "dev-sponsor-arena",
+    "dev-sponsor-expired",
+    "dev-fpt-shop-uni-tour-2026",
+)
+
 SEED_TOURNAMENT_SLUGS = (
     "dev-usec-current",
     "dev-usec-archive",
     "dev-usec-draft",
+    *BRACKET_TOURNAMENT_SLUGS,
+    "dev-usec-double-elimination",
 )
 
 SCENARIO_SUMMARY = (
@@ -69,7 +113,16 @@ SCENARIO_SUMMARY = (
     "Counter-Strike 2: UNDER_REVIEW / payment VERIFIED / capacity FULL",
     "Rocket League: REJECTED / rejected payment plus pending replacement",
     "League of Legends: registration NOT_OPEN",
+    "Chess: published five-player single-elimination bracket",
     "Development draft: unpublished",
+    "Publisher open: 8-team paid Valorant/League of Legends divisions",
+    "Publisher arena: 8-team free Arena of Valor division",
+    "Publisher archive: 8-team divisions, all registration expired",
+    "League of Legends: published eight-team single-elimination bracket",
+    "FPT Shop Uni Tour 2026: synthetic 16-team LQM bracket (BO1 early, BO3 finals)",
+    "Double elimination: ready 16-team reset / completed 5-team no-reset brackets",
+    "Multi-stage: 3/3/2, 3/2/2 and 2/5/3 groups feeding saved random playoffs",
+    "Swiss: 9-entry fixed Top-4 playoffs / 16-entry threshold to fixed Swiss playoffs",
 )
 
 
@@ -258,6 +311,7 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
         ),
         "rocket-league": _upsert_game(slug="rocket-league", name="Rocket League"),
         "ea-sports-fc": _upsert_game(slug="ea-sports-fc", name="EA Sports FC"),
+        "arena-of-valor": _upsert_game(slug="arena-of-valor", name="Arena of Valor"),
     }
 
     current, _ = Tournament.objects.update_or_create(
@@ -291,6 +345,97 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             "ends_at": now + timedelta(days=31),
             "location": "HCMUS",
             "is_published": False,
+        },
+    )
+    sponsor_open, _ = Tournament.objects.update_or_create(
+        slug="dev-sponsor-open",
+        defaults={
+            "name": "USEC Publisher Showcase Open",
+            "description": "Eight-team paid Valorant and League of Legends divisions.",
+            "starts_at": now + timedelta(days=21),
+            "ends_at": now + timedelta(days=22),
+            "location": "HCMUS",
+            "is_published": True,
+        },
+    )
+    sponsor_arena, _ = Tournament.objects.update_or_create(
+        slug="dev-sponsor-arena",
+        defaults={
+            "name": "USEC Arena of Valor Cup",
+            "description": "Eight-team free Arena of Valor division.",
+            "starts_at": now + timedelta(days=28),
+            "ends_at": now + timedelta(days=29),
+            "location": "HCMUS",
+            "is_published": True,
+        },
+    )
+    sponsor_expired, _ = Tournament.objects.update_or_create(
+        slug="dev-sponsor-expired",
+        defaults={
+            "name": "USEC Publisher Showcase Archive",
+            "description": "Eight-team divisions with expired registration windows.",
+            "starts_at": now - timedelta(days=60),
+            "ends_at": now - timedelta(days=59),
+            "location": "HCMUS",
+            "is_published": True,
+        },
+    )
+    fpt_shop_uni_tour, _ = Tournament.objects.update_or_create(
+        slug="dev-fpt-shop-uni-tour-2026",
+        defaults={
+            "name": "FPT Shop Uni Tour 2026 Development Fixture",
+            "description": (
+                "Synthetic 16-team Arena of Valor bracket modeled on the "
+                "verified southern single-elimination structure."
+            ),
+            "starts_at": now + timedelta(days=21),
+            "ends_at": now + timedelta(days=22),
+            "location": "Development fixture",
+            "is_published": True,
+        },
+    )
+
+    double_elimination, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-double-elimination",
+        defaults={
+            "name": "USEC Synthetic Double Elimination",
+            "description": "Synthetic teams and series allocation for bracket testing.",
+            "students_only": False,
+            "starts_at": now + timedelta(days=14),
+            "ends_at": now + timedelta(days=15),
+            "is_published": True,
+        },
+    )
+
+    round_robin, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-round-robin",
+        defaults={
+            "name": "USEC Synthetic Round Robin",
+            "description": "Fictional group schedules and qualification ties.",
+            "students_only": False,
+            "starts_at": now + timedelta(days=14),
+            "ends_at": now + timedelta(days=15),
+            "is_published": True,
+        },
+    )
+
+    multi_stage, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-multi-stage",
+        defaults={
+            "name": "USEC Synthetic Multi-stage",
+            "description": "Fictional unequal groups feeding saved random playoffs.",
+            "students_only": False,
+            "is_published": True,
+        },
+    )
+
+    swiss, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-swiss",
+        defaults={
+            "name": "USEC Synthetic Swiss",
+            "description": "Fictional fixed and consecutive Swiss workflows.",
+            "students_only": False,
+            "is_published": True,
         },
     )
 
@@ -355,12 +500,124 @@ def _seed_catalog(*, now: datetime) -> SeedCatalog:
             registration_capacity=32,
             fee_amount=Decimal("30000.00"),
         ),
+        "sponsor-valorant": _upsert_tournament_game(
+            tournament=sponsor_open,
+            game=games["valorant"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=8,
+            fee_amount=Decimal("50000.00"),
+        ),
+        "sponsor-league-of-legends": _upsert_tournament_game(
+            tournament=sponsor_open,
+            game=games["league-of-legends"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=7),
+            registration_closes_at=now + timedelta(days=7),
+            registration_capacity=8,
+            fee_amount=Decimal("100000.00"),
+        ),
+        "sponsor-arena-of-valor": _upsert_tournament_game(
+            tournament=sponsor_arena,
+            game=games["arena-of-valor"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=7),
+            registration_closes_at=now + timedelta(days=7),
+            registration_capacity=8,
+            fee_amount=Decimal("0.00"),
+        ),
+        "sponsor-counter-strike-2": _upsert_tournament_game(
+            tournament=sponsor_expired,
+            game=games["counter-strike-2"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=90),
+            registration_closes_at=now - timedelta(days=60),
+            registration_capacity=8,
+            fee_amount=Decimal("75000.00"),
+        ),
+        "sponsor-rocket-league": _upsert_tournament_game(
+            tournament=sponsor_expired,
+            game=games["rocket-league"],
+            main_roster_size=3,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=90),
+            registration_closes_at=now - timedelta(days=60),
+            registration_capacity=8,
+            fee_amount=Decimal("60000.00"),
+        ),
+        "fpt-lqm": _upsert_tournament_game(
+            tournament=fpt_shop_uni_tour,
+            game=games["arena-of-valor"],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=16,
+            fee_amount=Decimal("0.00"),
+        ),
     }
+    for slug, size in (("valorant", 16), ("league-of-legends", 5)):
+        tournament_games[f"double-{slug}"] = _upsert_tournament_game(
+            tournament=double_elimination,
+            game=games[slug],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=size,
+            fee_amount=Decimal("0.00"),
+        )
+    for slug in ("valorant", "league-of-legends"):
+        tournament_games[f"round-robin-{slug}"] = _upsert_tournament_game(
+            tournament=round_robin,
+            game=games[slug],
+            main_roster_size=5,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=8,
+            fee_amount=Decimal("0.00"),
+        )
+    for slug, size in (("valorant", 8), ("league-of-legends", 7), ("chess", 10)):
+        tournament_games[f"multi-stage-{slug}"] = _upsert_tournament_game(
+            tournament=multi_stage,
+            game=games[slug],
+            main_roster_size=1 if slug == "chess" else 2,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=size,
+            fee_amount=Decimal("0.00"),
+        )
+    for slug, count in (("chess", 9), ("valorant", 16)):
+        tournament_games[f"swiss-{slug}"] = _upsert_tournament_game(
+            tournament=swiss,
+            game=games[slug],
+            main_roster_size=1 if slug == "chess" else 2,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=14),
+            registration_closes_at=now - timedelta(days=1),
+            registration_capacity=count,
+            fee_amount=Decimal("0.00"),
+        )
     return SeedCatalog(
         tournaments={
             current.slug: current,
             archive.slug: archive,
             draft.slug: draft,
+            sponsor_open.slug: sponsor_open,
+            sponsor_arena.slug: sponsor_arena,
+            sponsor_expired.slug: sponsor_expired,
+            fpt_shop_uni_tour.slug: fpt_shop_uni_tour,
+            double_elimination.slug: double_elimination,
+            round_robin.slug: round_robin,
+            multi_stage.slug: multi_stage,
+            swiss.slug: swiss,
         },
         tournament_games=tournament_games,
     )
@@ -419,6 +676,146 @@ def _set_scenario_times(
         if payment.reviewed_at is not None:
             updates["reviewed_at"] = created_at + timedelta(hours=2)
         PaymentAttempt.objects.filter(pk=payment.pk).update(**updates)
+
+
+def _upsert_development_team(
+    *,
+    now: datetime,
+    organizer,
+    division: TournamentGame,
+    team_prefix: str,
+    index: int,
+) -> Registration:
+    submitted_at = now - timedelta(days=3)
+    team_tag = f"{team_prefix}{index:02d}"
+    registration, _ = Registration.objects.update_or_create(
+        tournament_game=division,
+        contact_email_snapshot=(
+            f"{division.tournament.slug}-{division.game.slug}-"
+            f"team-{index}@example.invalid"
+        ),
+        defaults={
+            "submitted_by": None,
+            "submitter_role": Registration.SubmitterRole.CAPTAIN,
+            "contact_facebook_snapshot": "https://facebook.com/example",
+            "contact_phone_snapshot": f"090000{index:04d}",
+            "team_name": f"{division.game.name} Team {index:02d}",
+            "team_tag": team_tag,
+            "status": Registration.Status.APPROVED,
+            "fee_amount_snapshot": division.fee_amount,
+            "fee_currency_snapshot": division.fee_currency,
+            "payment_hold_minutes_snapshot": 60 if division.fee_amount > 0 else None,
+            "payment_due_at": submitted_at + timedelta(minutes=60)
+            if division.fee_amount > 0
+            else None,
+            "submitted_at": submitted_at,
+        },
+    )
+    Registration.objects.filter(pk=registration.pk).update(
+        created_at=submitted_at,
+        submitted_at=submitted_at,
+        updated_at=now,
+    )
+    RegistrationMember.objects.filter(
+        registration=registration,
+        display_order__gt=division.main_roster_size,
+    ).delete()
+    for member_number in range(1, division.main_roster_size + 1):
+        RegistrationMember.objects.update_or_create(
+            registration=registration,
+            display_order=member_number,
+            defaults={
+                "user": None,
+                "gamer_tag_snapshot": f"{team_tag}-P{member_number}",
+                "first_name_snapshot": "Bracket",
+                "last_name_snapshot": f"Player {index:02d}-{member_number}",
+                "date_of_birth_snapshot": date(2005, member_number, 1),
+                "school_snapshot": "HCMUS",
+                "is_captain": member_number == 1,
+                "roster_role": RegistrationMember.RosterRole.MAIN,
+            },
+        )
+
+    RegistrationStatusEvent.objects.filter(registration=registration).delete()
+    RegistrationStatusEvent.objects.create(
+        registration=registration,
+        from_status="",
+        to_status=Registration.Status.SUBMITTED,
+        note="Development team fixture.",
+        created_at=submitted_at,
+    )
+    RegistrationStatusEvent.objects.create(
+        registration=registration,
+        from_status=Registration.Status.SUBMITTED,
+        to_status=Registration.Status.APPROVED,
+        actor=organizer,
+        note="Development team fixture approved.",
+        created_at=submitted_at + timedelta(hours=1),
+    )
+
+    if division.fee_amount > 0:
+        PaymentIntent.objects.update_or_create(
+            registration=registration,
+            defaults={
+                "tournament_game": division,
+                "reference": f"DEV-{team_prefix}{index:02d}",
+                "amount": division.fee_amount,
+                "currency": division.fee_currency,
+                "bank_name_snapshot": "DEVELOPMENT SAMPLE",
+                "account_holder_snapshot": "DEVELOPMENT SAMPLE DO NOT PAY",
+            },
+        )
+        attempt = registration.payment_attempts.order_by("pk").first()
+        if attempt is None:
+            attempt = PaymentAttempt(
+                registration=registration,
+                method=PaymentAttempt.Method.MANUAL_PROOF,
+            )
+            attempt.proof_file = _sample_payment_image()
+        attempt.status = PaymentAttempt.Status.VERIFIED
+        attempt.amount = division.fee_amount
+        attempt.currency = division.fee_currency
+        attempt.reference = f"DEV-{team_prefix}{index:02d}"
+        attempt.reviewed_by = organizer
+        attempt.reviewed_at = submitted_at + timedelta(hours=2)
+        attempt.review_note = "Development sponsor fixture payment verified."
+        attempt.save()
+        PaymentAttempt.objects.filter(registration=registration).exclude(
+            pk=attempt.pk
+        ).delete()
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            created_at=submitted_at + timedelta(hours=1)
+        )
+    else:
+        PaymentIntent.objects.filter(registration=registration).delete()
+        PaymentAttempt.objects.filter(registration=registration).delete()
+
+    return registration
+
+
+def _seed_sponsor_teams(
+    *, now: datetime, organizer, catalog: SeedCatalog
+) -> dict[str, tuple[Registration, ...]]:
+    divisions = (
+        ("sponsor-valorant", "VAL"),
+        ("sponsor-league-of-legends", "LOL"),
+        ("sponsor-arena-of-valor", "AOV"),
+        ("sponsor-counter-strike-2", "CS2"),
+        ("sponsor-rocket-league", "RLG"),
+    )
+    return {
+        key: tuple(
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=catalog.tournament_games[key],
+                team_prefix=prefix,
+                index=index,
+            )
+            for index in range(1, 9)
+        )
+        for key, prefix in divisions
+    }
 
 
 def _rebuild_registrations(
@@ -638,6 +1035,445 @@ def _rebuild_registrations(
     return valorant, chess, counter_strike, rocket_league
 
 
+def _publish_single_elimination_bracket(
+    *,
+    now: datetime,
+    organizer,
+    division: TournamentGame,
+    registrations: tuple[Registration, ...],
+    name: str,
+    default_series_length: int = 3,
+    round_series_lengths: dict[int, int] | None = None,
+) -> None:
+    existing = Competition.objects.filter(tournament_game=division).first()
+    if existing:
+        if existing.stages.filter(draws__state=StageDraw.State.PUBLISHED).exists():
+            return
+        raise ValidationError(
+            f"The development {division.game.name} competition is incomplete."
+        )
+
+    competition = create_competition(actor=organizer, tournament_game_id=division.pk)
+    configure_elimination(
+        format="SINGLE_ELIMINATION",
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        name=name,
+        default_series_length=default_series_length,
+    )
+    competition.refresh_from_db()
+    entrants = select_entrants(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        registration_ids=[registration.pk for registration in registrations],
+    )
+    competition.refresh_from_db()
+    draw = save_elimination_draw(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+        entrant_order=[entrant.pk for entrant in entrants],
+    )
+    competition.refresh_from_db()
+    publish_draw(
+        actor=organizer,
+        competition_id=competition.pk,
+        expected_revision=competition.revision,
+    )
+    for round_ in draw.rounds.order_by("number"):
+        series_length = (round_series_lengths or {}).get(round_.number)
+        if series_length is not None:
+            competition.refresh_from_db()
+            set_round_series_length(
+                actor=organizer,
+                round_id=round_.pk,
+                expected_revision=competition.revision,
+                series_length=series_length,
+            )
+    competition.refresh_from_db()
+    first_match = (
+        Match.objects.filter(round__draw=draw, status=Match.Status.PENDING)
+        .order_by("round__number", "number")
+        .first()
+    )
+    if first_match:
+        schedule_match(
+            actor=organizer,
+            match_id=first_match.pk,
+            expected_revision=competition.revision,
+            scheduled_at=now + timedelta(days=14, hours=2),
+        )
+
+
+def _seed_published_bracket(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    division = catalog.tournament_games["chess"]
+    existing = Competition.objects.filter(tournament_game=division).first()
+    if existing:
+        if existing.stages.filter(draws__state=StageDraw.State.PUBLISHED).exists():
+            return
+        raise ValidationError("The development chess competition is incomplete.")
+
+    registrations = []
+    for index, gamer_tag in enumerate(
+        ("Knight", "Bishop", "Rook", "Queen", "King"), start=1
+    ):
+        registration, _ = Registration.objects.update_or_create(
+            tournament_game=division,
+            contact_email_snapshot=f"bracket-{index}@example.invalid",
+            defaults={
+                "submitter_role": Registration.SubmitterRole.CAPTAIN,
+                "contact_facebook_snapshot": "https://facebook.com/example",
+                "contact_phone_snapshot": f"09000000{index:02d}",
+                "status": Registration.Status.APPROVED,
+                "fee_amount_snapshot": Decimal("0.00"),
+                "fee_currency_snapshot": "VND",
+                "submitted_at": now - timedelta(days=7 - index),
+            },
+        )
+        RegistrationMember.objects.update_or_create(
+            registration=registration,
+            display_order=1,
+            defaults={
+                "gamer_tag_snapshot": gamer_tag,
+                "first_name_snapshot": "Bracket",
+                "last_name_snapshot": f"Player {index}",
+                "date_of_birth_snapshot": date(2005, 1, index),
+                "school_snapshot": "HCMUS",
+                "is_captain": True,
+            },
+        )
+        registrations.append(registration)
+
+    _publish_single_elimination_bracket(
+        now=now,
+        organizer=organizer,
+        division=division,
+        registrations=tuple(registrations),
+        name="Development final bracket",
+    )
+
+
+def _seed_sponsor_bracket(
+    *,
+    now: datetime,
+    organizer,
+    catalog: SeedCatalog,
+    sponsor_teams: dict[str, tuple[Registration, ...]],
+) -> None:
+    _publish_single_elimination_bracket(
+        now=now,
+        organizer=organizer,
+        division=catalog.tournament_games["sponsor-league-of-legends"],
+        registrations=sponsor_teams["sponsor-league-of-legends"],
+        name="Publisher showcase League of Legends bracket",
+    )
+
+
+def _seed_fpt_shop_uni_tour_bracket(
+    *, now: datetime, organizer, catalog: SeedCatalog
+) -> None:
+    division = catalog.tournament_games["fpt-lqm"]
+    registrations = tuple(
+        _upsert_development_team(
+            now=now,
+            organizer=organizer,
+            division=division,
+            team_prefix="FPT",
+            index=index,
+        )
+        for index in range(1, 17)
+    )
+    _publish_single_elimination_bracket(
+        now=now,
+        organizer=organizer,
+        division=division,
+        registrations=registrations,
+        name="Synthetic FPT Shop Uni Tour 2026 LQM bracket",
+        default_series_length=1,
+        round_series_lengths={3: 3, 4: 3},
+    )
+
+
+def _seed_double_elimination(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    for slug, size, policy in (
+        ("valorant", 16, Stage.GrandFinalPolicy.RESET),
+        ("league-of-legends", 5, Stage.GrandFinalPolicy.NO_RESET),
+    ):
+        division = catalog.tournament_games[f"double-{slug}"]
+        registrations = [
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="DE",
+                index=index,
+            )
+            for index in range(1, size + 1)
+        ]
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.stages.filter(draws__state=StageDraw.State.PUBLISHED).exists():
+                continue
+            raise ValidationError(
+                "The development double-elimination competition is incomplete."
+            )
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        configure_elimination(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            name=f"Synthetic {size}-team {policy.lower().replace('_', '-')} bracket",
+            format=Stage.Format.DOUBLE_ELIMINATION,
+            grand_final_policy=policy,
+            default_series_length=1,
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[registration.pk for registration in registrations],
+        )
+        competition.refresh_from_db()
+        draw = save_elimination_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            entrant_order=[entrant.pk for entrant in entrants],
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+        )
+        if policy == Stage.GrandFinalPolicy.RESET:
+            # Synthetic allocation: BO1 early rounds, BO3 late rounds and finals.
+            for round_ in draw.rounds.all():
+                if (
+                    round_.section == Round.Section.UPPER
+                    and round_.number >= 3
+                    or round_.section == Round.Section.LOWER
+                    and round_.number == 6
+                    or round_.section == Round.Section.FINALS
+                ):
+                    competition.refresh_from_db()
+                    set_round_series_length(
+                        actor=organizer,
+                        round_id=round_.pk,
+                        expected_revision=competition.revision,
+                        series_length=3,
+                    )
+        else:
+            while Match.objects.filter(
+                round__draw=draw, status=Match.Status.PENDING
+            ).exists():
+                ready = next(
+                    (
+                        match
+                        for match in Match.objects.filter(
+                            round__draw=draw, status=Match.Status.PENDING
+                        )
+                        .prefetch_related("slots")
+                        .order_by("pk")
+                        if all(
+                            slot.is_resolved and slot.resolved_entry_id
+                            for slot in match.slots.all()
+                        )
+                    ),
+                    None,
+                )
+                if ready is None:
+                    raise ValidationError(
+                        "The development no-reset bracket cannot advance."
+                    )
+                competition.refresh_from_db()
+                finalize_match(
+                    actor=organizer,
+                    match_id=ready.pk,
+                    expected_revision=competition.revision,
+                    outcome=Match.Outcome.PLAYED,
+                    side_one_score=1,
+                    side_two_score=0,
+                )
+
+
+def _seed_round_robin(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    for slug, meetings, mode, length in (
+        ("valorant", 1, "FIXED_GAMES", 2),
+        ("league-of-legends", 2, "BEST_OF", 3),
+    ):
+        division = catalog.tournament_games[f"round-robin-{slug}"]
+        registrations = [
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="RR",
+                index=index,
+            )
+            for index in range(1, 9)
+        ]
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.stages.filter(draws__state="PUBLISHED").exists():
+                continue
+            raise ValidationError(
+                "The development round robin competition is incomplete."
+            )
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        configure_round_robin(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            name="Synthetic groups",
+            meetings=meetings,
+            series_mode=mode,
+            default_series_length=length,
+            win_points=3,
+            draw_points=1,
+            loss_points=0,
+            tiebreaks=[]
+            if meetings == 1
+            else ["HEAD_TO_HEAD", "GAME_DIFFERENCE", "GAMES_WON"],
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[r.pk for r in registrations],
+        )
+        ids = [e.pk for e in entrants]
+        split = 3 if meetings == 1 else 4
+        competition.refresh_from_db()
+        draw = save_round_robin_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            group_specs=[("Alpha", 1), ("Beta", 2)],
+            ordered_entrant_ids=ids,
+            memberships=[ids[:split], ids[split:]],
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+        )
+        alpha, beta = list(draw.groups.all())
+        for group in (alpha, beta) if meetings == 1 else (alpha,):
+            for match in Match.objects.filter(round__group=group).prefetch_related(
+                "slots__resolved_entry"
+            ):
+                slots = list(match.slots.all())
+                first_wins = slots[0].resolved_entry.seed < slots[1].resolved_entry.seed
+                competition.refresh_from_db()
+                finalize_match(
+                    actor=organizer,
+                    match_id=match.pk,
+                    expected_revision=competition.revision,
+                    outcome="PLAYED",
+                    side_one_score=1 if meetings == 1 else 2 * first_wins,
+                    side_two_score=1 if meetings == 1 else 2 * (not first_wins),
+                )
+        if meetings == 1:
+            competition.refresh_from_db()
+            tie = group_standings(alpha)["cutoff_ties"][0]
+            preview = preview_group_tie(
+                actor=organizer,
+                group_id=alpha.pk,
+                expected_revision=competition.revision,
+                tied_entry_ids=tie["entry_ids"],
+                method="EXTRA_MATCHES",
+            )
+            resolution = confirm_group_tie(actor=organizer, token=preview["token"])
+            extra = Match.objects.filter(round__tie_resolution=resolution).first()
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=extra.pk,
+                expected_revision=competition.revision,
+                outcome="PLAYED",
+                side_one_score=1,
+                side_two_score=0,
+            )
+            target = Match.objects.filter(
+                round__group=alpha, round__section="NORMAL"
+            ).first()
+            for one, two in ((2, 0), (1, 1)):
+                competition.refresh_from_db()
+                preview = preview_correction(
+                    actor=organizer,
+                    match_id=target.pk,
+                    expected_revision=competition.revision,
+                    outcome="PLAYED",
+                    side_one_score=one,
+                    side_two_score=two,
+                )
+                apply_correction(
+                    actor=organizer,
+                    token=preview["token"],
+                    internal_reason="Synthetic score-correction example.",
+                )
+            competition.refresh_from_db()
+            preview = preview_group_tie(
+                actor=organizer,
+                group_id=alpha.pk,
+                expected_revision=competition.revision,
+                tied_entry_ids=tie["entry_ids"],
+                method="MANUAL",
+                ordered_entry_ids=list(reversed(tie["entry_ids"])),
+            )
+            confirm_group_tie(
+                actor=organizer,
+                token=preview["token"],
+                internal_reason="Fictional organizer-decision example.",
+            )
+            competition.refresh_from_db()
+            tie = group_standings(beta)["cutoff_ties"][0]
+            preview = preview_group_tie(
+                actor=organizer,
+                group_id=beta.pk,
+                expected_revision=competition.revision,
+                tied_entry_ids=tie["entry_ids"],
+                method="EXTRA_MATCHES",
+                series_length=3,
+            )
+            resolution = confirm_group_tie(actor=organizer, token=preview["token"])
+            live = Match.objects.filter(round__tie_resolution=resolution).first()
+        else:
+            live = Match.objects.filter(round__group=beta).first()
+            competition.refresh_from_db()
+            set_round_series_length(
+                actor=organizer,
+                round_id=live.round_id,
+                expected_revision=competition.revision,
+                series_length=5,
+            )
+        competition.refresh_from_db()
+        schedule_match(
+            actor=organizer,
+            match_id=live.pk,
+            expected_revision=competition.revision,
+            scheduled_at=now + timedelta(hours=2),
+        )
+        competition.refresh_from_db()
+        save_match_progress(
+            actor=organizer,
+            match_id=live.pk,
+            expected_revision=competition.revision,
+            side_one_score=1,
+            side_two_score=0,
+        )
+
+
 @contextmanager
 def _development_payment_destination():
     """Use fictional snapshots only for this command's fixtures, never public settings.
@@ -669,6 +1505,307 @@ def _development_payment_destination():
             PaymentSettings.objects.filter(pk=destination.pk).update(**original)
 
 
+MULTI_STAGE_SCENARIOS = (
+    ("valorant", (3, 3, 2), (2, 2, 2)),
+    ("league-of-legends", (3, 2, 2), (2, 2, 2)),
+    ("chess", (2, 5, 3), (1, 4, 2)),
+)
+
+
+def _seed_multi_stage(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    for slug, sizes, quotas in MULTI_STAGE_SCENARIOS:
+        division = catalog.tournament_games[f"multi-stage-{slug}"]
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.stages.filter(draws__state="PUBLISHED").exists():
+                continue
+            raise ValidationError(
+                "The development multi-stage competition is incomplete."
+            )
+        registrations = [
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="MS",
+                index=index,
+            )
+            for index in range(1, sum(sizes) + 1)
+        ]
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        source = configure_round_robin(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            name="Groups1",
+            meetings=1,
+            series_mode="BEST_OF",
+            default_series_length=1,
+            win_points=3,
+            draw_points=1,
+            loss_points=0,
+        )
+        specs = [
+            (f"Group {i}", size, quota)
+            for i, (size, quota) in enumerate(zip(sizes, quotas), 1)
+        ]
+        competition.refresh_from_db()
+        set_stage_groups(
+            actor=organizer,
+            stage_id=source.pk,
+            expected_revision=competition.revision,
+            group_specs=specs,
+        )
+        competition.refresh_from_db()
+        destination = configure_elimination(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            stage_sequence=2,
+            name="Playoffs",
+            format=Stage.Format.SINGLE_ELIMINATION,
+            default_series_length=1,
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[r.pk for r in registrations],
+        )
+        ids = [e.pk for e in entrants]
+        memberships, offset = [], 0
+        for size in sizes:
+            memberships.append(ids[offset : offset + size])
+            offset += size
+        competition.refresh_from_db()
+        draw = save_round_robin_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            group_specs=[(name, quota) for name, _, quota in specs],
+            ordered_entrant_ids=ids,
+            memberships=memberships,
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+        )
+        for match in Match.objects.filter(round__draw=draw).prefetch_related(
+            "slots__resolved_entry"
+        ):
+            slots = list(match.slots.all())
+            first_wins = slots[0].resolved_entry.seed < slots[1].resolved_entry.seed
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=match.pk,
+                expected_revision=competition.revision,
+                outcome="PLAYED",
+                side_one_score=int(first_wins),
+                side_two_score=int(not first_wins),
+            )
+        competition.refresh_from_db()
+        playoffs = generate_next_stage_draw(
+            actor=organizer,
+            stage_id=destination.pk,
+            expected_revision=competition.revision,
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            stage_id=destination.pk,
+            expected_revision=competition.revision,
+        )
+        match = (
+            Match.objects.filter(round__draw=playoffs, status="PENDING")
+            .order_by("pk")
+            .first()
+        )
+        competition.refresh_from_db()
+        finalize_match(
+            actor=organizer,
+            match_id=match.pk,
+            expected_revision=competition.revision,
+            outcome="PLAYED",
+            side_one_score=1,
+            side_two_score=0,
+        )
+
+
+def _seed_swiss(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
+    for slug, count in (("chess", 9), ("valorant", 16)):
+        division = catalog.tournament_games[f"swiss-{slug}"]
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.stages.filter(draws__state="PUBLISHED").exists():
+                continue
+            raise ValidationError("The development Swiss competition is incomplete.")
+        registrations = [
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="SW",
+                index=i,
+            )
+            for i in range(1, count + 1)
+        ]
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        stages = []
+        formats = ["SWISS_FIXED"] if count == 9 else ["SWISS_THRESHOLD", "SWISS_FIXED"]
+        for sequence, format in enumerate(formats, 1):
+            competition.refresh_from_db()
+            stages.append(
+                configure_swiss(
+                    actor=organizer,
+                    competition_id=competition.pk,
+                    expected_revision=competition.revision,
+                    stage_sequence=sequence,
+                    name=f"Swiss{sequence}",
+                    format=format,
+                    series_mode="FIXED_GAMES" if count == 9 else "BEST_OF",
+                    default_series_length=2 if count == 9 else 1,
+                    round_count=4 if count == 9 else None,
+                    win_target=3 if format == "SWISS_THRESHOLD" else None,
+                    loss_limit=3 if format == "SWISS_THRESHOLD" else None,
+                    advancement_count=None if format == "SWISS_THRESHOLD" else 4,
+                    win_points=Decimal(3),
+                    draw_points=Decimal(1),
+                    loss_points=Decimal(0),
+                    tiebreaks=["OPPONENT_POINTS", "GAME_DIFFERENCE", "GAMES_WON"],
+                )
+            )
+        competition.refresh_from_db()
+        playoffs = configure_elimination(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            stage_sequence=len(stages) + 1,
+            name="Playoffs",
+            format="SINGLE_ELIMINATION",
+            default_series_length=1,
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[r.pk for r in registrations],
+        )
+        for stage in stages:
+            competition.refresh_from_db()
+            if stage.sequence == 1:
+                draw = save_swiss_draw(
+                    actor=organizer,
+                    competition_id=competition.pk,
+                    expected_revision=competition.revision,
+                    ordered_entrant_ids=[e.pk for e in entrants],
+                )
+            else:
+                draw = generate_next_stage_draw(
+                    actor=organizer,
+                    stage_id=stage.pk,
+                    expected_revision=competition.revision,
+                )
+            competition.refresh_from_db()
+            publish_draw(
+                actor=organizer,
+                competition_id=competition.pk,
+                stage_id=stage.pk,
+                expected_revision=competition.revision,
+            )
+            round_ = draw.rounds.get(number=1)
+            while True:
+                for match in round_.matches.exclude(status="FINAL").prefetch_related(
+                    "slots__resolved_entry"
+                ):
+                    slots = list(match.slots.all())
+                    first_wins = (
+                        slots[0].resolved_entry.seed < slots[1].resolved_entry.seed
+                    )
+                    competition.refresh_from_db()
+                    finalize_match(
+                        actor=organizer,
+                        match_id=match.pk,
+                        expected_revision=competition.revision,
+                        outcome="PLAYED",
+                        side_one_score=(2 if count == 9 else 1) * int(first_wins),
+                        side_two_score=(2 if count == 9 else 1) * int(not first_wins),
+                    )
+                state = stage_qualification(draw)
+                if state["qualification_state"] != "PROVISIONAL":
+                    for tie in state["cutoffs"]:
+                        competition.refresh_from_db()
+                        preview = preview_qualification_tie(
+                            actor=organizer,
+                            draw_id=draw.pk,
+                            expected_revision=competition.revision,
+                            tied_entry_ids=tie["entry_ids"],
+                            method="MANUAL",
+                            ordered_entry_ids=tie["entry_ids"],
+                        )
+                        confirm_qualification_tie(
+                            actor=organizer,
+                            token=preview["token"],
+                            internal_reason="Synthetic Swiss cutoff decision",
+                        )
+                    break
+                competition.refresh_from_db()
+                try:
+                    round_ = generate_swiss_round(
+                        actor=organizer,
+                        stage_id=stage.pk,
+                        expected_revision=competition.revision,
+                    )
+                except ValidationError as error:
+                    if "No complete Swiss round is possible" not in str(error):
+                        raise
+                    round_ = generate_swiss_round(
+                        actor=organizer,
+                        stage_id=stage.pk,
+                        expected_revision=competition.revision,
+                        allow_rematches=True,
+                        internal_reason="Synthetic Swiss confirmed repeat exception",
+                    )
+                competition.refresh_from_db()
+                publish_swiss_round(
+                    actor=organizer,
+                    round_id=round_.pk,
+                    expected_revision=competition.revision,
+                )
+        competition.refresh_from_db()
+        draw = generate_next_stage_draw(
+            actor=organizer,
+            stage_id=playoffs.pk,
+            expected_revision=competition.revision,
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            stage_id=playoffs.pk,
+            expected_revision=competition.revision,
+        )
+        match = Match.objects.filter(round__draw=draw, status="PENDING").first()
+        competition.refresh_from_db()
+        finalize_match(
+            actor=organizer,
+            match_id=match.pk,
+            expected_revision=competition.revision,
+            outcome="PLAYED",
+            side_one_score=1,
+            side_two_score=0,
+        )
+
+
 def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
     player, organizer, admin = _seed_accounts()
     catalog = _seed_catalog(now=now)
@@ -679,6 +1816,27 @@ def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
             organizer=organizer,
             catalog=catalog,
         )
+    _seed_published_bracket(now=now, organizer=organizer, catalog=catalog)
+    sponsor_teams = _seed_sponsor_teams(
+        now=now,
+        organizer=organizer,
+        catalog=catalog,
+    )
+    _seed_sponsor_bracket(
+        now=now,
+        organizer=organizer,
+        catalog=catalog,
+        sponsor_teams=sponsor_teams,
+    )
+    _seed_fpt_shop_uni_tour_bracket(
+        now=now,
+        organizer=organizer,
+        catalog=catalog,
+    )
+    _seed_double_elimination(now=now, organizer=organizer, catalog=catalog)
+    _seed_round_robin(now=now, organizer=organizer, catalog=catalog)
+    _seed_multi_stage(now=now, organizer=organizer, catalog=catalog)
+    _seed_swiss(now=now, organizer=organizer, catalog=catalog)
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
         tournament_slugs=tuple(catalog.tournaments),

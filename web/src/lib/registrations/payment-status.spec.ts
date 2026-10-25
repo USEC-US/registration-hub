@@ -16,7 +16,12 @@ describe('payment status message', () => {
 			'The registration for team Blue Team in USEC Summer 2026 - Valorant has been confirmed! Thank you for your interest in USEC tournaments!'
 		);
 		expect(paymentStatusMessage({ ...registration, status: 'UNDER_REVIEW' })).toBe(
-			'Payment verified. Eligibility approval is a separate organizer decision.'
+			'Payment verified. Your registration is awaiting approval.'
+		);
+		expect(
+			paymentStatusMessage({ ...registration, payment_state: 'PENDING', status: 'UNDER_REVIEW' })
+		).toBe(
+			'The organizers will review your registration and payment proof together within 24 hours.'
 		);
 		overwriteGetLocale(() => 'vi');
 		expect(paymentStatusMessage(registration)).toBe(

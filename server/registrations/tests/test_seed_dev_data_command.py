@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import Institution
+from competitions.models import Competition, Match, Round, Stage, StageDraw
 from registrations.models import (
     PaymentAttempt,
     PaymentIntent,
@@ -77,7 +78,12 @@ class SeedDevDataCommandTests(TestCase):
 
     def test_rerun_removes_replaced_sample_images_after_commit(self):
         self.run_seed()
-        previous = [attempt.proof_file for attempt in PaymentAttempt.objects.all()]
+        previous = [
+            attempt.proof_file
+            for attempt in PaymentAttempt.objects.filter(
+                registration__submitted_by__email="player@email.com"
+            )
+        ]
         self.assertTrue(all(proof.storage.exists(proof.name) for proof in previous))
         with self.captureOnCommitCallbacks(execute=True):
             self.run_seed()
@@ -85,7 +91,9 @@ class SeedDevDataCommandTests(TestCase):
         self.assertTrue(
             all(
                 attempt.proof_file.storage.exists(attempt.proof_file.name)
-                for attempt in PaymentAttempt.objects.all()
+                for attempt in PaymentAttempt.objects.filter(
+                    registration__submitted_by__email="player@email.com"
+                )
             )
         )
 
@@ -189,7 +197,18 @@ class SeedDevDataCommandTests(TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertSetEqual(
             {item["slug"] for item in list_response.data},
-            {"dev-usec-current", "dev-usec-archive"},
+            {
+                "dev-usec-current",
+                "dev-usec-archive",
+                "dev-usec-double-elimination",
+                "dev-usec-round-robin",
+                "dev-usec-multi-stage",
+                "dev-usec-swiss",
+                "dev-fpt-shop-uni-tour-2026",
+                "dev-sponsor-open",
+                "dev-sponsor-arena",
+                "dev-sponsor-expired",
+            },
         )
 
         current_response = client.get("/api/tournaments/dev-usec-current/")
@@ -218,6 +237,255 @@ class SeedDevDataCommandTests(TestCase):
         draft_response = client.get("/api/tournaments/dev-usec-draft/")
         self.assertEqual(draft_response.status_code, 404)
         self.assertFalse(Tournament.objects.get(slug="dev-usec-draft").is_published)
+
+    def test_command_seeds_sponsor_bracket_fixtures(self):
+        output = self.run_seed()
+        now = timezone.now()
+        tournaments = {
+            tournament.slug: tournament
+            for tournament in Tournament.objects.filter(slug__startswith="dev-sponsor-")
+        }
+
+        self.assertSetEqual(
+            set(tournaments),
+            {"dev-sponsor-open", "dev-sponsor-arena", "dev-sponsor-expired"},
+        )
+        self.assertEqual(
+            TournamentGame.objects.get(
+                tournament__slug="dev-sponsor-open", game__slug="valorant"
+            ).fee_amount,
+            Decimal("50000.00"),
+        )
+        self.assertEqual(
+            TournamentGame.objects.get(
+                tournament__slug="dev-sponsor-open",
+                game__slug="league-of-legends",
+            ).fee_amount,
+            Decimal("100000.00"),
+        )
+        self.assertEqual(
+            TournamentGame.objects.get(
+                tournament__slug="dev-sponsor-arena", game__slug="arena-of-valor"
+            ).fee_amount,
+            Decimal("0.00"),
+        )
+
+        expired_divisions = TournamentGame.objects.filter(
+            tournament__slug__in=("dev-sponsor-open", "dev-sponsor-expired")
+        ).exclude(game__slug="league-of-legends")
+        self.assertTrue(
+            all(division.registration_closes_at < now for division in expired_divisions)
+        )
+        self.assertTrue(
+            TournamentGame.objects.filter(
+                tournament__slug="dev-sponsor-expired",
+                registration_closes_at__lt=now,
+            ).count()
+            >= 2
+        )
+
+        for tournament in tournaments.values():
+            self.assertGreaterEqual(
+                Registration.objects.filter(
+                    tournament_game__tournament=tournament,
+                    status=Registration.Status.APPROVED,
+                ).count(),
+                8,
+            )
+        for division in TournamentGame.objects.filter(
+            tournament__slug__startswith="dev-sponsor-"
+        ):
+            self.assertEqual(
+                Registration.objects.filter(
+                    tournament_game=division,
+                    status=Registration.Status.APPROVED,
+                ).count(),
+                8,
+            )
+        self.assertEqual(
+            PaymentAttempt.objects.filter(
+                registration__tournament_game__tournament__slug__startswith="dev-sponsor-",
+                status=PaymentAttempt.Status.VERIFIED,
+            ).count(),
+            32,
+        )
+        self.assertFalse(
+            PaymentAttempt.objects.filter(
+                registration__tournament_game__tournament__slug="dev-sponsor-arena"
+            ).exists()
+        )
+
+        competition = Competition.objects.get(
+            tournament_game__tournament__slug="dev-sponsor-open",
+            tournament_game__game__slug="league-of-legends",
+        )
+        draw = competition.stages.get().draws.get(state=StageDraw.State.PUBLISHED)
+        self.assertEqual(competition.entrants.count(), 8)
+        self.assertEqual(draw.entries.count(), 8)
+        self.assertEqual(Match.objects.filter(round__draw=draw).count(), 7)
+        self.assertIn(
+            "League of Legends: published eight-team single-elimination bracket",
+            output,
+        )
+
+    def test_fpt_shop_uni_tour_fixture_matches_workbook_bracket_shape(self):
+        output = self.run_seed()
+        self.run_seed()
+        tournament = Tournament.objects.get(slug="dev-fpt-shop-uni-tour-2026")
+        division = TournamentGame.objects.get(
+            tournament=tournament,
+            game__slug="arena-of-valor",
+        )
+        registrations = list(
+            Registration.objects.filter(tournament_game=division).order_by("team_tag")
+        )
+        competition = Competition.objects.get(tournament_game=division)
+        stage = competition.stages.get()
+        draw = stage.draws.get(state=StageDraw.State.PUBLISHED)
+        rounds = list(draw.rounds.order_by("number"))
+        matches = Match.objects.filter(round__draw=draw)
+
+        self.assertTrue(tournament.is_published)
+        self.assertIn("Development Fixture", tournament.name)
+        self.assertEqual(division.main_roster_size, 5)
+        self.assertEqual(division.registration_capacity, 16)
+        self.assertEqual(division.fee_amount, Decimal("0.00"))
+        self.assertEqual(len(registrations), 16)
+        self.assertTrue(
+            all(
+                registration.status == Registration.Status.APPROVED
+                for registration in registrations
+            )
+        )
+        self.assertTrue(
+            all(
+                registration.contact_email_snapshot.endswith("@example.invalid")
+                for registration in registrations
+            )
+        )
+        self.assertTrue(
+            all(
+                registration.team_name.startswith("Arena of Valor Team ")
+                for registration in registrations
+            )
+        )
+        self.assertEqual(competition.entrants.count(), 16)
+        self.assertEqual([round_.matches.count() for round_ in rounds], [8, 4, 2, 1])
+        self.assertEqual(stage.format, Stage.Format.SINGLE_ELIMINATION)
+        self.assertEqual(stage.default_series_length, 1)
+        self.assertEqual(
+            [round_.series_length_override for round_ in rounds],
+            [None, None, 3, 3],
+        )
+        self.assertEqual(matches.count(), 15)
+        self.assertFalse(matches.exclude(status=Match.Status.PENDING).exists())
+        self.assertEqual(matches.filter(scheduled_at__isnull=False).count(), 1)
+        self.assertIn(
+            "FPT Shop Uni Tour 2026: synthetic 16-team LQM bracket",
+            output,
+        )
+
+    def test_command_seeds_one_rerunnable_published_bracket(self):
+        output = self.run_seed()
+        self.run_seed()
+        competition = Competition.objects.get(
+            tournament_game__tournament__slug="dev-usec-current",
+            tournament_game__game__slug="chess",
+        )
+        draw = competition.stages.get().draws.get(state=StageDraw.State.PUBLISHED)
+
+        self.assertEqual(competition.entrants.count(), 5)
+        self.assertEqual(draw.entries.count(), 5)
+        self.assertEqual(Match.objects.filter(round__draw=draw).count(), 7)
+        self.assertEqual(
+            Competition.objects.filter(
+                tournament_game=competition.tournament_game
+            ).count(),
+            1,
+        )
+        self.assertIn("Chess: published five-player single-elimination bracket", output)
+
+        response = APIClient().get(
+            f"/api/tournament-games/{competition.tournament_game_id}/competition/"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["stages"][0]["entries"]), 5)
+
+    def test_double_elimination_fixtures_are_published_valid_and_stable(self):
+        self.run_seed()
+        competitions = Competition.objects.filter(
+            tournament_game__tournament__slug="dev-usec-double-elimination"
+        ).order_by("tournament_game__game__slug")
+        self.assertEqual(competitions.count(), 2)
+        original_ids = list(competitions.values_list("pk", flat=True))
+        original_matches = list(
+            Match.objects.filter(round__draw__stage__competition__in=competitions)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        self.run_seed()
+        self.assertEqual(list(competitions.values_list("pk", flat=True)), original_ids)
+        self.assertEqual(
+            list(
+                Match.objects.filter(round__draw__stage__competition__in=competitions)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            ),
+            original_matches,
+        )
+        for competition in competitions:
+            stage = competition.stages.get()
+            draw = stage.draws.get(state=StageDraw.State.PUBLISHED)
+            reset = stage.grand_final_policy == Stage.GrandFinalPolicy.RESET
+            self.assertEqual(stage.format, Stage.Format.DOUBLE_ELIMINATION)
+            self.assertEqual(draw.entries.count(), 16 if reset else 5)
+            self.assertEqual(
+                stage.status, Stage.Status.READY if reset else Stage.Status.COMPLETE
+            )
+            self.assertEqual(stage.grand_final_policy, "RESET" if reset else "NO_RESET")
+            for entrant in competition.entrants.select_related("registration"):
+                registration = entrant.registration
+                self.assertEqual(registration.status, Registration.Status.APPROVED)
+                self.assertEqual(registration.members.count(), 5)
+                self.assertTrue(
+                    registration.contact_email_snapshot.endswith("@example.invalid")
+                )
+                self.assertEqual(registration.fee_amount_snapshot, Decimal("0.00"))
+            matches = Match.objects.filter(round__draw=draw)
+            if reset:
+                self.assertEqual(stage.default_series_length, 1)
+                self.assertEqual(matches.count(), 31)
+                self.assertEqual(
+                    matches.filter(status=Match.Status.CONDITIONAL).count(), 1
+                )
+                self.assertSetEqual(
+                    set(
+                        draw.rounds.filter(series_length_override=3).values_list(
+                            "section", "number"
+                        )
+                    ),
+                    {
+                        (Round.Section.UPPER, 3),
+                        (Round.Section.UPPER, 4),
+                        (Round.Section.LOWER, 6),
+                        (Round.Section.FINALS, 1),
+                        (Round.Section.FINALS, 2),
+                    },
+                )
+            else:
+                self.assertEqual(matches.count(), 14)
+                self.assertTrue(matches.filter(outcome=Match.Outcome.BYE).exists())
+                self.assertFalse(matches.exclude(status=Match.Status.FINAL).exists())
+                self.assertIsNotNone(stage.champion_id)
+            response = APIClient().get(
+                f"/api/tournament-games/{competition.tournament_game_id}/competition/"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertSetEqual(
+                {round_["section"] for round_ in response.data["stages"][0]["rounds"]},
+                {"UPPER", "LOWER", "FINALS"},
+            )
+            self.assertNotIn("@example.invalid", str(response.data))
 
     def test_command_seeds_registration_status_payment_and_timeline_matrix(self):
         output = self.run_seed()
@@ -499,10 +767,207 @@ class SeedDevDataCommandTests(TestCase):
                     "league-of-legends",
                     "rocket-league",
                     "ea-sports-fc",
+                    "arena-of-valor",
                 )
             ).exists()
         )
         self.assertFalse(
-            Tournament.objects.filter(slug__startswith="dev-usec-").exists()
+            Tournament.objects.filter(
+                slug__in=(
+                    "dev-usec-current",
+                    "dev-usec-archive",
+                    "dev-usec-draft",
+                    "dev-sponsor-open",
+                    "dev-sponsor-arena",
+                    "dev-sponsor-expired",
+                    "dev-fpt-shop-uni-tour-2026",
+                )
+            ).exists()
         )
         self.assertFalse(Institution.objects.exists())
+
+    def test_round_robin_fixtures_preserve_schedules_results_and_tie_history_on_rerun(
+        self,
+    ):
+        from collections import Counter
+        from competitions.models import TieResolution
+
+        self.run_seed()
+        stages = Stage.objects.filter(
+            competition__tournament_game__tournament__slug="dev-usec-round-robin"
+        ).order_by("pk")
+        self.assertEqual(stages.count(), 2)
+        snapshots = []
+        for stage in stages:
+            draw = stage.draws.get(state="PUBLISHED")
+            groups = list(draw.groups.all())
+            self.assertEqual(
+                [g.entries.count() for g in groups],
+                [3, 5] if stage.round_robin_meetings == 1 else [4, 4],
+            )
+            matches = list(
+                Match.objects.filter(
+                    round__draw=draw, round__section="NORMAL"
+                ).prefetch_related("slots")
+            )
+            pairs = Counter(
+                tuple(sorted(s.entry_id for s in m.slots.all())) for m in matches
+            )
+            self.assertEqual(set(pairs.values()), {stage.round_robin_meetings})
+            self.assertEqual(
+                len(matches), 13 if stage.round_robin_meetings == 1 else 24
+            )
+            snapshots.append(
+                (
+                    draw.pk,
+                    list(
+                        Match.objects.filter(round__draw=draw).values_list(
+                            "pk", "status", "side_one_score", "side_two_score"
+                        )
+                    ),
+                )
+            )
+        self.assertTrue(
+            TieResolution.objects.filter(
+                group__draw__stage__in=stages, method="MANUAL"
+            ).exists()
+        )
+        self.assertTrue(
+            TieResolution.objects.filter(
+                group__draw__stage__in=stages, state="SUPERSEDED"
+            ).exists()
+        )
+        self.run_seed()
+        for draw_id, matches in snapshots:
+            self.assertEqual(
+                list(
+                    Match.objects.filter(round__draw_id=draw_id).values_list(
+                        "pk", "status", "side_one_score", "side_two_score"
+                    )
+                ),
+                matches,
+            )
+
+    def test_multi_stage_seed_preserves_published_draws_and_unequal_group_rules(self):
+        self.run_seed()
+        competitions = list(
+            Competition.objects.filter(
+                tournament_game__tournament__slug="dev-usec-multi-stage"
+            ).order_by("pk")
+        )
+        self.assertEqual(len(competitions), 3)
+        ids = []
+        for competition in competitions:
+            self.assertEqual(competition.stages.count(), 2)
+            source, destination = list(competition.stages.all())
+            sizes = list(source.group_plans.values_list("size", flat=True))
+            self.assertIn(sizes, ([3, 3, 2], [3, 2, 2], [2, 5, 3]))
+            draw = destination.draws.get(state="PUBLISHED")
+            self.assertEqual(draw.entries.count(), 7 if sizes == [2, 5, 3] else 6)
+            self.assertEqual(draw.entries.filter(source_entry__isnull=True).count(), 0)
+            ids.extend(
+                Match.objects.filter(round__draw=draw).values_list("pk", flat=True)
+            )
+        before = list(
+            Match.objects.filter(pk__in=ids).values_list(
+                "pk", "code", "side_one_score", "side_two_score"
+            )
+        )
+        self.run_seed()
+        self.assertEqual(
+            list(
+                Match.objects.filter(pk__in=ids).values_list(
+                    "pk", "code", "side_one_score", "side_two_score"
+                )
+            ),
+            before,
+        )
+
+    def test_swiss_seed_preserves_complete_chains_rounds_limits_and_scores(self):
+        self.run_seed()
+        competitions = list(
+            Competition.objects.filter(
+                tournament_game__tournament__slug="dev-usec-swiss"
+            ).order_by("tournament_game__game__slug")
+        )
+        self.assertEqual(len(competitions), 2)
+        snapshots = []
+        for competition in competitions:
+            stages = list(competition.stages.all())
+            self.assertEqual(stages[-1].format, "SINGLE_ELIMINATION")
+            self.assertEqual(stages[0].status, "COMPLETE")
+            source = stages[0].draws.get(state="PUBLISHED")
+            if stages[0].format == "SWISS_FIXED":
+                self.assertEqual(source.entries.count(), 9)
+                self.assertEqual(source.swiss_round_limit, 4)
+                self.assertEqual(stages[0].series_mode, "FIXED_GAMES")
+                self.assertEqual(stages[0].default_series_length, 2)
+                self.assertEqual(source.rounds.filter(state="PUBLISHED").count(), 4)
+                self.assertEqual(stages[0].advancement_count, 4)
+                self.assertEqual(
+                    Match.objects.filter(round__draw=source, outcome="BYE").count(), 4
+                )
+            else:
+                self.assertEqual(source.entries.count(), 16)
+                self.assertEqual(
+                    (stages[0].swiss_win_target, stages[0].swiss_loss_limit), (3, 3)
+                )
+                self.assertEqual(len(stages), 3)
+                self.assertEqual(stages[1].format, "SWISS_FIXED")
+                self.assertIsNone(stages[1].swiss_round_count)
+                self.assertEqual(stages[1].status, "COMPLETE")
+                self.assertEqual(stages[1].advancement_count, 4)
+            for stage in stages[1:]:
+                draw = stage.draws.get(state="PUBLISHED")
+                self.assertFalse(
+                    draw.entries.filter(source_entry__isnull=True).exists()
+                )
+            self.assertEqual(stages[-1].draws.get(state="PUBLISHED").entries.count(), 4)
+            snapshots.append(
+                (
+                    competition.pk,
+                    list(
+                        StageDraw.objects.filter(
+                            stage__competition=competition
+                        ).values_list("pk", "swiss_round_limit")
+                    ),
+                    list(
+                        Round.objects.filter(
+                            draw__stage__competition=competition
+                        ).values_list("pk", "state", "version")
+                    ),
+                    list(
+                        Match.objects.filter(
+                            round__draw__stage__competition=competition
+                        ).values_list(
+                            "pk", "status", "side_one_score", "side_two_score"
+                        )
+                    ),
+                )
+            )
+        self.run_seed()
+        for competition_id, draws, rounds, matches in snapshots:
+            self.assertEqual(
+                list(
+                    StageDraw.objects.filter(
+                        stage__competition_id=competition_id
+                    ).values_list("pk", "swiss_round_limit")
+                ),
+                draws,
+            )
+            self.assertEqual(
+                list(
+                    Round.objects.filter(
+                        draw__stage__competition_id=competition_id
+                    ).values_list("pk", "state", "version")
+                ),
+                rounds,
+            )
+            self.assertEqual(
+                list(
+                    Match.objects.filter(
+                        round__draw__stage__competition_id=competition_id
+                    ).values_list("pk", "status", "side_one_score", "side_two_score")
+                ),
+                matches,
+            )

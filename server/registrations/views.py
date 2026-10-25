@@ -50,10 +50,13 @@ class PaymentProofView(PrivateResponseMixin, APIView):
     def get(self, request, path):
         attempts = PaymentAttempt.objects.all()
         user = request.user
-        organizer = user.is_superuser or (
-            user.is_staff
-            and user.groups.filter(name="Organizers").exists()
-            and user.has_perm("registrations.view_paymentattempt")
+        organizer = user.is_active and (
+            user.is_superuser
+            or (
+                user.is_staff
+                and user.groups.filter(name="Organizers").exists()
+                and user.has_perm("registrations.view_paymentattempt")
+            )
         )
         if not organizer:
             attempts = attempts.filter(registration__submitted_by=user)

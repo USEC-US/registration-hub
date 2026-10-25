@@ -2,8 +2,10 @@ from datetime import date
 from datetime import timedelta
 from decimal import Decimal
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, Permission
+from django.contrib.admin.models import LogEntry
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -288,7 +290,11 @@ class RegistrationServiceTests(TestCase):
         organizer = self._organizer()
         registration = start_review(actor=organizer, registration_id=registration.pk)
         PaymentAttempt.objects.create(
-            registration=registration, amount=50000, currency="VND", status="VERIFIED"
+            registration=registration,
+            amount=50000,
+            currency="VND",
+            status="VERIFIED",
+            proof_file=payment_image(),
         )
         registration = approve_registration(
             actor=organizer, registration_id=registration.pk
@@ -320,6 +326,27 @@ class RegistrationServiceTests(TestCase):
         self.assertEqual(attempt.status, PaymentAttempt.Status.VERIFIED)
         self.assertEqual(attempt.reviewed_by_id, organizer.pk)
         self.assertIsNotNone(attempt.reviewed_at)
+        registration_history = list(
+            LogEntry.objects.filter(
+                content_type__model="registration", object_id=str(registration.pk)
+            ).values_list("change_message", flat=True)
+        )
+        payment_history = list(
+            LogEntry.objects.filter(
+                content_type__model="paymentattempt", object_id=str(attempt.pk)
+            ).values_list("change_message", flat=True)
+        )
+        self.assertTrue(
+            any(
+                "UNDER_REVIEW" in entry
+                and "APPROVED" in entry
+                and str(attempt.pk) in entry
+                for entry in registration_history
+            )
+        )
+        self.assertTrue(
+            any("PENDING" in entry and "VERIFIED" in entry for entry in payment_history)
+        )
         self.assertEqual(payment_state(registration), "VERIFIED")
         registration.payment_due_at = timezone.now() - timedelta(minutes=1)
         registration.save(update_fields=("payment_due_at",))
@@ -328,6 +355,85 @@ class RegistrationServiceTests(TestCase):
         )
         registration.refresh_from_db()
         self.assertEqual(registration.status, Registration.Status.APPROVED)
+
+    def test_paid_approval_requires_payment_change_permission_without_partial_decision(
+        self,
+    ):
+        organizer = self._organizer()
+        registration = start_review(
+            actor=organizer, registration_id=self._submit_solo().pk
+        )
+        attempt = PaymentAttempt.objects.create(
+            registration=registration,
+            method=PaymentAttempt.Method.MANUAL_PROOF,
+            amount=registration.fee_amount_snapshot,
+            currency="VND",
+            proof_file=payment_image(),
+        )
+        organizer.user_permissions.remove(
+            Permission.objects.get(codename="change_paymentattempt")
+        )
+        organizer = type(organizer).objects.get(pk=organizer.pk)
+        with self.assertRaises(PermissionDenied):
+            approve_registration(actor=organizer, registration_id=registration.pk)
+        registration.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.UNDER_REVIEW)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PENDING)
+        self.assertFalse(
+            LogEntry.objects.filter(
+                content_type__model="paymentattempt", object_id=str(attempt.pk)
+            ).exists()
+        )
+
+    def test_inactive_superuser_cannot_decide(self):
+        registration = self._submit_solo()
+        organizer = self._organizer()
+        organizer.is_superuser = True
+        organizer.is_active = False
+        organizer.save(update_fields=("is_superuser", "is_active"))
+        with self.assertRaises(PermissionDenied):
+            start_review(actor=organizer, registration_id=registration.pk)
+
+    def test_verified_payment_without_image_cannot_approve(self):
+        organizer = self._organizer()
+        registration = start_review(
+            actor=organizer, registration_id=self._submit_solo().pk
+        )
+        PaymentAttempt.objects.create(
+            registration=registration,
+            amount=registration.fee_amount_snapshot,
+            currency="VND",
+            status=PaymentAttempt.Status.VERIFIED,
+        )
+        with self.assertRaisesMessage(ValidationError, "Payment proof is required"):
+            approve_registration(actor=organizer, registration_id=registration.pk)
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.UNDER_REVIEW)
+
+    def test_failed_audit_write_rolls_back_payment_and_approval(self):
+        organizer = self._organizer()
+        registration = start_review(
+            actor=organizer, registration_id=self._submit_solo().pk
+        )
+        attempt = PaymentAttempt.objects.create(
+            registration=registration,
+            amount=registration.fee_amount_snapshot,
+            currency="VND",
+            proof_file=payment_image(),
+        )
+        with patch.object(
+            LogEntry.objects,
+            "log_actions",
+            side_effect=[None, RuntimeError("audit failed")],
+        ):
+            with self.assertRaisesMessage(RuntimeError, "audit failed"):
+                approve_registration(actor=organizer, registration_id=registration.pk)
+        registration.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.UNDER_REVIEW)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PENDING)
+        self.assertEqual(registration.status_events.count(), 2)
 
     def test_rejection_requires_reason_and_only_from_under_review(self):
         registration = self._submit_solo()

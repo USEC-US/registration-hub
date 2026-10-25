@@ -5,6 +5,7 @@ from http.client import HTTPException
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+from django.contrib.admin.models import CHANGE, LogEntry
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -85,12 +86,15 @@ def parse_bank_catalogue(payload):
     return banks
 
 
-def sync_bank_catalogue(payload=None, *, dry_run=False):
+def sync_bank_catalogue(payload=None, *, dry_run=False, actor=None):
     # Validate the entire response before writing any row or marking banks inactive.
     banks = parse_bank_catalogue(fetch_bank_catalogue() if payload is None else payload)
     bins = {bank.bin for bank in banks}
     with transaction.atomic():
-        existing = set(Bank.objects.values_list("bin", flat=True))
+        previous = {
+            bank.bin: (bank.short_name, bank.is_active) for bank in Bank.objects.all()
+        }
+        existing = set(previous)
         result = {
             "created": len(bins - existing),
             "updated": len(bins & existing),
@@ -111,4 +115,21 @@ def sync_bank_catalogue(payload=None, *, dry_run=False):
             Bank.objects.filter(is_active=True).exclude(bin__in=bins).update(
                 is_active=False
             )
+            if actor is not None:
+                for bank in Bank.objects.all():
+                    before = previous.get(bank.bin)
+                    if bank.bin not in bins and (before is None or not before[1]):
+                        continue
+                    old = (
+                        f"{'active' if before[1] else 'inactive'} ({before[0]})"
+                        if before
+                        else "absent"
+                    )
+                    new = f"{'active' if bank.is_active else 'inactive'} ({bank.short_name})"
+                    LogEntry.objects.log_actions(
+                        user_id=actor.pk,
+                        queryset=[bank],
+                        action_flag=CHANGE,
+                        change_message=f"Bank catalogue refresh: {old} -> {new}",
+                    )
     return result
