@@ -740,3 +740,111 @@ class SwissEndingTests(TestCase):
         self.stage.refresh_from_db()
         self.assertEqual(self.competition.ended_champion_id, entries[0].entrant_id)
         self.assertIsNone(self.stage.champion_id)
+
+    def _unfinished_threshold_with_fixed_destination(self, seats):
+        from competitions import swiss_commands
+        from competitions.tests.test_swiss_plan import SwissPlanTests
+
+        self._competition(4)
+        self.stage = self._swiss(
+            format="SWISS_THRESHOLD",
+            advancement_count=None,
+            round_count=None,
+            win_target=2,
+            loss_limit=2,
+        )
+        SwissPlanTests._rr(self, 2, [("A", seats, 1)])
+        self.source = swiss_commands.save_swiss_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self._revision(),
+            ordered_entrant_ids=[e.pk for e in self.entrants],
+        )
+        commands.publish_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self._revision(),
+        )
+        self.remove(self.entrants[-1])
+        from competitions.qualification import stage_qualification
+
+        self.assertEqual(
+            stage_qualification(self.source)["qualification_state"], "PROVISIONAL"
+        )
+
+    def test_unfinished_threshold_cannot_fill_four_seats_with_three_possible_qualifiers(
+        self,
+    ):
+        self._unfinished_threshold_with_fixed_destination(4)
+        before = list(Match.objects.values())
+        preview = self.preview()
+        self.assertTrue(preview["frozen_match_ids"])
+        with self.assertRaises(ValidationError):
+            self.preview(True)
+        self.end(preview)
+        self.competition.refresh_from_db()
+        self.assertIsNotNone(self.competition.ended_at)
+        self.assertIsNone(self.competition.ended_champion_id)
+        self.assertEqual(before, list(Match.objects.values()))
+
+    def test_unfinished_threshold_must_play_when_fewer_than_maximum_qualifiers_fit(
+        self,
+    ):
+        self._unfinished_threshold_with_fixed_destination(2)
+        with self.assertRaises(ValidationError):
+            self.preview()
+        self.competition.refresh_from_db()
+        self.assertIsNone(self.competition.ended_at)
+
+    def test_threshold_already_earned_qualifiers_cannot_be_dropped_to_fit_destination(
+        self,
+    ):
+        from competitions import swiss_commands
+        from competitions.tests.test_swiss_plan import SwissPlanTests
+        from competitions.qualification import stage_qualification
+
+        self._competition(8)
+        self.stage = self._swiss(
+            format="SWISS_THRESHOLD",
+            advancement_count=None,
+            round_count=None,
+            win_target=1,
+            loss_limit=2,
+        )
+        SwissPlanTests._rr(self, 2, [("A", 2, 1)])
+        self.source = swiss_commands.save_swiss_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self._revision(),
+            ordered_entrant_ids=[e.pk for e in self.entrants],
+        )
+        commands.publish_draw(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=self._revision(),
+        )
+        for match in list(Match.objects.filter(round__draw=self.source).order_by("pk"))[
+            :3
+        ]:
+            commands.finalize_match(
+                actor=self.actor,
+                match_id=match.pk,
+                expected_revision=self._revision(),
+                outcome="PLAYED",
+                side_one_score=2,
+                side_two_score=0,
+            )
+        self.assertEqual(
+            stage_qualification(self.source)["qualification_state"], "PROVISIONAL"
+        )
+        self.assertEqual(
+            sum(
+                row.status == "QUALIFIED"
+                for row in swiss_commands.swiss_standings(self.source)
+            ),
+            3,
+        )
+        self.end()
+        self.competition.refresh_from_db()
+        self.assertIsNotNone(self.competition.ended_at)
+        self.assertIsNone(self.competition.ended_champion_id)

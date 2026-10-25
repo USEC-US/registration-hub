@@ -728,11 +728,24 @@ def _ending_candidates(draw):
     if state == "PROVISIONAL":
         possible = eligible
         if stage.format == Stage.Format.SWISS_THRESHOLD:
+            rows = swiss_standings(draw)
             possible = {
-                row.entry_id
-                for row in swiss_standings(draw)
-                if row.status != "ELIMINATED"
+                row.entry_id for row in rows if row.status != "ELIMINATED"
             } & eligible
+            earned_count = sum(
+                row.status == "QUALIFIED" and row.entry_id in eligible for row in rows
+            )
+            if later:
+                # Bounds prove impossibility without predicting future match results.
+                for incoming in range(earned_count, len(possible) + 1):
+                    try:
+                        for destination in later:
+                            incoming, _ = validate_stage_field(destination, incoming)
+                    except ValidationError:
+                        continue
+                    break
+                else:
+                    reason = "No remaining possible qualifying field fits the locked continuation."
         if not possible:
             reason = "There are no eligible participants remaining."
         elif later and len(possible) < (quota if quota is not None else 2):
