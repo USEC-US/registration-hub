@@ -763,3 +763,37 @@ class NextStageDrawForm(RevisionForm):
         label="Replace the existing private preview with a new random draw",
         required=False,
     )
+
+
+class EntrantTransitionForm(RevisionForm):
+    status = forms.ChoiceField(choices=CompetitionEntrant.Status.choices)
+
+
+class CompetitionEndForm(RevisionForm):
+    award_sole_survivor = forms.BooleanField(
+        required=False,
+        label="Award the sole eligible survivor as champion",
+        help_text="Leave unchecked to end without a champion. Locked continuation must be impossible.",
+    )
+
+
+class LifecycleConfirmationForm(forms.Form):
+    internal_reason = forms.CharField(label="Private reason", widget=forms.Textarea)
+    confirm_live_forfeits = forms.BooleanField(
+        required=False, label="I confirm forfeiting the listed live matches."
+    )
+    confirm_resets = forms.BooleanField(
+        required=False, label="I confirm the listed resets and retirement of fixtures."
+    )
+
+    def __init__(self, *args, impact=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        impact = impact or {}
+        if not impact.get("live_forfeit_ids"):
+            del self.fields["confirm_live_forfeits"]
+        else:
+            self.fields["confirm_live_forfeits"].required = True
+        if not (impact.get("requires_confirmation") or impact.get("reset_match_ids")):
+            del self.fields["confirm_resets"]
+        else:
+            self.fields["confirm_resets"].required = True

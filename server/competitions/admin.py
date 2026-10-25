@@ -22,6 +22,7 @@ from tournaments.models import TournamentGame
 
 from .admin_workspace import (
     correction_display,
+    lifecycle_display,
     grand_final_policy_label,
     match_card,
     reset_final_changes_display,
@@ -50,6 +51,9 @@ from .commands import (
 )
 from .forms import (
     CompetitionSetupForm,
+    EntrantTransitionForm,
+    CompetitionEndForm,
+    LifecycleConfirmationForm,
     CorrectionReasonForm,
     DrawForm,
     EntrantSelectionForm,
@@ -106,6 +110,17 @@ from .qualification import (
     stage_qualification,
     preview_qualification_tie,
     confirm_qualification_tie,
+)
+
+
+from .lifecycle_commands import (
+    preview_entrant_transition,
+    apply_entrant_transition,
+    preview_competition_end,
+    apply_competition_end,
+    preview_competition_reopen,
+    apply_competition_reopen,
+    review_lifecycle_preview,
 )
 
 
@@ -251,12 +266,17 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         )
         entrants = list(competition.entrants.filter(is_selected=True).order_by("pk"))
         published = bool(stage and stage.published_at)
-        can_manage = self.has_change_permission(request, competition)
+        can_manage = (
+            self.has_change_permission(request, competition)
+            and not competition.ended_at
+        )
         can_view_matches = admin.site.get_model_admin(Match).has_view_permission(
             request
         )
-        can_operate = can_view_matches and request.user.has_perm(
-            "competitions.change_match"
+        can_operate = (
+            not competition.ended_at
+            and can_view_matches
+            and request.user.has_perm("competitions.change_match")
         )
         can_view_changes = request.user.has_perm("competitions.view_changeset")
         selected_stage_id = _stage_context_id(request, stage)
@@ -340,6 +360,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "seed": None,
                 "name": item.display_name,
                 "status": item.get_status_display(),
+                "entrant": item,
             }
             for item in entrants
         ]
@@ -353,6 +374,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                     "seed": item.seed,
                     "name": item.entrant.display_name,
                     "status": item.entrant.get_status_display(),
+                    "entrant": item.entrant,
                 }
                 for item in draw.entries.select_related("entrant").order_by("seed")
             ]
@@ -683,6 +705,15 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                         args=[competition.pk, stage.pk],
                     ),
                 }
+        for entry in entries:
+            entry["transition_url"] = (
+                reverse(
+                    "admin:competitions_entrant_transition",
+                    args=[competition.pk, entry["entrant"].pk],
+                )
+                if can_manage
+                else None
+            )
         return TemplateResponse(
             request,
             "admin/competitions/workspace.html",
@@ -692,6 +723,19 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "original": competition,
                 "title": f"{competition.tournament_game.tournament.name} · {competition.tournament_game.game.name}",
                 "competition": competition,
+                "end_url": reverse(
+                    "admin:competitions_competition_end",
+                    args=[competition.pk, stage.pk],
+                )
+                if can_manage and stage and stage.published_at
+                else None,
+                "reopen_url": reverse(
+                    "admin:competitions_competition_reopen", args=[competition.pk]
+                )
+                if competition.ended_at
+                and self.has_change_permission(request, competition)
+                and request.user.has_perm("competitions.change_match")
+                else None,
                 "stage": stage,
                 "swiss_display": swiss_display,
                 "swiss_generate_url": reverse(
@@ -1059,8 +1103,183 @@ class CompetitionAdmin(OrganizerStaffAdmin):
         )
         return self._tie_confirm_view(request, draw)
 
+    def entrant_transition_view(self, request, competition_id, entrant_id):
+        competition = get_object_or_404(Competition, pk=competition_id)
+        entrant = get_object_or_404(competition.entrants, pk=entrant_id)
+        return self._lifecycle_view(
+            request, competition, "entrant_transition", entrant=entrant
+        )
+
+    def competition_end_view(self, request, competition_id, stage_id):
+        competition = get_object_or_404(Competition, pk=competition_id)
+        stage = get_object_or_404(competition.stages, pk=stage_id)
+        return self._lifecycle_view(
+            request, competition, "competition_end", stage=stage
+        )
+
+    def competition_reopen_view(self, request, competition_id):
+        competition = get_object_or_404(Competition, pk=competition_id)
+        return self._lifecycle_view(request, competition, "competition_reopen")
+
+    def _lifecycle_view(self, request, competition, kind, *, entrant=None, stage=None):
+        require_organizer(request.user, "competitions.change_competition")
+        if kind == "competition_reopen":
+            require_organizer(request.user, "competitions.change_match")
+        if request.method not in ("GET", "POST"):
+            return HttpResponseNotAllowed(["GET", "POST"])
+        titles = {
+            "entrant_transition": "Change entrant availability",
+            "competition_end": "End competition",
+            "competition_reopen": "Reopen competition",
+        }
+        title = titles[kind]
+        token = request.POST.get("token") if request.method == "POST" else None
+        impact = None
+        form_class = (
+            EntrantTransitionForm
+            if entrant
+            else CompetitionEndForm
+            if stage
+            else RevisionForm
+        )
+        form = form_class(
+            request.POST if request.method == "POST" else None,
+            initial={
+                "expected_revision": competition.revision,
+                **({"status": entrant.status} if entrant else {}),
+            },
+        )
+        if token:
+            try:
+                impact = review_lifecycle_preview(actor=request.user, token=token)
+                if (
+                    impact["kind"]
+                    not in (
+                        {
+                            "entrant_withdrawn",
+                            "entrant_disqualified",
+                            "entrant_restored",
+                            "entrant_status_changed",
+                        }
+                        if entrant
+                        else {"competition_ended"}
+                        if stage
+                        else {"competition_reopened"}
+                    )
+                    or impact["competition_id"] != competition.pk
+                    or (entrant and impact.get("entrant_id") != entrant.pk)
+                    or (stage and impact.get("stage_id") != stage.pk)
+                ):
+                    raise ValidationError(
+                        "This preview belongs to a different operation or subject."
+                    )
+            except (PermissionDenied, ValidationError) as error:
+                impact = None
+                form = LifecycleConfirmationForm(request.POST)
+                form.add_error(None, error)
+            else:
+                form = LifecycleConfirmationForm(request.POST, impact=impact)
+                if form.is_valid():
+                    data = form.cleaned_data
+                    try:
+                        common = dict(
+                            actor=request.user,
+                            token=token,
+                            internal_reason=data["internal_reason"],
+                            confirm_resets=data.get("confirm_resets", False),
+                        )
+                        if entrant:
+                            apply_entrant_transition(
+                                **common,
+                                confirm_live_forfeits=data.get(
+                                    "confirm_live_forfeits", False
+                                ),
+                            )
+                        elif stage:
+                            apply_competition_end(**common)
+                        else:
+                            apply_competition_reopen(**common)
+                    except (PermissionDenied, ValidationError) as error:
+                        form.add_error(None, error)
+                    else:
+                        self.message_user(
+                            request, f"{title} completed.", messages.SUCCESS
+                        )
+                        return HttpResponseRedirect(
+                            workspace_url(
+                                competition.pk, "entrants" if entrant else None
+                            )
+                        )
+        elif request.method == "POST" and form.is_valid():
+            try:
+                common = dict(
+                    actor=request.user,
+                    expected_revision=form.cleaned_data["expected_revision"],
+                )
+                if entrant:
+                    impact = preview_entrant_transition(
+                        **common,
+                        entrant_id=entrant.pk,
+                        status=form.cleaned_data["status"],
+                    )
+                elif stage:
+                    impact = preview_competition_end(
+                        **common,
+                        stage_id=stage.pk,
+                        award_sole_survivor=form.cleaned_data["award_sole_survivor"],
+                    )
+                else:
+                    impact = preview_competition_reopen(
+                        **common, competition_id=competition.pk
+                    )
+            except (PermissionDenied, ValidationError) as error:
+                form.add_error(None, error)
+            else:
+                token = impact["token"]
+                form = LifecycleConfirmationForm(impact=impact)
+        return _action_response(
+            request,
+            title=title,
+            form=form,
+            opts=self.model._meta,
+            change_url=workspace_url(competition.pk),
+            extra={
+                "workspace_url": workspace_url(competition.pk),
+                "token": token,
+                "description": f"{entrant.display_name} · Current status: {entrant.get_status_display()}"
+                if entrant
+                else "Reopening keeps retired fixtures historical. Generate fresh replacement previews and explicitly publish them."
+                if kind == "competition_reopen"
+                else "End only when the locked continuation is impossible. Source results remain recorded.",
+                "lifecycle_impact": impact,
+                "lifecycle_display": lifecycle_display(
+                    impact, competition, request.user
+                )
+                if impact
+                else None,
+                "submit_label": "Confirm lifecycle change"
+                if impact
+                else "Preview impact",
+            },
+        )
+
     def get_urls(self):
         return [
+            path(
+                "<int:competition_id>/entrant/<int:entrant_id>/transition/",
+                self.admin_site.admin_view(self.entrant_transition_view),
+                name="competitions_entrant_transition",
+            ),
+            path(
+                "<int:competition_id>/stage/<int:stage_id>/end/",
+                self.admin_site.admin_view(self.competition_end_view),
+                name="competitions_competition_end",
+            ),
+            path(
+                "<int:competition_id>/reopen/",
+                self.admin_site.admin_view(self.competition_reopen_view),
+                name="competitions_competition_reopen",
+            ),
             path(
                 "<int:competition_id>/stage/<int:stage_id>/swiss/generate/",
                 self.admin_site.admin_view(self.swiss_generate_view),
@@ -1645,6 +1864,17 @@ class RoundAdmin(ReadOnlyCompetitionAdmin):
             "competitions.change_match"
         )
 
+    def get_actions_detail(self, request, object_id):
+        round_ = self.get_object(request, object_id)
+        if (
+            round_ is None
+            or round_.draw.stage.competition.ended_at
+            or round_.state == Round.State.SUPERSEDED
+            or round_.draw.state == StageDraw.State.SUPERSEDED
+        ):
+            return []
+        return super().get_actions_detail(request, object_id)
+
     @action(permissions=["operate"], description="Set series length")
     def series_detail(self, request, object_id):
         if request.method not in ("GET", "POST"):
@@ -1837,7 +2067,10 @@ class MatchAdmin(ReadOnlyCompetitionAdmin):
         match = self.get_object(request, object_id)
         if match is None:
             return []
-        if match.round.draw.state != StageDraw.State.PUBLISHED:
+        if (
+            match.round.draw.stage.competition.ended_at
+            or match.round.draw.state != StageDraw.State.PUBLISHED
+        ):
             return []
         if (
             match.round.tie_resolution_id

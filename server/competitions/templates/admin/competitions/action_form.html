@@ -13,6 +13,17 @@
       </ol>
     </section>
   {% endif %}
+  {% if lifecycle_impact %}<section class="cw-notice cw-notice-warning" aria-label="Lifecycle impact">
+    <h2>Review lifecycle impact</h2>
+    <p>Before: {{ lifecycle_display.before }} → After: {{ lifecycle_display.after }}</p>
+    {% if lifecycle_impact.block_reason %}<p>{{ lifecycle_impact.block_reason }}</p>{% endif %}
+    <h3>Affected matches</h3><ul>{% for row in lifecycle_display.affected %}<li>{{ row }}</li>{% empty %}<li>None</li>{% endfor %}</ul>
+    <h3>Resulting changes</h3><ul>{% for row in lifecycle_display.effects %}<li>{{ row }}</li>{% empty %}<li>None</li>{% endfor %}</ul>
+    <h3>Results reset</h3><ul>{% for row in lifecycle_display.resets %}<li>{{ row }}</li>{% empty %}<li>None</li>{% endfor %}</ul>
+    <h3>Independent corrections preserved</h3><ul>{% for row in lifecycle_display.preserved %}<li>{{ row }}</li>{% empty %}<li>None</li>{% endfor %}</ul>
+    <h3>Fixtures becoming historical</h3><p>{{ lifecycle_display.stages|join:", " }}</p><ul>{% for row in lifecycle_display.historical %}<li>{{ row }}</li>{% empty %}<li>None</li>{% endfor %}</ul>
+    {% if lifecycle_display.blocked %}<p>Blocked continuation: {{ lifecycle_display.blocked|join:", " }}. Locked quotas and rules remain unchanged.</p>{% endif %}
+  </section>{% endif %}
   {% if impact_display %}
     <section class="cw-notice cw-notice-warning" aria-labelledby="cw-impact-title">
       <h2 id="cw-impact-title">Review this correction</h2>

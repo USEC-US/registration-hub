@@ -369,6 +369,63 @@ class CompetitionAdminTests(TestCase):
                     {field.name for field in model._meta.fields},
                 )
 
+    def test_lifecycle_private_history_requires_separate_permission_and_csrf(self):
+        competition, draw = self._publish()
+        entrant = competition.entrants.first()
+        url = reverse(
+            "admin:competitions_entrant_transition", args=[competition.pk, entrant.pk]
+        )
+        protected = Client(enforce_csrf_checks=True)
+        protected.force_login(self.organizer)
+        self.assertEqual(
+            protected.post(
+                url, {"expected_revision": competition.revision, "status": "WITHDRAWN"}
+            ).status_code,
+            403,
+        )
+        preview = self.client.post(
+            url, {"expected_revision": competition.revision, "status": "WITHDRAWN"}
+        )
+        response = self.client.post(
+            url,
+            {
+                "token": preview.context["token"],
+                "internal_reason": "Sensitive private lifecycle reason",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        viewer = create_account(
+            email="lifecycle-history@example.com",
+            password="strong-password",
+            first_name="History",
+            last_name="Viewer",
+            is_staff=True,
+        )
+        viewer.groups.add(Group.objects.get_or_create(name="Organizers")[0])
+        viewer.user_permissions.set(
+            Permission.objects.filter(
+                content_type__app_label="competitions",
+                codename__in=["view_competition", "change_competition", "change_match"],
+            )
+        )
+        self.client.force_login(viewer)
+        workspace = reverse(
+            "admin:competitions_competition_change", args=[competition.pk]
+        )
+        self.assertNotContains(
+            self.client.get(workspace), "Sensitive private lifecycle reason"
+        )
+        self.assertEqual(self.client.get(workspace + "?tab=changes").status_code, 403)
+        viewer.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="competitions", codename="view_changeset"
+            )
+        )
+        self.assertContains(
+            self.client.get(workspace + "?tab=changes"),
+            "Sensitive private lifecycle reason",
+        )
+
 
 class RoundRobinAdminTests(TestCase):
     setUp = CompetitionAdminTests.setUp

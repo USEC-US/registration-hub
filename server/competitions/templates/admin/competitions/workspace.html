@@ -22,8 +22,11 @@
 
   {% if stages %}<form method="get" class="cw-panel cw-stage-select"><input type="hidden" name="tab" value="{{ tab }}"><label for="cw-stage-select">Stage</label><select id="cw-stage-select" name="stage">{% for item in stages %}<option value="{{ item.pk }}"{% if item.pk == stage.pk %} selected{% endif %}>{{ item.sequence }}. {{ item.name }}</option>{% endfor %}</select><button type="submit" class="cw-button">View stage</button></form>{% endif %}
   {% if waiting_reason %}<p class="cw-notice">{{ waiting_reason }}</p>{% endif %}
-  {% if stage.published_at and not draw %}<p class="cw-notice">Awaiting replacement draw. Previous results remain available in Changes.</p>{% endif %}
+  {% if stage.published_at and not draw %}<p class="cw-notice">Historical stage — {{ stage.name }}. Awaiting replacement draw. Previous results remain available in Changes.</p>{% endif %}
 
+  {% if competition.ended_at %}<p class="cw-notice">Competition ended. Source contests are closed and historical; recorded outcomes are preserved. {% if competition.ended_champion %}Champion: {{ competition.ended_champion.display_name }}.{% else %}Without a champion.{% endif %}</p>{% endif %}
+  {% if end_url %}<a class="cw-button" href="{{ end_url }}">End competition</a>{% endif %}
+  {% if reopen_url %}<a class="cw-button" href="{{ reopen_url }}">Reopen competition</a>{% endif %}
   <nav class="cw-tabs" aria-label="Competition workspace">
     {% for item in tabs %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
   </nav>
@@ -77,7 +80,7 @@
         {% if entrants_url %}<a class="cw-button" href="{{ entrants_url }}">Edit entrants</a>{% endif %}
       </div>
       {% if entries %}
-        <ol class="cw-entrants">{% for entry in entries %}<li class="cw-entrant"><span class="cw-seed" title="Draw position">{{ entry.seed|default:"—" }}</span><div><h3>{{ entry.name }}</h3><p class="cw-muted">{{ entry.status }}</p></div></li>{% endfor %}</ol>
+        <ol class="cw-entrants">{% for entry in entries %}<li class="cw-entrant"><span class="cw-seed" title="Draw position">{{ entry.seed|default:"—" }}</span><div><h3>{{ entry.name }}</h3><p class="cw-muted">{{ entry.status }}</p>{% if entry.transition_url %}<a href="{{ entry.transition_url }}">Change availability</a>{% endif %}</div></li>{% endfor %}</ol>
       {% else %}
         <div class="cw-empty"><h3>No entrants selected yet</h3><p>Select approved registrations to start building the bracket.</p>{% if entrants_url %}<a class="cw-button cw-button-primary" href="{{ entrants_url }}">Select entrants</a>{% endif %}</div>
       {% endif %}
@@ -110,7 +113,7 @@
                 <div class="cw-round-matches">
                   {% for match in round.matches %}
                     <article class="cw-match{% if match.historical %} cw-match-historical{% endif %}" aria-label="{{ match.title }}" data-match-id="{{ match.id }}">
-                      <header class="cw-match-heading"><a href="{{ match.detail_url }}">{{ match.code }}</a><span class="cw-badge">{{ match.status }}</span></header>
+                      <header class="cw-match-heading"><a href="{{ match.detail_url }}">{{ match.code }}</a><span class="cw-badge">{{ match.status }}</span>{% if match.historical %}<span class="cw-badge">{% if match.closed %}Closed · historical{% else %}Historical{% endif %}</span>{% endif %}</header>
                       <ol class="cw-slots">
                         {% for slot in match.slots %}
                           <li class="cw-slot{% if slot.is_winner %} cw-slot-winner{% endif %}" data-position="{{ slot.position }}"{% if slot.source_match_id %} data-source-match="{{ slot.source_match_id }}" data-source-outcome="{{ slot.source_outcome }}"{% endif %}>

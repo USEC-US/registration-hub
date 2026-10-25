@@ -3,6 +3,7 @@
 from urllib.parse import urlencode
 
 from django.urls import reverse
+from django.db.models import Q
 
 from .models import Match, Round, Stage, StageDraw, StageEntry
 
@@ -72,7 +73,8 @@ def match_card(match, user):
         slot.is_resolved and slot.resolved_entry_id for slot in slots
     )
     historical = (
-        match.round.state == Round.State.SUPERSEDED
+        match.round.draw.stage.competition.ended_at is not None
+        or match.round.state == Round.State.SUPERSEDED
         or match.round.draw.state == StageDraw.State.SUPERSEDED
         or (
             match.round.tie_resolution_id
@@ -168,6 +170,11 @@ def match_card(match, user):
             else ""
         ),
         "historical": bool(historical),
+        "closed": bool(
+            match.round.draw.stage.competition.ended_at
+            and match.round.draw.stage.competition.ended_stage_id
+            == match.round.draw.stage_id
+        ),
         "private": match.round.state == Round.State.DRAFT
         or match.round.draw.state == StageDraw.State.DRAFT,
         "can_operate": can_operate,
@@ -355,5 +362,81 @@ def swiss_workspace(draw):
             and not current.matches.exclude(status="FINAL").exists()
             and draw.stage.status != "COMPLETE"
             and published.count() < draw.swiss_round_limit
+        ),
+    }
+
+
+def lifecycle_display(impact, competition, user):
+    """Resolve signed IDs within this competition into readable impact lists."""
+    affected = [i["match_id"] for i in impact.get("match_impacts", [])]
+    ids = set(
+        affected
+        + impact.get("reset_match_ids", [])
+        + impact.get("preserved_corrections", [])
+    )
+    matches = (
+        Match.objects.filter(round__draw__stage__competition=competition)
+        .filter(
+            Q(pk__in=ids)
+            | Q(round__draw_id__in=impact.get("retired_draws", []))
+            | Q(round_id__in=impact.get("retired_rounds", []))
+        )
+        .select_related("round__draw__stage")
+        .prefetch_related(
+            "slots__entry__entrant",
+            "slots__resolved_entry__entrant",
+            "slots__source_match",
+        )
+    )
+    by_id = {m.pk: m for m in matches}
+
+    def describe(ids):
+        rows = []
+        for pk in sorted(set(ids)):
+            m = by_id.get(pk)
+            if m:
+                card = match_card(m, user)
+                rows.append(
+                    f"{m.round.draw.stage.name} · {m.code} — {card['title']} · {m.get_status_display()} · {m.side_one_score if m.side_one_score is not None else '—'}–{m.side_two_score if m.side_two_score is not None else '—'} · {m.get_outcome_display()}"
+                )
+        return rows
+
+    retired_matches = [
+        m.pk
+        for m in by_id.values()
+        if m.round.draw_id in impact.get("retired_draws", [])
+        or m.round_id in impact.get("retired_rounds", [])
+    ]
+
+    def outcome(snapshot):
+        if "status" in snapshot:
+            return snapshot["status"].replace("_", " ").capitalize()
+        stage = competition.stages.filter(pk=snapshot.get("stage_id")).first()
+        champion = competition.entrants.filter(pk=snapshot.get("champion_id")).first()
+        ended = snapshot.get("ended", bool(snapshot.get("ended_at")))
+        return f"{'Ended' if ended else 'Open'}{f' · {stage.name}' if stage else ''} · {'Champion: ' + champion.display_name if champion else 'Without a champion'}"
+
+    effects = {i["match_id"]: i["after"] for i in impact.get("match_impacts", [])}
+    return {
+        "before": outcome(impact["before"]),
+        "after": outcome(impact["after"]),
+        "effects": [
+            f"{by_id[pk].code}: {'Closed / frozen' if after.get('frozen') else 'Reopened' if 'frozen' in after else result_summary(after)}"
+            for pk, after in effects.items()
+            if pk in by_id
+        ],
+        "affected": describe(affected),
+        "resets": describe(impact.get("reset_match_ids", [])),
+        "preserved": describe(impact.get("preserved_corrections", [])),
+        "historical": describe(retired_matches),
+        "stages": list(
+            competition.stages.filter(draws__pk__in=impact.get("retired_draws", []))
+            .values_list("name", flat=True)
+            .distinct()
+        ),
+        "blocked": list(
+            competition.stages.filter(
+                pk__in=impact.get("blocked_handoffs", [])
+            ).values_list("name", flat=True)
         ),
     }
