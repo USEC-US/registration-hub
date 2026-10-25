@@ -6,10 +6,12 @@ from copy import copy
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from config.organizers import require_organizer
 from .command_support import (
+    require_competition_open,
     _check_revision,
     _lock_competition,
     _match_snapshot,
@@ -287,8 +289,7 @@ def _validate_transition(entrant, status):
         raise ValidationError("Choose a valid entrant status.")
     if status == entrant.status:
         raise ValidationError("The entrant already has this status.")
-    if entrant.competition.ended_at is not None:
-        raise ValidationError("Reopen the competition before changing entrants.")
+    require_competition_open(entrant.competition)
     if status == "ACTIVE":
         if (
             entrant.registration.status != "APPROVED"
@@ -510,22 +511,32 @@ def _load_token(token):
         if not isinstance(token, str):
             raise ValueError
         payload = signing.loads(token, salt=LIFECYCLE_SALT, max_age=3600)
-        if (
-            not isinstance(payload, dict)
-            or payload.get("kind")
-            not in (
-                "entrant_withdrawn",
-                "entrant_disqualified",
-                "entrant_restored",
-                "entrant_status_changed",
-            )
-            or any(
-                type(payload.get(k)) is not int
-                for k in ("entrant_id", "competition_id", "revision")
-            )
-            or not isinstance(payload.get("after"), dict)
-            or not isinstance(payload["after"].get("status"), str)
+        if not isinstance(payload, dict) or any(
+            type(payload.get(k)) is not int for k in ("competition_id", "revision")
         ):
+            raise ValueError
+        kind = payload.get("kind")
+        if kind in (
+            "entrant_withdrawn",
+            "entrant_disqualified",
+            "entrant_restored",
+            "entrant_status_changed",
+        ):
+            if (
+                type(payload.get("entrant_id")) is not int
+                or not isinstance(payload.get("after"), dict)
+                or not isinstance(payload["after"].get("status"), str)
+            ):
+                raise ValueError
+        elif kind in ("competition_ended", "competition_reopened"):
+            if type(payload.get("stage_id")) is not int:
+                raise ValueError
+            if (
+                kind == "competition_ended"
+                and type(payload.get("award_sole_survivor")) is not bool
+            ):
+                raise ValueError
+        else:
             raise ValueError
         return payload
     except (signing.BadSignature, ValueError, TypeError) as error:
@@ -534,12 +545,26 @@ def _load_token(token):
 
 def review_lifecycle_preview(*, actor, token: str) -> dict:
     submitted = _load_token(token)
-    response = preview_entrant_transition(
-        actor=actor,
-        entrant_id=submitted["entrant_id"],
-        expected_revision=submitted["revision"],
-        status=submitted["after"]["status"],
-    )
+    if submitted["kind"] == "competition_ended":
+        response = preview_competition_end(
+            actor=actor,
+            stage_id=submitted["stage_id"],
+            expected_revision=submitted["revision"],
+            award_sole_survivor=submitted["award_sole_survivor"],
+        )
+    elif submitted["kind"] == "competition_reopened":
+        response = preview_competition_reopen(
+            actor=actor,
+            competition_id=submitted["competition_id"],
+            expected_revision=submitted["revision"],
+        )
+    else:
+        response = preview_entrant_transition(
+            actor=actor,
+            entrant_id=submitted["entrant_id"],
+            expected_revision=submitted["revision"],
+            status=submitted["after"]["status"],
+        )
     if {k: v for k, v in response.items() if k != "token"} != submitted:
         raise ValidationError("The lifecycle impact changed. Preview it again.")
     return {**response, "token": token}
@@ -559,6 +584,8 @@ def apply_entrant_transition(
     if type(confirm_live_forfeits) is not bool or type(confirm_resets) is not bool:
         raise ValidationError("Impact confirmations must be booleans.")
     submitted = _load_token(token)
+    if not submitted["kind"].startswith("entrant_"):
+        raise ValidationError("Choose an entrant transition preview.")
     with transaction.atomic():
         try:
             competition = _lock_competition(submitted["competition_id"])
@@ -662,3 +689,382 @@ def apply_entrant_transition(
         change.private_data = {**change.private_data, "removal_effects": effects}
         change.save(update_fields=["private_data"])
         return entrant
+
+
+def _ending_candidates(draw):
+    """Prove a blocked continuation without inventing results or replacing qualifiers."""
+    from .qualification import entry_eligibility
+    from .stage_commands import validate_stage_field
+    from .swiss_commands import swiss_standings
+
+    stage = draw.stage
+    qualification = stage_qualification(draw)
+    entries = list(draw.entries.select_related("entrant__registration"))
+    eligibility = entry_eligibility(entries)
+    eligible = {
+        e.pk
+        for e in entries
+        if eligibility[e.pk]
+        and e.entrant.competition_id == stage.competition_id
+        and e.entrant.registration.tournament_game_id
+        == stage.competition.tournament_game_id
+    }
+    later = list(
+        stage.competition.stages.filter(sequence__gt=stage.sequence).prefetch_related(
+            "group_plans"
+        )
+    )
+    quota = (
+        sum(p.qualifying_places for p in stage.group_plans.all())
+        if stage.format == Stage.Format.ROUND_ROBIN
+        else stage.advancement_count
+    )
+    # Validate rules on their saved field, never silently repair malformed configuration.
+    validate_stage_field(stage, len(entries))
+    state = qualification["qualification_state"]
+    reason = None
+    candidates = set(qualification["qualifier_entry_ids"]) & eligible
+    determinable = state != "PROVISIONAL" and not qualification["cutoffs"]
+    if state == "PROVISIONAL":
+        possible = eligible
+        if stage.format == Stage.Format.SWISS_THRESHOLD:
+            possible = {
+                row.entry_id
+                for row in swiss_standings(draw)
+                if row.status != "ELIMINATED"
+            } & eligible
+        if not possible:
+            reason = "There are no eligible participants remaining."
+        elif later and len(possible) < (quota if quota is not None else 2):
+            reason = "The remaining eligible field cannot fill the locked continuation."
+        if stage.format == Stage.Format.ROUND_ROBIN and any(
+            len(eligible & {e.pk for e in entries if e.group_id == group.pk})
+            < group.qualifying_places
+            for group in draw.groups.all()
+        ):
+            reason = "An eligible group field cannot fill its locked qualifying quota."
+        # An incomplete ranking cannot establish an earned qualifier.
+        candidates = possible if stage.format in SWISS else set()
+        determinable = stage.format in SWISS and len(possible) == 1
+    elif qualification["block_reason"]:
+        reason = qualification["block_reason"]
+    if state != "PROVISIONAL" and later and not qualification["cutoffs"]:
+        incoming = len(candidates)
+        if quota is not None and incoming != quota:
+            reason = (
+                reason or "The earned eligible qualifiers cannot fill the locked quota."
+            )
+        else:
+            for destination in later:
+                try:
+                    incoming, _ = validate_stage_field(destination, incoming)
+                except ValidationError as error:
+                    reason = "; ".join(error.messages)
+                    break
+    if not later and stage.format in ELIMINATION and state != "PROVISIONAL":
+        stage.refresh_from_db()
+        candidates = {
+            e.pk for e in entries if e.entrant_id == stage.champion_id
+        } & eligible
+        if not candidates:
+            reason = (
+                reason
+                or "No eligible champion can be determined from the source results."
+            )
+    if reason is None:
+        raise ValidationError(
+            "Finish viable contests and resolve cutoffs; the locked continuation is still possible."
+        )
+    champion = (
+        next((e.entrant_id for e in entries if e.pk in candidates), None)
+        if determinable and len(candidates) == 1
+        else None
+    )
+    return qualification, reason, champion
+
+
+def _competition_outcome(competition):
+    return {
+        "ended_at": competition.ended_at.isoformat() if competition.ended_at else None,
+        "stage_id": competition.ended_stage_id,
+        "champion_id": competition.ended_champion_id,
+    }
+
+
+def _ending_payload(competition, stage, *, award_sole_survivor=False, reopen=False):
+    if reopen:
+        if competition.ended_at is None or competition.ended_stage_id != stage.pk:
+            raise ValidationError(
+                "Only an exceptionally ended competition can be reopened."
+            )
+        reason = None
+        champion = None
+        qualification = None
+    else:
+        require_competition_open(competition)
+        draw = stage.draws.filter(state="PUBLISHED").first()
+        if draw is None:
+            raise ValidationError("Choose a published source stage.")
+        qualification, reason, champion = _ending_candidates(draw)
+        if award_sole_survivor and champion is None:
+            raise ValidationError(
+                "Only a determinable sole eligible survivor can be awarded; choose Without a champion."
+            )
+    draws = (
+        list(
+            StageDraw.objects.filter(
+                stage__competition=competition, stage__sequence__gt=stage.sequence
+            )
+            .exclude(state="SUPERSEDED")
+            .order_by("pk")
+        )
+        if not reopen
+        else []
+    )
+    rounds = list(
+        Round.objects.filter(draw__in=draws).exclude(state="SUPERSEDED").order_by("pk")
+    )
+    source = stage.draws.filter(state="PUBLISHED").first()
+    frozen = list(
+        Match.objects.filter(round__draw=source, round__state="PUBLISHED")
+        .exclude(status__in=("FINAL", "NOT_REQUIRED"))
+        .select_related("winner__entrant")
+        .prefetch_related("slots__resolved_entry__entrant")
+        .order_by("pk")
+    )
+    reset = list(
+        Match.objects.filter(round__draw__in=draws, status__in=("LIVE", "FINAL"))
+        .exclude(outcome__in=("BYE", "EMPTY"))
+        .select_related("winner__entrant")
+        .prefetch_related("slots__resolved_entry__entrant")
+        .order_by("pk")
+    )
+    return {
+        "kind": "competition_reopened" if reopen else "competition_ended",
+        "competition_id": competition.pk,
+        "revision": competition.revision,
+        "stage_id": stage.pk,
+        "award_sole_survivor": award_sole_survivor,
+        "before": _competition_outcome(competition),
+        "after": {
+            "ended": not reopen,
+            "stage_id": None if reopen else stage.pk,
+            "champion_id": champion if award_sole_survivor else None,
+        },
+        "match_impacts": [
+            {
+                "match_id": m.pk,
+                "before": _match_snapshot(m),
+                "after": {"frozen": not reopen},
+            }
+            for m in frozen
+        ],
+        "live_forfeit_ids": [],
+        "frozen_match_ids": [m.pk for m in frozen],
+        "reset_match_ids": [m.pk for m in reset],
+        "reset_matches": [_match_snapshot(m) for m in reset],
+        "retired_draws": [d.pk for d in draws],
+        "retired_rounds": [r.pk for r in rounds],
+        "blocked_handoffs": []
+        if reopen
+        else sorted(
+            s.pk for s in competition.stages.filter(sequence__gt=stage.sequence)
+        ),
+        "preserved_corrections": [],
+        "block_reason": reason,
+        "source_fingerprint": qualification["fingerprint"] if qualification else None,
+        "requires_confirmation": reopen
+        or any(m.status == "LIVE" for m in frozen)
+        or any(d.published_at is not None for d in draws),
+    }
+
+
+def _ending_permission(actor, payload):
+    _permission(actor)
+    if payload["requires_confirmation"]:
+        require_organizer(actor, "competitions.change_match")
+
+
+def preview_competition_end(
+    *, actor, stage_id: int, expected_revision: int, award_sole_survivor: bool = False
+) -> dict:
+    _permission(actor)
+    if (
+        type(stage_id) is not int
+        or type(expected_revision) is not int
+        or type(award_sole_survivor) is not bool
+    ):
+        raise ValidationError(
+            "Use an integer source/revision and an explicit boolean award choice."
+        )
+    try:
+        stage = Stage.objects.select_related("competition").get(pk=stage_id)
+    except Stage.DoesNotExist as error:
+        raise ValidationError("Unknown source stage.") from error
+    _check_revision(stage.competition, expected_revision)
+    payload = _ending_payload(
+        stage.competition, stage, award_sole_survivor=award_sole_survivor
+    )
+    _ending_permission(actor, payload)
+    return _response(payload)
+
+
+def preview_competition_reopen(
+    *, actor, competition_id: int, expected_revision: int
+) -> dict:
+    _permission(actor)
+    require_organizer(actor, "competitions.change_match")
+    if type(competition_id) is not int or type(expected_revision) is not int:
+        raise ValidationError("Competition and revision must be integers.")
+    try:
+        competition = Competition.objects.select_related("ended_stage").get(
+            pk=competition_id
+        )
+    except Competition.DoesNotExist as error:
+        raise ValidationError("Unknown competition.") from error
+    _check_revision(competition, expected_revision)
+    if (
+        competition.ended_stage is None
+        or competition.ended_stage.competition_id != competition.pk
+    ):
+        raise ValidationError(
+            "Choose an exceptionally ended competition with a valid source."
+        )
+    payload = _ending_payload(competition, competition.ended_stage, reopen=True)
+    return _response(payload)
+
+
+def _apply_competition_outcome(
+    *, actor, token, internal_reason, confirm_resets, reopen
+):
+    _permission(actor)
+    if not isinstance(internal_reason, str) or not internal_reason.strip():
+        raise ValidationError("A private reason is required.")
+    if type(confirm_resets) is not bool:
+        raise ValidationError("Impact confirmation must be a boolean.")
+    submitted = _load_token(token)
+    if submitted["kind"] != ("competition_reopened" if reopen else "competition_ended"):
+        raise ValidationError("Choose the matching competition lifecycle preview.")
+    with transaction.atomic():
+        try:
+            competition = _lock_competition(
+                submitted["competition_id"], require_open=not reopen
+            )
+            _check_revision(competition, submitted["revision"])
+            stage = Stage.objects.get(pk=submitted["stage_id"], competition=competition)
+        except (Competition.DoesNotExist, Stage.DoesNotExist) as error:
+            raise ValidationError(
+                "The source does not belong to this competition."
+            ) from error
+        stage.competition = competition
+        for model, scope in (
+            (Stage, {"competition": competition}),
+            (StageDraw, {"stage__competition": competition}),
+            (Round, {"draw__stage__competition": competition}),
+            (TieResolution, {"draw__stage__competition": competition}),
+            (Match, {"round__draw__stage__competition": competition}),
+        ):
+            list(model.objects.select_for_update().filter(**scope).order_by("pk"))
+        payload = _ending_payload(
+            competition,
+            stage,
+            award_sole_survivor=submitted.get("award_sole_survivor", False),
+            reopen=reopen,
+        )
+        if payload != submitted:
+            raise ValidationError("The lifecycle impact changed. Preview it again.")
+        _ending_permission(actor, payload)
+        if payload["requires_confirmation"] and not confirm_resets:
+            raise ValidationError(
+                "Confirm the affected frozen/retired results or reopening."
+            )
+        public_draws = list(
+            StageDraw.objects.filter(
+                pk__in=payload["retired_draws"], published_at__isnull=False
+            ).values_list("pk", flat=True)
+        )
+        public_rounds = list(
+            Round.objects.filter(
+                pk__in=payload["retired_rounds"],
+                published_at__isnull=False,
+                draw__published_at__isnull=False,
+            ).values_list("pk", flat=True)
+        )
+        public_reset_ids = list(
+            Match.objects.filter(
+                pk__in=payload["reset_match_ids"],
+                round__published_at__isnull=False,
+                round__draw__published_at__isnull=False,
+            ).values_list("pk", flat=True)
+        )
+        if not reopen:
+            _supersede_ties(
+                TieResolution.objects.filter(
+                    draw_id__in=payload["retired_draws"]
+                ).exclude(state="SUPERSEDED")
+            )
+            _supersede_draws(StageDraw.objects.filter(pk__in=payload["retired_draws"]))
+            for suffix in competition.stages.filter(sequence__gt=stage.sequence):
+                suffix.status = "AWAITING" if suffix.published_at else "DRAFT"
+                suffix.champion = None
+                suffix.completed_at = None
+                suffix.completed_without_champion = False
+                suffix.save(
+                    update_fields=[
+                        "status",
+                        "champion",
+                        "completed_at",
+                        "completed_without_champion",
+                    ]
+                )
+        competition.ended_at = None if reopen else timezone.now()
+        competition.ended_stage = None if reopen else stage
+        competition.ended_champion_id = payload["after"]["champion_id"]
+        competition.save(update_fields=["ended_at", "ended_stage", "ended_champion"])
+        _record_change(
+            competition,
+            actor=actor,
+            kind=payload["kind"],
+            internal_reason=internal_reason,
+            private_data=payload,
+            public_data={
+                "kind": payload["kind"],
+                "stage_id": stage.pk,
+                "before": payload["before"],
+                "after": _competition_outcome(competition),
+                "match_impacts": payload["match_impacts"],
+                "retired_draws": sorted(public_draws),
+                "retired_rounds": sorted(public_rounds),
+                "reset_match_ids": sorted(public_reset_ids),
+                "reset_matches": [
+                    m
+                    for m in payload["reset_matches"]
+                    if m["match_id"] in public_reset_ids
+                ],
+            },
+        )
+        return competition
+
+
+def apply_competition_end(
+    *, actor, token: str, internal_reason: str, confirm_resets: bool = False
+) -> Competition:
+    return _apply_competition_outcome(
+        actor=actor,
+        token=token,
+        internal_reason=internal_reason,
+        confirm_resets=confirm_resets,
+        reopen=False,
+    )
+
+
+def apply_competition_reopen(
+    *, actor, token: str, internal_reason: str, confirm_resets: bool = False
+) -> Competition:
+    return _apply_competition_outcome(
+        actor=actor,
+        token=token,
+        internal_reason=internal_reason,
+        confirm_resets=confirm_resets,
+        reopen=True,
+    )

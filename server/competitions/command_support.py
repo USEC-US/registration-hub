@@ -6,20 +6,29 @@ MAX_ENTRANTS = 256
 MAX_MATCHES = 16_384
 
 
-def _lock_competition(competition_id: int) -> Competition:
+def require_competition_open(competition: Competition) -> None:
+    if competition.ended_at is not None:
+        raise ValidationError("Reopen the competition before making changes.")
+
+
+def _lock_competition(competition_id: int, *, require_open: bool = True) -> Competition:
     division_id = Competition.objects.values_list("tournament_game_id", flat=True).get(
         pk=competition_id
     )
     # ponytail: one division lock serializes competition and registration writes;
     # use finer locks only if measured event throughput requires them.
     TournamentGame.objects.select_for_update().get(pk=division_id)
-    return (
+    competition = (
         Competition.objects.select_for_update()
         .select_related(
             "tournament_game", "tournament_game__tournament", "tournament_game__game"
         )
         .get(pk=competition_id)
     )
+
+    if require_open:
+        require_competition_open(competition)
+    return competition
 
 
 def _check_revision(competition: Competition, expected_revision: int) -> None:
