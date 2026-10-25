@@ -1,4 +1,6 @@
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
+from django.db import connection
 from django.urls import reverse
 
 from competitions.tests import test_workspace as fixture_module
@@ -20,6 +22,40 @@ class LifecycleWorkspaceTests(TestCase):
         return reverse(
             "admin:competitions_entrant_transition", args=[competition.pk, entrant.pk]
         )
+
+    def test_match_cards_do_not_query_competition_per_match(self):
+        from competitions.admin_workspace import lifecycle_display
+        from competitions.models import Match
+
+        competition, draw = self._draft(published=True)
+        match_ids = list(
+            Match.objects.filter(round__draw=draw).values_list("pk", flat=True)
+        )
+        self.assertGreater(len(match_ids), 1)
+        impact = {
+            "before": {"status": "ACTIVE"},
+            "after": {"status": "WITHDRAWN"},
+            "match_impacts": [],
+            "reset_match_ids": match_ids,
+        }
+        with CaptureQueriesContext(connection) as queries:
+            display = lifecycle_display(impact, competition, self.organizer)
+        self.assertEqual(len(display["resets"]), len(match_ids))
+        competition_queries = [
+            q["sql"] for q in queries if 'FROM "competitions_competition"' in q["sql"]
+        ]
+        self.assertEqual(competition_queries, [])
+
+    def test_workspace_loads_competition_once_for_all_match_cards(self):
+        competition, draw = self._draft(published=True)
+        url = reverse("admin:competitions_competition_change", args=[competition.pk])
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        competition_queries = [
+            q["sql"] for q in queries if 'FROM "competitions_competition"' in q["sql"]
+        ]
+        self.assertEqual(len(competition_queries), 1, competition_queries)
 
     def test_preview_confirm_and_read_only_get(self):
         competition, draw = self._draft(published=True)

@@ -381,7 +381,7 @@ def lifecycle_display(impact, competition, user):
             | Q(round__draw_id__in=impact.get("retired_draws", []))
             | Q(round_id__in=impact.get("retired_rounds", []))
         )
-        .select_related("round__draw__stage")
+        .select_related("round__draw__stage__competition")
         .prefetch_related(
             "slots__entry__entrant",
             "slots__resolved_entry__entrant",

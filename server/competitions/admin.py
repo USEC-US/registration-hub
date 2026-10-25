@@ -383,7 +383,7 @@ class CompetitionAdmin(OrganizerStaffAdmin):
                 "entry__entrant", "resolved_entry__entrant", "source_match"
             )
             matches = Match.objects.select_related(
-                "round__draw__stage"
+                "round__draw__stage__competition"
             ).prefetch_related(Prefetch("slots", queryset=slots))
             draw_rounds = list(
                 draw.rounds.select_related(
