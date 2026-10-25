@@ -316,6 +316,139 @@ class EntrantLifecycleTests(TestCase):
         self.assertEqual(final.status, "PENDING")
         self.assertEqual(self.match.winner.entrant_id, loser.pk)
 
+    def test_upstream_correction_discards_obsolete_restoration_progress(self):
+        from competitions.lifecycle_commands import project_removal_results
+
+        self.setup_draw()
+        commands.finalize_match(
+            actor=self.actor,
+            match_id=self.match.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=2,
+            side_two_score=0,
+        )
+        final = self.draw.rounds.get(number=2).matches.get()
+        original_slots = list(
+            final.slots.order_by("position").values_list("resolved_entry_id", flat=True)
+        )
+        replacement = self.match.slots.get(position=2).resolved_entry_id
+        self.competition.refresh_from_db()
+        commands.start_match(
+            actor=self.actor,
+            match_id=final.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        commands.save_match_progress(
+            actor=self.actor,
+            match_id=final.pk,
+            expected_revision=self.competition.revision,
+            side_one_score=1,
+            side_two_score=0,
+        )
+        self.transition()
+        self.competition.refresh_from_db()
+        projected = project_removal_results(
+            self.draw,
+            result_updates={
+                self.match.pk: {
+                    "status": "FINAL",
+                    "outcome": "PLAYED",
+                    "winner_id": replacement,
+                    "side_one_score": 0,
+                    "side_two_score": 2,
+                }
+            },
+        )
+        self.assertEqual(projected["reset_match_ids"], [final.pk])
+        self.assertEqual(projected["matches"][final.pk]["status"], "PENDING")
+        preview = commands.preview_correction(
+            actor=self.actor,
+            match_id=self.match.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=0,
+            side_two_score=2,
+        )
+        impact = next(i for i in preview["match_impacts"] if i["match_id"] == final.pk)
+        self.assertEqual(impact["after_status"], "PENDING")
+        commands.apply_correction(
+            actor=self.actor,
+            token=preview["token"],
+            internal_reason="Correct semifinal winner",
+        )
+        final.refresh_from_db()
+        self.assertEqual(
+            list(
+                final.slots.order_by("position").values_list(
+                    "resolved_entry_id", flat=True
+                )
+            ),
+            [original_slots[0], replacement],
+        )
+        self.assertEqual(final.status, "PENDING")
+        for field in (
+            "side_one_score",
+            "side_two_score",
+            "applied_series_length",
+            "started_at",
+            "completed_at",
+            "winner_id",
+        ):
+            self.assertIsNone(getattr(final, field), field)
+        self.assertEqual(final.applied_series_mode, "")
+        self.assertEqual(final.outcome, "")
+        self.assertEqual(
+            self.competition.changes.latest("revision").private_data["reset_matches"][
+                0
+            ]["match_id"],
+            final.pk,
+        )
+
+    def test_routed_live_before_state_survives_second_removal(self):
+        self.setup_draw()
+        commands.finalize_match(
+            actor=self.actor,
+            match_id=self.match.pk,
+            expected_revision=self.competition.revision,
+            outcome="PLAYED",
+            side_one_score=2,
+            side_two_score=0,
+        )
+        final = self.draw.rounds.get(number=2).matches.get()
+        before_slots = [
+            list(pair)
+            for pair in final.slots.order_by("position").values_list(
+                "is_resolved", "resolved_entry_id"
+            )
+        ]
+        other = final.slots.get(position=1).resolved_entry.entrant
+        self.competition.refresh_from_db()
+        commands.start_match(
+            actor=self.actor,
+            match_id=final.pk,
+            expected_revision=self.competition.revision,
+        )
+        self.competition.refresh_from_db()
+        commands.save_match_progress(
+            actor=self.actor,
+            match_id=final.pk,
+            expected_revision=self.competition.revision,
+            side_one_score=1,
+            side_two_score=0,
+        )
+        self.transition()
+        self.transition(other)
+        final.refresh_from_db()
+        self.assertEqual(final.removal_effect["before"]["slots"], before_slots)
+        self.transition(status="ACTIVE")
+        self.transition(other, "ACTIVE")
+        final.refresh_from_db()
+        self.assertEqual(
+            (final.status, final.side_one_score, final.side_two_score), ("LIVE", 1, 0)
+        )
+
     def test_scheduling_only_preserves_removal_authority(self):
         from django.utils import timezone
 

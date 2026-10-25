@@ -102,10 +102,12 @@ def project_elimination_results(
     *,
     result_updates: dict[int, dict],
     entrant_statuses: dict[int, str] | None = None,
+    restoration_states: dict[int, dict] | None = None,
 ) -> dict:
     """Simulate a draw; updates use model fields, overrides use CompetitionEntrant IDs.
 
     Entered finals stay historical unless explicit result updates change inputs.
+    Restoration states are before-states: changed inputs reset them before automation.
     Callers own transactions, consent, revision, history and removal provenance.
     """
     if draw.stage.format not in (
@@ -117,7 +119,8 @@ def project_elimination_results(
         draw, include_drafts=draw.state != StageDraw.State.PUBLISHED
     )
     by_id = {m.pk: m for m in ordered}
-    if result_updates.keys() - by_id.keys():
+    restoration_states = restoration_states or {}
+    if (result_updates.keys() | restoration_states.keys()) - by_id.keys():
         raise ValidationError("Result updates must belong to the current draw.")
     if any(set(update) - set(COMPETITIVE_FIELDS) for update in result_updates.values()):
         raise ValidationError("Unsupported competitive result field.")
@@ -133,7 +136,7 @@ def project_elimination_results(
     slots_by_match = {m.pk: [] for m in ordered}
     for slot in MatchSlot.objects.filter(match_id__in=by_id).order_by("position"):
         slots_by_match[slot.match_id].append(slot)
-    projected, corrected = {}, {}
+    projected, corrected, restored = {}, {}, {}
     changed, impacts, resets, reset_changes = [], [], [], []
     first_final_id = next(
         (
@@ -147,6 +150,12 @@ def project_elimination_results(
         saved_slots = [
             [s.is_resolved, s.resolved_entry_id] for s in slots_by_match[item.pk]
         ]
+        baseline = restoration_states.get(item.pk)
+        input_slots = baseline["slots"] if baseline else saved_slots
+        state = {
+            field: (baseline[field] if baseline else getattr(item, field))
+            for field in COMPETITIVE_FIELDS
+        }
         slots, raw_slots = [], []
         source_corrected = False
         for slot in slots_by_match[item.pk]:
@@ -167,13 +176,15 @@ def project_elimination_results(
                 source_corrected |= corrected[slot.source_match_id] and [
                     resolved,
                     entry,
-                ] != [slot.is_resolved, slot.resolved_entry_id]
+                ] != list(input_slots[slot.position - 1])
                 raw_slots.append([resolved, entry])
                 slots.append([resolved, entry if entry in available else None])
             else:
                 raw_slots.append([slot.is_resolved, slot.resolved_entry_id])
                 slots.append(raw_slots[-1])
-        entered_final = item.status == Match.Status.FINAL and item.outcome not in (
+        entered_final = state["status"] == Match.Status.FINAL and state[
+            "outcome"
+        ] not in (
             Match.Outcome.BYE,
             Match.Outcome.EMPTY,
         )
@@ -183,10 +194,12 @@ def project_elimination_results(
             and result_updates.get(item.pk, {}).get("status", "FINAL") == "FINAL"
         ):
             slots = saved_slots
-        state = {field: getattr(item, field) for field in COMPETITIVE_FIELDS}
         changed_inputs = slots != saved_slots
-        invalidated = changed_inputs and (source_corrected or not entered_final)
-        preserve_progress = item.status == Match.Status.LIVE and not source_corrected
+        changed_competitors = raw_slots != input_slots if baseline else changed_inputs
+        invalidated = changed_competitors and (source_corrected or not entered_final)
+        preserve_progress = (
+            state["status"] == Match.Status.LIVE and not source_corrected
+        )
         cleared = invalidated and not preserve_progress
         if cleared:
             state.update(
@@ -233,6 +246,9 @@ def project_elimination_results(
             state["status"] = status
         if item.pk in result_updates:
             state.update(result_updates[item.pk])
+        if baseline:
+            # Availability filtering is an effect, not the original competitive input.
+            restored[item.pk] = {**state, "slots": raw_slots}
         result = _automatic_result(state["status"], slots)
         if state["status"] not in (
             Match.Status.FINAL,
@@ -257,7 +273,7 @@ def project_elimination_results(
                 state.update(side_one_score=None, side_two_score=None)
         state["slots"] = slots
         corrected[item.pk] = (
-            item.pk in result_updates
+            (item.pk in result_updates or baseline is not None)
             and (state["winner_id"], state["outcome"], state["status"])
             != (item.winner_id, item.outcome, item.status)
         ) or (source_corrected and changed_inputs)
@@ -309,6 +325,7 @@ def project_elimination_results(
                 resets.append(item.pk)
     return {
         "matches": projected,
+        "restoration_states": restored,
         "changed_match_ids": sorted(changed),
         "match_impacts": impacts,
         "reset_match_ids": sorted(resets),

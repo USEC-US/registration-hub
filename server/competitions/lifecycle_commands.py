@@ -94,7 +94,7 @@ def project_removal_results(
         for pk, e in entries.items()
         if statuses.get(e.entrant_id, e.entrant.status) != "ACTIVE"
     }
-    updates, baselines, preserved = {}, {}, []
+    baselines, preserved = {}, []
     for match in matches:
         effect = match.removal_effect
         relevant = effect and (
@@ -104,14 +104,16 @@ def project_removal_results(
         if relevant and _authoritative(match) and match.pk not in result_updates:
             baseline = _decode_state(effect["before"])
             baselines[match.pk] = baseline
-            updates[match.pk] = {f: baseline[f] for f in COMPETITIVE_FIELDS}
         elif relevant and restore_change_id is not None:
             preserved.append(match.pk)
-    updates.update(result_updates)
     if draw.stage.format in ELIMINATION:
         projection = project_elimination_results(
-            draw, result_updates=updates, entrant_statuses=statuses
+            draw,
+            result_updates=result_updates,
+            entrant_statuses=statuses,
+            restoration_states=baselines,
         )
+        baselines = projection["restoration_states"]
     else:
         states, changed, impacts = {}, [], []
         for match in matches:
