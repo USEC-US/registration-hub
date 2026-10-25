@@ -328,3 +328,74 @@ class RoundLifecycleTests(TestCase):
         self.assertEqual(list(old.rounds.values_list("pk", flat=True)), old_round_ids)
         self.assertFalse(old.rounds.filter(published_at__isnull=False).exists())
         self.assertEqual(set(new.rounds.values_list("state", flat=True)), {"DRAFT"})
+
+
+class CompetitionLifecycleSchemaTests(TestCase):
+    setUp = CompetitionModelTests.setUp
+
+    def entrant(self):
+        from competitions.models import CompetitionEntrant
+        from registrations.models import Registration
+
+        registration = Registration.objects.create(
+            tournament_game=self.division,
+            status="APPROVED",
+            fee_amount_snapshot=0,
+            fee_currency_snapshot="VND",
+        )
+        return CompetitionEntrant.objects.create(
+            competition=self.competition,
+            registration=registration,
+            display_name="Champion",
+        )
+
+    def test_ending_timestamp_and_source_stage_must_be_paired(self):
+        for values in (
+            {"ended_at": timezone.now()},
+            {"ended_stage": self.stage},
+        ):
+            with self.subTest(values=values):
+                with self.assertRaises(IntegrityError), transaction.atomic():
+                    Competition.objects.filter(pk=self.competition.pk).update(**values)
+        Competition.objects.filter(pk=self.competition.pk).update(
+            ended_at=timezone.now(), ended_stage=self.stage
+        )
+        self.competition.refresh_from_db()
+        self.assertIsNone(self.competition.ended_champion_id)
+
+    def test_champion_requires_an_ending_and_ending_references_are_protected(self):
+        entrant = self.entrant()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Competition.objects.filter(pk=self.competition.pk).update(
+                ended_champion=entrant
+            )
+        Competition.objects.filter(pk=self.competition.pk).update(
+            ended_at=timezone.now(), ended_stage=self.stage, ended_champion=entrant
+        )
+        for referenced in (self.stage, entrant):
+            with self.subTest(referenced=referenced), self.assertRaises(ProtectedError):
+                referenced.delete()
+
+    def test_removal_provenance_defaults_private_and_protects_original_change(self):
+        from competitions.models import ChangeSet
+
+        entrant = self.entrant()
+        draw = StageDraw.objects.create(stage=self.stage, version=1)
+        round_ = Round.objects.create(draw=draw, number=1)
+        match = round_.matches.create(number=1, code="M1")
+        self.assertIsNone(entrant.removal_change_id)
+        self.assertEqual(match.removal_effect, {})
+        self.assertEqual(round_.availability_snapshot, {})
+        for model, field in (
+            (type(entrant), "removal_change"),
+            (Match, "removal_effect"),
+            (Round, "availability_snapshot"),
+        ):
+            self.assertFalse(model._meta.get_field(field).editable)
+        change = ChangeSet.objects.create(
+            competition=self.competition, revision=1, kind="ENTRANT_TRANSITION"
+        )
+        entrant.removal_change = change
+        entrant.save(update_fields=("removal_change",))
+        with self.assertRaises(ProtectedError):
+            change.delete()

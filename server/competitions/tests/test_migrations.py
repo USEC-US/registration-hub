@@ -550,3 +550,243 @@ class SwissMigrationTests(TransactionTestCase):
         self.assertIsNone(migrated_placeholder.swiss_win_target)
         self.assertIsNone(migrated_placeholder.swiss_loss_limit)
         self.assertIsNone(migrated_placeholder.advancement_count)
+
+
+class CompetitionLifecycleMigrationTests(TransactionTestCase):
+    def test_lifecycle_upgrade_preserves_competition_history(self):
+        old_target = [("competitions", "0005_swiss")]
+        new_target = [("competitions", "0006_competition_lifecycle")]
+        executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes()
+        executor.migrate(old_target)
+        self.addCleanup(lambda: MigrationExecutor(connection).migrate(latest))
+        apps = executor.loader.project_state(old_target).apps
+
+        def model(name):
+            return apps.get_model("competitions", name)
+
+        tournament = apps.get_model("tournaments", "Tournament").objects.create(
+            name="Lifecycle upgrade", slug="lifecycle-upgrade", is_published=True
+        )
+        game = apps.get_model("tournaments", "Game").objects.create(
+            name="Lifecycle game", slug="lifecycle-game"
+        )
+        division = apps.get_model("tournaments", "TournamentGame").objects.create(
+            tournament=tournament,
+            game=game,
+            main_roster_size=1,
+            substitute_limit=0,
+            registration_opens_at=timezone.now(),
+            registration_closes_at=timezone.now() + timedelta(days=1),
+            fee_amount=0,
+            fee_currency="VND",
+        )
+        competition = model("Competition").objects.create(tournament_game=division)
+        source_stage = model("Stage").objects.create(
+            competition=competition,
+            sequence=1,
+            name="Qualifier",
+            format="ROUND_ROBIN",
+            series_mode="BEST_OF",
+            default_series_length=3,
+        )
+        source_draw = model("StageDraw").objects.create(stage=source_stage, version=1)
+        source_round = model("Round").objects.create(draw=source_draw, number=1)
+        stage = model("Stage").objects.create(
+            competition=competition,
+            sequence=2,
+            name="Swiss",
+            format="SWISS_FIXED",
+            series_mode="BEST_OF",
+            default_series_length=3,
+            advancement_count=2,
+            swiss_round_count=3,
+        )
+        timestamp = timezone.now() - timedelta(days=2)
+        draw = model("StageDraw").objects.create(
+            stage=stage,
+            version=1,
+            state="PUBLISHED",
+            published_at=timestamp,
+            swiss_round_limit=3,
+            source_draw=source_draw,
+            source_fingerprint="a" * 64,
+        )
+        entries = []
+        for seed, status in ((1, "ACTIVE"), (2, "WITHDRAWN")):
+            registration = apps.get_model(
+                "registrations", "Registration"
+            ).objects.create(
+                tournament_game=division,
+                status="APPROVED" if seed == 1 else "REJECTED",
+                fee_amount_snapshot=0,
+                fee_currency_snapshot="VND",
+            )
+            entrant = model("CompetitionEntrant").objects.create(
+                competition=competition,
+                registration=registration,
+                display_name=f"Entrant {seed}",
+                status=status,
+                is_selected=seed == 1,
+            )
+            entries.append(
+                model("StageEntry").objects.create(
+                    draw=draw,
+                    entrant=entrant,
+                    seed=seed,
+                    source_entry=model("StageEntry").objects.create(
+                        draw=source_draw, entrant=entrant, seed=seed
+                    ),
+                )
+            )
+        rounds = []
+        for number, state, published_at in (
+            (1, "PUBLISHED", timestamp),
+            (2, "SUPERSEDED", timestamp),
+            (2, "DRAFT", None),
+            (3, "SUPERSEDED", None),
+        ):
+            rounds.append(
+                model("Round").objects.create(
+                    draw=draw,
+                    number=number,
+                    version=2 if state == "DRAFT" else 1,
+                    state=state,
+                    published_at=published_at,
+                    source_fingerprint=str(len(rounds) + 1) * 64,
+                )
+            )
+        match = model("Match").objects.create(
+            round=rounds[0],
+            number=1,
+            code="Saved-M1",
+            status="FINAL",
+            outcome="PLAYED",
+            winner=entries[0],
+            side_one_score=2,
+            side_two_score=1,
+            applied_series_mode="BEST_OF",
+            applied_series_length=3,
+            started_at=timestamp,
+            completed_at=timestamp + timedelta(hours=1),
+        )
+        for position, entry in enumerate(entries, 1):
+            model("MatchSlot").objects.create(
+                match=match,
+                position=position,
+                entry=entry,
+                is_resolved=True,
+                resolved_entry=entry,
+            )
+        parent = None
+        for state in ("PENDING", "SUPERSEDED"):
+            parent = model("TieResolution").objects.create(
+                draw=draw,
+                method="EXTRA_MATCHES",
+                state=state,
+                source_fingerprint="e" * 64,
+                places=1,
+                parent=parent,
+            )
+            parent.contenders.add(*entries)
+        next_stage = model("Stage").objects.create(
+            competition=competition,
+            sequence=3,
+            name="Final",
+            format="SINGLE_ELIMINATION",
+            series_mode="BEST_OF",
+            default_series_length=3,
+        )
+        next_draw = model("StageDraw").objects.create(
+            stage=next_stage,
+            version=1,
+            source_draw=draw,
+            source_fingerprint="f" * 64,
+        )
+        model("StageEntry").objects.create(
+            draw=next_draw, entrant=entries[0].entrant, seed=1, source_entry=entries[0]
+        )
+        model("ChangeSet").objects.create(
+            competition=competition,
+            revision=1,
+            kind="RESULT_FINALIZED",
+            private_data={"old": "private"},
+            public_data={"score": [2, 1]},
+        )
+        names = (
+            "Competition",
+            "CompetitionEntrant",
+            "Stage",
+            "StageDraw",
+            "StageEntry",
+            "Round",
+            "Match",
+            "MatchSlot",
+            "TieResolution",
+            "ChangeSet",
+        )
+        fields = {
+            name: [field.attname for field in model(name)._meta.concrete_fields]
+            for name in names
+        }
+
+        def history():
+            return {
+                name: list(model(name).objects.order_by("pk").values(*fields[name]))
+                for name in names
+            }
+
+        before_history = history()
+        before_contenders = list(parent.contenders.values_list("pk", flat=True))
+        MigrationExecutor(connection).migrate(new_target)
+        apps = MigrationExecutor(connection).loader.project_state(new_target).apps
+        after_history = history()
+        self.assertEqual(after_history, before_history)
+        self.assertEqual(
+            list(
+                model("TieResolution")
+                .objects.get(pk=parent.pk)
+                .contenders.values_list("pk", flat=True)
+            ),
+            before_contenders,
+        )
+        competition = model("Competition").objects.get(pk=competition.pk)
+        self.assertIsNone(competition.ended_at)
+        self.assertIsNone(competition.ended_stage_id)
+        self.assertIsNone(competition.ended_champion_id)
+        self.assertEqual(model("Match").objects.get(pk=match.pk).removal_effect, {})
+        self.assertFalse(
+            model("CompetitionEntrant").objects.exclude(removal_change=None).exists()
+        )
+        self.assertEqual(
+            model("Round").objects.get(pk=source_round.pk).availability_snapshot, {}
+        )
+        historic = {
+            str(entries[0].pk): {
+                "entrant_status": "ACTIVE",
+                "registration_status": "APPROVED",
+                "is_selected": True,
+            },
+            str(entries[1].pk): {
+                "entrant_status": "ACTIVE",
+                "registration_status": "APPROVED",
+                "is_selected": False,
+            },
+        }
+        current = {
+            str(entries[0].pk): {
+                "entrant_status": "ACTIVE",
+                "registration_status": "APPROVED",
+                "is_selected": True,
+            },
+            str(entries[1].pk): {
+                "entrant_status": "WITHDRAWN",
+                "registration_status": "REJECTED",
+                "is_selected": False,
+            },
+        }
+        for round_ in rounds:
+            self.assertEqual(
+                model("Round").objects.get(pk=round_.pk).availability_snapshot,
+                historic if round_.published_at else current,
+            )

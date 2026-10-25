@@ -15,8 +15,38 @@ class Competition(models.Model):
         related_name="competition",
     )
     revision = models.PositiveBigIntegerField(default=0)
+    ended_at = models.DateTimeField(null=True, blank=True, editable=False)
+    ended_stage = models.ForeignKey(
+        "Stage",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="ended_competitions",
+        editable=False,
+    )
+    ended_champion = models.ForeignKey(
+        "CompetitionEntrant",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="awarded_competitions",
+        editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(ended_at__isnull=True, ended_stage__isnull=True)
+                | Q(ended_at__isnull=False, ended_stage__isnull=False),
+                name="competition_ending_pair",
+            ),
+            models.CheckConstraint(
+                condition=Q(ended_champion__isnull=True) | Q(ended_at__isnull=False),
+                name="competition_champion_requires_ending",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"Competition for {self.tournament_game}"
@@ -43,6 +73,14 @@ class CompetitionEntrant(models.Model):
     )
     selected_at = models.DateTimeField(auto_now_add=True)
     is_selected = models.BooleanField(default=True)
+    removal_change = models.ForeignKey(
+        "ChangeSet",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="removed_entrants",
+        editable=False,
+    )
 
     class Meta:
         constraints = [
@@ -407,6 +445,7 @@ class Round(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
     source_fingerprint = models.CharField(max_length=64, blank=True, default="")
     rematches_authorized = models.BooleanField(default=False)
+    availability_snapshot = models.JSONField(default=dict, editable=False)
     group = models.ForeignKey(
         StageGroup,
         null=True,
@@ -523,6 +562,7 @@ class Match(models.Model):
     )
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    removal_effect = models.JSONField(default=dict, editable=False)
 
     class Meta:
         ordering = ("round__number", "number", "pk")
