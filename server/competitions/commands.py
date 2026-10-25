@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import secrets
 from collections.abc import Sequence
-from graphlib import CycleError, TopologicalSorter
 
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -44,6 +43,14 @@ from .models import (
     StageDraw,
     StageEntry,
     TieResolution,
+)
+
+from .result_projection import (
+    _ordered_matches,
+    _automatic_result,
+    _routed_entry_id,
+    project_elimination_results,
+    apply_elimination_projection,
 )
 
 CORRECTION_SALT = "competitions.correction"
@@ -491,33 +498,6 @@ def _generate_elimination(stage: Stage, count: int):
     return generate_single_elimination(count)
 
 
-def _ordered_matches(draw: StageDraw, *, include_drafts=False) -> list[Match]:
-    queryset = Match.objects.filter(round__draw=draw).exclude(
-        round__state=Round.State.SUPERSEDED
-    )
-    if not include_drafts:
-        queryset = queryset.filter(round__state=Round.State.PUBLISHED)
-    matches = list(
-        queryset.select_related("round__draw__stage").order_by(
-            "round__section", "round__number", "number", "pk"
-        )
-    )
-    by_id = {match.pk: match for match in matches}
-    graph = {match.pk: [] for match in matches}
-    for match_id, source_id in (
-        MatchSlot.objects.filter(match_id__in=by_id, source_match__isnull=False)
-        .order_by("match_id", "position")
-        .values_list("match_id", "source_match_id")
-    ):
-        if source_id not in by_id:
-            raise ValidationError("Match sources must belong to the same draw.")
-        graph[match_id].append(source_id)
-    try:
-        return [by_id[pk] for pk in TopologicalSorter(graph).static_order()]
-    except CycleError as error:
-        raise ValidationError("Match sources cannot form a cycle.") from error
-
-
 def _validate_saved_draw(draw: StageDraw) -> None:
     if draw.stage.format in (Stage.Format.SWISS_FIXED, Stage.Format.SWISS_THRESHOLD):
         from .swiss_commands import validate_swiss_draw
@@ -598,69 +578,16 @@ def _validate_saved_draw(draw: StageDraw) -> None:
                     )
 
 
-def _reset_final_status(
-    *, first_status, first_outcome, winner_id, lower_entry_id, status
-):
-    if first_status != Match.Status.FINAL:
-        return Match.Status.CONDITIONAL
-    if (
-        first_outcome in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT)
-        and winner_id == lower_entry_id
-    ):
-        return (
-            status
-            if status in (Match.Status.LIVE, Match.Status.FINAL)
-            else Match.Status.PENDING
-        )
-    return Match.Status.NOT_REQUIRED
-
-
-def _reset_activation(status):
-    return (
-        "ACTIVE"
-        if status in (Match.Status.PENDING, Match.Status.LIVE, Match.Status.FINAL)
-        else status
-    )
-
-
-def _reconcile_reset_final(match: Match) -> None:
-    if match.round.section != Round.Section.FINALS or match.round.number != 2:
-        return
-    first = Match.objects.get(
-        round__draw=match.round.draw,
-        round__section=Round.Section.FINALS,
-        round__number=1,
-        number=1,
-    )
-    status = _reset_final_status(
-        first_status=first.status,
-        first_outcome=first.outcome,
-        winner_id=first.winner_id,
-        lower_entry_id=first.slots.get(position=2).resolved_entry_id,
-        status=match.status,
-    )
-    if match.status != status:
-        match.status = status
-        match.save(update_fields=("status",))
-
-
-def _automatic_result(status, slots):
-    if status in (
-        Match.Status.FINAL,
-        Match.Status.CONDITIONAL,
-        Match.Status.NOT_REQUIRED,
-    ):
-        return None
-    if len(slots) != 2 or not all(resolved for resolved, _ in slots):
-        return None
-    entries = [entry_id for _, entry_id in slots if entry_id is not None]
-    if len(entries) == 2:
-        return None
-    return (Match.Outcome.BYE, entries[0]) if entries else (Match.Outcome.EMPTY, None)
-
-
 def _resolve_automatic_matches(draw: StageDraw) -> None:
     if draw.stage.format == Stage.Format.ROUND_ROBIN:
+        return
+    if draw.stage.format in (
+        Stage.Format.SINGLE_ELIMINATION,
+        Stage.Format.DOUBLE_ELIMINATION,
+    ):
+        apply_elimination_projection(
+            draw, project_elimination_results(draw, result_updates={})
+        )
         return
     now = timezone.now()
     is_swiss = draw.stage.format in (
@@ -668,7 +595,6 @@ def _resolve_automatic_matches(draw: StageDraw) -> None:
         Stage.Format.SWISS_THRESHOLD,
     )
     for match in _ordered_matches(draw, include_drafts=not is_swiss):
-        _reconcile_reset_final(match)
         if match.status in (
             Match.Status.FINAL,
             Match.Status.CONDITIONAL,
@@ -702,14 +628,6 @@ def _resolve_automatic_matches(draw: StageDraw) -> None:
         _propagate_completed_match(match)
 
 
-def _routed_entry_id(outcome, winner_id, entries, source_outcome):
-    if source_outcome == MatchSlot.SourceOutcome.WINNER:
-        return winner_id
-    if outcome not in (Match.Outcome.PLAYED, Match.Outcome.FORFEIT) or not winner_id:
-        return None
-    return next((entry_id for entry_id in entries if entry_id != winner_id), None)
-
-
 def _losing_entry_id(match: Match) -> int | None:
     return _routed_entry_id(
         match.outcome,
@@ -720,6 +638,11 @@ def _losing_entry_id(match: Match) -> int | None:
 
 
 def _propagate_completed_match(match: Match) -> None:
+    if match.round.draw.stage.format in (
+        Stage.Format.SINGLE_ELIMINATION,
+        Stage.Format.DOUBLE_ELIMINATION,
+    ):
+        return
     MatchSlot.objects.filter(
         source_match=match, source_outcome=MatchSlot.SourceOutcome.WINNER
     ).update(is_resolved=True, resolved_entry=match.winner)
@@ -1208,106 +1131,6 @@ def finalize_match(
         return match
 
 
-def _project_correction(match: Match, *, outcome, winner_id):
-    """Re-resolve competitive inputs; invalidate only contests whose inputs change."""
-    ordered = _ordered_matches(match.round.draw)
-    slots_by_match = {item.pk: [] for item in ordered}
-    for slot in MatchSlot.objects.filter(match_id__in=slots_by_match).order_by(
-        "position"
-    ):
-        slots_by_match[slot.match_id].append(slot)
-    projected = {}
-    affected, impacts, reset_changes = [], [], []
-    first_final_id = next(
-        (
-            item.pk
-            for item in ordered
-            if item.round.section == Round.Section.FINALS and item.round.number == 1
-        ),
-        None,
-    )
-    for item in ordered:
-        saved_slots = [
-            [slot.is_resolved, slot.resolved_entry_id]
-            for slot in slots_by_match[item.pk]
-        ]
-        slots = []
-        for slot in slots_by_match[item.pk]:
-            if slot.source_match_id:
-                source = projected[slot.source_match_id]
-                resolved = source["status"] == Match.Status.FINAL
-                entry_id = (
-                    _routed_entry_id(
-                        source["outcome"],
-                        source["winner_id"],
-                        [entry for _, entry in source["slots"]],
-                        slot.source_outcome,
-                    )
-                    if resolved
-                    else None
-                )
-                slots.append([resolved, entry_id])
-            else:
-                slots.append([slot.is_resolved, slot.resolved_entry_id])
-        state = {
-            "status": item.status,
-            "outcome": item.outcome,
-            "winner_id": item.winner_id,
-            "slots": slots,
-        }
-        if item.pk == match.pk:
-            state.update(outcome=outcome, winner_id=winner_id)
-        else:
-            changed_inputs = slots != saved_slots
-            status = Match.Status.PENDING if changed_inputs else item.status
-            is_reset = (
-                item.round.section == Round.Section.FINALS and item.round.number == 2
-            )
-            if is_reset:
-                first = projected[first_final_id]
-                status = _reset_final_status(
-                    first_status=first["status"],
-                    first_outcome=first["outcome"],
-                    winner_id=first["winner_id"],
-                    lower_entry_id=first["slots"][1][1],
-                    status=status,
-                )
-                before, after = (
-                    _reset_activation(item.status),
-                    _reset_activation(status),
-                )
-                if before != after:
-                    reset_changes.append(
-                        {
-                            "match_id": item.pk,
-                            "match_code": item.code,
-                            "before": before,
-                            "after": after,
-                        }
-                    )
-            if changed_inputs or status != item.status:
-                state.update(status=status, outcome="", winner_id=None)
-                result = _automatic_result(status, slots)
-                if result is not None:
-                    state.update(
-                        status=Match.Status.FINAL,
-                        outcome=result[0],
-                        winner_id=result[1],
-                    )
-                affected.append(item)
-                impacts.append(
-                    {
-                        "match_id": item.pk,
-                        "before": _match_snapshot(item),
-                        "before_slots": saved_slots,
-                        "after_slots": slots,
-                        "after_status": state["status"],
-                    }
-                )
-        projected[item.pk] = state
-    return affected, impacts, reset_changes, projected
-
-
 def _correction_payload(
     match: Match,
     *,
@@ -1352,11 +1175,28 @@ def _correction_payload(
     elif is_swiss:
         affected, impacts, reset_changes, projected = [], [], [], {}
     else:
-        affected, impacts, reset_changes, projected = _project_correction(
-            match,
-            outcome=outcome,
-            winner_id=winner.pk if winner else None,
+        projection = project_elimination_results(
+            match.round.draw,
+            result_updates={
+                match.pk: {
+                    "status": Match.Status.FINAL,
+                    "outcome": outcome,
+                    "winner_id": winner.pk if winner else None,
+                    "side_one_score": side_one_score,
+                    "side_two_score": side_two_score,
+                }
+            },
         )
+        affected = list(
+            Match.objects.filter(
+                pk__in=[pk for pk in projection["changed_match_ids"] if pk != match.pk]
+            )
+            .select_related("round__draw__stage")
+            .order_by("pk")
+        )
+        impacts = [i for i in projection["match_impacts"] if i["match_id"] != match.pk]
+        reset_changes = projection["reset_final_changes"]
+        projected = projection["matches"]
     from .qualification import stage_qualification
     from .handoff_commands import project_handoff_corrections
 
@@ -1575,28 +1415,25 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 .select_related("winner__entrant")
                 .order_by("pk")
             )
-        affected_ids = [item.pk for item in affected]
-        if affected_ids:
-            Match.objects.filter(pk__in=affected_ids).update(
-                status=Match.Status.PENDING,
-                applied_series_length=None,
-                side_one_score=None,
-                side_two_score=None,
-                outcome="",
-                winner=None,
-                started_at=None,
-                completed_at=None,
+        if match.round.draw.stage.format in (
+            Stage.Format.SINGLE_ELIMINATION,
+            Stage.Format.DOUBLE_ELIMINATION,
+        ):
+            apply_elimination_projection(
+                match.round.draw,
+                project_elimination_results(
+                    match.round.draw,
+                    result_updates={
+                        match.pk: {
+                            "status": Match.Status.FINAL,
+                            "outcome": submitted["outcome"],
+                            "side_one_score": submitted["side_one_score"],
+                            "side_two_score": submitted["side_two_score"],
+                            "winner_id": winner.pk if winner else None,
+                        }
+                    },
+                ),
             )
-            for impact in current["match_impacts"]:
-                for position, (resolved, entry_id) in enumerate(
-                    impact["after_slots"], start=1
-                ):
-                    MatchSlot.objects.filter(
-                        match_id=impact["match_id"], position=position
-                    ).update(
-                        is_resolved=resolved,
-                        resolved_entry_id=entry_id,
-                    )
         match.outcome = submitted["outcome"]
         match.side_one_score = submitted["side_one_score"]
         match.side_two_score = submitted["side_two_score"]
