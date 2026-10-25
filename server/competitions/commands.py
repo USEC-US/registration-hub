@@ -578,17 +578,26 @@ def _validate_saved_draw(draw: StageDraw) -> None:
                     )
 
 
-def _resolve_automatic_matches(draw: StageDraw) -> None:
+def _resolve_automatic_matches(draw: StageDraw) -> dict | None:
     if draw.stage.format == Stage.Format.ROUND_ROBIN:
         return
     if draw.stage.format in (
         Stage.Format.SINGLE_ELIMINATION,
         Stage.Format.DOUBLE_ELIMINATION,
     ):
-        apply_elimination_projection(
-            draw, project_elimination_results(draw, result_updates={})
+        from .lifecycle_commands import (
+            project_removal_results,
+            apply_removal_projection,
         )
-        return
+
+        if not draw.entries.exclude(
+            entrant__status=CompetitionEntrant.Status.ACTIVE
+        ).exists():
+            apply_elimination_projection(
+                draw, project_elimination_results(draw, result_updates={})
+            )
+            return {}
+        return apply_removal_projection(draw, project_removal_results(draw))
     now = timezone.now()
     is_swiss = draw.stage.format in (
         Stage.Format.SWISS_FIXED,
@@ -1111,13 +1120,13 @@ def finalize_match(
             )
         )
         _propagate_completed_match(match)
-        _resolve_automatic_matches(match.round.draw)
+        removal_effects = _resolve_automatic_matches(match.round.draw) or {}
         _update_stage_completion(match.round.draw)
         _record_change(
             competition,
             actor=actor,
             kind="match_finalized",
-            private_data={"match_id": match.pk},
+            private_data={"match_id": match.pk, "removal_effects": removal_effects},
             public_data={
                 "kind": "match_finalized",
                 "match_id": match.pk,
@@ -1175,7 +1184,9 @@ def _correction_payload(
     elif is_swiss:
         affected, impacts, reset_changes, projected = [], [], [], {}
     else:
-        projection = project_elimination_results(
+        from .lifecycle_commands import project_removal_results
+
+        projection = project_removal_results(
             match.round.draw,
             result_updates={
                 match.pk: {
@@ -1415,13 +1426,19 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 .select_related("winner__entrant")
                 .order_by("pk")
             )
+        correction_effects = {}
         if match.round.draw.stage.format in (
             Stage.Format.SINGLE_ELIMINATION,
             Stage.Format.DOUBLE_ELIMINATION,
         ):
-            apply_elimination_projection(
+            from .lifecycle_commands import (
+                project_removal_results,
+                apply_removal_projection,
+            )
+
+            correction_effects = apply_removal_projection(
                 match.round.draw,
-                project_elimination_results(
+                project_removal_results(
                     match.round.draw,
                     result_updates={
                         match.pk: {
@@ -1434,6 +1451,9 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                     },
                 ),
             )
+        from .lifecycle_commands import invalidate_removal_effect
+
+        invalidate_removal_effect(match)
         match.outcome = submitted["outcome"]
         match.side_one_score = submitted["side_one_score"]
         match.side_two_score = submitted["side_two_score"]
@@ -1463,7 +1483,10 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
 
         apply_handoff_impact(current["handoff_impact"])
         _propagate_completed_match(match)
-        _resolve_automatic_matches(match.round.draw)
+        removal_effects = {
+            **correction_effects,
+            **(_resolve_automatic_matches(match.round.draw) or {}),
+        }
         _update_stage_completion(match.round.draw)
         _record_change(
             competition,
@@ -1477,6 +1500,7 @@ def apply_correction(*, actor, token: str, internal_reason: str) -> Match:
                 "reset_matches": reset_snapshots,
                 "reset_final_changes": current["reset_final_changes"],
                 "group_impact": current["group_impact"],
+                "removal_effects": removal_effects,
                 "swiss_impact": current["swiss_impact"],
                 "handoff_impact": current["handoff_impact"],
             },

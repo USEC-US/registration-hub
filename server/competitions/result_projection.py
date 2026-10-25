@@ -177,7 +177,11 @@ def project_elimination_results(
             Match.Outcome.BYE,
             Match.Outcome.EMPTY,
         )
-        if entered_final and not source_corrected:
+        if (
+            entered_final
+            and not source_corrected
+            and result_updates.get(item.pk, {}).get("status", "FINAL") == "FINAL"
+        ):
             slots = saved_slots
         state = {field: getattr(item, field) for field in COMPETITIVE_FIELDS}
         changed_inputs = slots != saved_slots
@@ -229,29 +233,28 @@ def project_elimination_results(
             state["status"] = status
         if item.pk in result_updates:
             state.update(result_updates[item.pk])
-        else:
-            result = _automatic_result(state["status"], slots)
-            if state["status"] not in (
-                Match.Status.FINAL,
-                Match.Status.CONDITIONAL,
-                Match.Status.NOT_REQUIRED,
-            ) and all(r for r, _ in raw_slots):
-                real = [e for _, e in raw_slots if e is not None]
-                active = [e for e in real if e in available]
-                if len(real) == 2 and len(active) < 2:
-                    result = (
-                        (Match.Outcome.FORFEIT, active[0])
-                        if active
-                        else (Match.Outcome.DOUBLE_FORFEIT, None)
-                    )
-                elif real and not active:
-                    result = (Match.Outcome.EMPTY, None)
-            if result:
-                state.update(
-                    status=Match.Status.FINAL, outcome=result[0], winner_id=result[1]
+        result = _automatic_result(state["status"], slots)
+        if state["status"] not in (
+            Match.Status.FINAL,
+            Match.Status.CONDITIONAL,
+            Match.Status.NOT_REQUIRED,
+        ) and all(r for r, _ in raw_slots):
+            real = [e for _, e in raw_slots if e is not None]
+            active = [e for e in real if e in available]
+            if len(real) == 2 and len(active) < 2:
+                result = (
+                    (Match.Outcome.FORFEIT, active[0])
+                    if active
+                    else (Match.Outcome.DOUBLE_FORFEIT, None)
                 )
-                if result[0] in (Match.Outcome.BYE, Match.Outcome.EMPTY):
-                    state.update(side_one_score=None, side_two_score=None)
+            elif real and not active:
+                result = (Match.Outcome.EMPTY, None)
+        if result:
+            state.update(
+                status=Match.Status.FINAL, outcome=result[0], winner_id=result[1]
+            )
+            if result[0] in (Match.Outcome.BYE, Match.Outcome.EMPTY):
+                state.update(side_one_score=None, side_two_score=None)
         state["slots"] = slots
         corrected[item.pk] = (
             item.pk in result_updates

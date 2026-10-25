@@ -303,26 +303,26 @@ class LifecycleQualificationTests(TestCase):
             )
 
     def _remove_with_earned_decisions(self, draw, entry):
-        from competitions.models import ChangeSet, Competition
+        from competitions.lifecycle_commands import (
+            preview_entrant_transition,
+            apply_entrant_transition,
+        )
 
-        state = stage_qualification(draw)
         self.competition.refresh_from_db()
-        revision = self.competition.revision + 1
-        change = ChangeSet.objects.create(
-            competition=self.competition,
-            revision=revision,
-            kind="entrant_withdrawn",
+        preview = preview_entrant_transition(
             actor=self.actor,
-            private_data={
-                "entrant_id": entry.entrant_id,
-                "earned_resolution_ids": state["earned_resolution_ids"],
-            },
+            entrant_id=entry.entrant_id,
+            expected_revision=self.competition.revision,
+            status="WITHDRAWN",
         )
-        Competition.objects.filter(pk=self.competition.pk).update(revision=revision)
-        CompetitionEntrant.objects.filter(pk=entry.entrant_id).update(
-            status="WITHDRAWN", removal_change=change
+        entrant = apply_entrant_transition(
+            actor=self.actor,
+            token=preview["token"],
+            internal_reason="Unavailable",
+            confirm_live_forfeits=True,
+            confirm_resets=True,
         )
-        return change
+        return entrant.removal_change
 
     def test_resolved_tie_keeps_earned_winner_after_lifecycle_supersedes_decision(self):
         from competitions.models import TieResolution
