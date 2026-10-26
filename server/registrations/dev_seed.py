@@ -122,6 +122,7 @@ SCENARIO_SUMMARY = (
     "FPT Shop Uni Tour 2026: synthetic 16-team LQM bracket (BO1 early, BO3 finals)",
     "Double elimination: ready 16-team reset / completed 5-team no-reset brackets",
     "Multi-stage: 3/3/2, 3/2/2 and 2/5/3 groups feeding saved random playoffs",
+    "Lifecycle: restorable removal / ended retired playoffs / reopened awaiting replacement",
     "Swiss: 9-entry fixed Top-4 playoffs / 16-entry threshold to fixed Swiss playoffs",
 )
 
@@ -1806,6 +1807,187 @@ def _seed_swiss(*, now: datetime, organizer, catalog: SeedCatalog) -> None:
         )
 
 
+def _seed_lifecycle(*, now: datetime, organizer) -> Tournament:
+    """Synthetic lifecycle examples; reruns retain command-owned competitive history."""
+    from competitions.lifecycle_commands import (
+        preview_entrant_transition,
+        apply_entrant_transition,
+        preview_competition_end,
+        apply_competition_end,
+        preview_competition_reopen,
+        apply_competition_reopen,
+    )
+
+    tournament, _ = Tournament.objects.update_or_create(
+        slug="dev-usec-lifecycle",
+        defaults={
+            "name": "USEC Lifecycle Lab",
+            "students_only": False,
+            "is_published": True,
+        },
+    )
+    for scenario in ("removal", "ended", "reopened"):
+        game = _upsert_game(slug=f"lifecycle-{scenario}", name=f"Lifecycle {scenario}")
+        division = _upsert_tournament_game(
+            tournament=tournament,
+            game=game,
+            main_roster_size=2,
+            substitute_limit=0,
+            registration_opens_at=now - timedelta(days=5),
+            registration_closes_at=now - timedelta(days=4),
+            registration_capacity=None,
+            fee_amount=Decimal("0.00"),
+        )
+        existing = Competition.objects.filter(tournament_game=division).first()
+        if existing:
+            if existing.changes.filter(kind="entrant_withdrawn").exists():
+                continue
+            raise ValidationError(
+                "The development lifecycle competition is incomplete."
+            )
+        registrations = [
+            _upsert_development_team(
+                now=now,
+                organizer=organizer,
+                division=division,
+                team_prefix="LC",
+                index=i,
+            )
+            for i in range(1, 5)
+        ]
+        competition = create_competition(
+            actor=organizer, tournament_game_id=division.pk
+        )
+        source = configure_round_robin(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            name="Groups",
+            meetings=1,
+            default_series_length=1,
+            series_mode="BEST_OF",
+            win_points=3,
+            draw_points=1,
+            loss_points=0,
+        )
+        competition.refresh_from_db()
+        set_stage_groups(
+            actor=organizer,
+            stage_id=source.pk,
+            expected_revision=competition.revision,
+            group_specs=[("Group 1", 4, 4)],
+        )
+        competition.refresh_from_db()
+        destination = configure_elimination(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            stage_sequence=2,
+            name="Playoffs",
+            format="SINGLE_ELIMINATION",
+            default_series_length=1,
+        )
+        competition.refresh_from_db()
+        entrants = select_entrants(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            registration_ids=[r.pk for r in registrations],
+        )
+        competition.refresh_from_db()
+        draw = save_round_robin_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+            group_specs=[("Group 1", 4)],
+            ordered_entrant_ids=[e.pk for e in entrants],
+            memberships=[[e.pk for e in entrants]],
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            expected_revision=competition.revision,
+        )
+        for match in Match.objects.filter(round__draw=draw).prefetch_related(
+            "slots__resolved_entry"
+        ):
+            slots = list(match.slots.all())
+            first = slots[0].resolved_entry.seed < slots[1].resolved_entry.seed
+            competition.refresh_from_db()
+            finalize_match(
+                actor=organizer,
+                match_id=match.pk,
+                expected_revision=competition.revision,
+                outcome="PLAYED",
+                side_one_score=int(first),
+                side_two_score=int(not first),
+            )
+        competition.refresh_from_db()
+        suffix = generate_next_stage_draw(
+            actor=organizer,
+            stage_id=destination.pk,
+            expected_revision=competition.revision,
+        )
+        competition.refresh_from_db()
+        publish_draw(
+            actor=organizer,
+            competition_id=competition.pk,
+            stage_id=destination.pk,
+            expected_revision=competition.revision,
+        )
+        match = Match.objects.filter(round__draw=suffix, round__number=1).first()
+        competition.refresh_from_db()
+        finalize_match(
+            actor=organizer,
+            match_id=match.pk,
+            expected_revision=competition.revision,
+            outcome="PLAYED",
+            side_one_score=1,
+            side_two_score=0,
+        )
+        competition.refresh_from_db()
+        preview = preview_entrant_transition(
+            actor=organizer,
+            entrant_id=entrants[0].pk,
+            expected_revision=competition.revision,
+            status="WITHDRAWN",
+        )
+        apply_entrant_transition(
+            actor=organizer,
+            token=preview["token"],
+            internal_reason="PRIVATE-LIFECYCLE synthetic removal",
+            confirm_resets=True,
+            confirm_live_forfeits=True,
+        )
+        if scenario == "removal":
+            continue
+        competition.refresh_from_db()
+        preview = preview_competition_end(
+            actor=organizer, stage_id=source.pk, expected_revision=competition.revision
+        )
+        apply_competition_end(
+            actor=organizer,
+            token=preview["token"],
+            internal_reason="PRIVATE-LIFECYCLE blocked quota",
+            confirm_resets=True,
+        )
+        if scenario == "reopened":
+            competition.refresh_from_db()
+            preview = preview_competition_reopen(
+                actor=organizer,
+                competition_id=competition.pk,
+                expected_revision=competition.revision,
+            )
+            apply_competition_reopen(
+                actor=organizer,
+                token=preview["token"],
+                internal_reason="PRIVATE-LIFECYCLE recovery",
+                confirm_resets=True,
+            )
+    return tournament
+
+
 def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
     player, organizer, admin = _seed_accounts()
     catalog = _seed_catalog(now=now)
@@ -1837,8 +2019,9 @@ def seed_development_data(*, now: datetime) -> DevelopmentSeedResult:
     _seed_round_robin(now=now, organizer=organizer, catalog=catalog)
     _seed_multi_stage(now=now, organizer=organizer, catalog=catalog)
     _seed_swiss(now=now, organizer=organizer, catalog=catalog)
+    lifecycle = _seed_lifecycle(now=now, organizer=organizer)
     return DevelopmentSeedResult(
         account_emails=(player.email, organizer.email, admin.email),
-        tournament_slugs=tuple(catalog.tournaments),
+        tournament_slugs=(*catalog.tournaments, lifecycle.slug),
         registration_ids=tuple(registration.pk for registration in registrations),
     )

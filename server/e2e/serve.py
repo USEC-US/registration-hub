@@ -88,6 +88,13 @@ def seed():
     from e2e.fixtures import seed_swiss_browser_fixtures
 
     seed_swiss_browser_fixtures(organizer=organizer)
+    from e2e.fixtures import (
+        seed_lifecycle_browser_fixtures,
+        seed_lifecycle_swiss_fixture,
+    )
+
+    seed_lifecycle_browser_fixtures(organizer=organizer)
+    seed_lifecycle_swiss_fixture(organizer=organizer)
     from registrations.dev_seed import SeedCatalog, _seed_round_robin, _seed_multi_stage
 
     rr_tournament = Tournament.objects.create(
@@ -436,6 +443,8 @@ def main():
     # A unique name prevents reuse, flushing, or deletion of a developer's database.
     database_name = f"test_registration_journey_{uuid4().hex[:12]}"
     connection.settings_dict["TEST"]["NAME"] = database_name
+    connection.settings_dict["TEST"]["TEMPLATE"] = "template0"
+    connection.settings_dict["TEST"]["CHARSET"] = "UTF8"
     original_name = connection.settings_dict["NAME"]
     created = False
     fixture_path = None

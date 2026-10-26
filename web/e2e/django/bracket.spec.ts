@@ -249,3 +249,65 @@ test('Swiss spectators read odd byes, threshold qualification and consecutive st
 		}
 	}
 });
+
+test('lifecycle spectators read ended outcomes and retained matches in EN and VI at 390px', async ({
+	page
+}) => {
+	const tournament = await (
+		await page.request.get('http://127.0.0.1:8015/api/tournaments/dev-usec-lifecycle/')
+	).json();
+	const division = tournament.tournament_games.find(
+		(game: { game_slug: string }) => game.game_slug === 'lifecycle-ended'
+	);
+	const api = `http://127.0.0.1:8015/api/tournament-games/${division.id}/competition/`;
+	const competition = await (await page.request.get(api)).json();
+	const changes = await (await page.request.get(`${api}changes/`)).json();
+	expect(JSON.stringify({ competition, changes })).not.toContain('PRIVATE-LIFECYCLE');
+	expect(JSON.stringify({ competition, changes })).not.toContain('@example.invalid');
+	const played = competition.stages[1].rounds
+		.flatMap((r: { matches: { id: number; historical: boolean; outcome: string }[] }) => r.matches)
+		.find((m: { historical: boolean; outcome: string }) => m.historical && m.outcome === 'PLAYED');
+	expect(played).toBeTruthy();
+	const event = changes.results.find((change: { reset_matches?: { match_id: number }[] }) =>
+		change.reset_matches?.some((match) => match.match_id === played.id)
+	);
+	expect(event).toBeTruthy();
+	const recorded = event.reset_matches.find(
+		(match: { match_id: number }) => match.match_id === played.id
+	);
+	const fragment = `#change-${event.revision}-match-${played.id}`;
+	const detail = await (
+		await page.request.get(`http://127.0.0.1:8015/api/competition-matches/${played.id}/`)
+	).json();
+	expect(detail.historical).toBe(true);
+	expect([detail.side_one_score, detail.side_two_score]).toEqual([1, 0]);
+	await page.setViewportSize({ width: 390, height: 844 });
+	for (const locale of ['en', 'vi']) {
+		await page.goto(
+			`/${locale}/tournaments/dev-usec-lifecycle/games/${division.id}/bracket?stage=${competition.stages[1].id}`
+		);
+		await expect(
+			page
+				.getByText(locale === 'en' ? 'Competition ended' : 'Giải đấu đã kết thúc', { exact: true })
+				.first()
+		).toBeVisible();
+		await expect(
+			page
+				.getByText(locale === 'en' ? 'No champion' : 'Không có nhà vô địch', { exact: true })
+				.first()
+		).toBeVisible();
+		const history = page.getByRole('link', {
+			name: `${locale === 'en' ? 'Historical match' : 'Trận lịch sử'} ${recorded.match_code}`,
+			exact: true
+		});
+		await expect(history).toHaveAttribute('href', fragment);
+		await expect(history).toBeVisible();
+		await history.focus();
+		await expect(history).toBeFocused();
+		await page.keyboard.press('Enter');
+		expect(new URL(page.url()).hash).toBe(fragment);
+		await expect(page.locator(fragment)).toBeVisible();
+		await expect(page.locator(fragment)).toContainText('1–0');
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+	}
+});

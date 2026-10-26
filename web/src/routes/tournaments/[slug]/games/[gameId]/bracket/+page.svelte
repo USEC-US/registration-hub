@@ -1025,6 +1025,16 @@
 										</p>
 									{/if}
 									{#each change.reset_matches ?? [] as snapshot (snapshot.match_id)}
+										{#if change.kind.startsWith('entrant_') || change.kind.startsWith('competition_')}
+											<a
+												class="w-fit text-primary underline underline-offset-4"
+												href={`#change-${change.revision}-match-${snapshot.match_id}`}
+											>
+												{m.bracket_swiss_historical_match({
+													code: matchLabels.get(snapshot.match_id)?.code ?? snapshot.match_code
+												})}
+											</a>
+										{/if}
 										<p id={`change-${change.revision}-match-${snapshot.match_id}`}>
 											{matchLabels.get(snapshot.match_id)?.code ?? snapshot.match_code}: {snapshotSummary(
 												snapshot

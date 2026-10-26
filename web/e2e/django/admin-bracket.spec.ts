@@ -583,7 +583,17 @@ test('multi-stage organizers lock groups, publish a saved draw and retire played
 	await page.getByRole('button', { name: 'Confirm correction and resets', exact: true }).click();
 	const retired = (await snapshot()).stages.find((stage) => stage.id === Number(playoffStageId))!;
 	expect(retired.draw_state).toBe('AWAITING_REPLACEMENT');
-	expect(retired.rounds).toEqual([]);
+	expect(retired.rounds.flatMap((round) => round.matches)).toContainEqual(
+		expect.objectContaining({
+			id: played.id,
+			historical: true,
+			side_one_score: 1,
+			side_two_score: 0
+		})
+	);
+	expect(retired.rounds.flatMap((round) => round.matches).every((match) => match.historical)).toBe(
+		true
+	);
 	const historical = await (
 		await page.request.get(`http://127.0.0.1:8015/api/competition-matches/${played.id}/`)
 	).json();
@@ -595,7 +605,12 @@ test('multi-stage organizers lock groups, publish a saved draw and retire played
 		`/en/tournaments/multi-stage-journey-test/games/${division.id}/bracket?stage=${playoffStageId}`
 	);
 	await expect(spectator.getByText('Awaiting replacement draw', { exact: true })).toBeVisible();
-	await expect(spectator.getByText(/Playoffs-M/).first()).toBeVisible();
+	await expect(
+		spectator
+			.locator('.mobile-bracket')
+			.getByText(/Playoffs-M/)
+			.first()
+	).toBeVisible();
 	expect(await spectator.locator('body').textContent()).not.toContain('PRIVATE-MS');
 	expect(await spectator.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 	await page.setViewportSize({ width: 390, height: 844 });
@@ -671,7 +686,9 @@ for (const scenario of [
 		if (scenario.threshold) {
 			await page.goto(`${workspace}?tab=setup&stage=${sourceId}`);
 			await page.getByRole('link', { name: 'Add stage', exact: true }).click();
+			await expect(page.locator('[name="tiebreak_1"]')).toBeHidden();
 			await page.getByLabel('Format:', { exact: true }).selectOption('SWISS_FIXED');
+			await expect(page.locator('[name="tiebreak_1"]')).toHaveValue('OPPONENT_POINTS');
 			await page.getByLabel('Stage name').fill('Swiss2');
 			await expect(page.getByText(/Pending ceil\(log2\(actual N\)\)/)).toBeVisible();
 			await page.locator('[name="advancement_count"]').selectOption('2');
@@ -886,5 +903,143 @@ for (const scenario of [
 		await expect(standings).toBeFocused();
 		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 		await spectator.close();
+	});
+}
+
+for (const scenario of ['removal', 'reopened', 'swiss']) {
+	test(`lifecycle organizers exercise ${scenario} with signed previews and retained history`, async ({
+		page
+	}) => {
+		test.setTimeout(120_000);
+		page.setDefaultTimeout(10_000);
+		const tournament = await (
+			await page.request.get('http://127.0.0.1:8015/api/tournaments/dev-usec-lifecycle/')
+		).json();
+		const division = tournament.tournament_games.find(
+			(game: { game_slug: string }) => game.game_slug === `lifecycle-${scenario}`
+		);
+		const api = `http://127.0.0.1:8015/api/tournament-games/${division.id}/competition/`;
+		const snapshot = async (): Promise<PublicCompetition> => (await page.request.get(api)).json();
+		const before = await snapshot();
+		const workspace = `http://127.0.0.1:8015/admin/competitions/competition/${before.id}/change/`;
+		await page.goto(workspace);
+		await page.getByLabel('Email', { exact: false }).fill('journey-organizer@example.test');
+		await page.getByLabel('Password', { exact: false }).fill('Journey-test-password-2026');
+		await page.getByRole('button', { name: /Log in/ }).click();
+		async function confirm() {
+			await expect(
+				page.getByRole('heading', { name: 'Review lifecycle impact', exact: true })
+			).toBeVisible();
+			await page.getByLabel('Private reason', { exact: false }).fill('PRIVATE-LIFECYCLE-BROWSER');
+			for (const field of ['confirm_live_forfeits', 'confirm_resets']) {
+				const checkbox = page.locator(`[name="${field}"]`);
+				if (await checkbox.count()) await checkbox.check();
+			}
+			await page.getByRole('button', { name: 'Confirm lifecycle change', exact: true }).click();
+		}
+		async function transition(status: string) {
+			await page.goto(`${workspace}?tab=entrants`);
+			const row = page.locator('.cw-entrant').filter({
+				hasText: scenario === 'swiss' ? 'Lifecycle Swiss Team 01' : `Lifecycle ${scenario} Team 01`
+			});
+			await row.getByRole('link', { name: 'Change availability', exact: true }).click();
+			await page.getByLabel('Status', { exact: false }).selectOption(status);
+			await page.getByRole('button', { name: 'Preview impact', exact: true }).click();
+			if (scenario === 'removal' && status === 'WITHDRAWN') {
+				const stale = await page.context().newPage();
+				await stale.goto(page.url());
+				await stale.getByLabel('Status', { exact: false }).selectOption(status);
+				await stale.getByRole('button', { name: 'Preview impact', exact: true }).click();
+				await confirm();
+				const revision = (await snapshot()).competition_revision;
+				await stale.getByLabel('Private reason', { exact: false }).fill('PRIVATE-STALE-CONFIRM');
+				for (const checkbox of await stale.locator('input[type=checkbox]').all())
+					await checkbox.check();
+				await stale.getByRole('button', { name: 'Confirm lifecycle change', exact: true }).click();
+				await expect(stale.getByText(/changed|stale|reload/i).first()).toBeVisible();
+				expect((await snapshot()).competition_revision).toBe(revision);
+				await stale.close();
+			} else await confirm();
+		}
+		if (scenario === 'reopened') {
+			await page.goto(`${workspace}?stage=${before.stages[0].id}`);
+			await page.getByRole('link', { name: 'End competition', exact: true }).click();
+			await page.getByRole('button', { name: 'Preview impact', exact: true }).click();
+			await confirm();
+			expect((await snapshot()).ending?.ended_at).toBeTruthy();
+			await page.getByRole('link', { name: 'Reopen competition', exact: true }).click();
+			await page.getByRole('button', { name: 'Preview impact', exact: true }).click();
+			await confirm();
+			expect((await snapshot()).ending).toBeNull();
+		}
+		await transition(scenario === 'swiss' ? 'WITHDRAWN' : 'ACTIVE');
+		if (scenario === 'swiss') {
+			for (const match of (await snapshot()).stages[0].rounds[0].matches.filter(
+				(m) => m.status !== 'FINAL'
+			)) {
+				await page.goto(`http://127.0.0.1:8015/admin/competitions/match/${match.id}/change/`);
+				await page.getByRole('link', { name: 'Enter result', exact: true }).click();
+				await page.locator('[name="side_one_score"]').fill('1');
+				await page.locator('[name="side_two_score"]').fill('0');
+				await page.getByRole('button', { name: 'Save result', exact: true }).click();
+			}
+			await page.goto(`${workspace}?tab=bracket&stage=${before.stages[0].id}`);
+			await page.getByRole('link', { name: 'Generate next Swiss round', exact: true }).click();
+			await page.getByRole('button', { name: 'Generate next Swiss round', exact: true }).click();
+			await expect(page.getByText('Private preview', { exact: true }).first()).toBeVisible();
+			expect((await snapshot()).stages[0].rounds).toHaveLength(1);
+			await page.getByRole('link', { name: 'Publish saved Swiss round', exact: true }).click();
+			await page.getByRole('button', { name: 'Publish saved Swiss round', exact: true }).click();
+			const current = (await snapshot()).stages[0];
+			expect(current.rounds).toHaveLength(2);
+			expect(
+				current.rounds[1].matches
+					.flatMap((m) => m.slots)
+					.some((s) => s.entry?.display_name === 'Lifecycle Swiss Team 01')
+			).toBe(false);
+		} else {
+			const destination = before.stages[1];
+			await page.goto(`${workspace}?stage=${destination.id}`);
+			await page.getByRole('link', { name: 'Generate next stage draw', exact: true }).click();
+			await page.getByRole('button', { name: 'Generate and preview draw', exact: true }).click();
+			await expect(page.getByText('Private preview', { exact: true }).first()).toBeVisible();
+			expect((await snapshot()).stages[1].draw_state).toBe('AWAITING_REPLACEMENT');
+			await page.getByRole('link', { name: /Publish saved draw/ }).click();
+			await page.getByRole('button', { name: 'Publish bracket', exact: true }).click();
+			const fresh = (await snapshot()).stages[1].rounds
+				.flatMap((r) => r.matches)
+				.find((m) => m.status === 'PENDING' && !m.historical)!;
+			await page.goto(`http://127.0.0.1:8015/admin/competitions/match/${fresh.id}/change/`);
+			await page.getByRole('link', { name: 'Enter result', exact: true }).click();
+			await page.locator('[name="side_one_score"]').fill('1');
+			await page.locator('[name="side_two_score"]').fill('0');
+			await page.getByRole('button', { name: 'Save result', exact: true }).click();
+			if (scenario === 'removal') {
+				await transition('WITHDRAWN');
+				await transition('ACTIVE');
+				const historical = await (
+					await page.request.get(`http://127.0.0.1:8015/api/competition-matches/${fresh.id}/`)
+				).json();
+				expect(historical.historical).toBe(true);
+				expect([historical.side_one_score, historical.side_two_score]).toEqual([1, 0]);
+			}
+		}
+		if (scenario !== 'swiss') {
+			const results = (competition: PublicCompetition) =>
+				competition.stages[0].rounds
+					.flatMap((round) => round.matches)
+					.map((match) => [match.id, match.outcome, match.side_one_score, match.side_two_score]);
+			expect(results(await snapshot())).toEqual(results(before));
+		}
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto(`${workspace}?tab=changes`);
+		await page
+			.locator('.cw-change')
+			.filter({ hasText: 'PRIVATE-LIFECYCLE-BROWSER' })
+			.first()
+			.getByText('View details', { exact: true })
+			.click();
+		await expect(page.getByText('PRIVATE-LIFECYCLE-BROWSER').first()).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 	});
 }

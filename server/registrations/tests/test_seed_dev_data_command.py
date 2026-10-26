@@ -27,6 +27,66 @@ from tournaments.models import Game, Tournament, TournamentGame
 
 @override_settings(DEBUG=True)
 class SeedDevDataCommandTests(TestCase):
+    def test_lifecycle_seed_retains_ids_results_and_private_history(self):
+        from competitions.models import ChangeSet
+
+        self.run_seed()
+        competitions = Competition.objects.filter(
+            tournament_game__tournament__slug="dev-usec-lifecycle"
+        ).order_by("tournament_game__game__slug")
+        self.assertEqual(competitions.count(), 3)
+        self.assertEqual(
+            [c.ended_at is not None for c in competitions], [True, False, False]
+        )
+        matches = Match.objects.filter(round__draw__stage__competition__in=competitions)
+        snapshot = list(matches.order_by("pk").values())
+        history = list(
+            ChangeSet.objects.filter(competition__in=competitions)
+            .order_by("pk")
+            .values()
+        )
+        self.assertTrue(
+            matches.filter(round__draw__state="SUPERSEDED", outcome="PLAYED").exists()
+        )
+        removed = competitions.get(tournament_game__game__slug="lifecycle-removal")
+        self.assertTrue(
+            removed.entrants.filter(
+                status="WITHDRAWN", removal_change__isnull=False
+            ).exists()
+        )
+        reopened = competitions.get(tournament_game__game__slug="lifecycle-reopened")
+        self.assertFalse(
+            reopened.stages.get(sequence=2).draws.filter(state="PUBLISHED").exists()
+        )
+        client = APIClient()
+        for competition in competitions:
+            response = client.get(
+                f"/api/tournament-games/{competition.tournament_game_id}/competition/"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn("PRIVATE-LIFECYCLE", str(response.data))
+            self.assertNotIn("@example.invalid", str(response.data))
+            changes = client.get(
+                f"/api/tournament-games/{competition.tournament_game_id}/competition/changes/"
+            )
+            self.assertEqual(changes.status_code, 200)
+            self.assertNotIn("PRIVATE-LIFECYCLE", str(changes.data))
+            self.assertNotIn("internal_reason", str(changes.data))
+            self.assertNotIn("private_data", str(changes.data))
+        self.assertTrue(
+            any("PRIVATE-LIFECYCLE" in event["internal_reason"] for event in history)
+        )
+        self.run_seed()
+        self.assertEqual(list(matches.order_by("pk").values()), snapshot)
+        self.assertEqual(
+            list(
+                ChangeSet.objects.filter(competition__in=competitions)
+                .order_by("pk")
+                .values()
+            ),
+            history,
+        )
+
     def test_seed_preserves_existing_payment_configuration_on_reruns(self):
         for enabled in (False, True):
             with self.subTest(enabled=enabled):
@@ -204,6 +264,7 @@ class SeedDevDataCommandTests(TestCase):
                 "dev-usec-round-robin",
                 "dev-usec-multi-stage",
                 "dev-usec-swiss",
+                "dev-usec-lifecycle",
                 "dev-fpt-shop-uni-tour-2026",
                 "dev-sponsor-open",
                 "dev-sponsor-arena",
