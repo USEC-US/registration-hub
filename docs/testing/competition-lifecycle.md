@@ -168,9 +168,17 @@ chunks; they did not fail the build.
 | V2 Mutation integrity | PostgreSQL race gate, stale-token/replay/rollback tests, shared projection and played-suffix history tests; registration service/reservation/admin gates verify the shared lock boundary. |
 | V3 Permissions/privacy | Lifecycle workspace/direct-command/API tests and seed/browser checks enforce permissions, strict consent, public allowlists and private reasons/provenance. This is bracket-scope proof, not a platform-wide security audit. |
 | V4 Full workflow | 16 real Django/admin/Svelte journeys include removal/restore, stale confirmation, end/reopen/fresh replacement, Swiss continuation, historical links, EN/VI and 390px containment. HMR/fetch console caveat above remains; no realtime claim. |
-| V5 Delivery | Synthetic rerunnable lifecycle fixtures, this operating/recovery guide, migration tests and repeatable persisted-publication measurement. No production restore rehearsal, latency guarantee or deployment. Final whole-branch review remains pending. |
+| V5 Delivery | Synthetic rerunnable lifecycle fixtures, this operating/recovery guide, migration tests and repeatable persisted-publication measurement. Final whole-branch review found no Critical or Important issues. No production restore rehearsal, latency guarantee or deployment. |
 
-V1–V5 remain open pending the controller's final whole-branch review and disposition
-of the stated browser/delivery limits; implementation and passing checks alone
-do not close release gates. Realtime, providers, TFT, production readiness and
-platform-wide permission/privacy hardening retain their separate project scope.
+V1–V5 are complete for the agreed bracket-core scope following independent task
+reviews and final whole-branch review of `95ed9eb..b8b811d` on 2026-10-26, with
+no Critical or Important findings. The review's minor stale documentation
+references were corrected during final status reconciliation. Full review
+evidence remains in the ignored execution workspace's `final-review.md`.
+
+The unknown-cause development-browser fetch errors remain an accepted,
+nonblocking verification limitation, not proof of harmlessness. The measured
+51.308-second publication remains an operational consideration; no production
+latency budget has been accepted. Realtime, providers, TFT, production readiness
+and platform-wide permission/privacy hardening retain their separate project
+scope. The branch was kept in place without merge, push or deployment.

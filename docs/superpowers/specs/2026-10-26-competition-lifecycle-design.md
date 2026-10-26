@@ -1,7 +1,7 @@
 # Competition withdrawals, exceptional endings, and recovery
 
 Date: 2026-10-26
-Status: Approved by the user on 2026-10-26; application implementation has not started.
+Status: Approved, implemented and independently reviewed on 2026-10-26. See the [completed plan](../plans/2026-10-26-competition-lifecycle.md) and [operating/release guide](../../testing/competition-lifecycle.md) for evidence and remaining limits.
 Builder review: 2026-10-26, no important unanswered questions.
 Branch at discovery: `feat/tournament-brackets`, `95ed9eb`.
 

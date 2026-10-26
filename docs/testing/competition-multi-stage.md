@@ -59,9 +59,13 @@ Deferred minor: `Changes?stage=<id>` currently omits round-level series changes.
 
 The final Swiss gate extends this guide's earlier evidence: 335 PostgreSQL competition/development-seed tests passed in 461.738s (`task-10-backend-recovery.log`), with no skipped locking races. Both complete bracket browser files passed 12 journeys in 4.0m (`task-10-browser-final.log`, 2026-10-10), including the existing Round Robin and multi-stage flows. The unchanged frontend inputs retain 36 focused Vitest tests, clean Svelte/i18n checks and a successful production build; final Django checks, migration drift, Ruff and browser ESLint also passed. The incomplete pre-restore backend log is retained separately and is not passing evidence.
 
-Regression proof preserves saved Exact group plans when the incoming field is unknown and retains formerly published non-Swiss tiebreak rounds, played scores and direct history navigation. Private retired rounds and retired owning draws stay out of snapshots/direct round reads. Historical rounds do not contribute to current standings or qualification; Swiss snapshots remain current-only. New fixtures cover fixed Top-4 → playoffs and threshold → automatic Swiss → playoffs, with stable reruns and stage-local resets.
+Regression proof preserves saved Exact group plans when the incoming field is unknown and retains formerly published non-Swiss tiebreak rounds, played scores and direct history navigation. Private retired fixtures stay out of public snapshots and direct round reads. Previously public retired draws and rounds remain historically readable with saved scores; historical fixtures do not contribute to current standings or qualification. New fixtures cover fixed Top-4 → playoffs and threshold → automatic Swiss → playoffs, with stable reruns and stage-local resets.
 
-The Swiss guide records populated migration and deterministic pure solver timings. Maximum-field/64-round persisted publication stress remains unmeasured, because publication revalidates retained rounds; pure matching measurements are not deployment latency guarantees.
+The Swiss guide records populated migration and deterministic pure solver timings.
+The later [lifecycle release proof](competition-lifecycle.md) measures persisted
+256-entry/64-round publication at 51.308 seconds with one current-round solver
+call and no historical solver replay. This local measurement does not establish
+an acceptable production latency budget.
 
 ## Migration and rollout
 

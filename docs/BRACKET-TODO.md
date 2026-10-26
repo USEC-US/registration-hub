@@ -1,6 +1,6 @@
 # Bracket system core TODO
 
-Updated: 2026-10-13. Branch: `feat/swiss-stages`.
+Updated: 2026-10-26. Branch: `feat/tournament-brackets`.
 
 This is the authoritative competition-core backlog, linked from
 [the project TODO](TODO.md#5-bracket-core). It replaces the scope and task list
@@ -38,10 +38,12 @@ is approved.
 Swiss planning decisions are consolidated in the
 [approved Swiss qualification-stage design](superpowers/specs/2026-10-10-swiss-stages-design.md).
 The [implementation plan](superpowers/plans/2026-10-10-swiss-stages.md) was approved
-for execution on 2026-10-10. S1–S3 are delivered. PostgreSQL proof covers 335
+for execution on 2026-10-10. S1–S3 are delivered. The Swiss slice's PostgreSQL proof covers 335
 competition/development-seed tests; both complete bracket browser files pass
-12 journeys, including three Swiss journeys. See the Swiss guide for exact
-evidence and the unmeasured maximum-field publication stress limit.
+12 journeys, including three Swiss journeys. The later
+[lifecycle release proof](testing/competition-lifecycle.md) records 486 backend
+checks, 27 final race checks, 16 browser journeys and the persisted
+256-entry/64-round publication measurement, with its remaining limits.
 
 ## Agreed scope
 
@@ -268,7 +270,7 @@ private organizer history through API responses or page data.
 
 ### Completion checks
 
-- [ ] **V1 — Format behavior:** small/uneven fields, byes, draws where allowed,
+- [x] **V1 — Format behavior:** small/uneven fields, byes, draws where allowed,
   invalid scores, forfeits, withdrawals, both grand-final policies, both Swiss
   presets, both round robin schedules, ties, pairing limits, and confirmed playoff
   qualification. Verify round robin meeting counts independently of series length,
@@ -277,21 +279,21 @@ private organizer history through API responses or page data.
   qualification-tie resolution, including multi-entrant ties and source-result
   corrections that invalidate an earlier resolution. Include forced-rematch
   overrides, qualification by bye, and the design's exceptional completion paths.
-- [ ] **V2 — Mutation integrity:** PostgreSQL tests cover concurrent result
+- [x] **V2 — Mutation integrity:** PostgreSQL tests cover concurrent result
   entry, stale previews, repeated actions, transactional rollback, and correction
   through downstream matches/pairings/stage handoffs. Include already-played
   dependents and sequences of more than two stages; verify prior results remain
   available in Changes after a reset.
-- [ ] **V3 — Permissions/privacy:** direct requests cannot bypass organizer/model
+- [x] **V3 — Permissions/privacy:** direct requests cannot bypass organizer/model
   permissions or published-only visibility; public responses use only approved
   display fields, including in Changes history; actor identities and internal
   notes stay private; GET requests do not mutate competition state.
-- [ ] **V4 — Full workflow:** real Django/admin/Svelte browser journeys cover
+- [x] **V4 — Full workflow:** real Django/admin/Svelte browser journeys cover
   setup → entrants → seed/assign → preview → publish → schedule → results →
   correction → qualification/completion. Verify mobile, keyboard access, and
   English/Vietnamese presentation and public versus organizer Changes views.
   Keep registration behavior working.
-- [ ] **V5 — Delivery:** provide realistic dev/test fixtures, organizer operating
+- [x] **V5 — Delivery:** provide realistic dev/test fixtures, organizer operating
   notes, migration/rollback guidance, and recorded check results. Update this
   checklist and the project TODO with actual completion and remaining limits.
 
@@ -310,8 +312,11 @@ now have implementation and verification evidence in the
 [lifecycle operating/release guide](testing/competition-lifecycle.md). That guide
 reconciles V1–V5 individually, records the fresh PostgreSQL release/race gates and
 persisted 256-entry/64-round publication measurement, and states the retained
-browser console and delivery limits. V1–V5 remain open pending final whole-branch
-review and disposition of those limits. Realtime retains its separate gate.
+browser console and delivery limits. Final whole-branch review of
+`95ed9eb..b8b811d` found no Critical or Important issues; V1–V5 are complete for
+the agreed bracket-core scope. The unknown-cause development-browser fetch errors
+remain an accepted verification limitation, and the measured publication time
+does not establish production latency acceptance. Realtime retains its separate gate.
 
 Core is complete when an authorized TO can run all agreed formats and ordered
 stage handoffs through Django Unfold admin, and spectators can follow published

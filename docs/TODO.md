@@ -148,7 +148,8 @@ Round robin groups, configurable standings rules and qualification ties now have
 organizer/public workflows; see the [round robin guide](testing/competition-round-robin.md).
 Swiss and ordered stage handoffs are implemented; lifecycle removal/restoration and
 exceptional ending/reopening now have [operating and release evidence](testing/competition-lifecycle.md).
-Final bracket release review remains pending; realtime remains open.
+Final branch review and bracket-core V1–V5 checks are complete. The guide records
+the remaining browser-console and publication-latency limits; realtime remains open.
 
 Inspiration (and future replacement):
 

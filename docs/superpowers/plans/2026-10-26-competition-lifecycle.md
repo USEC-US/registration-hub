@@ -1,6 +1,6 @@
 # Competition Lifecycle Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use Markdown checkboxes for tracking.
 
 **Goal:** Deliver auditable withdrawal/disqualification, restoration, exceptional competition endings and reopening across every supported format, with organizer/public workflows and fresh release evidence.
 
@@ -10,7 +10,7 @@
 
 **Spec:** [Approved competition lifecycle design](../specs/2026-10-26-competition-lifecycle-design.md).
 
-**Status:** Approved by the user on 2026-10-26 for subagent-driven execution, with a separate commit per task. Implementation in progress; release evidence is recorded in Task 9.
+**Status:** Implemented and independently reviewed on 2026-10-26 using the user-approved subagent workflow and task-scoped commits. Tasks 1–9 and bracket-core V1–V5 are complete. Release evidence and remaining limits are recorded below and in the [operating guide](../../testing/competition-lifecycle.md).
 
 ## Global Constraints
 
@@ -123,7 +123,7 @@ rounds use their original ACTIVE/APPROVED eligibility; preserve existing source
 fingerprints. Private legacy previews still undergo current-field validation.
 Do not invent removal provenance for legacy manually inactive entrants.
 
-- [ ] Add `test_lifecycle_upgrade_preserves_competition_history`: migrate a populated `0005_swiss` database, assert identical match/slot/tie/source-entry IDs and scores, unchanged publication/fingerprint history, nullable ending fields and empty removal provenance; restore the latest schema in cleanup.
+- [x] Add `test_lifecycle_upgrade_preserves_competition_history`: migrate a populated `0005_swiss` database, assert identical match/slot/tie/source-entry IDs and scores, unchanged publication/fingerprint history, nullable ending fields and empty removal provenance; restore the latest schema in cleanup.
 
   Core assertions after the populated migration:
   ```python
@@ -132,11 +132,11 @@ Do not invent removal provenance for legacy manually inactive entrants.
   assert match.removal_effect == {}
   assert entrant.removal_change_id is None
   ```
-- [ ] Add model tests for paired ended_at/ended_stage nullability, champion requiring an ending, protected references, and command-level rejection of foreign-competition stage/champion references (the latter lands in Task 5).
-- [ ] Run `uv run python manage.py test competitions.tests.test_models competitions.tests.test_migrations --noinput`; verify failures identify missing fields/migration.
-- [ ] Add fields, constraints and migration using historical migration models; backfill availability without rewriting scores, rule limits or provenance.
-- [ ] Rerun that command and `uv run python manage.py makemigrations --check --dry-run`; require passing tests and no model drift.
-- [ ] Commit only models, migration and these tests: `feat(competitions): persist lifecycle decisions and recovery provenance`.
+- [x] Add model tests for paired ended_at/ended_stage nullability, champion requiring an ending, protected references, and command-level rejection of foreign-competition stage/champion references (the latter lands in Task 5).
+- [x] Run `uv run python manage.py test competitions.tests.test_models competitions.tests.test_migrations --noinput`; verify failures identify missing fields/migration.
+- [x] Add fields, constraints and migration using historical migration models; backfill availability without rewriting scores, rule limits or provenance.
+- [x] Rerun that command and `uv run python manage.py makemigrations --check --dry-run`; require passing tests and no model drift.
+- [x] Commit only models, migration and these tests: `feat(competitions): persist lifecycle decisions and recovery provenance`.
 
 ## Task 2: Share elimination projection and availability-aware routing
 
@@ -158,13 +158,13 @@ keyed by CompetitionEntrant ID. Missing overrides use current status. Shared
 ordered routing/reset/automatic-result primitives move with their callers if
 necessary to avoid circular ownership. Do not keep two progression algorithms.
 
-- [ ] Add tests showing simultaneous changes to two source matches produce one coherent downstream projection; retain unaffected played branches and same-winner score changes, and reset exactly changed participants.
-- [ ] Add tests for withdrawn upper-bracket losers not entering the lower bracket, inactive historical winners not advancing again, both unavailable sides, pending unresolved opponents, structural byes and both reset-final policies. Assert prior entered finals remain unchanged.
-- [ ] Run `uv run python manage.py test competitions.tests.test_result_projection --noinput`; require behavior failures before implementation.
-- [ ] Generalize the current `_project_correction` logic into the shared functions. Route ordinary result correction and automatic progression through the same status-aware rules. A pending real two-player fixture uses forfeit/double-forfeit; an empty structural route uses existing bye/empty semantics. Never invent a bye while a source is unresolved.
-- [ ] Use projected complete competitive state when applying, including clearing/resetting applied series metadata only where required. Preserve actual partial scores for administrative forfeits. Task 4 attaches provenance to these effects within their owning command.
-- [ ] Run `uv run python manage.py test competitions.tests.test_result_projection competitions.tests.test_commands competitions.tests.test_double_elimination_commands competitions.tests.test_stage_corrections --noinput`; require all existing correction behavior plus new cases to pass.
-- [ ] Commit projection, callers and tests: `refactor(competitions): share result projection and availability routing`.
+- [x] Add tests showing simultaneous changes to two source matches produce one coherent downstream projection; retain unaffected played branches and same-winner score changes, and reset exactly changed participants.
+- [x] Add tests for withdrawn upper-bracket losers not entering the lower bracket, inactive historical winners not advancing again, both unavailable sides, pending unresolved opponents, structural byes and both reset-final policies. Assert prior entered finals remain unchanged.
+- [x] Run `uv run python manage.py test competitions.tests.test_result_projection --noinput`; require behavior failures before implementation.
+- [x] Generalize the current `_project_correction` logic into the shared functions. Route ordinary result correction and automatic progression through the same status-aware rules. A pending real two-player fixture uses forfeit/double-forfeit; an empty structural route uses existing bye/empty semantics. Never invent a bye while a source is unresolved.
+- [x] Use projected complete competitive state when applying, including clearing/resetting applied series metadata only where required. Preserve actual partial scores for administrative forfeits. Task 4 attaches provenance to these effects within their owning command.
+- [x] Run `uv run python manage.py test competitions.tests.test_result_projection competitions.tests.test_commands competitions.tests.test_double_elimination_commands competitions.tests.test_stage_corrections --noinput`; require all existing correction behavior plus new cases to pass.
+- [x] Commit projection, callers and tests: `refactor(competitions): share result projection and availability routing`.
 
 ## Task 3: Preserve Swiss history while excluding unavailable entrants
 
@@ -187,9 +187,9 @@ so restoration can name the earliest changed availability boundary while normal
 score corrections keep using historical round snapshots. Pass the same projected
 status map through ties, completion, handoffs and previews; GET uses current state.
 
-- [ ] Add pure tests: withdrawing one entrant from a five-entry Swiss field excludes that ID from pairs/byes, retains all five standings and opponent-point contributions, preserves saved seed folding and rematch rules, and leaves the frozen round limit unchanged.
-- [ ] Add persisted tests: removal after published round 2 leaves rounds 1–2 valid; invalidates a private round 3; regeneration excludes the entrant; later input-changing correction still retires the right suffix; an unavailable original registration no longer blocks active peers after explicit removal.
-- [ ] Add eligibility tests: a Top-2 earned qualifier removed from a four-entry field yields a one-person eligible set and BLOCKED handoff, never the third finisher; inactive cutoff contenders cannot win a new resolution; threshold completion ignores inactive continuers without changing their past W/L record.
+- [x] Add pure tests: withdrawing one entrant from a five-entry Swiss field excludes that ID from pairs/byes, retains all five standings and opponent-point contributions, preserves saved seed folding and rematch rules, and leaves the frozen round limit unchanged.
+- [x] Add persisted tests: removal after published round 2 leaves rounds 1–2 valid; invalidates a private round 3; regeneration excludes the entrant; later input-changing correction still retires the right suffix; an unavailable original registration no longer blocks active peers after explicit removal.
+- [x] Add eligibility tests: a Top-2 earned qualifier removed from a four-entry field yields a one-person eligible set and BLOCKED handoff, never the third finisher; inactive cutoff contenders cannot win a new resolution; threshold completion ignores inactive continuers without changing their past W/L record.
 
   For an untied Top-2 result where the second finisher was removed:
   ```python
@@ -198,10 +198,10 @@ status map through ties, completion, handoffs and previews; GET uses current sta
   assert state["qualification_state"] == "BLOCKED"
   assert third.pk not in state["qualifier_entry_ids"]
   ```
-- [ ] Run the focused tests to observe failures, then separate frozen field integrity/round-limit validation from present pairing/publication eligibility. Save round availability snapshots and use them for historical fingerprint comparisons; compare actual current availability for private previews.
-- [ ] Include current eligibility in qualification/handoff fingerprints. Do not treat status alone as a reason to replay every historical Swiss pairing. Restoration later supplies the earliest changed availability boundary explicitly.
-- [ ] Run `uv run python manage.py test competitions.tests.test_swiss competitions.tests.test_lifecycle_swiss competitions.tests.test_swiss_commands competitions.tests.test_swiss_corrections competitions.tests.test_swiss_handoffs competitions.tests.test_qualification competitions.tests.test_round_robin_ties --noinput`; require all old/new scenarios to pass.
-- [ ] Commit: `feat(competitions): continue Swiss and qualification after entrant removal`.
+- [x] Run the focused tests to observe failures, then separate frozen field integrity/round-limit validation from present pairing/publication eligibility. Save round availability snapshots and use them for historical fingerprint comparisons; compare actual current availability for private previews.
+- [x] Include current eligibility in qualification/handoff fingerprints. Do not treat status alone as a reason to replay every historical Swiss pairing. Restoration later supplies the earliest changed availability boundary explicitly.
+- [x] Run `uv run python manage.py test competitions.tests.test_swiss competitions.tests.test_lifecycle_swiss competitions.tests.test_swiss_commands competitions.tests.test_swiss_corrections competitions.tests.test_swiss_handoffs competitions.tests.test_qualification competitions.tests.test_round_robin_ties --noinput`; require all old/new scenarios to pass.
+- [x] Commit: `feat(competitions): continue Swiss and qualification after entrant removal`.
 
 ## Task 4: Signed withdrawal, disqualification and restoration commands
 
@@ -214,8 +214,8 @@ from the shared contracts. Consume Tasks 1–3. Produce auditable transition eve
 `entrant_withdrawn`, `entrant_disqualified`, `entrant_restored` and
 `entrant_status_changed` (inactive label-only change).
 
-- [ ] Write preview/read-only and signed-apply tests across all five formats: pending and live fixtures, explicit consent, partial scores, existing finals, later draws, private drafts, invalid reasons/status/types, status relabelling, rejected stale/tampered/cross-object tokens and duplicate submission. Assert one revision/event per successful action and no changes on failure.
-- [ ] Write `test_restore_undoes_later_removal_forfeit`, `test_restore_preserves_manual_correction`, `test_two_removals_restore_in_either_order`, `test_restore_with_inactive_opponent_recomputes_forfeit`, and `test_restore_retains_historical_draws`. Assert before-state recovery, exact downstream reset set and immutable before/after history. Restore must reject an unapproved registration or missing removal provenance without partial writes.
+- [x] Write preview/read-only and signed-apply tests across all five formats: pending and live fixtures, explicit consent, partial scores, existing finals, later draws, private drafts, invalid reasons/status/types, status relabelling, rejected stale/tampered/cross-object tokens and duplicate submission. Assert one revision/event per successful action and no changes on failure.
+- [x] Write `test_restore_undoes_later_removal_forfeit`, `test_restore_preserves_manual_correction`, `test_two_removals_restore_in_either_order`, `test_restore_with_inactive_opponent_recomputes_forfeit`, and `test_restore_retains_historical_draws`. Assert before-state recovery, exact downstream reset set and immutable before/after history. Restore must reject an unapproved registration or missing removal provenance without partial writes.
 
   In the live-match fixture, start at a real 1–0 partial score before removal;
   after restoration with confirmed impact:
@@ -225,13 +225,13 @@ from the shared contracts. Consume Tasks 1–3. Produce auditable transition eve
   assert (match.side_one_score, match.side_two_score) == (1, 0)
   assert historical_forfeit["outcome"] == "FORFEIT"
   ```
-- [ ] Run `uv run python manage.py test competitions.tests.test_entrant_lifecycle competitions.tests.test_lifecycle_swiss --noinput`; require missing-command/behavior failures.
-- [ ] Implement read-only projections and signed tokens. Apply under the established locks, recompute impact and verify consent/permission before applying any effect. Record the event once, attach its removal reference, then commit together. Validate all payload fields and strict boolean consent at the command boundary.
-- [ ] Attach authoritative cause/before/applied provenance when removal or later normal result propagation creates an administrative result. Manual competitive correction invalidates that result's active automatic provenance, while its immutable ChangeSet history remains. Scheduling-only changes must not destroy restoration information.
-- [ ] Restoration reactivates the entrant, undoes only matching authoritative effects, and recomputes against all other current removals. List preserved manual corrections in the preview. Retire Swiss rounds generated after the changed availability boundary and invalid downstream draws; never revive superseded rows.
-- [ ] Reuse existing tie and handoff invalidation/application; preserve independent Round Robin fixtures and unaffected elimination branches. Make already-produced event payloads public only through Task 7's allowlist, with draft-only effects remaining private.
-- [ ] Run the focused lifecycle tests plus all existing result/stage/Swiss correction tests; require no regressions. Add a forced mid-apply failure test proving status, matches, provenance, history and revision roll back together.
-- [ ] Commit: `feat(competitions): withdraw and restore entrants with audited corrections`.
+- [x] Run `uv run python manage.py test competitions.tests.test_entrant_lifecycle competitions.tests.test_lifecycle_swiss --noinput`; require missing-command/behavior failures.
+- [x] Implement read-only projections and signed tokens. Apply under the established locks, recompute impact and verify consent/permission before applying any effect. Record the event once, attach its removal reference, then commit together. Validate all payload fields and strict boolean consent at the command boundary.
+- [x] Attach authoritative cause/before/applied provenance when removal or later normal result propagation creates an administrative result. Manual competitive correction invalidates that result's active automatic provenance, while its immutable ChangeSet history remains. Scheduling-only changes must not destroy restoration information.
+- [x] Restoration reactivates the entrant, undoes only matching authoritative effects, and recomputes against all other current removals. List preserved manual corrections in the preview. Retire Swiss rounds generated after the changed availability boundary and invalid downstream draws; never revive superseded rows.
+- [x] Reuse existing tie and handoff invalidation/application; preserve independent Round Robin fixtures and unaffected elimination branches. Make already-produced event payloads public only through Task 7's allowlist, with draft-only effects remaining private.
+- [x] Run the focused lifecycle tests plus all existing result/stage/Swiss correction tests; require no regressions. Add a forced mid-apply failure test proving status, matches, provenance, history and revision roll back together.
+- [x] Commit: `feat(competitions): withdraw and restore entrants with audited corrections`.
 
 ## Task 5: Exceptional endings, reopening and command-wide guards
 
@@ -244,14 +244,14 @@ and invoke at every existing mutation boundary, including saved-preview reuse.
 Reopening deliberately uses the underlying lock/revision checks without that
 open-state guard. Read-only review may inspect ended state.
 
-- [ ] Test zero/one/multiple candidates, insufficient locked incoming fields, fixed/threshold Swiss impossibility, unresolved viable contests and ties. Assert only a determinable sole eligible survivor can receive an explicit competition award; otherwise only Without a champion is allowed. Reject foreign source/champion scope.
-- [ ] Test wholly private versus published/played suffixes; assert preserved rows, source scores, private visibility, frozen unfinished source contests and explicit reset permission/consent for published effects.
-- [ ] Test reopen clears the exceptional outcome, leaves entrant states/source scores unchanged and old suffix draws SUPERSEDED, and permits a fresh draw only after eligibility and locked-plan validation pass. Repeat end/reopen and stale-token submissions must not duplicate effects.
-- [ ] Run `uv run python manage.py test competitions.tests.test_competition_lifecycle --noinput`; observe failures, then implement ending feasibility from existing qualification/format rules. Do not use current row order as a champion or silently repair invalid rules.
-- [ ] Add the shared open-state guard to configuration/selection, draw save/publish, Swiss generation/publication, scheduling/start/progress/finalize, series edits, tie decisions, result correction and entrant transitions. Require a reopen before any ordinary mutation, including corrections to the source.
-- [ ] Add a table-driven test that calls each named mutation family directly against an ended competition; assert denial and identical state/revision/history. Reopening always requires both change permissions; ending a live source or published suffix requires both.
-- [ ] Run lifecycle tests and `uv run python manage.py test competitions.tests.test_stage_plan competitions.tests.test_handoffs competitions.tests.test_swiss_plan --noinput`; require passes.
-- [ ] Commit: `feat(competitions): end and reopen exceptional stage chains`.
+- [x] Test zero/one/multiple candidates, insufficient locked incoming fields, fixed/threshold Swiss impossibility, unresolved viable contests and ties. Assert only a determinable sole eligible survivor can receive an explicit competition award; otherwise only Without a champion is allowed. Reject foreign source/champion scope.
+- [x] Test wholly private versus published/played suffixes; assert preserved rows, source scores, private visibility, frozen unfinished source contests and explicit reset permission/consent for published effects.
+- [x] Test reopen clears the exceptional outcome, leaves entrant states/source scores unchanged and old suffix draws SUPERSEDED, and permits a fresh draw only after eligibility and locked-plan validation pass. Repeat end/reopen and stale-token submissions must not duplicate effects.
+- [x] Run `uv run python manage.py test competitions.tests.test_competition_lifecycle --noinput`; observe failures, then implement ending feasibility from existing qualification/format rules. Do not use current row order as a champion or silently repair invalid rules.
+- [x] Add the shared open-state guard to configuration/selection, draw save/publish, Swiss generation/publication, scheduling/start/progress/finalize, series edits, tie decisions, result correction and entrant transitions. Require a reopen before any ordinary mutation, including corrections to the source.
+- [x] Add a table-driven test that calls each named mutation family directly against an ended competition; assert denial and identical state/revision/history. Reopening always requires both change permissions; ending a live source or published suffix requires both.
+- [x] Run lifecycle tests and `uv run python manage.py test competitions.tests.test_stage_plan competitions.tests.test_handoffs competitions.tests.test_swiss_plan --noinput`; require passes.
+- [x] Commit: `feat(competitions): end and reopen exceptional stage chains`.
 
 ## Task 6: Organizer lifecycle actions and impact confirmation
 
@@ -263,12 +263,12 @@ create `tests/test_lifecycle_workspace.py`; extend `tests/test_admin.py`.
 entrant transition, lifecycle preview/confirm, end and reopen URLs using existing
 admin naming patterns; never write statuses/results directly from form handlers.
 
-- [ ] Add real admin GET/POST tests for Entrants actions, private reason, preview token, live-forfeit/reset checkboxes, stale feedback, current status and blocked-continuation explanation. Assert GET leaves revision/history unchanged and direct unauthorized URLs fail.
-- [ ] Add tests for view-only organizers, change_competition-only users, both permissions, non-organizer staff, inactive accounts and superusers; separately enforce private history permission. Test scope tampering and ended-state action visibility.
-- [ ] Run `uv run python manage.py test competitions.tests.test_lifecycle_workspace --noinput`; observe failures, then compose existing forms/action templates and Entrants workspace controls. Show every affected played result and preserved independent correction before final confirmation.
-- [ ] Reuse English organizer copy and accessible form/validation patterns. Label retired public stages and closed source contests without changing their recorded match outcomes. Reopen clearly explains replacement publication.
-- [ ] Run lifecycle workspace tests plus existing workspace/admin suites; require passing responses, command effects and permission boundaries.
-- [ ] Commit: `feat(admin): manage entrant removal and competition recovery`.
+- [x] Add real admin GET/POST tests for Entrants actions, private reason, preview token, live-forfeit/reset checkboxes, stale feedback, current status and blocked-continuation explanation. Assert GET leaves revision/history unchanged and direct unauthorized URLs fail.
+- [x] Add tests for view-only organizers, change_competition-only users, both permissions, non-organizer staff, inactive accounts and superusers; separately enforce private history permission. Test scope tampering and ended-state action visibility.
+- [x] Run `uv run python manage.py test competitions.tests.test_lifecycle_workspace --noinput`; observe failures, then compose existing forms/action templates and Entrants workspace controls. Show every affected played result and preserved independent correction before final confirmation.
+- [x] Reuse English organizer copy and accessible form/validation patterns. Label retired public stages and closed source contests without changing their recorded match outcomes. Reopen clearly explains replacement publication.
+- [x] Run lifecycle workspace tests plus existing workspace/admin suites; require passing responses, command effects and permission boundaries.
+- [x] Commit: `feat(admin): manage entrant removal and competition recovery`.
 
 ## Task 7: Public lifecycle state, history and bracket presentation
 
@@ -284,13 +284,13 @@ contract; existing stage status, score and draw-state meanings stay intact.
 Expose allowlisted lifecycle Changes with status transitions, match snapshots,
 public retirement IDs and ending outcome. No private provenance structures.
 
-- [ ] Add API tests for availability separate from Swiss W/L status, explicit ended/no-champion/sole-survivor outcomes, retirement and reopened awaiting-replacement stages. Assert historical match URLs remain readable with original scores.
-- [ ] Add exact privacy assertions excluding private reasons, actor, private suffix/round IDs, removal references/snapshots and registration data, including nested Changes payloads. Assert all GETs are mutation-free and snapshots remain revision-consistent.
-- [ ] Run `uv run python manage.py test competitions.tests.test_lifecycle_api --noinput`; observe failures, then extend explicit serializers/querysets and existing published-history allowlists.
-- [ ] Add component/loader cases for availability labels, frozen source contests, retired stage navigation, reopening Changes and stable M-number links. Assert both locales and no new implicit polling/mutation behavior.
-- [ ] Extend existing API types and bracket presentation, reusing current components and translations. Keep historical outcomes separate from current availability; do not render provenance or internal blocking diagnostics to spectators.
-- [ ] Run API tests, then in `web/`: `pnpm exec vitest run src/routes/bracket-page.test.ts src/routes/bracket-page.svelte.spec.ts src/lib/api/competitions.test.ts`, `pnpm check`, `pnpm build`; require passes with existing third-party warnings reported separately.
-- [ ] Commit: `feat(web): show entrant availability and competition lifecycle history`.
+- [x] Add API tests for availability separate from Swiss W/L status, explicit ended/no-champion/sole-survivor outcomes, retirement and reopened awaiting-replacement stages. Assert historical match URLs remain readable with original scores.
+- [x] Add exact privacy assertions excluding private reasons, actor, private suffix/round IDs, removal references/snapshots and registration data, including nested Changes payloads. Assert all GETs are mutation-free and snapshots remain revision-consistent.
+- [x] Run `uv run python manage.py test competitions.tests.test_lifecycle_api --noinput`; observe failures, then extend explicit serializers/querysets and existing published-history allowlists.
+- [x] Add component/loader cases for availability labels, frozen source contests, retired stage navigation, reopening Changes and stable M-number links. Assert both locales and no new implicit polling/mutation behavior.
+- [x] Extend existing API types and bracket presentation, reusing current components and translations. Keep historical outcomes separate from current availability; do not render provenance or internal blocking diagnostics to spectators.
+- [x] Run API tests, then in `web/`: `pnpm exec vitest run src/routes/bracket-page.test.ts src/routes/bracket-page.svelte.spec.ts src/lib/api/competitions.test.ts`, `pnpm check`, `pnpm build`; require passes with existing third-party warnings reported separately.
+- [x] Commit: `feat(web): show entrant availability and competition lifecycle history`.
 
 ## Task 8: Synthetic fixtures and complete browser journeys
 
@@ -303,12 +303,12 @@ contracts; create `dev-usec-lifecycle` synthetic tournament using real commands.
 Include a restorable removal, an ended competition with played retired suffix,
 and a reopened competition awaiting replacement. Use no workbook identities.
 
-- [ ] Add seed tests asserting lifecycle status/history, public/private fixture separation and identical IDs/results after rerun; preserve unrelated records and payment settings.
-- [ ] Run `uv run python manage.py test registrations.tests.test_seed_dev_data_command --noinput`; observe missing fixtures, then implement command-owned fixture creation without direct operational status overrides.
-- [ ] Add organizer browser journeys for withdrawal → preview → confirm → restore after downstream play, Swiss continuation after removal, and end → reopen → replacement preview/publication. Include stale confirmation and preservation of historical results.
-- [ ] Add spectator checks for status/outcome/history in EN/VI, historical match navigation, keyboard-accessible controls and `document.documentElement.scrollWidth === window.innerWidth` at 390px.
-- [ ] Run both complete bracket browser files with explicit disposable DB environment: `pnpm exec playwright test --config=playwright.django.config.ts e2e/django/admin-bracket.spec.ts e2e/django/bracket.spec.ts`; require every existing and added journey to pass.
-- [ ] Commit: `test(competitions): cover lifecycle fixtures and browser workflows`.
+- [x] Add seed tests asserting lifecycle status/history, public/private fixture separation and identical IDs/results after rerun; preserve unrelated records and payment settings.
+- [x] Run `uv run python manage.py test registrations.tests.test_seed_dev_data_command --noinput`; observe missing fixtures, then implement command-owned fixture creation without direct operational status overrides.
+- [x] Add organizer browser journeys for withdrawal → preview → confirm → restore after downstream play, Swiss continuation after removal, and end → reopen → replacement preview/publication. Include stale confirmation and preservation of historical results.
+- [x] Add spectator checks for status/outcome/history in EN/VI, historical match navigation, keyboard-accessible controls and `document.documentElement.scrollWidth === window.innerWidth` at 390px.
+- [x] Run both complete bracket browser files with explicit disposable DB environment: `pnpm exec playwright test --config=playwright.django.config.ts e2e/django/admin-bracket.spec.ts e2e/django/bracket.spec.ts`; require every existing and added journey to pass.
+- [x] Commit: `test(competitions): cover lifecycle fixtures and browser workflows`.
 
 ## Task 9: Concurrency, release gates and operating documentation
 
@@ -323,13 +323,13 @@ If the earlier disposable benchmark script is unavailable, create
 reuse production commands for timing. Record environment, commit/worktree,
 commands, counts, skip status and logs. No new runtime service.
 
-- [ ] Add races for score versus removal, next-round publication versus removal, two restores, end versus score, end versus publication, duplicate reopen and registration eligibility versus lifecycle publication/restoration. Assert legal serialization, one winning revision, complete history and no mixed public snapshot.
-- [ ] Run `uv run python manage.py test competitions.tests.test_concurrency --noinput` on PostgreSQL with no skipped race tests. If a failure is scheduling-sensitive, establish a deterministic lock-wait barrier before changing production code.
-- [ ] Run the full competition/seed gate: `uv run python manage.py test competitions registrations.tests.test_seed_dev_data_command --noinput`; also run `registrations.tests.test_services`, `registrations.tests.test_reservation_concurrency` and `registrations.tests.test_admin_actions` to verify the shared division lock/eligibility boundary.
-- [ ] Run Django checks/migration drift, scoped Ruff, focused frontend tests/check/build and both full bracket browser files on the final code state. Reuse passing evidence only when later changes cannot affect that check, and state the exact scope.
-- [ ] Repeat persisted Swiss publication without competing tests/builds; record setup separately, SQL count, solver count/time and real publication time. Require one current-round solver call and no historical replay. Assert fixture/history correctness and remove only its disposable database afterward; no claim of worst-case production latency.
-- [ ] Document organizer actions, consent, privacy, current/historical semantics, restore conflicts, locked-plan blockers, migration recovery using matching code/database backups, test results and remaining limits. Reconcile V1–V5 item by item; do not close a gate merely because commands exist.
-- [ ] Review the complete branch, fix material findings, rerun affected checks and verify the final diff/status. Commit scoped tests/docs: `test(competitions): verify lifecycle integrity and document operation`.
+- [x] Add races for score versus removal, next-round publication versus removal, two restores, end versus score, end versus publication, duplicate reopen and registration eligibility versus lifecycle publication/restoration. Assert legal serialization, one winning revision, complete history and no mixed public snapshot.
+- [x] Run `uv run python manage.py test competitions.tests.test_concurrency --noinput` on PostgreSQL with no skipped race tests. If a failure is scheduling-sensitive, establish a deterministic lock-wait barrier before changing production code.
+- [x] Run the full competition/seed gate: `uv run python manage.py test competitions registrations.tests.test_seed_dev_data_command --noinput`; also run `registrations.tests.test_services`, `registrations.tests.test_reservation_concurrency` and `registrations.tests.test_admin_actions` to verify the shared division lock/eligibility boundary.
+- [x] Run Django checks/migration drift, scoped Ruff, focused frontend tests/check/build and both full bracket browser files on the final code state. Reuse passing evidence only when later changes cannot affect that check, and state the exact scope.
+- [x] Repeat persisted Swiss publication without competing tests/builds; record setup separately, SQL count, solver count/time and real publication time. Require one current-round solver call and no historical replay. Assert fixture/history correctness and remove only its disposable database afterward; no claim of worst-case production latency.
+- [x] Document organizer actions, consent, privacy, current/historical semantics, restore conflicts, locked-plan blockers, migration recovery using matching code/database backups, test results and remaining limits. Reconcile V1–V5 item by item; do not close a gate merely because commands exist.
+- [x] Review the complete branch, fix material findings, rerun affected checks and verify the final diff/status. Commit scoped tests/docs: `test(competitions): verify lifecycle integrity and document operation`.
 
 ### Task 9 verification evidence (2026-10-26)
 
@@ -348,8 +348,32 @@ setup. Historical state remained unchanged; own UUID database was removed.
 This is local proof, not a production latency guarantee or controlled comparison
 with the unavailable earlier script. See
 [operating guide and V1–V5 reconciliation](../../testing/competition-lifecycle.md)
-and the execution workspace's `task-9-report.md`/logs. Independent task review,
-final whole-branch review and gate/status closure remain pending with the controller.
+and the execution workspace's `task-9-report.md`/logs. Independent task review
+approved the changes. The final whole-branch review of `95ed9eb..b8b811d` found
+no Critical or Important issues and supported closing V1–V5 for the agreed
+bracket-core scope. Its minor stale documentation references are corrected in
+the final documentation commit. The browser console errors remain an explicitly
+accepted verification limitation with unknown cause; production console behavior,
+latency acceptance and a production backup restore were not verified.
+
+### Completed task commits
+
+| Task | Implementation and reviewed fixes |
+| --- | --- |
+| 1 — Persistence | `c517dbe` |
+| 2 — Result projection | `fc123d5`, `009cd01` |
+| 3 — Swiss availability and qualification | `122a976`, `068789d` |
+| 4 — Removal and restoration | `e59031a`, `b97adde` |
+| 5 — Ending, reopening and guards | `680dfb5`, `98acb45` |
+| 6 — Organizer workflows | `f330e89`, `77583a0` |
+| 7 — Public lifecycle and history | `6703316` |
+| 8 — Fixtures and browser workflows | `b22d40f` |
+| 9 — Concurrency, benchmark and operating proof | `b8b811d` |
+
+The approved design/plan was committed as `81bfd6d`. Full reports, reviews and
+logs remain in the ignored execution directory as required by the verification
+plan. The branch remains `feat/tournament-brackets`; no merge, push or deployment
+was performed.
 
 ## Plan self-review
 
