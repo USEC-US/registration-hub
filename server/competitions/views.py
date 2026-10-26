@@ -49,7 +49,8 @@ def _published_round_queryset():
         Round.objects.filter(
             Q(state=Round.State.PUBLISHED)
             | (
-                Q(state=Round.State.SUPERSEDED, section=Round.Section.TIEBREAK)
+                Q(state=Round.State.SUPERSEDED, draw__state=StageDraw.State.SUPERSEDED)
+                | Q(state=Round.State.SUPERSEDED, section=Round.Section.TIEBREAK)
                 & ~Q(
                     draw__stage__format__in=(
                         Stage.Format.SWISS_FIXED,
@@ -70,7 +71,8 @@ def _published_round_queryset():
 
 def _published_stage_queryset():
     draws = StageDraw.objects.filter(
-        state=StageDraw.State.PUBLISHED, published_at__isnull=False
+        state__in=(StageDraw.State.PUBLISHED, StageDraw.State.SUPERSEDED),
+        published_at__isnull=False,
     ).prefetch_related(
         "entries__entrant",
         "groups__entries__entrant",
@@ -91,7 +93,9 @@ def _published_competition_queryset():
             tournament_game__tournament__is_published=True,
             stages__published_at__isnull=False,
         )
-        .select_related("tournament_game__tournament", "tournament_game__game")
+        .select_related(
+            "tournament_game__tournament", "tournament_game__game", "ended_champion"
+        )
         .prefetch_related(Prefetch("stages", queryset=_published_stage_queryset()))
         .distinct()
     )
@@ -132,7 +136,10 @@ class PublicRoundView(APIView):
         with consistent_public_read():
             round_ = get_object_or_404(
                 _published_round_queryset().filter(
-                    draw__state=StageDraw.State.PUBLISHED,
+                    draw__state__in=(
+                        StageDraw.State.PUBLISHED,
+                        StageDraw.State.SUPERSEDED,
+                    ),
                     draw__published_at__isnull=False,
                     draw__stage__published_at__isnull=False,
                     draw__stage__competition__tournament_game__tournament__is_published=True,
@@ -200,8 +207,20 @@ class PublicCompetitionChangesView(APIView):
                         round__draw__published_at__isnull=False,
                     ).values_list("pk", flat=True)
                 )
+                lifecycle_scope = Q(pk__in=[])
+                for draw_id in stage.draws.filter(
+                    published_at__isnull=False
+                ).values_list("pk", flat=True):
+                    lifecycle_scope |= Q(public_data__retired_draws__contains=[draw_id])
+                entrant_ids = list(
+                    stage.draws.filter(published_at__isnull=False).values_list(
+                        "entries__entrant_id", flat=True
+                    )
+                )
+                lifecycle_scope |= Q(public_data__entrant_id__in=entrant_ids)
                 queryset = queryset.filter(
-                    Q(public_data__stage_id=stage.pk)
+                    lifecycle_scope
+                    | Q(public_data__stage_id=stage.pk)
                     | Q(public_data__match_id__in=match_ids)
                     | Q(
                         public_data__handoff_impact__retired_draws__contains=[

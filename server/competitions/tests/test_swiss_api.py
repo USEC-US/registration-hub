@@ -223,7 +223,8 @@ class SwissApiTests(TestCase):
             },
         )
         self.assertEqual(
-            set(winner["entry"]), {"id", "seed", "display_name", "display_tag"}
+            set(winner["entry"]),
+            {"id", "seed", "status", "display_name", "display_tag"},
         )
         self.assertEqual(
             {k: v for k, v in winner.items() if k != "entry"},

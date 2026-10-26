@@ -461,5 +461,16 @@
 	"bracket_swiss_repeated_bye": "A repeat bye was needed in this published round.",
 	"bracket_swiss_retired_rounds": "Rounds moved to history: {count}; recorded results are preserved.",
 	"bracket_swiss_historical_match": "Historical match {code}",
-	"bracket_swiss_bye_result": "Bye · {name}"
+	"bracket_swiss_bye_result": "Bye · {name}",
+	"bracket_available": "Available",
+	"bracket_withdrawn": "Withdrawn",
+	"bracket_disqualified": "Disqualified",
+	"bracket_lifecycle_open": "Open",
+	"bracket_lifecycle_closed": "Closed",
+	"bracket_lifecycle_retired": "Retired",
+	"bracket_competition_ended": "Competition ended",
+	"bracket_competition_reopened": "Competition reopened",
+	"bracket_frozen_contests": "Source contests are frozen.",
+	"bracket_availability_change": "{name}: {status}",
+	"bracket_frozen": "Frozen"
 }

@@ -461,5 +461,16 @@
 	"bracket_swiss_repeated_bye": "Vòng đã công bố này cần miễn đấu lặp lại.",
 	"bracket_swiss_retired_rounds": "{count} vòng đấu đã được lưu vào lịch sử; kết quả được giữ nguyên.",
 	"bracket_swiss_historical_match": "Trận lịch sử {code}",
-	"bracket_swiss_bye_result": "Miễn đấu · {name}"
+	"bracket_swiss_bye_result": "Miễn đấu · {name}",
+	"bracket_available": "Có thể thi đấu",
+	"bracket_withdrawn": "Đã rút lui",
+	"bracket_disqualified": "Bị truất quyền thi đấu",
+	"bracket_lifecycle_open": "Đang mở",
+	"bracket_lifecycle_closed": "Đã đóng",
+	"bracket_lifecycle_retired": "Đã lưu lịch sử",
+	"bracket_competition_ended": "Giải đấu đã kết thúc",
+	"bracket_competition_reopened": "Giải đấu đã mở lại",
+	"bracket_frozen_contests": "Các trận tại vòng nguồn đã được đóng băng.",
+	"bracket_availability_change": "{name}: {status}",
+	"bracket_frozen": "Đã đóng băng"
 }

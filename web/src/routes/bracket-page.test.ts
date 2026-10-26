@@ -182,3 +182,48 @@ it('selects a requested published stage and otherwise the latest active stage', 
 	} as never);
 	expect(invalid).toMatchObject({ state: 'unavailable' });
 });
+
+it('retains retired stage navigation and lifecycle history without extra requests', async () => {
+	const value = structuredClone(snapshot);
+	const lifecycle = {
+		...value,
+		competition: {
+			...value.competition,
+			ending: null,
+			stages: [
+				{ ...value.competition.stages[0], id: 11, sequence: 1, lifecycle_state: 'OPEN' },
+				{
+					...value.competition.stages[0],
+					id: 22,
+					sequence: 2,
+					lifecycle_state: 'RETIRED',
+					draw_state: 'AWAITING_REPLACEMENT'
+				}
+			]
+		},
+		changes: {
+			...value.changes,
+			results: [{ revision: 4, kind: 'competition_reopened', retired_draws: [88] }]
+		}
+	};
+	const fetcher = vi
+		.fn<typeof fetch>()
+		.mockImplementation(async (url) =>
+			Response.json(String(url).endsWith('/changes/') ? lifecycle.changes : lifecycle.competition)
+		);
+	const result = await load({
+		fetch: fetcher,
+		params: { slug: 'summer', gameId: '9' },
+		url: new URL('https://example.test/bracket?stage=22')
+	} as never);
+	expect(result).toMatchObject({
+		state: 'ready',
+		selectedStageId: 22,
+		competition: { ending: null },
+		changes: { results: [{ kind: 'competition_reopened' }] }
+	});
+	expect(fetcher).toHaveBeenCalledTimes(2);
+	expect(
+		fetcher.mock.calls.every(([, options]) => !options?.method || options.method === 'GET')
+	).toBe(true);
+});

@@ -12,9 +12,11 @@ const competition = {
 	tournament_slug: 'summer',
 	tournament_name: 'Summer',
 	game_name: 'Valorant',
+	ending: null,
 	stages: [
 		{
 			format: 'DOUBLE_ELIMINATION',
+			lifecycle_state: 'OPEN',
 			grand_final_policy: 'RESET',
 			groups: [],
 			round_robin_rules: null,
@@ -119,4 +121,34 @@ describe('public competition API wrappers', () => {
 		);
 		expect(fetcher).toHaveBeenCalledTimes(4);
 	});
+});
+
+it('preserves lifecycle outcomes and availability independently of Swiss results', async () => {
+	const lifecycle = {
+		...competition,
+		ending: {
+			stage_id: 7,
+			ended_at: '2026-10-26T00:00:00Z',
+			champion: { id: 123, display_name: 'Winner', display_tag: '' }
+		},
+		stages: [
+			{
+				...competition.stages[0],
+				lifecycle_state: 'CLOSED',
+				swiss_standings: [{ entry: { id: 456, status: 'WITHDRAWN' }, status: 'ELIMINATED' }]
+			}
+		]
+	};
+	const fetcher = vi
+		.fn<typeof fetch>()
+		.mockImplementation(async (url) =>
+			Response.json(String(url).endsWith('/changes/') ? changes : lifecycle)
+		);
+	const result = await getCompetitionSnapshot(9, { fetcher });
+	expect(result.competition.ending?.champion?.id).toBe(123);
+	expect(result.competition.stages[0].swiss_standings[0]).toMatchObject({
+		entry: { status: 'WITHDRAWN' },
+		status: 'ELIMINATED'
+	});
+	expect(fetcher).toHaveBeenCalledTimes(2);
 });

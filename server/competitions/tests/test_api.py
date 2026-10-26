@@ -483,7 +483,7 @@ class PublicRoundRobinApiTests(APITestCase):
             without_history["groups"][0]["standings"],
             uncached["groups"][0]["standings"],
         )
-        # A formerly public owning draw is still absent from direct-round/snapshot reads.
+        # Retired published draws remain readable as historical rounds and snapshots.
         StageDraw.objects.filter(pk=self.saved.pk).update(
             state=StageDraw.State.SUPERSEDED
         )
@@ -492,10 +492,10 @@ class PublicRoundRobinApiTests(APITestCase):
         )
         for round_id in historical_round_ids:
             self.assertEqual(
-                self.client.get(f"/api/competition-rounds/{round_id}/").status_code, 404
+                self.client.get(f"/api/competition-rounds/{round_id}/").status_code, 200
             )
         retired = PublicStageSerializer(Stage.objects.get(pk=self.saved.stage_id)).data
-        self.assertEqual(retired["rounds"], [])
+        self.assertTrue(retired["rounds"])
         changes = self.client.get(url + "changes/")
         self.assertIn("group_impact", changes.data["results"][0])
         self.assertNotIn("PRIVATE-", changes.rendered_content.decode())

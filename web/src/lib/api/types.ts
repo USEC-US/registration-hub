@@ -73,7 +73,10 @@ export interface PublicTournament {
 export type CompetitionStageStatus = 'DRAFT' | 'READY' | 'IN_PROGRESS' | 'AWAITING' | 'COMPLETE';
 export type CompetitionMatchStatus = 'PENDING' | 'CONDITIONAL' | 'NOT_REQUIRED' | 'LIVE' | 'FINAL';
 
+export type EntrantAvailability = 'ACTIVE' | 'WITHDRAWN' | 'DISQUALIFIED';
+
 export interface PublicCompetitionEntry {
+	status: EntrantAvailability;
 	id: number;
 	seed: number;
 	display_name: string;
@@ -165,6 +168,7 @@ export interface PublicCompetitionSwissStanding {
 }
 
 export interface PublicCompetitionStage {
+	lifecycle_state: 'OPEN' | 'CLOSED' | 'RETIRED';
 	draw_state: 'PUBLISHED' | 'AWAITING_REPLACEMENT';
 	qualification: PublicCompetitionQualification | null;
 	id: number;
@@ -229,6 +233,7 @@ export interface PublicCompetitionGroup {
 }
 
 export interface PublicCompetition {
+	ending: PublicCompetitionEnding | null;
 	id: number;
 	competition_revision: number;
 	tournament_game_id: number;
@@ -238,7 +243,24 @@ export interface PublicCompetition {
 	stages: PublicCompetitionStage[];
 }
 
+export interface PublicCompetitionEnding {
+	stage_id: number | null;
+	ended_at: string | null;
+	champion: Pick<PublicCompetitionEntry, 'id' | 'display_name' | 'display_tag'> | null;
+}
+
 export interface PublicCompetitionChange {
+	entrant_id?: number;
+	display_name?: string;
+	retired_draws?: number[];
+	retired_rounds?: number[];
+	reset_match_ids?: number[];
+	match_impacts?: Array<{
+		match_id: number;
+		before: Partial<PublicCompetitionMatchSnapshot>;
+		after: Partial<PublicCompetitionMatchSnapshot> & { frozen?: boolean };
+	}>;
+
 	stage_id?: number;
 	source_stage_id?: number | null;
 	draw_id?: number;
@@ -290,8 +312,10 @@ export interface PublicCompetitionChange {
 		};
 		historical_matches: PublicCompetitionMatchSnapshot[];
 	};
-	before?: PublicCompetitionMatchSnapshot;
-	after?: PublicCompetitionMatchSnapshot;
+	before?:
+		PublicCompetitionMatchSnapshot | { status: EntrantAvailability } | PublicCompetitionEnding;
+	after?:
+		PublicCompetitionMatchSnapshot | { status: EntrantAvailability } | PublicCompetitionEnding;
 	reset_matches?: PublicCompetitionMatchSnapshot[];
 	reset_final_changes?: Array<{
 		match_id: number;

@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import type {
 		CompetitionMatchStatus,
+		EntrantAvailability,
 		CompetitionStageStatus,
 		PublicCompetitionChange,
 		PublicCompetitionMatch,
@@ -87,6 +88,20 @@
 		return labels;
 	});
 
+	function availabilityLabel(status: EntrantAvailability): string {
+		return status === 'WITHDRAWN'
+			? m.bracket_withdrawn()
+			: status === 'DISQUALIFIED'
+				? m.bracket_disqualified()
+				: m.bracket_available();
+	}
+	function lifecycleLabel(state: string): string {
+		return state === 'CLOSED'
+			? m.bracket_lifecycle_closed()
+			: state === 'RETIRED'
+				? m.bracket_lifecycle_retired()
+				: m.bracket_lifecycle_open();
+	}
 	function stageStatusLabel(status: CompetitionStageStatus): string {
 		switch (status) {
 			case 'READY':
@@ -142,6 +157,21 @@
 		const label = change.match_id === undefined ? undefined : matchLabels.get(change.match_id);
 		const code = label ? `${label.code} (${label.round})` : (change.match_code ?? '');
 		switch (change.kind) {
+			case 'entrant_withdrawn':
+			case 'entrant_disqualified':
+			case 'entrant_restored':
+			case 'entrant_status_changed':
+				return m.bracket_availability_change({
+					name: change.display_name ?? '',
+					status:
+						change.after && 'status' in change.after
+							? availabilityLabel(change.after.status as EntrantAvailability)
+							: ''
+				});
+			case 'competition_ended':
+				return m.bracket_competition_ended();
+			case 'competition_reopened':
+				return m.bracket_competition_reopened();
 			case 'qualification_tie_confirmed':
 			case 'group_tie_confirmed':
 				return m.bracket_tie_confirmed_change({ group: change.group_name ?? '' });
@@ -311,7 +341,7 @@
 	{@const code = matchLabels.get(match.id)?.code ?? match.code}
 	<li class="bracket-match relative">
 		<article
-			class:border-primary={match.status === 'LIVE'}
+			class:border-primary={match.status === 'LIVE' && selectedStage?.lifecycle_state === 'OPEN'}
 			class="rounded-xl border bg-card shadow-xs"
 			aria-labelledby={`match-${match.id}-code`}
 		>
@@ -322,7 +352,10 @@
 				<div class="flex items-center gap-2">
 					{#if match.historical}<Badge variant="outline">{m.bracket_historical()}</Badge>{/if}
 					<Badge variant={match.status === 'LIVE' ? 'default' : 'outline'}>
-						{matchStatusLabel(match.status)}
+						{selectedStage?.lifecycle_state === 'CLOSED' &&
+						!['FINAL', 'NOT_REQUIRED'].includes(match.status)
+							? m.bracket_frozen()
+							: matchStatusLabel(match.status)}
 					</Badge>
 				</div>
 			</header>
@@ -332,8 +365,11 @@
 						class:font-semibold={isWinner(match, slot)}
 						class="grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-3 px-3 py-2 text-sm"
 					>
-						<span class="truncate">
-							{slotLabel(slot)}
+						<span class="flex min-w-0 flex-col items-start gap-1">
+							<span class="max-w-full truncate">{slotLabel(slot)}</span>
+							{#if slot.entry && slot.entry.status !== 'ACTIVE'}<Badge variant="outline"
+									>{availabilityLabel(slot.entry.status)}</Badge
+								>{/if}
 							{#if isWinner(match, slot)}
 								<span class="sr-only"> · {m.bracket_winner()}</span>
 							{/if}
@@ -463,11 +499,18 @@
 					}}
 				>
 					{#each data.competition.stages as item (item.id)}<option value={String(item.id)}
-							>{item.sequence}. {item.name}</option
+							>{item.sequence}. {item.name} · {lifecycleLabel(item.lifecycle_state)}</option
 						>{/each}
 				</select>
 			</Field.Field></Field.FieldGroup
 		>
+		<Badge variant="outline" class="w-fit">{lifecycleLabel(stage.lifecycle_state)}</Badge>
+		{#if data.competition.ending}<Alert.Root>
+				<Alert.Title>{m.bracket_competition_ended()}</Alert.Title>
+				<Alert.Description
+					>{data.competition.ending.champion?.display_name ?? m.bracket_no_champion()} · {m.bracket_frozen_contests()}</Alert.Description
+				>
+			</Alert.Root>{/if}
 		{#if stage.draw_state === 'AWAITING_REPLACEMENT'}<Alert.Root
 				><Alert.Title>{m.bracket_awaiting_replacement()}</Alert.Title><Alert.Description
 					>{m.bracket_replacement_help()}</Alert.Description
@@ -484,7 +527,7 @@
 				<Badge variant="outline" class="w-fit">{qualificationLabel(qualification.state)}</Badge>
 				{#if qualification.block_reason}<Alert.Root
 						><Alert.Title>{m.bracket_awaiting_qualification()}</Alert.Title><Alert.Description
-							>{qualification.block_reason}</Alert.Description
+							>{m.bracket_awaiting_qualification()}</Alert.Description
 						></Alert.Root
 					>{/if}
 				{#if qualification.qualifiers.length}<p>
@@ -637,7 +680,9 @@
 								>
 									<td class="px-4 py-3 font-mono-data">{row.rank}</td><th
 										scope="row"
-										class="px-4 py-3">{row.entry.display_name}</th
+										class="px-4 py-3"
+										>{row.entry.display_name}
+										<Badge variant="outline">{availabilityLabel(row.entry.status)}</Badge></th
 									>
 									{#if !threshold}<td class="px-4 py-3">{row.played}</td>{/if}
 									<td class="px-4 py-3">{row.wins}</td>
@@ -754,7 +799,9 @@
 								>{#each group.standings as row (row.entry.id)}<tr class="border-b last:border-0"
 										><td class="px-4 py-3 font-mono-data">{row.rank}</td><th
 											scope="row"
-											class="px-4 py-3">{row.entry.display_name}</th
+											class="px-4 py-3"
+											>{row.entry.display_name}
+											<Badge variant="outline">{availabilityLabel(row.entry.status)}</Badge></th
 										><td class="px-4 py-3">{row.played}</td><td class="px-4 py-3">{row.wins}</td><td
 											class="px-4 py-3">{row.draws}</td
 										><td class="px-4 py-3">{row.losses}</td><td class="px-4 py-3 font-mono-data"
@@ -960,12 +1007,12 @@
 									</a>
 								{/each}
 							{/if}
-							{#if change.kind === 'result_corrected'}
-								<div class="space-y-1 text-xs text-muted-foreground">
-									{#if change.before}
+							{#if change.kind === 'result_corrected' || change.kind.startsWith('entrant_') || change.kind.startsWith('competition_')}
+								<div class="flex flex-col gap-1 text-xs text-muted-foreground">
+									{#if change.before && 'match_id' in change.before}
 										<p>{m.bracket_change_before({ summary: snapshotSummary(change.before) })}</p>
 									{/if}
-									{#if change.after}
+									{#if change.after && 'match_id' in change.after}
 										<p>{m.bracket_change_after({ summary: snapshotSummary(change.after) })}</p>
 									{/if}
 									{#if change.reset_matches?.length}
@@ -995,6 +1042,39 @@
 									{/each}
 								</div>
 							{/if}
+							{#each change.match_impacts ?? [] as impact (impact.match_id)}
+								<div
+									id={`change-${change.revision}-impact-${impact.match_id}`}
+									class="flex flex-col gap-1 text-xs text-muted-foreground"
+								>
+									<a
+										class="w-fit text-primary underline underline-offset-4"
+										href={`#change-${change.revision}-impact-${impact.match_id}`}
+										>{matchLabels.get(impact.match_id)?.code ?? impact.before.match_code}</a
+									>
+									{#if impact.before.match_id}<p>
+											{m.bracket_change_before({
+												summary: snapshotSummary(impact.before as PublicCompetitionMatchSnapshot)
+											})}
+										</p>{/if}
+									{#if impact.after.frozen !== undefined}<p>
+											{impact.after.frozen
+												? m.bracket_frozen_contests()
+												: m.bracket_competition_reopened()}
+										</p>
+									{:else if impact.after.match_id}<p>
+											{m.bracket_change_after({
+												summary: snapshotSummary(impact.after as PublicCompetitionMatchSnapshot)
+											})}
+										</p>{/if}
+								</div>
+							{/each}
+							{#if change.retired_draws?.length}<p>
+									{m.bracket_retired_draws({ count: change.retired_draws.length })}
+								</p>{/if}
+							{#if change.after && 'ended_at' in change.after && change.after.ended_at}<p>
+									{change.after.champion?.display_name ?? m.bracket_no_champion()}
+								</p>{/if}
 							{#if change.ordered_entries?.length}<p class="text-sm">
 									{change.ordered_entries.join(' → ')}
 								</p>{/if}

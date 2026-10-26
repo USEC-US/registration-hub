@@ -16,12 +16,14 @@ const competition: PublicCompetition = {
 	tournament_slug: 'summer',
 	tournament_name: 'Summer Cup',
 	game_name: 'Valorant',
+	ending: null,
 	stages: [
 		{
 			id: 2,
 			sequence: 1,
 			name: 'Final bracket',
 			draw_state: 'PUBLISHED',
+			lifecycle_state: 'OPEN',
 			qualification: null,
 			format: 'SINGLE_ELIMINATION',
 			grand_final_policy: '',
@@ -37,8 +39,14 @@ const competition: PublicCompetition = {
 			completed_without_champion: false,
 			champion: null,
 			entries: [
-				{ id: 11, seed: 1, display_name: 'Blue Team', display_tag: 'BLUE' },
-				{ id: 12, seed: 2, display_name: 'Red Team', display_tag: 'RED' }
+				{
+					id: 11,
+					status: 'ACTIVE' as const,
+					seed: 1,
+					display_name: 'Blue Team',
+					display_tag: 'BLUE'
+				},
+				{ id: 12, status: 'ACTIVE' as const, seed: 2, display_name: 'Red Team', display_tag: 'RED' }
 			],
 			rounds: [
 				{
@@ -73,7 +81,13 @@ const competition: PublicCompetition = {
 									is_empty: false,
 									source_match_id: null,
 									source_outcome: '',
-									entry: { id: 11, seed: 1, display_name: 'Blue Team', display_tag: 'BLUE' }
+									entry: {
+										id: 11,
+										status: 'ACTIVE' as const,
+										seed: 1,
+										display_name: 'Blue Team',
+										display_tag: 'BLUE'
+									}
 								},
 								{
 									position: 2,
@@ -81,7 +95,13 @@ const competition: PublicCompetition = {
 									is_empty: false,
 									source_match_id: null,
 									source_outcome: '',
-									entry: { id: 12, seed: 2, display_name: 'Red Team', display_tag: 'RED' }
+									entry: {
+										id: 12,
+										status: 'ACTIVE' as const,
+										seed: 2,
+										display_name: 'Red Team',
+										display_tag: 'RED'
+									}
 								}
 							]
 						}
@@ -501,7 +521,7 @@ function roundRobinCompetition() {
 	const entries = [
 		stage.rounds[0].matches[0].slots[0].entry!,
 		stage.rounds[0].matches[0].slots[1].entry!,
-		{ id: 13, seed: 3, display_name: 'Green Team', display_tag: '' }
+		{ id: 13, status: 'ACTIVE' as const, seed: 3, display_name: 'Green Team', display_tag: '' }
 	];
 	stage.entries = entries;
 	stage.groups = [1, 2].map((id) => ({
@@ -514,8 +534,20 @@ function roundRobinCompetition() {
 				? entries
 				: [
 						...entries,
-						{ id: 14, seed: 4, display_name: 'Gold Team', display_tag: '' },
-						{ id: 15, seed: 5, display_name: 'Silver Team', display_tag: '' }
+						{
+							id: 14,
+							status: 'ACTIVE' as const,
+							seed: 4,
+							display_name: 'Gold Team',
+							display_tag: ''
+						},
+						{
+							id: 15,
+							status: 'ACTIVE' as const,
+							seed: 5,
+							display_name: 'Silver Team',
+							display_tag: ''
+						}
 					],
 		round_ids: id === 1 ? [3, 10] : [],
 		standings: entries.map((entry) => ({
@@ -739,7 +771,13 @@ function swissCompetition(threshold = false) {
 		loss_points: '0.00',
 		tiebreaks: ['OPPONENT_POINTS', 'GAME_DIFFERENCE', 'GAMES_WON']
 	};
-	stage.entries.push({ id: 13, seed: 3, display_name: 'Green Team', display_tag: '' });
+	stage.entries.push({
+		id: 13,
+		status: 'ACTIVE' as const,
+		seed: 3,
+		display_name: 'Green Team',
+		display_tag: ''
+	});
 	const [blue, red, green] = stage.entries;
 	stage.swiss_standings = stage.entries.map((entry, index) => ({
 		entry,
@@ -1115,3 +1153,72 @@ describe('public Swiss qualification', () => {
 		}
 	);
 });
+
+it.each(['en', 'vi'] as const)(
+	'shows lifecycle availability and frozen historical contests in %s',
+	async (locale) => {
+		overwriteGetLocale(() => locale);
+		const ended = structuredClone(competition);
+		ended.ending = { stage_id: 2, ended_at: '2026-10-26T00:00:00Z', champion: null };
+		ended.stages[0].lifecycle_state = 'CLOSED';
+		ended.stages[0].rounds[0].matches[0].slots[0].entry!.status = 'WITHDRAWN';
+		const rendered = render(BracketPage, { data: data(ended) } as never);
+		await expect
+			.element(page.getByText(locale === 'en' ? 'Competition ended' : 'Giải đấu đã kết thúc'))
+			.toBeVisible();
+		expect(rendered.container.textContent).toContain(locale === 'en' ? 'Withdrawn' : 'Đã rút lui');
+		expect(rendered.container.textContent).toContain(
+			locale === 'en' ? 'Source contests are frozen.' : 'Các trận tại vòng nguồn đã được đóng băng.'
+		);
+	}
+);
+
+it.each(['en', 'vi'] as const)(
+	'keeps retired stages and reopening Changes readable in %s',
+	async (locale) => {
+		overwriteGetLocale(() => locale);
+		const retired = structuredClone(competition);
+		retired.stages[0].lifecycle_state = 'RETIRED';
+		retired.stages[0].draw_state = 'AWAITING_REPLACEMENT';
+		retired.stages[0].rounds[0].matches[0].historical = true;
+		retired.stages[0].rounds[0].matches[0].code = 'M1';
+		const props = data(retired);
+		props.changes = {
+			...props.changes,
+			results: [
+				{
+					revision: 9,
+					created_at: '2026-10-26T00:00:00Z',
+					kind: 'competition_reopened',
+					retired_draws: [7],
+					reset_matches: [
+						{
+							match_id: 4,
+							match_code: 'M1',
+							status: 'FINAL',
+							outcome: 'PLAYED',
+							side_one: 'Blue Team',
+							side_two: 'Red Team',
+							side_one_score: 2,
+							side_two_score: 1,
+							winner: 'Blue Team',
+							applied_series_length: 3,
+							applied_series_mode: 'BEST_OF',
+							started_at: null,
+							completed_at: null
+						}
+					]
+				}
+			]
+		};
+		const rendered = render(BracketPage, { data: props } as never);
+		expect(rendered.container.textContent).toContain(
+			locale === 'en' ? 'Retired' : 'Đã lưu lịch sử'
+		);
+		await expect
+			.element(page.getByText(locale === 'en' ? 'Competition reopened' : 'Giải đấu đã mở lại'))
+			.toBeVisible();
+		expect(rendered.container.querySelector('#change-9-match-4')?.textContent).toContain('M1');
+		expect(rendered.container.querySelector('#change-9-match-4')?.textContent).toContain('2');
+	}
+);

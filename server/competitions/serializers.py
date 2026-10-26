@@ -4,9 +4,20 @@ from .models import ChangeSet, Match, MatchSlot, Round, Stage, TieResolution
 from .round_robin_commands import group_standings
 
 
+def _public_champion(entrant):
+    if entrant is None:
+        return None
+    return {
+        "id": entrant.pk,
+        "display_name": entrant.display_name,
+        "display_tag": entrant.display_tag,
+    }
+
+
 class PublicEntrySerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     seed = serializers.IntegerField(read_only=True)
+    status = serializers.CharField(source="entrant.status", read_only=True)
     display_name = serializers.CharField(source="entrant.display_name", read_only=True)
     display_tag = serializers.CharField(source="entrant.display_tag", read_only=True)
 
@@ -111,6 +122,22 @@ class PublicStageSerializer(serializers.Serializer):
     swiss_standings = serializers.SerializerMethodField()
     qualification = serializers.SerializerMethodField()
     draw_state = serializers.SerializerMethodField()
+    lifecycle_state = serializers.SerializerMethodField()
+
+    def get_lifecycle_state(self, obj):
+        if self._draw(obj) is None:
+            return "RETIRED"
+        return "CLOSED" if obj.competition.ended_at else "OPEN"
+
+    def _display_draw(self, obj):
+        return self._draw(obj) or next(
+            (
+                d
+                for d in sorted(obj.draws.all(), key=lambda d: d.pk, reverse=True)
+                if d.published_at is not None
+            ),
+            None,
+        )
 
     def get_draw_state(self, obj):
         return "PUBLISHED" if self._draw(obj) else "AWAITING_REPLACEMENT"
@@ -349,11 +376,11 @@ class PublicStageSerializer(serializers.Serializer):
         }
 
     def get_entries(self, obj: Stage) -> list[dict]:
-        draw = self._draw(obj)
+        draw = self._display_draw(obj)
         return PublicEntrySerializer(draw.entries.all(), many=True).data if draw else []
 
     def get_rounds(self, obj: Stage) -> list[dict]:
-        draw = self._draw(obj)
+        draw = self._display_draw(obj)
         return PublicRoundSerializer(self._rounds(draw), many=True).data if draw else []
 
     def _rounds(self, draw):
@@ -363,6 +390,7 @@ class PublicStageSerializer(serializers.Serializer):
             if r.published_at is not None
             and (
                 r.state == Round.State.PUBLISHED
+                or draw.state == draw.State.SUPERSEDED
                 or (
                     r.state == Round.State.SUPERSEDED
                     and r.section == Round.Section.TIEBREAK
@@ -374,6 +402,17 @@ class PublicStageSerializer(serializers.Serializer):
 
 
 class PublicCompetitionSerializer(serializers.Serializer):
+    ending = serializers.SerializerMethodField()
+
+    def get_ending(self, obj):
+        if obj.ended_at is None:
+            return None
+        return {
+            "stage_id": obj.ended_stage_id,
+            "ended_at": obj.ended_at.isoformat(),
+            "champion": _public_champion(obj.ended_champion),
+        }
+
     id = serializers.IntegerField(read_only=True)
     competition_revision = serializers.IntegerField(source="revision", read_only=True)
     tournament_game_id = serializers.IntegerField(read_only=True)
@@ -452,6 +491,20 @@ class PublicChangeSerializer(serializers.Serializer):
         child=serializers.JSONField(), read_only=True, required=False
     )
     swiss_impact = serializers.JSONField(read_only=True, required=False)
+    entrant_id = serializers.IntegerField(read_only=True, required=False)
+    display_name = serializers.CharField(read_only=True, required=False)
+    retired_draws = serializers.ListField(
+        child=serializers.IntegerField(), read_only=True, required=False
+    )
+    retired_rounds = serializers.ListField(
+        child=serializers.IntegerField(), read_only=True, required=False
+    )
+    reset_match_ids = serializers.ListField(
+        child=serializers.IntegerField(), read_only=True, required=False
+    )
+    match_impacts = serializers.ListField(
+        child=serializers.JSONField(), read_only=True, required=False
+    )
 
     def to_representation(self, instance: ChangeSet) -> dict:
         allowed = {
@@ -503,7 +556,7 @@ class PublicChangeSerializer(serializers.Serializer):
                 public_data[key] = {
                     field: value
                     for field, value in instance.public_data[key].items()
-                    if field in snapshot_fields
+                    if field in snapshot_fields and not isinstance(value, (dict, list))
                 }
         for key in ("reset_matches", "automatic_results"):
             if key not in instance.public_data:
@@ -512,7 +565,7 @@ class PublicChangeSerializer(serializers.Serializer):
                 {
                     field: value
                     for field, value in snapshot.items()
-                    if field in snapshot_fields
+                    if field in snapshot_fields and not isinstance(value, (dict, list))
                 }
                 for snapshot in instance.public_data[key]
             ]
@@ -557,7 +610,11 @@ class PublicChangeSerializer(serializers.Serializer):
                     ],
                 }
             public_data["group_impact"]["historical_matches"] = [
-                {k: v for k, v in snapshot.items() if k in snapshot_fields}
+                {
+                    k: v
+                    for k, v in snapshot.items()
+                    if k in snapshot_fields and not isinstance(v, (dict, list))
+                }
                 for snapshot in impact["historical_matches"]
             ]
         swiss = instance.public_data.get("swiss_impact")
@@ -583,6 +640,63 @@ class PublicChangeSerializer(serializers.Serializer):
                     for item in handoff.get("reset_matches", [])
                 ],
             }
+        if instance.kind in {
+            "entrant_withdrawn",
+            "entrant_disqualified",
+            "entrant_restored",
+            "entrant_status_changed",
+            "competition_ended",
+            "competition_reopened",
+        }:
+            for key in (
+                "entrant_id",
+                "display_name",
+                "retired_draws",
+                "retired_rounds",
+                "reset_match_ids",
+            ):
+                if key in instance.public_data:
+                    public_data[key] = instance.public_data[key]
+            for key in ("before", "after"):
+                value = instance.public_data.get(key, {})
+                if instance.kind.startswith("entrant_"):
+                    public_data[key] = {"status": value["status"]}
+                else:
+                    champion = instance.competition.entrants.filter(
+                        pk=value.get("champion_id")
+                    ).first()
+                    public_data[key] = {
+                        "stage_id": value.get("stage_id"),
+                        "ended_at": value.get("ended_at"),
+                        "champion": _public_champion(champion),
+                    }
+            public_match_ids = set(
+                Match.objects.filter(
+                    pk__in=[
+                        item["match_id"]
+                        for item in instance.public_data.get("match_impacts", [])
+                    ],
+                    round__draw__stage__competition_id=instance.competition_id,
+                    round__published_at__isnull=False,
+                    round__draw__published_at__isnull=False,
+                ).values_list("pk", flat=True)
+            )
+            public_data["match_impacts"] = [
+                {
+                    "match_id": item["match_id"],
+                    **{
+                        key: {
+                            k: v
+                            for k, v in item.get(key, {}).items()
+                            if k in snapshot_fields | {"frozen"}
+                            and not isinstance(v, (dict, list))
+                        }
+                        for key in ("before", "after")
+                    },
+                }
+                for item in instance.public_data.get("match_impacts", [])
+                if item["match_id"] in public_match_ids
+            ]
         return {
             "revision": instance.revision,
             "created_at": instance.created_at.isoformat(),
