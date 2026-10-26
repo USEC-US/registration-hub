@@ -331,6 +331,26 @@ commands, counts, skip status and logs. No new runtime service.
 - [ ] Document organizer actions, consent, privacy, current/historical semantics, restore conflicts, locked-plan blockers, migration recovery using matching code/database backups, test results and remaining limits. Reconcile V1–V5 item by item; do not close a gate merely because commands exist.
 - [ ] Review the complete branch, fix material findings, rerun affected checks and verify the final diff/status. Commit scoped tests/docs: `test(competitions): verify lifecycle integrity and document operation`.
 
+### Task 9 verification evidence (2026-10-26)
+
+From product source `b22d40f549c2ef031b00075f833e962f4a6a903d`, Task 9 adds
+only tests, benchmark and documentation. Combined competition/seed/affected
+registration gate: 486 passed in 754.657s; final PostgreSQL race file: 27 passed
+in 19.148s, zero skips. Django checks/drift, scoped Ruff and frontend ESLint
+passed. Unchanged frontend/browser evidence at that exact base remains applicable:
+42 focused frontend tests, zero Svelte errors/warnings, successful build and
+16 complete bracket browser journeys. Browser HMR/invalidation fetch errors
+remain explicitly qualified in the operating guide.
+
+The repeatable persisted 256-entry/64-round case measured 51.307509s publication,
+238 SQL executions, one solver call (4.169810s), excluding 914.462635s fixture
+setup. Historical state remained unchanged; own UUID database was removed.
+This is local proof, not a production latency guarantee or controlled comparison
+with the unavailable earlier script. See
+[operating guide and V1–V5 reconciliation](../../testing/competition-lifecycle.md)
+and the execution workspace's `task-9-report.md`/logs. Independent task review,
+final whole-branch review and gate/status closure remain pending with the controller.
+
 ## Plan self-review
 
 - Persistence/upgrade and authoritative undo provenance: Tasks 1, 4 and 9.

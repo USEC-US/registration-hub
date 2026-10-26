@@ -201,7 +201,7 @@ and rules are fixed. Persisted integration follows the shared command path.
 | ID | Task | Depends on |
 | --- | --- | --- |
 | E1 | [x] Generate and preview single-elimination draws from manual seeds or a saved random draw, including uneven fields and byes. | C1, C2, R3 |
-| E2 | [x] Advance single-elimination winners, handle the first-slice played, forfeit, double-forfeit, bye, and empty outcomes, and complete the final. Withdrawal/disqualification flows remain a later slice. | E1 |
+| E2 | [x] Advance single-elimination winners, handle the first-slice played, forfeit, double-forfeit, bye, and empty outcomes, and complete the final. Withdrawal/disqualification and restoration are delivered in the lifecycle slice; see its operating/release guide. | E1 |
 | E3 | [x] Generate double-elimination upper/lower routes and verify loser destinations for small and uneven fields. | E1, C2, R3 |
 | E4 | [x] Advance both brackets and implement the approved grand-final reset/no-reset policies and completion. | E2, E3 |
 | G1 | [x] Assign round robin groups and generate the chosen single/double schedule, including odd-sized groups; each pair meets exactly once or twice independently of series length. | C1, C2, R3 |
@@ -305,20 +305,13 @@ and explicit exceptions, odd byes, cutoff decisions, PostgreSQL generation and
 publication/correction races, private previews, played-suffix history, and real
 English organizer and public EN/VI journeys at 390px. Organizer translation is
 future work under the user's explicit 2026-10-13 clarification. Supported formats and ordered-stage
-workflows are covered. The broad V1–V5 gates remain open for deferred
-withdrawal/disqualification, exceptional chain-ending paths and broader delivery
-hardening. Realtime retains its separate gate. A disposable persisted
-256-entry/64-round measurement found 236.053s, 11,197 SQL executions and 64 solver
-calls for the real final publication, excluding 242.478s of fixture setup.
-The consolidated fix removes repeated historical pairing validation while
-retaining full private-preview validation. The unchanged script's repeat measured
-12.528s, 234 SQL executions and one solver call (2.829933s solver time), excluding
-231.116s setup; real final publication completed PUBLISHED. Fresh proof includes
-340 competition/seed tests and 56 final workspace tests for the later display-only
-Exact-size follow-up, plus 25 public component tests and static/build checks.
-The operating/testing guide records the measurement and verification limits;
-one local case is not a production latency guarantee. Scoped re-review and
-integration remain separate from implementation completion.
+workflows are covered. Lifecycle removal/restoration and exceptional ending/reopening
+now have implementation and verification evidence in the
+[lifecycle operating/release guide](testing/competition-lifecycle.md). That guide
+reconciles V1–V5 individually, records the fresh PostgreSQL release/race gates and
+persisted 256-entry/64-round publication measurement, and states the retained
+browser console and delivery limits. V1–V5 remain open pending final whole-branch
+review and disposition of those limits. Realtime retains its separate gate.
 
 Core is complete when an authorized TO can run all agreed formats and ordered
 stage handoffs through Django Unfold admin, and spectators can follow published

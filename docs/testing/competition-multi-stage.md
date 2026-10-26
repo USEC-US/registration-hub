@@ -67,4 +67,10 @@ The Swiss guide records populated migration and deterministic pure solver timing
 
 Migration `competitions.0004_multi_stage` adds group plans and draw provenance, backfills existing group rules and tie ownership, and preserves legacy codes and results. Take matching code/database backups before a live rollout. After multi-stage data is written, an older single-stage release cannot safely operate that database. Prefer a forward fix; a rollback requires restoring the matching backup rather than dropping the new columns and keeping newer writes. Local verification does not deploy or exercise a live restore.
 
-Swiss is delivered in the subsequent slice documented in [competition-swiss.md](competition-swiss.md). Withdrawal/disqualification commands, exceptional chain-ending commands, provider integration and realtime updates remain deferred.
+Swiss is delivered in the subsequent slice documented in [competition-swiss.md](competition-swiss.md). Lifecycle removal/restoration and exceptional ending/reopening are delivered in the guide below. Provider integration and realtime updates remain deferred.
+
+## Entrant and competition lifecycle
+
+See the [lifecycle guide](competition-lifecycle.md) for withdrawal/disqualification,
+restoration conflicts, locked qualifier shortfalls, exceptional ending/reopening,
+historical fixture visibility and matching code/database recovery.

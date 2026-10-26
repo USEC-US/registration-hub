@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier, Event
+from time import monotonic, sleep
 
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connection, connections, transaction
@@ -20,7 +21,8 @@ from competitions.commands import (
     select_entrants,
     start_match,
 )
-from competitions.models import Match, Stage, StageDraw
+from competitions import lifecycle_commands as lifecycle
+from competitions.models import Match, Stage, StageDraw, StageEntry
 from registrations.models import Registration, RegistrationMember
 from registrations.services import approve_registration
 from tournaments.models import Game, Tournament, TournamentGame
@@ -666,6 +668,359 @@ class SwissConcurrencyTests(TransactionTestCase):
             (match.side_one_score, match.side_two_score),
             (2, 0) if results[0] == "ok" else (0, 2),
         )
+        self.assertEqual(
+            self.competition.changes.filter(revision=revision + 1).count(), 1
+        )
+
+
+class LifecycleConcurrencyTests(TransactionTestCase):
+    setUp = CompetitionConcurrencyTests.setUp
+    _registration = CompetitionConcurrencyTests._registration
+    _saved_draw = CompetitionConcurrencyTests._saved_draw
+    _race = CompetitionConcurrencyTests._race
+    _swiss_round = SwissConcurrencyTests._swiss_round
+
+    def _ordered_race(self, first, second):
+        """Hold the first transaction until PostgreSQL proves the second waits."""
+        ready, connected = Event(), Event()
+        waiter = []
+
+        def holder():
+            with transaction.atomic():
+                first()
+                ready.set()
+                self.assertTrue(connected.wait(timeout=10))
+                deadline = monotonic() + 10
+                while monotonic() < deadline:
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT cardinality(pg_blocking_pids(%s))", waiter
+                        )
+                        if cursor.fetchone()[0]:
+                            return
+                    sleep(0.01)
+                self.fail("Second connection never waited on the first transaction")
+
+        def blocked():
+            self.assertTrue(ready.wait(timeout=10))
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_backend_pid()")
+                waiter.append(cursor.fetchone()[0])
+            connected.set()
+            second()
+
+        return self._race(holder, blocked)
+
+    def _transition(self, competition, entrant, status):
+        competition.refresh_from_db()
+        return lifecycle.preview_entrant_transition(
+            actor=self.actor,
+            entrant_id=entrant.pk,
+            expected_revision=competition.revision,
+            status=status,
+        )
+
+    def _apply(self, preview):
+        return lifecycle.apply_entrant_transition(
+            actor=self.actor,
+            token=preview["token"],
+            internal_reason="Race proof",
+            confirm_live_forfeits=True,
+            confirm_resets=True,
+        )
+
+    def _one_revision(self, competition, revision, results):
+        self.assertEqual(sorted(results), ["denied", "ok"])
+        competition.refresh_from_db()
+        self.assertEqual(competition.revision, revision + 1)
+        self.assertEqual(competition.changes.filter(revision=revision + 1).count(), 1)
+        response = self.client.get(
+            f"/api/tournament-games/{self.division.pk}/competition/"
+        )
+        self.assertEqual(response.status_code, 200)
+        public = response.json()
+        self.assertEqual(public["competition_revision"], competition.revision)
+        self.assertEqual(public["ending"] is not None, competition.ended_at is not None)
+        statuses = dict(
+            StageEntry.objects.filter(draw__stage__competition=competition).values_list(
+                "pk", "entrant__status"
+            )
+        )
+        for stage in public["stages"]:
+            for entry in stage["entries"]:
+                self.assertEqual(entry["status"], statuses[entry["id"]])
+            for round_ in stage["rounds"]:
+                for match in round_["matches"]:
+                    stored = Match.objects.get(pk=match["id"])
+                    for field in (
+                        "status",
+                        "outcome",
+                        "side_one_score",
+                        "side_two_score",
+                    ):
+                        self.assertEqual(match[field], getattr(stored, field))
+        self.assertNotIn("Race proof", response.content.decode())
+        self.assertEqual(
+            list(
+                competition.changes.order_by("revision").values_list(
+                    "revision", flat=True
+                )
+            ),
+            list(range(1, competition.revision + 1)),
+        )
+
+    def test_score_versus_removal_preserves_winning_result_and_history(self):
+        competition, draw = self._saved_draw()
+        match = Match.objects.get(round__draw=draw)
+        entrant = draw.entries.order_by("seed").first().entrant
+        preview = self._transition(competition, entrant, "WITHDRAWN")
+        revision = competition.revision
+        results = self._race(
+            lambda: finalize_match(
+                actor=self.actor,
+                match_id=match.pk,
+                expected_revision=revision,
+                outcome="PLAYED",
+                side_one_score=2,
+                side_two_score=0,
+            ),
+            lambda: self._apply(preview),
+        )
+        self._one_revision(competition, revision, results)
+        match.refresh_from_db()
+        entrant.refresh_from_db()
+        self.assertEqual(
+            entrant.status, "ACTIVE" if results[0] == "ok" else "WITHDRAWN"
+        )
+        self.assertEqual(match.outcome, "PLAYED" if results[0] == "ok" else "FORFEIT")
+        self.assertEqual(match.status, "FINAL")
+
+    def test_two_restores_undo_authoritative_forfeit_once(self):
+        competition, draw = self._saved_draw()
+        entrant = draw.entries.order_by("seed").first().entrant
+        self._apply(self._transition(competition, entrant, "WITHDRAWN"))
+        entrant.refresh_from_db()
+        preview = self._transition(competition, entrant, "ACTIVE")
+        revision = competition.revision
+        results = self._race(lambda: self._apply(preview), lambda: self._apply(preview))
+        self._one_revision(competition, revision, results)
+        entrant.refresh_from_db()
+        self.assertEqual(entrant.status, "ACTIVE")
+        self.assertIsNone(entrant.removal_change_id)
+        match = Match.objects.get(round__draw=draw)
+        self.assertEqual(match.status, "PENDING")
+        self.assertIsNone(match.winner_id)
+
+    def test_next_round_publication_versus_removal_has_no_mixed_round(self):
+        from competitions.swiss_commands import (
+            generate_swiss_round,
+            publish_swiss_round,
+        )
+
+        draw = self._swiss_round()
+        pending = generate_swiss_round(
+            actor=self.actor, stage_id=self.stage.pk, expected_revision=self._revision()
+        )
+        history = list(draw.rounds.get(number=1).matches.order_by("pk").values())
+        entrant = draw.entries.order_by("seed").first().entrant
+        preview = self._transition(self.competition, entrant, "WITHDRAWN")
+        revision = self.competition.revision
+        results = self._race(
+            lambda: publish_swiss_round(
+                actor=self.actor, round_id=pending.pk, expected_revision=revision
+            ),
+            lambda: self._apply(preview),
+        )
+        self._one_revision(self.competition, revision, results)
+        pending.refresh_from_db()
+        entrant.refresh_from_db()
+        self.assertEqual(
+            pending.state, "PUBLISHED" if results[0] == "ok" else "SUPERSEDED"
+        )
+        self.assertEqual(
+            entrant.status, "ACTIVE" if results[0] == "ok" else "WITHDRAWN"
+        )
+        self.assertEqual(
+            history, list(draw.rounds.get(number=1).matches.order_by("pk").values())
+        )
+
+    def _blocked_chain(self, *, complete=False):
+        from competitions.tests.test_handoffs import HandoffTests
+
+        self._chain = HandoffTests._chain.__get__(self)
+        self._finish = HandoffTests._finish.__get__(self)
+        source, destination = self._chain()
+        if complete:
+            from competitions.handoff_commands import generate_next_stage_draw
+
+            self._finish(source)
+            self.retired_draw = generate_next_stage_draw(
+                actor=self.actor,
+                stage_id=destination.pk,
+                expected_revision=self.competition.revision,
+            )
+        entrant = source.entries.order_by("seed").first().entrant
+        self._apply(self._transition(self.competition, entrant, "WITHDRAWN"))
+        self.competition.refresh_from_db()
+        preview = lifecycle.preview_competition_end(
+            actor=self.actor,
+            stage_id=source.stage_id,
+            expected_revision=self.competition.revision,
+        )
+        return source, destination, preview
+
+    def _end(self, preview):
+        return lifecycle.apply_competition_end(
+            actor=self.actor,
+            token=preview["token"],
+            internal_reason="Locked field cannot continue",
+            confirm_resets=True,
+        )
+
+    def test_end_versus_score_has_one_winning_revision(self):
+        source, _, preview = self._blocked_chain()
+        match = source.rounds.first().matches.filter(status="PENDING").first()
+        self.assertIsNotNone(match)
+        revision = self.competition.revision
+        results = self._race(
+            lambda: self._end(preview),
+            lambda: finalize_match(
+                actor=self.actor,
+                match_id=match.pk,
+                expected_revision=revision,
+                outcome="PLAYED",
+                side_one_score=1,
+                side_two_score=0,
+            ),
+        )
+        self._one_revision(self.competition, revision, results)
+        match.refresh_from_db()
+        self.assertEqual(bool(self.competition.ended_at), results[0] == "ok")
+        self.assertEqual(match.status, "PENDING" if results[0] == "ok" else "FINAL")
+
+    def test_end_versus_publication_never_exposes_invalid_suffix(self):
+        from competitions.handoff_commands import generate_next_stage_draw
+        from competitions.tests.test_handoffs import HandoffTests
+
+        self._chain = HandoffTests._chain.__get__(self)
+        self._finish = HandoffTests._finish.__get__(self)
+        source, destination = self._chain()
+        self._finish(source)
+        suffix = generate_next_stage_draw(
+            actor=self.actor,
+            stage_id=destination.pk,
+            expected_revision=self.competition.revision,
+        )
+        registration = source.entries.first().entrant.registration
+        Registration.objects.filter(pk=registration.pk).update(status="REJECTED")
+        self.competition.refresh_from_db()
+        revision = self.competition.revision
+        preview = lifecycle.preview_competition_end(
+            actor=self.actor, stage_id=source.stage_id, expected_revision=revision
+        )
+        results = self._race(
+            lambda: self._end(preview),
+            lambda: publish_draw(
+                actor=self.actor,
+                competition_id=self.competition.pk,
+                stage_id=destination.pk,
+                expected_revision=revision,
+            ),
+        )
+        self._one_revision(self.competition, revision, results)
+        self.assertEqual(results, ["ok", "denied"])
+        suffix.refresh_from_db()
+        self.assertEqual(suffix.state, "SUPERSEDED")
+        self.assertIsNone(suffix.published_at)
+
+    def test_duplicate_reopen_keeps_retired_history_and_reopens_once(self):
+        source, _, preview = self._blocked_chain(complete=True)
+        self._end(preview)
+        self.competition.refresh_from_db()
+        revision = self.competition.revision
+        self.retired_draw.refresh_from_db()
+        self.assertEqual(self.retired_draw.state, "SUPERSEDED")
+        history = list(Match.objects.order_by("pk").values())
+        preview = lifecycle.preview_competition_reopen(
+            actor=self.actor,
+            competition_id=self.competition.pk,
+            expected_revision=revision,
+        )
+
+        def reopen():
+            lifecycle.apply_competition_reopen(
+                actor=self.actor,
+                token=preview["token"],
+                internal_reason="Resume",
+                confirm_resets=True,
+            )
+
+        results = self._race(reopen, reopen)
+        self._one_revision(self.competition, revision, results)
+        self.assertIsNone(self.competition.ended_at)
+        self.retired_draw.refresh_from_db()
+        self.assertEqual(self.retired_draw.state, "SUPERSEDED")
+        self.assertEqual(history, list(Match.objects.order_by("pk").values()))
+
+    def test_registration_approval_versus_restore_serializes_eligibility(self):
+        competition, draw = self._saved_draw()
+        entrant = draw.entries.order_by("seed").first().entrant
+        self._apply(self._transition(competition, entrant, "WITHDRAWN"))
+        entrant.refresh_from_db()
+        preview = self._transition(competition, entrant, "ACTIVE")
+        revision = competition.revision
+        Registration.objects.filter(pk=entrant.registration_id).update(
+            status="UNDER_REVIEW"
+        )
+        results = self._ordered_race(
+            lambda: approve_registration(
+                actor=self.actor,
+                registration_id=entrant.registration_id,
+            ),
+            lambda: self._apply(preview),
+        )
+        competition.refresh_from_db()
+        entrant.refresh_from_db()
+        entrant.registration.refresh_from_db()
+        self.assertEqual(results, ["ok", "ok"])
+        self.assertEqual(entrant.registration.status, "APPROVED")
+        self.assertEqual(
+            entrant.status, "ACTIVE" if results[1] == "ok" else "WITHDRAWN"
+        )
+        self.assertEqual(competition.revision, revision + int(results[1] == "ok"))
+        self.assertEqual(
+            competition.changes.filter(revision__gt=revision).count(),
+            int(results[1] == "ok"),
+        )
+
+    def test_registration_approval_waits_before_swiss_publication(self):
+        from competitions.swiss_commands import (
+            generate_swiss_round,
+            publish_swiss_round,
+        )
+
+        draw = self._swiss_round()
+        pending = generate_swiss_round(
+            actor=self.actor, stage_id=self.stage.pk, expected_revision=self._revision()
+        )
+        revision = self._revision()
+        registration = draw.entries.first().entrant.registration
+        Registration.objects.filter(pk=registration.pk).update(status="UNDER_REVIEW")
+        results = self._ordered_race(
+            lambda: approve_registration(
+                actor=self.actor, registration_id=registration.pk
+            ),
+            lambda: publish_swiss_round(
+                actor=self.actor, round_id=pending.pk, expected_revision=revision
+            ),
+        )
+        self.assertEqual(results, ["ok", "ok"])
+        self.competition.refresh_from_db()
+        pending.refresh_from_db()
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "APPROVED")
+        self.assertEqual(pending.state, "PUBLISHED")
+        self.assertEqual(self.competition.revision, revision + 1)
         self.assertEqual(
             self.competition.changes.filter(revision=revision + 1).count(), 1
         )

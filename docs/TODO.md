@@ -146,7 +146,9 @@ Single and double elimination now have organizer/public workflows and focused
 PostgreSQL/browser validation; see the [double-elimination guide](testing/competition-double-elimination.md).
 Round robin groups, configurable standings rules and qualification ties now have
 organizer/public workflows; see the [round robin guide](testing/competition-round-robin.md).
-Swiss, stage handoffs and realtime remain open.
+Swiss and ordered stage handoffs are implemented; lifecycle removal/restoration and
+exceptional ending/reopening now have [operating and release evidence](testing/competition-lifecycle.md).
+Final bracket release review remains pending; realtime remains open.
 
 Inspiration (and future replacement):
 

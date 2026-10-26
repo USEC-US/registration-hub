@@ -100,4 +100,6 @@ persisted-publication claims.
 
 Migration `competitions.0005_swiss` adds round versions/visibility/fingerprints, saved limits and nullable automatic group sizes while preserving legacy published visibility and stored labels. Incomplete legacy Swiss setup stays private. Take a matching code/database backup before deployment. After Swiss data exists, reverting only code or reversing the migration is unsafe: use a forward fix or restore matching code and database backups. No deployment or live restore is part of this proof.
 
-Withdrawal/disqualification UI, realtime/provider work and exceptional chain-ending commands remain deferred. The broader V1–V5 delivery gates stay open wherever they include those behaviors.
+Withdrawal/disqualification, restoration and exceptional ending/reopening are now
+implemented; see the [lifecycle operating and release guide](competition-lifecycle.md)
+for fresh evidence, recovery and V1–V5 limits. Realtime/provider work remains deferred.
