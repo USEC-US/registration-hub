@@ -146,7 +146,7 @@ Single and double elimination now have organizer/public workflows and focused
 PostgreSQL/browser validation; see the [double-elimination guide](testing/competition-double-elimination.md).
 Round robin groups, configurable standings rules and qualification ties now have
 organizer/public workflows; see the [round robin guide](testing/competition-round-robin.md).
-Swiss, stage handoffs and realtime remain open.
+Swiss and ordered stage handoffs are implemented and workflow-validated; realtime remains open.
 
 Inspiration (and future replacement):
 
@@ -167,7 +167,44 @@ Agreed scope:
   internal correction notes remain private.
 - Implement through small tasks with explicit dependencies and file ownership
   so independent subagent work can run in parallel.
-- TFT remains a later phase. Live updates remain Section 6.
+- TFT is scheduled next as Section 5.1; live updates remain Section 6.
+
+## 5.1. TFT tournament engine — next priority
+
+Deliver immediately after Section 5, before Section 6 realtime work, because TFT
+tournaments are a near-term club need. TFT uses 8-player lobbies and placement
+points, not head-to-head bracket matches. Reuse approved entrants, ordered
+stages, organizer permissions, publishing, and correction/audit foundations
+without forcing lobbies into the elimination or win/loss Swiss data models.
+
+First usable slice:
+- [ ] Solo registration: exactly one player per entry; select approved players as entrants.
+- [ ] Create and operate 8-player lobbies with manual/random assignments and organizer corrections.
+- [ ] Define policy for fields not divisible by eight, withdrawals, and replacements
+  before publishing lobby assignments.
+- [ ] Record each player's placement for every game; support configurable placement
+  points, fixed-game (BoX) series, cumulative standings, and tiebreakers.
+- [ ] Advance configurable Top-N players per lobby or overall to subsequent
+  qualification stages and finals, requiring TO confirmation.
+- [ ] Support Checkmate finals with configurable threshold and maximum games:
+  - Checked players display above unchecked players, then sort by points.
+  - A checked player must finish first in a subsequent game to win.
+  - If the game limit is reached without a Checkmate winner, award the title
+    using total points and the configured tiebreakers.
+- [ ] Publish read-only lobbies, results, standings, and progression in SvelteKit;
+  keep operations in Django Unfold.
+- [ ] Preserve result history and safely recalculate scores, qualification,
+  and champion status after authorized corrections.
+
+Follow-on competitive options:
+- [ ] Snake seeding and standings-based (Swiss-style) lobby reseeding; keep
+  this separate from the existing win/loss Swiss bracket format.
+- [ ] Progressive elimination, wildcard qualification, and configurable
+  point carryover or reset between stages.
+- [ ] Evaluate Double Up and 4v4 separately because they require team entrants.
+
+TFT is prioritized in the implementation order, but is not automatically a
+Full Beta exit-gate blocker.
 
 ## 6. Realtime competition experience
 
@@ -209,30 +246,14 @@ Full Beta is ready when club staff can:
 
   SePay and TFT are not Full Beta blockers.
 
-### 8. TFT — early post-beta
+## 8. Stabilization
 
-- Solo registration: exactly one player per entry.
-- Split large player pools into 8-player lobbies.
-- Organizer-controlled shuffling, lobby assignment, and corrections.
-- Configurable advancement rules such as Top 4 or Top 2.
-- Support multi-round qualification followed by playoffs/finals.
-- Configurable point tables and tiebreak rules.
-- Checkmate finals:
-  - Configurable check threshold X—for example, 20 points.
-  - Checked players display above unchecked players, then sort by score.
-  - A checked player wins by placing first in a subsequent game.
-  - Configurable maximum Y games—such as 8.
-  - If nobody achieves Checkmate, the highest total score across all players wins.
+- [ ] Triage beta feedback and close critical workflow, security, and data-loss blockers.
+- [ ] Add regression coverage for important fixes and rerun participant/organizer journeys.
+- [ ] Confirm that entrant, result, publication, correction, and audit workflows
+  remain reliable before production rollout.
 
-- Preserve result history and recalculate standings safely after organizer corrections.
-
-### 9. Group stages — included in bracket core
-
-Round robin and both Swiss presets are now part of Section 5. Their rules,
-standings, organizer controls, and playoff handoffs are tracked only in
-[BRACKET-TODO.md](BRACKET-TODO.md).
-
-## 10. Post-Beta: SePay integration
+## 9. Post-Beta: SePay integration
 
 - [ ] Confirm SePay’s current API, webhook, sandbox, and reconciliation contracts.
 - [ ] Add provider payment attempts without removing manual payment evidence.
@@ -242,7 +263,7 @@ standings, organizer controls, and playoff handoffs are tracked only in
 - [ ] Test duplicate, delayed, missing, and malformed provider events.
 - [ ] Do not automatically approve tournament eligibility merely because payment succeeded.
 
-## 11. Production deployment
+## 10. Production deployment
 
 Staging groundwork exists: Compose services, persistent database/media volumes,
 SWAG reverse-proxy configuration, and multi-architecture GHCR image builds.
