@@ -19,9 +19,8 @@ Do not start a dependent phase while its required behavior is unstable.
 
 ```text
 Accounts → Public UI → Registration → Organizer tools → Competition core
-    → Live updates → Full Beta → Stabilization
-                                  ├─ TFT
-                                  └─ SePay → Production
+    → TFT engine (next priority) → Live updates → Full Beta
+                                          → Stabilization → SePay → Production
 ```
 
 ## Full Beta
@@ -88,6 +87,22 @@ small subagent tasks, dependencies, and acceptance checks.
 all agreed formats and their playoff handoffs without corrupting advancement,
 standings, pairings, or historical results.
 
+### 5.1. TFT tournament engine
+
+**Direction:** Prioritize this immediately after the bracket core. Reuse
+approved entrants, organizer authorization, publication, stage transitions,
+and audit history while introducing separate 8-player lobby, game-placement,
+and cumulative-point models. Deliver solo registration, manual/random lobbies,
+fixed-game series, point tables, Top-N advancement, Checkmate finals,
+corrections, and public read-only standings. Add Snake/Swiss-style lobby
+reseeding, progressive cuts, wildcards, and point-carryover options afterward.
+The existing win/loss Swiss bracket implementation is not a TFT lobby engine.
+
+**Move on when:** Staff can operate a multi-lobby solo tournament from
+approved entries through qualifiers and finals, declare a points or Checkmate
+winner, and correct game results safely. Prioritization does not itself make
+TFT a Full Beta exit-gate requirement.
+
 ### 6. Live updates
 
 **Direction:** Add Django Channels only after bracket HTTP behavior is stable.
@@ -115,27 +130,12 @@ critical journey.
 **Move on when:** Beta blockers are closed and the shared entrant, result,
 publishing, correction, and audit behavior is stable enough to extend.
 
-## Competition Expansion
-
-### 9. TFT
-
-**Direction:** Build a lobby-and-standings format that shares entrants and
-published results with the core system but does not pretend to be a bracket
-tree. Add solo entry, 8-player lobby assignment, configurable points, Top-X
-advancement, Checkmate, and organizer corrections.
-
-**Move on when:** A large solo field can progress through multiple lobbies to
-a final, including a Checkmate win or the maximum-game points fallback.
-
-Round robin groups and both Swiss presets are included in Section 5 and tracked
-in [BRACKET-TODO.md](BRACKET-TODO.md); they are no longer post-Beta expansion.
-
 ## Release Readiness
 
 This branch starts from the stabilized beta and does not wait for every
 advanced competition format.
 
-### 12. SePay
+### 9. SePay
 
 **Direction:** Recheck current provider documentation, isolate SePay behind a
 payment boundary, verify and deduplicate webhooks, add reconciliation tools,
@@ -145,7 +145,7 @@ and preserve manual payment handling.
 underpayment, mismatch, and recovery without automatically granting tournament
 eligibility.
 
-### 13. Production deployment
+### 10. Production deployment
 
 **Direction:** Prepare the ASGI application, frontend, PostgreSQL, Redis, media
 storage, secrets, email, migrations, backups, monitoring, and rollback
