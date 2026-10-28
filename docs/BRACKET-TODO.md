@@ -68,9 +68,9 @@ manual match scheduling, scores, advancement, correction, and audit history.
 The Garena screenshot is a workflow reference; use this site's existing visual
 system and accessible mobile presentation.
 
-TFT lobbies, placement points, and Checkmate remain outside this phase. Live
-push updates belong to project Section 6; this core must work through normal
-HTTP first. Registration/payment changes and participant result submission
+TFT lobbies, placement points, and Checkmate remain outside this bracket
+phase and are scheduled next in project TODO Section 5.1. Live push updates
+remain Section 6; this core must work through normal HTTP first. Registration/payment changes and participant result submission
 are outside this backlog.
 
 ### Confirmed series configuration
